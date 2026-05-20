@@ -1,0 +1,45 @@
+# Build directories
+/backend/target/
+/frontend/dist/
+/frontend/node_modules/
+/frontend/coverage/
+/frontend/playwright-report/
+/frontend/test-results/
+/backups/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# OS files
+.DS_Store
+.env.local
+.env.*.local
+
+# Environment variables
+.env
+!.env.example
+
+# Dependencies
+/backend/.classpath
+/backend/.project
+/backend/.settings/
+
+# Maven
+*.log
+
+# Node
+package-lock.json
+yarn.lock
+.npm
+
+# OS
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class

@@ -1,0 +1,31 @@
+package com.skillswap.auth;
+
+import com.skillswap.user.UserRole;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+public class AuthDtos {
+
+        public record SignupRequest(
+                        @Email String email,
+                        @NotBlank String password,
+                        @NotBlank String fullName,
+                        UserRole role,
+                        String walletAddress) {
+        }
+
+        public record LoginRequest(
+                        @Email String email,
+                        @NotBlank String password) {
+        }
+
+        public record AuthResponse(String token, String refreshToken, String email, String role) {
+        }
+
+        public record RefreshTokenRequest(
+                        @NotBlank String refreshToken) {
+        }
+
+        public record LogoutAllResponse(int revokedSessions) {
+        }
+}

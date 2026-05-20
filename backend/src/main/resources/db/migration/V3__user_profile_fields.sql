@@ -1,0 +1,5 @@
+ALTER TABLE users
+    ADD COLUMN about_me TEXT NULL,
+    ADD COLUMN skills VARCHAR(500) NULL,
+    ADD COLUMN github_url VARCHAR(500) NULL,
+    ADD COLUMN linkedin_url VARCHAR(500) NULL;

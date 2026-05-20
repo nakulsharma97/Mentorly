@@ -1,0 +1,102 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/skill_swap?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:disabled-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:disabled-google-client-secret}
+            scope:
+              - openid
+              - profile
+              - email
+          github:
+            client-id: ${GITHUB_CLIENT_ID:disabled-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:disabled-github-client-secret}
+            scope:
+              - read:user
+              - user:email
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:c2tpbGwtc3dhcC1kZW1vLXNlY3JldC1rZXktZm9yLWp3dC0zMi1ieXRlcw==}
+    expiration-ms: 86400000
+    refresh-expiration-ms: 604800000
+  rate-limit:
+    auth:
+      max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:20}
+    payment:
+      max-per-minute: ${APP_RATE_LIMIT_PAYMENT_PER_MINUTE:30}
+  oauth2:
+    redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5173/oauth/callback}
+  polygon:
+    rpc-url: ${POLYGON_RPC_URL:https://polygon-amoy.g.alchemy.com/v2/demo}
+  email:
+    enabled: ${APP_EMAIL_ENABLED:false}
+    from: ${APP_EMAIL_FROM:no-reply@skillswap.local}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  auth:
+    refresh-token:
+      cleanup-cron: ${REFRESH_TOKEN_CLEANUP_CRON:0 20 3 * * *}
+
+logging:
+  level:
+    com.skillswap: INFO
+    org.springframework.security: DEBUG
+  pattern:
+    level: "%5p [traceId=%X{traceId:-na}]"
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  metrics:
+    export:
+      simple:
+        enabled: true
+  info:
+    app:
+      name: Skill Swapping Platform Backend
+      description: Backend API for the Skill Swapping Platform
+      version: 0.0.1
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  show-actuator: true
