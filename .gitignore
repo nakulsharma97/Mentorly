@@ -7,6 +7,25 @@
 /frontend/test-results/
 /backups/
 
+# Root-level artifacts
+node_modules/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment
+.env
+.env.*
+.env.local
+!.env.example
+
 # IDE files
 .vscode/
 .idea/
@@ -16,28 +35,23 @@
 
 # OS files
 .DS_Store
-.env.local
-.env.*.local
 
-# Environment variables
-.env
-!.env.example
+# System and user-specific
+%AppData%/
+Downloads/
 
 # Dependencies
 /backend/.classpath
 /backend/.project
 /backend/.settings/
 
-# Maven
-*.log
+# Maven / Java
+/target/
+*.jar
+*.war
 
 # Node
-package-lock.json
-yarn.lock
 .npm
-
-# OS
-Thumbs.db
 
 # Python
 __pycache__/
