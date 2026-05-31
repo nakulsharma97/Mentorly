@@ -11,7 +11,8 @@ public class AuthDtos {
                         @NotBlank String password,
                         @NotBlank String fullName,
                         UserRole role,
-                        String walletAddress) {
+                        String walletAddress,
+                        String referralCode) {
         }
 
         public record LoginRequest(
@@ -22,10 +23,16 @@ public class AuthDtos {
         public record AuthResponse(String token, String refreshToken, String email, String role) {
         }
 
+        public record AuthSessionResponse(String email, String role) {
+        }
+
         public record RefreshTokenRequest(
                         @NotBlank String refreshToken) {
         }
 
         public record LogoutAllResponse(int revokedSessions) {
+        }
+
+        public record LogoutResponse(int revokedSessions) {
         }
 }

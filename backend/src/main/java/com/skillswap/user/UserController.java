@@ -1,6 +1,7 @@
 package com.skillswap.user;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.session.SessionRepository;
@@ -26,6 +27,7 @@ public class UserController {
     private final UserRepository userRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final SessionRepository sessionRepository;
+    private final ReferralRewardRepository referralRewardRepository;
     private final NotificationService notificationService;
 
     @GetMapping("/me")
@@ -131,6 +133,14 @@ public class UserController {
         user.setWalletAddress(req.walletAddress());
         userRepository.save(user);
         return new ApiResponse<>("Wallet updated", UserProfileResponse.from(user));
+    }
+
+    @GetMapping("/me/referral")
+    public ApiResponse<ReferralSummaryResponse> referralSummary(@AuthenticationPrincipal User currentUser) {
+        long totalReferrals = userRepository.countByReferredByUserId(currentUser.getId());
+        int totalCreditsEarned = Math.toIntExact(referralRewardRepository.countByReferrerId(currentUser.getId()) * 50L);
+        return new ApiResponse<>("Referral summary fetched",
+                new ReferralSummaryResponse(currentUser.getReferralCode(), (int) totalReferrals, totalCreditsEarned));
     }
 
     @PutMapping("/me/profile")
@@ -374,5 +384,11 @@ public class UserController {
                     mentor.getLastActiveAt() == null ? null : mentor.getLastActiveAt().toString(),
                     liveNow);
         }
+    }
+
+    public record ReferralSummaryResponse(
+            String referralCode,
+            int totalReferrals,
+            int totalCreditsEarned) {
     }
 }

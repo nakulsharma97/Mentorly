@@ -12,6 +12,8 @@ export default function LearnerDashboard({ profile }) {
   const navigate = useNavigate();
   const firstName = String(profile?.fullName || 'Learner').trim().split(' ')[0] || 'Learner';
   const [loading, setLoading] = useState(true);
+  const [referralSummary, setReferralSummary] = useState(null);
+  const [copyState, setCopyState] = useState('Copy code');
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [roadmaps, setRoadmaps] = useState([]);
   const [watchedSkills, setWatchedSkills] = useState([]);
@@ -35,10 +37,11 @@ export default function LearnerDashboard({ profile }) {
     try {
       setLoading(true);
       await client.post('/api/v1/certifications/evaluate').catch(() => null);
-      const [bookingsRes, roadmapsRes, watchlistRes, certificationsRes] = await Promise.all([
+      const [bookingsRes, roadmapsRes, watchlistRes, referralRes, certificationsRes] = await Promise.all([
         client.get('/api/v1/bookings'),
         client.get('/api/v1/roadmaps'),
         client.get('/api/v1/watchlist'),
+        client.get('/api/v1/users/me/referral').catch(() => ({ data: { data: null } })),
         client.get('/api/v1/certifications/me').catch(() => ({ data: { data: [] } })),
       ]);
 
@@ -53,6 +56,7 @@ export default function LearnerDashboard({ profile }) {
       setUpcomingSessions(sortedUpcoming);
       setRoadmaps(roadmapsRes.data.data || []);
       setWatchedSkills(watchlistRes.data.data || []);
+      setReferralSummary(referralRes.data.data || null);
       setCertifications(certificationsRes.data.data || []);
 
       const completedBookings = allBookings.filter((b) => (b.bookingStatus || b.status) === 'COMPLETED');
@@ -109,6 +113,17 @@ export default function LearnerDashboard({ profile }) {
   const hasProfileBasics = Boolean(String(profile?.aboutMe || '').trim() && String(profile?.skills || '').trim());
   const hasBooking = stats.totalBookings > 0;
   const hasMessageTrigger = hasBooking;
+  const referralCode = referralSummary?.referralCode || '';
+  const shareLink = referralCode ? `https://skillswap.app/signup?ref=${encodeURIComponent(referralCode)}` : '';
+
+  const copyReferralCode = async () => {
+    if (!referralCode) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(referralCode);
+    setCopyState('Copied');
+  };
 
   const onboardingSteps = [
     { id: 'profile', title: 'Complete your profile', description: 'Add bio and skills so mentors can personalize guidance.', done: hasProfileBasics, route: '/profile-setup', cta: 'Update profile' },
@@ -205,6 +220,84 @@ export default function LearnerDashboard({ profile }) {
             </div>
           ))}
         </div>
+      </DashboardSection>
+
+      <DashboardSection title="Refer a friend" icon="group_add" iconTone="primary">
+        {!referralSummary ? (
+          <EmptyStateCard
+            icon="group_add"
+            title="Referral details are loading"
+            description="Your personal referral code will appear here once the account summary is ready."
+            actionLabel="Refresh"
+            actionTo="/home"
+          />
+        ) : (
+          <div style={{ display: 'grid', gap: '14px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted,#334155)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                  Your referral code
+                </p>
+                <div style={{
+                  marginTop: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(15,118,110,0.18)',
+                  background: 'linear-gradient(135deg, rgba(15,118,110,0.08), rgba(59,130,246,0.08))',
+                  fontSize: '1rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.12em',
+                  color: 'var(--text,#182028)',
+                  wordBreak: 'break-all',
+                }}>
+                  <span>{referralCode || 'Unavailable'}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={copyReferralCode}
+                disabled={!referralCode}
+                style={{
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  background: '#0f766e',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: referralCode ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {copyState}
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text,#182028)' }}>
+              {referralSummary.totalReferrals} friends referred · {referralSummary.totalCreditsEarned} credits earned
+            </p>
+
+            {shareLink && (
+              <a
+                href={shareLink}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignSelf: 'flex-start',
+                  fontSize: '0.86rem',
+                  fontWeight: 700,
+                  color: '#0f766e',
+                  textDecoration: 'none',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {shareLink}
+              </a>
+            )}
+          </div>
+        )}
       </DashboardSection>
 
       {/* ── Main Grid ── */}

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -29,6 +30,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenSessionRepository refreshTokenSessionRepository;
+    private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final MeterRegistry meterRegistry;
 
     @Transactional
@@ -44,11 +46,18 @@ public class AuthService {
         user.setFullName(req.fullName());
         user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
         user.setWalletAddress(req.walletAddress());
+        user.setReferralCode(generateUniqueReferralCode());
+        String referralCode = normalizeReferralCode(req.referralCode());
+        if (referralCode != null) {
+            userRepository.findByReferralCodeIgnoreCase(referralCode)
+                    .ifPresent(referrer -> user.setReferredByUserId(referrer.getId()));
+        }
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
 
-        String token = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String tokenId = UUID.randomUUID().toString();
+        String token = jwtService.generateToken(user, tokenId);
+        String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.signup.success");
         return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
@@ -64,8 +73,9 @@ public class AuthService {
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
 
-        String token = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String tokenId = UUID.randomUUID().toString();
+        String token = jwtService.generateToken(user, tokenId);
+        String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.login.success");
         return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
@@ -81,6 +91,7 @@ public class AuthService {
             created.setFullName(extractDisplayName(attributes, email));
             created.setRole(UserRole.LEARNER);
             created.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+            created.setReferralCode(generateUniqueReferralCode());
             created.setLastActiveAt(OffsetDateTime.now());
             return userRepository.save(created);
         });
@@ -88,8 +99,9 @@ public class AuthService {
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
 
-        String token = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+        String tokenId = UUID.randomUUID().toString();
+        String token = jwtService.generateToken(user, tokenId);
+        String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.oauth.success", "provider", provider.toLowerCase(Locale.ROOT));
         return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
@@ -97,7 +109,11 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        String refreshToken = request.refreshToken();
+        return refreshToken(request.refreshToken());
+    }
+
+    @Transactional
+    public AuthResponse refreshToken(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             incrementCounter("auth.refresh.failed", "reason", "blank_token");
             throw new IllegalArgumentException("Refresh token is required");
@@ -111,8 +127,9 @@ public class AuthService {
         String tokenId = jwtService.extractTokenId(refreshToken);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token user"));
-        RefreshTokenSession tokenSession = refreshTokenSessionRepository.findByTokenIdAndRevokedFalse(tokenId)
-                .orElseThrow(() -> new IllegalArgumentException("Refresh token was revoked"));
+        RefreshTokenSession tokenSession = refreshTokenSessionRepository
+                .findByTokenIdAndRevokedFalseAndExpiresAtAfter(tokenId, OffsetDateTime.now(ZoneOffset.UTC))
+                .orElseThrow(() -> new IllegalArgumentException("Refresh token was revoked or expired"));
         if (!tokenSession.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("Refresh token does not belong to this user");
         }
@@ -123,8 +140,9 @@ public class AuthService {
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
 
-        String newAccessToken = jwtService.generateToken(user);
-        String rotatedRefreshToken = jwtService.generateRefreshToken(user);
+        String newTokenId = UUID.randomUUID().toString();
+        String newAccessToken = jwtService.generateToken(user, newTokenId);
+        String rotatedRefreshToken = jwtService.generateRefreshToken(user, newTokenId);
         persistRefreshSession(user, rotatedRefreshToken);
         incrementCounter("auth.refresh.success");
         return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(), user.getRole().name());
@@ -135,6 +153,29 @@ public class AuthService {
         int revokedSessions = refreshTokenSessionRepository.revokeAllByUserAndRevokedFalse(user);
         incrementCounter("auth.logout_all.success");
         return new LogoutAllResponse(revokedSessions);
+    }
+
+    @Transactional
+    public LogoutResponse logoutCurrentSession(String accessTokenValue) {
+        String accessToken = extractAccessToken(accessTokenValue);
+        if (!jwtService.isAccessToken(accessToken)) {
+            incrementCounter("auth.logout.failed", "reason", "invalid_access_token");
+            throw new IllegalArgumentException("Invalid access token");
+        }
+
+        String jwtId = jwtService.extractJwtId(accessToken);
+        accessTokenDenylistRepository.findByJti(jwtId).orElseGet(() -> {
+            AccessTokenDenylist denylisted = new AccessTokenDenylist();
+            denylisted.setJti(jwtId);
+            denylisted.setExpiresAt(jwtService.extractAllClaims(accessToken).getExpiration().toInstant()
+                    .atOffset(ZoneOffset.UTC));
+            return accessTokenDenylistRepository.save(denylisted);
+        });
+
+        int revokedSessions = refreshTokenSessionRepository
+                .revokeByTokenIdAndRevokedFalse(jwtService.extractTokenId(accessToken));
+        incrementCounter("auth.logout.success");
+        return new LogoutResponse(revokedSessions);
     }
 
     private void persistRefreshSession(User user, String refreshToken) {
@@ -152,6 +193,35 @@ public class AuthService {
         } catch (RuntimeException ignored) {
             // No-op in tests where metrics are mocked.
         }
+    }
+
+    private String generateUniqueReferralCode() {
+        String referralCode;
+        do {
+            referralCode = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
+        } while (userRepository.existsByReferralCodeIgnoreCase(referralCode));
+        return referralCode;
+    }
+
+    private String normalizeReferralCode(String referralCode) {
+        if (referralCode == null) {
+            return null;
+        }
+
+        String trimmed = referralCode.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String extractAccessToken(String tokenValue) {
+        if (tokenValue == null || tokenValue.isBlank()) {
+            throw new IllegalArgumentException("Access token is required");
+        }
+
+        String trimmed = tokenValue.trim();
+        if (trimmed.startsWith("Bearer ")) {
+            return trimmed.substring(7).trim();
+        }
+        return trimmed;
     }
 
     private String extractOAuthEmail(String provider, Map<String, Object> attributes) {

@@ -36,6 +36,12 @@ public class User implements UserDetails {
 
     private String walletAddress;
 
+    @Column(name = "referral_code", nullable = false, unique = true)
+    private String referralCode;
+
+    @Column(name = "referred_by_user_id")
+    private Long referredByUserId;
+
     @Column(columnDefinition = "TEXT")
     private String aboutMe;
 

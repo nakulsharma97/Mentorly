@@ -6,14 +6,19 @@ import com.skillswap.common.AuditableOperation;
 import com.skillswap.common.IdempotencyKeySupport;
 import com.skillswap.certification.CertificationService;
 import com.skillswap.notification.NotificationService;
+import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
+import com.skillswap.referral.ReferralService;
 import com.skillswap.roadmap.LearningRoadmap;
 import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
+import com.skillswap.wallet.WalletService;
+import com.skillswap.wallet.WalletTransactionType;
 import com.skillswap.waitlist.SessionWaitlistRepository;
 import com.skillswap.waitlist.WaitlistStatus;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -26,15 +31,23 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 @Tag(name = "Bookings", description = "Session booking creation, retrieval, cancellation, and confirmation")
 @RestController
+@Validated
 @RequestMapping("/api/v1/bookings")
 @RequiredArgsConstructor
 public class BookingController {
@@ -45,8 +58,12 @@ public class BookingController {
         private final SessionRepository sessionRepository;
         private final LearningRoadmapRepository learningRoadmapRepository;
         private final PaymentRepository paymentRepository;
+        private final WalletService walletService;
         private final NotificationService notificationService;
+        private final EmailNotificationService emailService;
         private final CertificationService certificationService;
+        private final BookingLifecycleService bookingLifecycleService;
+        private final ReferralService referralService;
         private final SessionWaitlistRepository sessionWaitlistRepository;
         private final BookingIdempotencyKeyRepository bookingIdempotencyKeyRepository;
         private final MeterRegistry meterRegistry;
@@ -68,8 +85,8 @@ public class BookingController {
         @Transactional
         public ApiResponse<Booking> create(
                         @AuthenticationPrincipal User learner,
-                        @RequestHeader("Idempotency-Key") String idempotencyKey,
-                        @RequestBody BookingRequest req) {
+                        @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
+                        @Valid @RequestBody BookingRequest req) {
                 incrementCounter("booking.create.request");
 
                 if (learner.getRole() != UserRole.LEARNER && learner.getRole() != UserRole.ADMIN) {
@@ -110,7 +127,8 @@ public class BookingController {
                 boolean alreadyBooked = bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
                                 session.getId(),
                                 learner.getId(),
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED,
                                                 BookingStatus.COMPLETED));
                 if (alreadyBooked) {
@@ -122,7 +140,8 @@ public class BookingController {
 
                 long activeBookingCount = bookingRepository.countBySessionIdAndBookingStatusIn(
                                 session.getId(),
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED));
                 int maxParticipants = session.getMaxParticipants() == null || session.getMaxParticipants() < 1
                                 ? 1
@@ -176,6 +195,7 @@ public class BookingController {
                                 "New booking request",
                                 learner.getFullName() + " requested your session: " + session.getTitle(),
                                 savedBooking.getId());
+                emailService.sendBookingCreated(session.getMentor(), learner, session);
 
                 try {
                         BookingIdempotencyKey key = existingKey.orElseGet(BookingIdempotencyKey::new);
@@ -204,124 +224,223 @@ public class BookingController {
                 return new ApiResponse<>("Booking created", savedBooking);
         }
 
+        @PostMapping("/{id}/confirm")
+        public ApiResponse<Booking> confirmBooking(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.confirmBooking(id, currentUser);
+                return new ApiResponse<>("Booking confirmed", saved);
+        }
+
+        @PostMapping("/{id}/start")
+        public ApiResponse<Booking> startBooking(@PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.startBooking(id);
+                return new ApiResponse<>("Booking started", saved);
+        }
+
+        @PostMapping("/{id}/complete")
+        @Transactional
+        public ApiResponse<Booking> completeBooking(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.completeBooking(id, currentUser);
+                grantReferralRewardIfNeeded(saved);
+                return new ApiResponse<>("Booking completed", saved);
+        }
+
+        @PostMapping("/{id}/cancel")
+        public ApiResponse<Booking> cancelBooking(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.cancelBooking(id, currentUser);
+                return new ApiResponse<>("Booking cancelled", saved);
+        }
+
         @PatchMapping("/{id}/status")
+        @Transactional
         public ApiResponse<Booking> updateStatus(
                         @AuthenticationPrincipal User currentUser,
-                        @PathVariable Long id,
-                        @RequestBody StatusUpdateRequest req) {
-                Booking booking = bookingRepository.findById(id)
+                        @PathVariable @NotNull @Min(1) Long id,
+                        @Valid @RequestBody StatusUpdateRequest req) {
+                return switch (req.status()) {
+                        case ACCEPTED -> {
+                                Booking booking = acceptBooking(id, currentUser);
+                                holdEscrowForAcceptedBooking(booking);
+                                emailService.sendBookingAccepted(
+                                                booking.getLearner(),
+                                                booking.getSession().getMentor(),
+                                                booking.getSession());
+                                yield new ApiResponse<>("Booking accepted", booking);
+                        }
+                        case CONFIRMED -> new ApiResponse<>("Booking confirmed",
+                                        bookingLifecycleService.confirmBooking(id, currentUser));
+                        case IN_PROGRESS -> throw new IllegalArgumentException(
+                                        "IN_PROGRESS can only be set by the system scheduler");
+                        case COMPLETED -> {
+                                Booking booking = bookingLifecycleService.completeBooking(id, currentUser);
+                                grantReferralRewardIfNeeded(booking);
+                                releaseEscrowForCompletedBooking(booking);
+                                emailService.sendBookingCompleted(
+                                                booking.getLearner(),
+                                                booking.getSession().getMentor(),
+                                                booking.getSession());
+                                yield new ApiResponse<>("Booking completed", booking);
+                        }
+                        case CANCELLED -> {
+                                Booking booking = bookingLifecycleService.cancelBooking(id, currentUser);
+                                int refundPercent = refundEscrowForCancelledBooking(booking);
+                                emailService.sendBookingCancelled(
+                                                booking.getLearner(),
+                                                booking.getSession(),
+                                                refundPercent);
+                                yield new ApiResponse<>("Booking cancelled", booking);
+                        }
+                        default -> throw new IllegalArgumentException(
+                                        "Use the dedicated booking lifecycle endpoints for state transitions");
+                };
+        }
+
+        private Booking acceptBooking(Long bookingId, User currentUser) {
+                Booking booking = bookingRepository.findById(bookingId)
                                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
-
-                boolean isLearner = booking.getLearner().getId().equals(currentUser.getId());
-                boolean isMentor = booking.getSession().getMentor().getId().equals(currentUser.getId());
-                boolean isAdmin = currentUser.getRole() == UserRole.ADMIN;
-                if (!isLearner && !isMentor && !isAdmin) {
-                        incrementCounter("booking.authz.denied", "action", "update_status");
-                        throw new IllegalArgumentException("You cannot update this booking");
+                SkillSession session = booking.getSession();
+                if (session == null || session.getMentor() == null) {
+                        throw new IllegalArgumentException("Booking session mentor is missing");
                 }
 
-                if (req.status() == BookingStatus.COMPLETED && !isMentor && !isAdmin) {
-                        throw new IllegalArgumentException("Only mentor can complete a booking");
+                boolean isAdmin = currentUser != null && currentUser.getRole() == UserRole.ADMIN;
+                boolean isMentor = currentUser != null
+                                && currentUser.getRole() == UserRole.MENTOR
+                                && session.getMentor().getId().equals(currentUser.getId());
+                if (!isAdmin && !isMentor) {
+                        throw new IllegalArgumentException("Only the session mentor can accept a booking");
                 }
 
-                OffsetDateTime now = OffsetDateTime.now();
-                if (req.status() == BookingStatus.CANCELLED) {
-                        int cancellationWindow = booking.getSession().getCancellationWindowHours() == null
-                                        ? 24
-                                        : booking.getSession().getCancellationWindowHours();
-                        OffsetDateTime deadline = booking.getSession().getStartTime().minusHours(cancellationWindow);
-
-                        int refundPercent = now.isAfter(booking.getSession().getStartTime())
-                                        ? 0
-                                        : (now.isAfter(deadline) ? 50 : 100);
-
-                        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-                        for (Payment payment : payments) {
-                                if (payment.getStatus() == PaymentStatus.ESCROWED
-                                                || payment.getStatus() == PaymentStatus.INITIATED) {
-                                        BigDecimal refundAmount = payment.getAmount()
-                                                        .multiply(BigDecimal.valueOf(refundPercent))
-                                                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                                        payment.setRefundPercent(refundPercent);
-                                        payment.setRefundAmount(refundAmount);
-                                        payment.setRefundNote(refundPercent == 100
-                                                        ? "Full refund within cancellation window"
-                                                        : (refundPercent == 50
-                                                                        ? "Partial refund after cancellation window"
-                                                                        : "No refund after session start"));
-                                        if (refundPercent > 0) {
-                                                payment.setStatus(PaymentStatus.REFUNDED);
-                                        }
-                                }
-                        }
-                        paymentRepository.saveAll(payments);
+                if (booking.getBookingStatus() != BookingStatus.PENDING) {
+                        throw new IllegalArgumentException("Only pending bookings can be accepted");
                 }
 
-                if (req.status() == BookingStatus.RESCHEDULE_REQUESTED) {
-                        int rescheduleWindow = booking.getSession().getRescheduleWindowHours() == null
-                                        ? 12
-                                        : booking.getSession().getRescheduleWindowHours();
-                        OffsetDateTime deadline = booking.getSession().getStartTime().minusHours(rescheduleWindow);
-                        if (now.isAfter(deadline)) {
-                                throw new IllegalArgumentException("Reschedule window has passed for this session");
-                        }
-                }
-
-                BookingStatus previousStatus = booking.getBookingStatus();
-                booking.setBookingStatus(req.status());
-                Booking saved = bookingRepository.save(booking);
-                incrementCounter("booking.status.transition",
-                                "from", previousStatus.name(),
-                                "to", saved.getBookingStatus().name());
-
-                notificationService.notifyUser(
-                                booking.getLearner().getId(),
-                                "BOOKING_STATUS",
-                                "Booking status updated",
-                                "Booking #" + booking.getId() + " is now " + booking.getBookingStatus().name(),
-                                booking.getId());
-
-                if (req.status() == BookingStatus.COMPLETED) {
-                        certificationService.evaluateAndAward(booking.getLearner());
-                        certificationService.evaluateAndAward(booking.getSession().getMentor());
-                        notificationService.notifyUser(
-                                        booking.getSession().getMentor().getId(),
-                                        "REVIEW_SUBMITTED",
-                                        "Session completed",
-                                        "A completed session is ready for review and certification checks.",
-                                        booking.getId());
-                }
-                notificationService.notifyUser(
-                                booking.getSession().getMentor().getId(),
-                                "BOOKING_STATUS",
-                                "Booking status updated",
-                                "Booking #" + booking.getId() + " is now " + booking.getBookingStatus().name(),
-                                booking.getId());
-
-                if (req.status() == BookingStatus.CANCELLED) {
-                        sessionWaitlistRepository.findFirstBySessionIdAndStatusOrderByCreatedAtAsc(
-                                        booking.getSession().getId(),
-                                        WaitlistStatus.ACTIVE).ifPresent(waitlisted -> {
-                                                waitlisted.setStatus(WaitlistStatus.NOTIFIED);
-                                                sessionWaitlistRepository.save(waitlisted);
-                                                notificationService.notifyUser(
-                                                                waitlisted.getLearner().getId(),
-                                                                "WAITLIST_PROMOTION",
-                                                                "Seat available",
-                                                                "A seat opened for session: "
-                                                                                + booking.getSession().getTitle()
-                                                                                + ". Book now.",
-                                                                booking.getSession().getId());
-                                        });
-                }
-
-                return new ApiResponse<>("Booking updated", saved);
+                booking.setBookingStatus(BookingStatus.ACCEPTED);
+                return bookingRepository.save(booking);
         }
 
-        public record BookingRequest(Long sessionId) {
+        private void holdEscrowForAcceptedBooking(Booking booking) {
+                User learner = booking.getLearner();
+                SkillSession session = booking.getSession();
+                BigDecimal priceAmount = session.getPriceAmount();
+                if (priceAmount == null || priceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new IllegalArgumentException("Session price must be greater than zero");
+                }
+
+                BigDecimal currentBalance = walletService.balance(learner).balance();
+                if (currentBalance.compareTo(priceAmount) < 0) {
+                        throw new IllegalArgumentException("Insufficient wallet balance to accept this booking");
+                }
+
+                walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                                WalletTransactionType.DEBIT,
+                                priceAmount,
+                                "CREDITS",
+                                "Session booking: " + session.getTitle(),
+                                "BOOKING",
+                                booking.getId()));
+
+                Payment payment = paymentRepository.findByBookingId(booking.getId()).stream()
+                                .findFirst()
+                                .orElseGet(Payment::new);
+                payment.setBooking(booking);
+                payment.setAmount(priceAmount);
+                payment.setMode("WALLET");
+                payment.setStatus(PaymentStatus.ESCROWED);
+                paymentRepository.save(payment);
         }
 
-        public record StatusUpdateRequest(BookingStatus status) {
+        private void releaseEscrowForCompletedBooking(Booking booking) {
+                paymentRepository.findByBookingId(booking.getId())
+                                .stream()
+                                .findFirst()
+                                .filter(payment -> payment.getStatus() == PaymentStatus.ESCROWED)
+                                .ifPresent(payment -> {
+                                        BigDecimal fee = payment.getAmount()
+                                                        .multiply(BigDecimal.valueOf(0.10))
+                                                        .setScale(2, RoundingMode.HALF_UP);
+                                        BigDecimal payout = payment.getAmount().subtract(fee)
+                                                        .setScale(2, RoundingMode.HALF_UP);
+
+                                        User mentor = booking.getSession().getMentor();
+                                        SkillSession session = booking.getSession();
+                                        walletService.addEntryForUser(mentor.getId(),
+                                                        new WalletService.WalletEntryRequest(
+                                                                        WalletTransactionType.EARNING,
+                                                                        payout,
+                                                                        "CREDITS",
+                                                                        "Session payout: " + session.getTitle()
+                                                                                        + " (after 10% platform fee)",
+                                                                        "BOOKING",
+                                                                        booking.getId()));
+
+                                        payment.setStatus(PaymentStatus.RELEASED);
+                                        payment.setProviderRef("WALLET_RELEASE_" + booking.getId());
+                                        paymentRepository.save(payment);
+                                });
+        }
+
+        private int refundEscrowForCancelledBooking(Booking booking) {
+                Payment payment = paymentRepository.findByBookingId(booking.getId())
+                                .stream()
+                                .findFirst()
+                                .orElse(null);
+                if (payment == null) {
+                        return 0;
+                }
+
+                if (payment.getStatus() != PaymentStatus.ESCROWED
+                                && payment.getStatus() != PaymentStatus.REFUNDED) {
+                        return payment.getRefundPercent() == null ? 0 : payment.getRefundPercent();
+                }
+
+                int refundPercent = payment.getRefundPercent() == null ? 0 : payment.getRefundPercent();
+                BigDecimal refundAmount = payment.getRefundAmount();
+                if (refundAmount == null && refundPercent > 0) {
+                        refundAmount = payment.getAmount()
+                                        .multiply(BigDecimal.valueOf(refundPercent))
+                                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        payment.setRefundAmount(refundAmount);
+                }
+
+                boolean refundAlreadyApplied = payment.getProviderRef() != null
+                                && payment.getProviderRef().startsWith("WALLET_REFUND_");
+                if (refundPercent > 0
+                                && refundAmount != null
+                                && refundAmount.compareTo(BigDecimal.ZERO) > 0
+                                && !refundAlreadyApplied) {
+                        User learner = booking.getLearner();
+                        SkillSession session = booking.getSession();
+                        walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                                        WalletTransactionType.REFUND,
+                                        refundAmount,
+                                        "CREDITS",
+                                        "Refund for cancelled session: " + session.getTitle(),
+                                        "BOOKING",
+                                        booking.getId()));
+                }
+
+                payment.setStatus(PaymentStatus.REFUNDED);
+                payment.setProviderRef("WALLET_REFUND_" + booking.getId());
+                paymentRepository.save(payment);
+                return refundPercent;
+        }
+
+        private void grantReferralRewardIfNeeded(Booking booking) {
+                if (booking == null || booking.getLearner() == null) {
+                        return;
+                }
+
+                long completedCount = bookingRepository.countByLearnerIdAndBookingStatus(
+                                booking.getLearner().getId(), BookingStatus.COMPLETED);
+                if (completedCount == 1) {
+                        referralService.processReferralReward(booking.getLearner().getId(), booking.getId());
+                }
         }
 
         private static String defaultMilestonesFor(String sessionTitle) {

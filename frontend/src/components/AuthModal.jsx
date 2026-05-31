@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import client, { API_BASE_URL } from '../api/client';
 import { t } from '../utils/i18n';
 import { trackAnalyticsEvent } from '../utils/analyticsEvents';
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from './ui/Primitives';
 
 export default function AuthModal({ mode, onClose, onLoggedIn, language, initialError, notify }) {
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -43,10 +45,9 @@ export default function AuthModal({ mode, onClose, onLoggedIn, language, initial
       const endpoint = mode === 'login' ? '/api/v1/auth/login' : '/api/v1/auth/signup';
       const payload = mode === 'login'
         ? { email: form.email, password: form.password }
-        : form;
+        : { ...form, referralCode: searchParams.get('ref')?.trim() || undefined };
 
-      const { data } = await client.post(endpoint, payload);
-      localStorage.setItem('token', data.data.token);
+      await client.post(endpoint, payload);
       trackAnalyticsEvent(mode === 'login' ? 'auth_login_success' : 'auth_signup_success', {
         role: mode === 'signup' ? form.role : undefined,
         hasSocialProvider: false
