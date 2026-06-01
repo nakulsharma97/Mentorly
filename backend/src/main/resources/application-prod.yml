@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://prod-db:3306/skill_swap?useSSL=true&requireSSL=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:skill_swap_prod}
+    password: ${SPRING_DATASOURCE_PASSWORD:change-me}
+
+logging:
+  level:
+    root: WARN
+    com.skillswap: INFO
+
+app:
+  rate-limit:
+    auth:
+      max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:12}
+    payment:
+      max-per-minute: ${APP_RATE_LIMIT_PAYMENT_PER_MINUTE:20}
+
+sentry:
+  traces-sample-rate: 0.1
