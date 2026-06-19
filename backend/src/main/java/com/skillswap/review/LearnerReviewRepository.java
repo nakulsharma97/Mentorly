@@ -1,0 +1,17 @@
+package com.skillswap.review;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+public interface LearnerReviewRepository extends JpaRepository<LearnerReview, Long> {
+    boolean existsByBookingId(Long bookingId);
+
+    long countByLearnerId(Long learnerId);
+
+    List<LearnerReview> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);
+
+    @Query("select coalesce(avg(r.rating), 0) from LearnerReview r where r.learner.id = :learnerId")
+    Double averageRatingByLearnerId(Long learnerId);
+}
