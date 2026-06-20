@@ -1,72 +1,74 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import LearningPage from './LearningPage';
-import MentorProfilePage from './MentorProfilePage';
-import client from '../api/client';
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import LearningPage from "./LearningPage";
+import MentorProfilePage from "./MentorProfilePage";
+import client from "../api/client";
 
-vi.mock('../api/client', () => ({
-  createIdempotencyKey: (prefix = 'req') => `${prefix}-test-key`,
+vi.mock("../api/client", () => ({
+  createIdempotencyKey: (prefix = "req") => `${prefix}-test-key`,
   default: {
     get: vi.fn(),
     post: vi.fn(),
   },
 }));
 
-describe('Booking journey integration flow', () => {
+describe("Booking journey integration flow", () => {
   beforeEach(() => {
-    const sessionStart = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const sessionStart = new Date(
+      Date.now() + 2 * 60 * 60 * 1000,
+    ).toISOString();
     const sessionEnd = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
 
     client.get.mockImplementation((url) => {
-      if (url === '/api/v1/roadmaps') {
+      if (url === "/api/v1/roadmaps") {
         return Promise.resolve({ data: { data: [] } });
       }
-      if (url === '/api/v1/users/mentors') {
+      if (url === "/api/v1/users/mentors") {
         return Promise.resolve({
           data: {
             data: [
               {
                 id: 7,
-                fullName: 'Alice Mentor',
-                skills: 'React,Frontend',
+                fullName: "Alice Mentor",
+                skills: "React,Frontend",
                 averageRating: 4.8,
                 totalReviews: 12,
-                profileImageUrl: '',
+                profileImageUrl: "",
                 liveNow: false,
               },
             ],
           },
         });
       }
-      if (url === '/api/v1/users/mentors/skills') {
-        return Promise.resolve({ data: { data: ['React', 'Frontend'] } });
+      if (url === "/api/v1/users/mentors/skills") {
+        return Promise.resolve({ data: { data: ["React", "Frontend"] } });
       }
-      if (url === '/api/v1/users/mentors/7') {
+      if (url === "/api/v1/users/mentors/7") {
         return Promise.resolve({
           data: {
             data: {
               id: 7,
-              fullName: 'Alice Mentor',
-              skills: 'React,Frontend',
+              fullName: "Alice Mentor",
+              skills: "React,Frontend",
               mentorVerified: true,
-              aboutMe: 'Helping learners become confident React developers.',
-              verifiedSkills: 'React,JavaScript',
+              aboutMe: "Helping learners become confident React developers.",
+              verifiedSkills: "React,JavaScript",
               upcomingSessions: 3,
-              githubUrl: '',
-              linkedinUrl: '',
+              githubUrl: "",
+              linkedinUrl: "",
             },
           },
         });
       }
-      if (url === '/api/v1/sessions/mentor/7') {
+      if (url === "/api/v1/sessions/mentor/7") {
         return Promise.resolve({
           data: {
             data: [
               {
                 id: 501,
-                title: 'React Mock Interview',
-                sessionType: 'LIVE',
+                title: "React Mock Interview",
+                sessionType: "LIVE",
                 startTime: sessionStart,
                 endTime: sessionEnd,
                 priceAmount: 1200,
@@ -75,7 +77,36 @@ describe('Booking journey integration flow', () => {
           },
         });
       }
-      if (url === '/api/v1/reviews/mentor/7') {
+      if (url === "/api/v1/sessions/501") {
+        return Promise.resolve({
+          data: {
+            data: {
+              id: 501,
+              title: "React Mock Interview",
+              sessionType: "LIVE",
+              startTime: sessionStart,
+              endTime: sessionEnd,
+              priceAmount: 1200,
+              mentor: {
+                id: 7,
+                fullName: "Alice Mentor",
+                skills: "React,Frontend",
+              },
+            },
+          },
+        });
+      }
+
+      if (url === "/api/v1/wallet/balance") {
+        return Promise.resolve({
+          data: {
+            data: {
+              balance: 5000,
+            },
+          },
+        });
+      }
+      if (url === "/api/v1/reviews/mentor/7") {
         return Promise.resolve({
           data: {
             data: {
@@ -86,14 +117,14 @@ describe('Booking journey integration flow', () => {
           },
         });
       }
-      if (url === '/api/v1/reviews/eligible/mentor/7') {
+      if (url === "/api/v1/reviews/eligible/mentor/7") {
         return Promise.resolve({ data: { data: [] } });
       }
       return Promise.resolve({ data: { data: [] } });
     });
 
     client.post.mockImplementation((url) => {
-      if (url === '/api/v1/bookings') {
+      if (url === "/api/v1/bookings") {
         return Promise.resolve({ data: { data: { id: 999 } } });
       }
       return Promise.resolve({ data: { data: null } });
@@ -105,83 +136,114 @@ describe('Booking journey integration flow', () => {
     vi.clearAllMocks();
   });
 
-  it('allows learner to browse mentors, open profile, book, and return to sessions view', async () => {
+  it("allows learner to browse mentors, open profile, book, and return to sessions view", async () => {
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/sessions']}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/sessions"]}
+      >
         <Routes>
-          <Route path="/sessions" element={<LearningPage notify={() => {}} />} />
-          <Route path="/mentors/:mentorId" element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />} />
+          <Route
+            path="/sessions"
+            element={<LearningPage notify={() => {}} />}
+          />
+          <Route
+            path="/mentors/:mentorId"
+            element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />}
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText('People guiding the learning path.')).toBeInTheDocument();
+      expect(
+        screen.getByText("People guiding the learning path."),
+      ).toBeInTheDocument();
     });
 
-    await user.click(await screen.findByRole('link', { name: 'View profile' }));
+    await user.click(await screen.findByRole("link", { name: "View profile" }));
 
     await waitFor(() => {
-      expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
+      expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book a session' }));
+    await user.click(screen.getByRole("button", { name: "Book a session" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Review Session Details/i)).toBeInTheDocument();
+    });
+    await user.click(
+      screen.getByRole("button", {
+        name: /Next: Confirm payment/i,
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Confirm Booking/i,
+      }),
+    );
 
     await waitFor(() => {
       expect(client.post).toHaveBeenCalledWith(
-        '/api/v1/bookings',
+        "/api/v1/bookings",
         { sessionId: 501 },
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Idempotency-Key': expect.stringContaining('booking-7-501'),
+            "Idempotency-Key": expect.stringContaining("booking-7-501"),
           }),
-        })
+        }),
       );
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Session booked successfully. You can track it in your dashboard bookings.')).toBeInTheDocument();
+      expect(screen.getByText(/Booking confirmed!/i)).toBeInTheDocument();
     });
   });
 
-  it('shows login prompt and triggers login callback when unauthenticated learner clicks book now', async () => {
+  it("shows login prompt and triggers login callback when unauthenticated learner clicks book now", async () => {
     const user = userEvent.setup();
     const onRequireLogin = vi.fn();
 
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/mentors/7']}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/mentors/7"]}
+      >
         <Routes>
-          <Route path="/mentors/:mentorId" element={<MentorProfilePage isLoggedIn={false} onRequireLogin={onRequireLogin} />} />
+          <Route
+            path="/mentors/:mentorId"
+            element={
+              <MentorProfilePage
+                isLoggedIn={false}
+                onRequireLogin={onRequireLogin}
+              />
+            }
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
+      expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book a session' }));
-
-    await waitFor(() => {
-      expect(screen.getByText('Please log in to book this session.')).toBeInTheDocument();
-    });
-
+    await user.click(screen.getByRole("button", { name: "Book a session" }));
     expect(onRequireLogin).toHaveBeenCalledTimes(1);
-    expect(client.post).not.toHaveBeenCalledWith('/api/v1/bookings', expect.anything());
+    expect(client.post).not.toHaveBeenCalled();
   });
 
-  it('shows backend booking error and stays on mentor profile when booking fails', async () => {
+  it("shows backend booking error and stays on mentor profile when booking fails", async () => {
     const user = userEvent.setup();
 
     client.post.mockImplementation((url) => {
-      if (url === '/api/v1/bookings') {
+      if (url === "/api/v1/bookings") {
         return Promise.reject({
           response: {
             data: {
               data: {
-                error: 'This session slot is no longer available.',
+                error: "This session slot is no longer available.",
               },
             },
           },
@@ -191,41 +253,70 @@ describe('Booking journey integration flow', () => {
     });
 
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/mentors/7']}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/mentors/7"]}
+      >
         <Routes>
-          <Route path="/sessions" element={<LearningPage notify={() => {}} />} />
-          <Route path="/mentors/:mentorId" element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />} />
+          <Route
+            path="/sessions"
+            element={<LearningPage notify={() => {}} />}
+          />
+          <Route
+            path="/mentors/:mentorId"
+            element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />}
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
+      expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book a session' }));
+    await user.click(screen.getByRole("button", { name: "Book a session" }));
 
     await waitFor(() => {
-      expect(screen.getByText('This session slot is no longer available.')).toBeInTheDocument();
+      expect(screen.getByText(/Review Session Details/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
-    expect(screen.queryByText('People guiding the learning path.')).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", {
+        name: /Next: Confirm payment/i,
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Confirm Booking/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("This session slot is no longer available."),
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
+    expect(
+      screen.queryByText("People guiding the learning path."),
+    ).not.toBeInTheDocument();
   });
 
-  it('retries booking: first call fails, second succeeds, then redirects to sessions', async () => {
+  it("retries booking: first call fails, second succeeds, then redirects to sessions", async () => {
     const user = userEvent.setup();
 
     let bookingAttempt = 0;
     client.post.mockImplementation((url) => {
-      if (url === '/api/v1/bookings') {
+      if (url === "/api/v1/bookings") {
         bookingAttempt += 1;
         if (bookingAttempt === 1) {
           return Promise.reject({
             response: {
               data: {
                 data: {
-                  error: 'Temporary booking conflict. Please retry.',
+                  error: "Temporary booking conflict. Please retry.",
                 },
               },
             },
@@ -237,84 +328,138 @@ describe('Booking journey integration flow', () => {
     });
 
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/mentors/7']}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/mentors/7"]}
+      >
         <Routes>
-          <Route path="/sessions" element={<LearningPage notify={() => {}} />} />
-          <Route path="/mentors/:mentorId" element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />} />
+          <Route
+            path="/sessions"
+            element={<LearningPage notify={() => {}} />}
+          />
+          <Route
+            path="/mentors/:mentorId"
+            element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />}
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
+      expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book a session' }));
-
+    await user.click(screen.getByRole("button", { name: "Book a session" }));
     await waitFor(() => {
-      expect(screen.getByText('Temporary booking conflict. Please retry.')).toBeInTheDocument();
+      expect(screen.getByText(/Review Session Details/i)).toBeInTheDocument();
     });
 
-    // Second click should succeed and redirect to learner sessions view.
-    await user.click(screen.getByRole('button', { name: 'Retry booking' }));
+    await user.click(
+      screen.getByRole("button", {
+        name: /Next: Confirm payment/i,
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Confirm Booking/i,
+      }),
+    );
+    await waitFor(() => {
+      expect(
+        screen.getByText("Temporary booking conflict. Please retry."),
+      ).toBeInTheDocument();
+    });
+
+    // Second click should succeed and redirect to learner sessions view.\
+    await user.click(
+      screen.getByRole("button", {
+        name: "Try again",
+      }),
+    );
 
     await waitFor(() => {
       expect(client.post).toHaveBeenCalledTimes(2);
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Session booked successfully. You can track it in your dashboard bookings.')).toBeInTheDocument();
+      expect(screen.getByText(/Booking confirmed!/i)).toBeInTheDocument();
     });
 
     // After successful retry, the prior booking error should no longer be shown.
-    expect(screen.queryByText('Temporary booking conflict. Please retry.')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Temporary booking conflict. Please retry."),
+    ).not.toBeInTheDocument();
   });
 
-  it('locks booking button while request is inflight and re-enables for retry after failure', async () => {
+  it("locks booking button while request is inflight and re-enables for retry after failure", async () => {
     const user = userEvent.setup();
 
     let releaseRequest;
     client.post.mockImplementation((url) => {
-      if (url === '/api/v1/bookings') {
+      if (url === "/api/v1/bookings") {
         return new Promise((resolve, reject) => {
-          releaseRequest = () => reject({
-            response: {
-              data: {
+          releaseRequest = () =>
+            reject({
+              response: {
                 data: {
-                  error: 'Temporary booking conflict. Please retry.',
-                  retryable: true,
+                  data: {
+                    error: "Temporary booking conflict. Please retry.",
+                    retryable: true,
+                  },
                 },
               },
-            },
-          });
+            });
         });
       }
       return Promise.resolve({ data: { data: null } });
     });
 
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={['/mentors/7']}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/mentors/7"]}
+      >
         <Routes>
-          <Route path="/mentors/:mentorId" element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />} />
+          <Route
+            path="/mentors/:mentorId"
+            element={<MentorProfilePage isLoggedIn onRequireLogin={() => {}} />}
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
+      expect(screen.getByText("Public mentor profile")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book a session' }));
+    await user.click(screen.getByRole("button", { name: "Book a session" }));
+    await waitFor(() => {
+      expect(screen.getByText(/Review Session Details/i)).toBeInTheDocument();
+    });
 
-    const inflightButton = await screen.findByRole('button', { name: 'Booking...' });
-    expect(inflightButton).toBeDisabled();
+    await user.click(
+      screen.getByRole("button", {
+        name: /Next: Confirm payment/i,
+      }),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Confirm Booking/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(client.post).toHaveBeenCalled();
+    });
 
     releaseRequest();
 
     await waitFor(() => {
-      expect(screen.getByText('Temporary booking conflict. Please retry.')).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Try again/i }),
+      ).not.toBeDisabled();
     });
-
-    expect(screen.getByRole('button', { name: 'Retry booking' })).not.toBeDisabled();
   });
 });
