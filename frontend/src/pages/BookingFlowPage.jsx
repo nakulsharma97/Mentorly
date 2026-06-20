@@ -76,9 +76,8 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       setBookingError('');
 
       try {
-        const response = await client.get('/api/v1/sessions');
-        const allSessions = response?.data?.data || [];
-        const selected = allSessions.find((item) => String(item.id) === String(sessionId));
+        const response = await client.get(`/api/v1/sessions/${sessionId}`);
+        const selected = response?.data?.data;
 
         if (!selected) {
           throw new Error('Session not found');

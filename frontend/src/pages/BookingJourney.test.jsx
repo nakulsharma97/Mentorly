@@ -127,7 +127,7 @@ describe('Booking journey integration flow', () => {
       expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book now' }));
+    await user.click(screen.getByRole('button', { name: 'Book a session' }));
 
     await waitFor(() => {
       expect(client.post).toHaveBeenCalledWith(
@@ -162,7 +162,7 @@ describe('Booking journey integration flow', () => {
       expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book now' }));
+    await user.click(screen.getByRole('button', { name: 'Book a session' }));
 
     await waitFor(() => {
       expect(screen.getByText('Please log in to book this session.')).toBeInTheDocument();
@@ -203,7 +203,7 @@ describe('Booking journey integration flow', () => {
       expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book now' }));
+    await user.click(screen.getByRole('button', { name: 'Book a session' }));
 
     await waitFor(() => {
       expect(screen.getByText('This session slot is no longer available.')).toBeInTheDocument();
@@ -249,7 +249,7 @@ describe('Booking journey integration flow', () => {
       expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book now' }));
+    await user.click(screen.getByRole('button', { name: 'Book a session' }));
 
     await waitFor(() => {
       expect(screen.getByText('Temporary booking conflict. Please retry.')).toBeInTheDocument();
@@ -304,7 +304,7 @@ describe('Booking journey integration flow', () => {
       expect(screen.getByText('Public mentor profile')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Book now' }));
+    await user.click(screen.getByRole('button', { name: 'Book a session' }));
 
     const inflightButton = await screen.findByRole('button', { name: 'Booking...' });
     expect(inflightButton).toBeDisabled();
