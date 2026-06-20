@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect,  useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import AuthPage from './pages/AuthPage';
 import TestChecklistPage from "./pages/TestChecklistPage";
@@ -42,12 +42,11 @@ export default function App() {
   const [language, setLanguage] = useState(localStorage.getItem('language') || 'en');
   const [profile, setProfile] = useState(null);
   const [profileChecked, setProfileChecked] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [, setUnreadNotifications] = useState(0);
   const [toasts, setToasts] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
-  const hideGlobalNavbar = false;
   const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
 

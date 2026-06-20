@@ -20,11 +20,6 @@ const parseMentorScore = (value) => {
 
 export default function Dashboard({ onLogout, language, page = 'mentors', notify }) {
   const navigate = useNavigate();
-  const changeLanguage = () => {
-    const next = (localStorage.getItem('language') || 'en') === 'en' ? 'hi' : 'en';
-    localStorage.setItem('language', next);
-    window.location.reload();
-  };
   const requireLoginAndGo = (target) => {
     navigate(target);
   };

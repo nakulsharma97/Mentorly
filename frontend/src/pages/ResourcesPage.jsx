@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import {useNavigate } from 'react-router-dom';
 import client from '../api/client';
-import { useOptionalTheme } from '../context/ThemeContext';
 import OptimizedImage from '../components/OptimizedImage';
 import MobileBottomNav from '../components/MobileBottomNav';
 

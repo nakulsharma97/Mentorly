@@ -50,12 +50,6 @@ export default function MessagesPage({ profile, notify }) {
   const currentUserEmail = String(profile?.email || "").toLowerCase();
   const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
   const wsBase = useMemo(() => apiBase.replace(/^http/, "ws"), [apiBase]);
-
-  const selectedConversation = useMemo(
-    () => conversations.find((item) => item.bookingId === selectedBookingId) || null,
-    [conversations, selectedBookingId],
-  );
-
   const closeSocket = useCallback(() => {
     if (wsRef.current) {
       try {
