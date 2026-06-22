@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://staging-db:3306/skill_swap?useSSL=true&serverTimezone=UTC}
-    username: ${SPRING_DATASOURCE_USERNAME:skill_swap_staging}
-    password: ${SPRING_DATASOURCE_PASSWORD:change-me}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://staging-db:3306/skill?useSSL=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:12345}
 
 logging:
   level:
