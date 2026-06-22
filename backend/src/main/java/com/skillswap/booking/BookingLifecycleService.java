@@ -80,6 +80,7 @@ public class BookingLifecycleService {
             throw new IllegalArgumentException("Booking can only be completed after the session has ended");
         }
 
+
         booking.setBookingStatus(BookingStatus.COMPLETED);
         Booking saved = bookingRepository.save(booking);
         certificationService.evaluateAndAward(saved.getLearner());

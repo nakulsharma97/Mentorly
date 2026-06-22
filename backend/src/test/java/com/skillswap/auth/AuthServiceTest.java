@@ -1,5 +1,8 @@
 package com.skillswap.auth;
 
+import com.skillswap.auth.AuthDtos.LoginRequest;
+import com.skillswap.auth.AuthDtos.RefreshTokenRequest;
+import com.skillswap.auth.AuthDtos.SignupRequest;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
@@ -59,7 +62,13 @@ class AuthServiceTest {
 
     @Test
     void signupDefaultsToLearnerAndReturnsAccessAndRefreshToken() {
-        SignupRequest request = new SignupRequest("learner@example.com", "secret", "Learner One", null, null);
+        SignupRequest request = new SignupRequest(
+                "learner@example.com",
+                "secret",
+                "Learner One",
+                null,
+                null,
+                null);
 
         when(userRepository.existsByEmail("learner@example.com")).thenReturn(false);
         when(passwordEncoder.encode("secret")).thenReturn("hashed");

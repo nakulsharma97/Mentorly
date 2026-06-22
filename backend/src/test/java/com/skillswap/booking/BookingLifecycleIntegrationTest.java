@@ -413,6 +413,7 @@ class BookingLifecycleIntegrationTest {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(defaultPassword));
         user.setRole(role);
+        user.setReferralCode("TEST-" + UUID.randomUUID());
         user.setFullName(role.name() + " User " + UUID.randomUUID());
         user.setEnabled(true);
         return userRepository.save(user);

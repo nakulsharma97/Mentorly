@@ -12,6 +12,10 @@ import com.skillswap.user.UserRole;
 import com.skillswap.waitlist.SessionWaitlistRepository;
 import com.skillswap.booking.BookingRequest;
 import com.skillswap.booking.StatusUpdateRequest;
+import com.skillswap.wallet.WalletService;
+import com.skillswap.notification.EmailNotificationService;
+import com.skillswap.booking.BookingLifecycleService;
+import com.skillswap.referral.ReferralService;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,6 +50,18 @@ class BookingControllerServiceTest {
         private PaymentRepository paymentRepository;
         @Mock
         private NotificationService notificationService;
+
+        @Mock
+        private WalletService walletService;
+
+        @Mock
+        private EmailNotificationService emailService;
+
+        @Mock
+        private BookingLifecycleService bookingLifecycleService;
+
+        @Mock
+        private ReferralService referralService;
         @Mock
         private CertificationService certificationService;
         @Mock
@@ -125,13 +141,24 @@ class BookingControllerServiceTest {
                 savedBooking.setBookingStatus(BookingStatus.PENDING);
 
                 when(sessionRepository.findById(33L)).thenReturn(Optional.of(session));
-                when(bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(33L, 11L,
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                when(bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
+                                33L,
+                                11L,
+                                List.of(
+                                                BookingStatus.PENDING,
+                                                BookingStatus.CONFIRMED,
+                                                BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED,
                                                 BookingStatus.COMPLETED)))
                                 .thenReturn(false);
-                when(bookingRepository.countBySessionIdAndBookingStatusIn(33L,
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                when(bookingRepository.countBySessionIdAndBookingStatusIn(
+                                33L,
+                                List.of(
+                                                BookingStatus.PENDING,
+                                                BookingStatus.CONFIRMED,
+                                                BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED)))
                                 .thenReturn(0L);
                 when(bookingRepository.save(any(Booking.class))).thenReturn(savedBooking);
@@ -195,13 +222,24 @@ class BookingControllerServiceTest {
                 session.setPriceAmount(new BigDecimal("20.00"));
 
                 when(sessionRepository.findById(33L)).thenReturn(Optional.of(session));
-                when(bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(33L, 11L,
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                when(bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
+                                33L,
+                                11L,
+                                List.of(
+                                                BookingStatus.PENDING,
+                                                BookingStatus.CONFIRMED,
+                                                BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED,
                                                 BookingStatus.COMPLETED)))
                                 .thenReturn(false);
-                when(bookingRepository.countBySessionIdAndBookingStatusIn(33L,
-                                List.of(BookingStatus.PENDING, BookingStatus.ACCEPTED,
+                when(bookingRepository.countBySessionIdAndBookingStatusIn(
+                                33L,
+                                List.of(
+                                                BookingStatus.PENDING,
+                                                BookingStatus.CONFIRMED,
+                                                BookingStatus.IN_PROGRESS,
+                                                BookingStatus.ACCEPTED,
                                                 BookingStatus.RESCHEDULE_REQUESTED)))
                                 .thenReturn(0L);
                 when(bookingRepository.save(any(Booking.class)))
@@ -221,31 +259,24 @@ class BookingControllerServiceTest {
 
         @Test
         void updateStatusRejectsCompletionByLearner() {
+
                 User learner = new User();
                 learner.setId(1L);
                 learner.setRole(UserRole.LEARNER);
 
-                User mentor = new User();
-                mentor.setId(2L);
-                mentor.setRole(UserRole.MENTOR);
+                when(bookingLifecycleService.completeBooking(9L, learner))
+                                .thenThrow(new IllegalArgumentException(
+                                                "Only mentor can complete a booking"));
 
-                SkillSession session = new SkillSession();
-                session.setMentor(mentor);
-                session.setTitle("Session");
-                session.setStartTime(OffsetDateTime.now().plusDays(1));
-
-                Booking booking = new Booking();
-                booking.setId(9L);
-                booking.setSession(session);
-                booking.setLearner(learner);
-                booking.setBookingStatus(BookingStatus.ACCEPTED);
-
-                when(bookingRepository.findById(9L)).thenReturn(Optional.of(booking));
-
-                IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                                () -> bookingController.updateStatus(learner, 9L,
+                IllegalArgumentException ex = assertThrows(
+                                IllegalArgumentException.class,
+                                () -> bookingController.updateStatus(
+                                                learner,
+                                                9L,
                                                 new StatusUpdateRequest(BookingStatus.COMPLETED)));
 
-                assertEquals("Only mentor can complete a booking", ex.getMessage());
+                assertEquals(
+                                "Only mentor can complete a booking",
+                                ex.getMessage());
         }
 }

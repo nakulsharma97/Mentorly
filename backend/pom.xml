@@ -18,7 +18,7 @@
     <description>Skill Swapping Platform backend</description>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <web3j.version>4.12.3</web3j.version>
         <lombok.version>1.18.38</lombok.version>

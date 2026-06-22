@@ -25,12 +25,16 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
+import com.skillswap.wallet.WalletService;
+import com.skillswap.notification.EmailNotificationService;
+import com.skillswap.booking.BookingLifecycleService;
+import com.skillswap.referral.ReferralService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -50,6 +54,14 @@ class BookingControllerIntegrationTest {
 
         @MockitoBean
         private BookingRepository bookingRepository;
+        @MockitoBean
+        private WalletService walletService;
+        @MockitoBean
+        private EmailNotificationService emailService;
+        @MockitoBean
+        private BookingLifecycleService bookingLifecycleService;
+        @MockitoBean
+        private ReferralService referralService;
         @MockitoBean
         private SessionRepository sessionRepository;
         @MockitoBean
@@ -366,8 +378,17 @@ class BookingControllerIntegrationTest {
                 mentor.setId(20L);
                 mentor.setRole(UserRole.MENTOR);
 
-                Booking booking = buildBooking(700L, learner, mentor, BookingStatus.ACCEPTED);
+                Booking booking = buildBooking(
+                                700L,
+                                learner,
+                                mentor,
+                                BookingStatus.IN_PROGRESS);
                 when(bookingRepository.findById(700L)).thenReturn(Optional.of(booking));
+                when(bookingLifecycleService.completeBooking(
+                                anyLong(),
+                                any(User.class)))
+                                .thenThrow(new IllegalArgumentException(
+                                                "Only mentor can complete a booking"));
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(
@@ -380,6 +401,15 @@ class BookingControllerIntegrationTest {
                                         .content("""
                                                         {"status":"COMPLETED"}
                                                         """))
+                                        .andDo(result -> {
+                                                System.out.println("EXCEPTION = "
+                                                                + result.getResolvedException());
+
+                                                if (result.getResolvedException() != null) {
+                                                        result.getResolvedException().printStackTrace();
+                                                }
+                                        })
+                                        .andDo(MockMvcResultHandlers.print())
                                         .andExpect(status().isBadRequest())
                                         .andExpect(jsonPath("$.data.error")
                                                         .value("Only mentor can complete a booking"));
@@ -398,10 +428,27 @@ class BookingControllerIntegrationTest {
                 mentor.setId(20L);
                 mentor.setRole(UserRole.MENTOR);
 
-                Booking booking = buildBooking(701L, learner, mentor, BookingStatus.ACCEPTED);
-                when(bookingRepository.findById(701L)).thenReturn(Optional.of(booking));
-                when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+                Booking booking = buildBooking(
+                                701L,
+                                learner,
+                                mentor,
+                                BookingStatus.IN_PROGRESS);
 
+                Booking completedBooking = buildBooking(
+                                701L,
+                                learner,
+                                mentor,
+                                BookingStatus.COMPLETED);
+
+                when(bookingRepository.findById(701L))
+                                .thenReturn(Optional.of(booking));
+
+                when(bookingLifecycleService.completeBooking(
+                                anyLong(),
+                                any(User.class)))
+                                .thenReturn(completedBooking);
+
+                when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(
                                 new UsernamePasswordAuthenticationToken(mentor, null, mentor.getAuthorities()));
@@ -413,8 +460,9 @@ class BookingControllerIntegrationTest {
                                         .content("""
                                                         {"status":"COMPLETED"}
                                                         """))
+                                        .andDo(MockMvcResultHandlers.print())
                                         .andExpect(status().isOk())
-                                        .andExpect(jsonPath("$.message").value("Booking updated"))
+                                        .andExpect(jsonPath("$.message").value("Booking completed"))
                                         .andExpect(jsonPath("$.data.bookingStatus").value("COMPLETED"));
                 } finally {
                         SecurityContextHolder.clearContext();
@@ -435,21 +483,48 @@ class BookingControllerIntegrationTest {
                 admin.setId(1L);
                 admin.setRole(UserRole.ADMIN);
 
-                Booking booking = buildBooking(702L, learner, mentor, BookingStatus.ACCEPTED);
-                when(bookingRepository.findById(702L)).thenReturn(Optional.of(booking));
-                when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
-                when(paymentRepository.findByBookingId(702L)).thenReturn(Collections.emptyList());
+                Booking booking = buildBooking(
+                                702L,
+                                learner,
+                                mentor,
+                                BookingStatus.ACCEPTED);
+
+                Booking cancelledBooking = buildBooking(
+                                702L,
+                                learner,
+                                mentor,
+                                BookingStatus.CANCELLED);
+
+                when(bookingRepository.findById(702L))
+                                .thenReturn(Optional.of(booking));
+
+                when(bookingLifecycleService.cancelBooking(
+                                anyLong(),
+                                any(User.class)))
+                                .thenReturn(cancelledBooking);
+
+                when(paymentRepository.findByBookingId(702L))
+                                .thenReturn(Collections.emptyList());
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities()));
                 SecurityContextHolder.setContext(context);
 
                 try {
-                        mockMvc.perform(patch("/api/v1/bookings/702/status")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content("""
-                                                        {"status":"CANCELLED"}
-                                                        """))
+                        mockMvc.perform(
+                                        patch("/api/v1/bookings/702/status")
+                                                        .contentType(MediaType.APPLICATION_JSON)
+                                                        .content("""
+                                                                        {"status":"CANCELLED"}
+                                                                        """))
+                                        .andDo(result -> {
+                                                System.out.println("EXCEPTION = " + result.getResolvedException());
+
+                                                if (result.getResolvedException() != null) {
+                                                        result.getResolvedException().printStackTrace();
+                                                }
+                                        })
+                                        .andDo(MockMvcResultHandlers.print())
                                         .andExpect(status().isOk())
                                         .andExpect(jsonPath("$.data.bookingStatus").value("CANCELLED"));
                 } finally {
@@ -462,8 +537,8 @@ class BookingControllerIntegrationTest {
                 session.setId(501L);
                 session.setMentor(mentor);
                 session.setTitle("Advanced Java");
-                session.setStartTime(OffsetDateTime.now().plusDays(1));
-                session.setEndTime(OffsetDateTime.now().plusDays(1).plusHours(1));
+                session.setStartTime(OffsetDateTime.now().minusHours(2));
+                session.setEndTime(OffsetDateTime.now().minusHours(1));
                 session.setCancellationWindowHours(24);
                 session.setRescheduleWindowHours(12);
 
