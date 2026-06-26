@@ -54,4 +54,42 @@ public class SkillSession {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionStatus status = SessionStatus.PENDING;
+
+    // Google Meet Integration Fields
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meeting_provider")
+    private MeetingProvider meetingProvider = MeetingProvider.GOOGLE_CALENDAR;
+
+    @Column(name = "meeting_id")
+    private String meetingId;
+
+    @Column(name = "calendar_event_id")
+    private String calendarEventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "session_status")
+    private LiveSessionStatus liveSessionStatus = LiveSessionStatus.SCHEDULED;
+
+    @ManyToOne
+    @JoinColumn(name = "created_by")
+    private User createdBy;
+
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt = OffsetDateTime.now();
+
+    // Helper methods
+    public boolean isMeetingGenerated() {
+        return meetingLink != null && !meetingLink.isBlank();
+    }
+
+    public boolean canJoin() {
+        return liveSessionStatus.isActive() && isMeetingGenerated();
+    }
+
+    public long getDurationMinutes() {
+        return java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime);
+    }
 }

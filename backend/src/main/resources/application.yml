@@ -114,12 +114,9 @@ management:
       description: Backend API for the Skill Swapping Platform
       version: 0.0.1
 
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-    enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-  api-docs:
+
+spring:
+  profiles:
+    active: local
+  datasource:
     path: /v3/api-docs
-  show-actuator: true

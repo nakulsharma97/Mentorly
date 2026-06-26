@@ -33,6 +33,34 @@ public class Booking {
     @Column(name = "cancel_reason")
     private String cancelReason;
 
+    // Admin Approval Fields
+    @Column(name = "approved_by_admin")
+    private Boolean approvedByAdmin = false;
+
+    @Column(name = "approved_at")
+    private OffsetDateTime approvedAt;
+
+    @Column(name = "joined_at")
+    private OffsetDateTime joinedAt;
+
+    // Payment Status
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status")
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    // Helper methods
+    public boolean isApprovedForJoin() {
+        return approvedByAdmin != null && approvedByAdmin && paymentStatus.isCompleted();
+    }
+
+    public boolean hasJoined() {
+        return joinedAt != null;
+    }
+
+    public long getMinutesSinceCreation() {
+        return java.time.temporal.ChronoUnit.MINUTES.between(createdAt, OffsetDateTime.now());
+    }
 }

@@ -61,6 +61,7 @@ export default function App() {
   const pathname = location.pathname;
   const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
+  const shouldShowGlobalNavbar = pathname !== "/" && pathname !== "/home";
 
   useEffect(() => {
     initGlobalMonitoring();
@@ -406,25 +407,27 @@ export default function App() {
 
   return (
     <ThemeProvider>
-      <div className="app-shell pt-24 sm:pt-20">
+      <div className="app-shell">
         <a className="skip-link" href="#route-content">
           Skip to main content
         </a>
 
         <OfflineStatusBanner />
         {/* Global navbar (rendered here for desktop headers). */}
-        <Navbar
-          isLoggedIn={isLoggedIn}
-          profile={profile}
-          onOpenProfile={() => navigate("/home")}
-          onOpenNotifications={() => navigate("/messages")}
-          onLogout={handleLogout}
-          authMode={authMode}
-          onSelectAuthMode={handleSelectAuthMode}
-          language={language}
-          onLanguageChange={handleLanguageChange}
-          unreadNotifications={unreadNotifications}
-        />
+        {shouldShowGlobalNavbar ? (
+          <Navbar
+            isLoggedIn={isLoggedIn}
+            profile={profile}
+            onOpenProfile={() => navigate("/home")}
+            onOpenNotifications={() => navigate("/messages")}
+            onLogout={handleLogout}
+            authMode={authMode}
+            onSelectAuthMode={handleSelectAuthMode}
+            language={language}
+            onLanguageChange={handleLanguageChange}
+            unreadNotifications={unreadNotifications}
+          />
+        ) : null}
 
         <div
           key={routeTransitionKey}
