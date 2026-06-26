@@ -115,8 +115,4 @@ management:
       version: 0.0.1
 
 
-spring:
-  profiles:
-    active: local
-  datasource:
-    path: /v3/api-docs
+
