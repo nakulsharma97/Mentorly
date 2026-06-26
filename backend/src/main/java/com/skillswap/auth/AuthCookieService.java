@@ -24,8 +24,11 @@ public class AuthCookieService {
     private long refreshTokenMaxAgeMs;
 
     public void writeAuthCookies(HttpServletResponse response, String accessToken, String refreshToken) {
-        addCookie(response, ACCESS_TOKEN_COOKIE, accessToken, Duration.ofMillis(accessTokenMaxAgeMs));
-        addCookie(response, REFRESH_TOKEN_COOKIE, refreshToken, Duration.ofMillis(refreshTokenMaxAgeMs));
+        // Cookie `maxAge` is specified in seconds; convert from configured milliseconds
+        long accessSeconds = Math.max(0, accessTokenMaxAgeMs / 1000);
+        long refreshSeconds = Math.max(0, refreshTokenMaxAgeMs / 1000);
+        addCookie(response, ACCESS_TOKEN_COOKIE, accessToken, Duration.ofSeconds(accessSeconds));
+        addCookie(response, REFRESH_TOKEN_COOKIE, refreshToken, Duration.ofSeconds(refreshSeconds));
     }
 
     public void clearAuthCookies(HttpServletResponse response) {

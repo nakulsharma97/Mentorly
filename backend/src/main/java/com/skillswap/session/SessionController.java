@@ -1,8 +1,10 @@
 package com.skillswap.session;
 
+import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
+import com.skillswap.user.UserRole;
 import com.skillswap.watchlist.SavedMentorRepository;
 import com.skillswap.watchlist.SkillWatchlistRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +29,21 @@ public class SessionController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ApiResponse<List<SkillSession>> list() {
-        return new ApiResponse<>("Sessions fetched", sessionRepository.findAll());
+    public ApiResponse<List<SkillSession>> list(@AuthenticationPrincipal User currentUser) {
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Authentication required");
+        }
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return new ApiResponse<>("Sessions fetched", sessionRepository.findAll());
+        }
+        if (currentUser.getRole() == UserRole.MENTOR) {
+            return new ApiResponse<>("Sessions fetched", sessionRepository.findByMentorId(currentUser.getId()));
+        }
+        if (currentUser.getRole() == UserRole.LEARNER) {
+            return new ApiResponse<>("Sessions fetched",
+                    sessionRepository.findByLearnerIdOrderByBookingCreatedAtDesc(currentUser.getId()));
+        }
+        throw new IllegalArgumentException("User role not permitted to view sessions");
     }
 
     @GetMapping("/mentor/{mentorId}")

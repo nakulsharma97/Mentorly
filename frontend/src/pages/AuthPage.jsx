@@ -1,82 +1,61 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import client from '../api/client';
-import OptimizedImage from '../components/OptimizedImage';
-import './AuthPage.css';
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import client from "../api/client";
+import OptimizedImage from "../components/OptimizedImage";
+import "./AuthPage.css";
 
-const SECTION_IDS = ['product', 'mentors', 'workflow', 'outcomes'];
-
-const featuredMentors = [
-  {
-    id: null,
-    fullName: 'Maya Iyer',
-    skills: 'Product Design, UX Strategy',
-    averageRating: 4.9,
-    totalReviews: 128,
-    liveNow: true,
-    profileImageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    id: null,
-    fullName: 'Arjun Mehta',
-    skills: 'React Architecture, Frontend Systems',
-    averageRating: 4.8,
-    totalReviews: 94,
-    liveNow: false,
-    profileImageUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    id: null,
-    fullName: 'Elena Rossi',
-    skills: 'Brand Strategy, Storytelling',
-    averageRating: 5,
-    totalReviews: 156,
-    liveNow: false,
-    profileImageUrl: 'https://images.unsplash.com/photo-1534751516642-a1af1ef26a56?auto=format&fit=crop&w=900&q=80',
-  },
-];
+const SECTION_IDS = ["product", "mentors", "workflow", "outcomes"];
 
 const getMentorInitials = (fullName) => {
-  const safeName = String(fullName || '').trim();
+  const safeName = String(fullName || "").trim();
   if (!safeName) {
-    return 'M';
+    return "M";
   }
 
   return safeName
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
-    .join('');
+    .join("");
 };
 
 const getSkillTags = (rawSkills) => {
-  const value = String(rawSkills || '').trim();
+  const value = String(rawSkills || "").trim();
   if (!value) {
-    return ['Mentorship'];
+    return ["Mentorship"];
   }
 
-  if (value.startsWith('[') && value.includes('"name"')) {
+  if (value.startsWith("[") && value.includes('"name"')) {
     const matches = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)]
-      .map((match) => String(match[1] || '').trim())
+      .map((match) => String(match[1] || "").trim())
       .filter(Boolean);
     if (matches.length) {
       return [...new Set(matches)].slice(0, 2);
     }
   }
 
-  return [...new Set(value.split(/[\n,;|]+/).map((part) => part.trim()).filter(Boolean))]
-    .slice(0, 2);
+  return [
+    ...new Set(
+      value
+        .split(/[\n,;|]+/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 2);
 };
 
 const scrollToSection = (sectionId) => (event) => {
   event.preventDefault();
-  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document
+    .getElementById(sectionId)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
 export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState('product');
+  const [activeSection, setActiveSection] = useState("product");
   const [mentors, setMentors] = useState([]);
+  const [mentorsLoading, setMentorsLoading] = useState(true);
 
   useEffect(() => {
     const updateActiveSection = () => {
@@ -90,12 +69,12 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     };
 
     updateActiveSection();
-    window.addEventListener('scroll', updateActiveSection, { passive: true });
-    return () => window.removeEventListener('scroll', updateActiveSection);
+    window.addEventListener("scroll", updateActiveSection, { passive: true });
+    return () => window.removeEventListener("scroll", updateActiveSection);
   }, []);
 
   useEffect(() => {
-    const elements = document.querySelectorAll('.landing-reveal');
+    const elements = document.querySelectorAll(".landing-reveal");
     if (!elements.length) {
       return undefined;
     }
@@ -104,12 +83,12 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
+            entry.target.classList.add("is-visible");
             observer.unobserve(entry.target);
           }
         });
       },
-      { threshold: 0.16 }
+      { threshold: 0.16 },
     );
 
     elements.forEach((element) => observer.observe(element));
@@ -119,17 +98,25 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   useEffect(() => {
     let isMounted = true;
 
-    client.get('/api/v1/users/mentors')
+    client
+      .get("/api/v1/users/mentors")
       .then((response) => {
         if (!isMounted) {
           return;
         }
-        const list = Array.isArray(response?.data?.data) ? response.data.data : [];
+        const list = Array.isArray(response?.data?.data)
+          ? response.data.data
+          : [];
         setMentors(list);
       })
       .catch(() => {
         if (isMounted) {
           setMentors([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setMentorsLoading(false);
         }
       });
 
@@ -138,12 +125,13 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     };
   }, []);
 
-  const displayMentors = useMemo(() => (mentors.length ? mentors.slice(0, 3) : featuredMentors), [mentors]);
-  const mentorCountLabel = mentors.length ? `${mentors.length}+` : '50k+';
+  const displayMentors = useMemo(() => mentors.slice(0, 3), [mentors]);
+  const mentorCountLabel = String(mentors.length);
 
-  const navLinkClass = (sectionId) => (
-    activeSection === sectionId ? 'landing-nav-link is-active' : 'landing-nav-link'
-  );
+  const navLinkClass = (sectionId) =>
+    activeSection === sectionId
+      ? "landing-nav-link is-active"
+      : "landing-nav-link";
 
   const openMentor = (mentor) => {
     if (!mentor.id) {
@@ -156,7 +144,11 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   return (
     <div className="landing-shell">
       <nav className="landing-nav" aria-label="Public navigation">
-        <a className="landing-brand" href="#product" onClick={scrollToSection('product')}>
+        <a
+          className="landing-brand"
+          href="#product"
+          onClick={scrollToSection("product")}
+        >
           <span className="landing-brand-mark">SS</span>
           <span>
             <strong>SkillSwap</strong>
@@ -165,17 +157,49 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         </a>
 
         <div className="landing-nav-center" aria-label="Page sections">
-          <a className={navLinkClass('product')} href="#product" onClick={scrollToSection('product')}>Product</a>
-          <a className={navLinkClass('mentors')} href="#mentors" onClick={scrollToSection('mentors')}>Mentors</a>
-          <a className={navLinkClass('workflow')} href="#workflow" onClick={scrollToSection('workflow')}>Workflow</a>
-          <a className={navLinkClass('outcomes')} href="#outcomes" onClick={scrollToSection('outcomes')}>Outcomes</a>
+          <a
+            className={navLinkClass("product")}
+            href="#product"
+            onClick={scrollToSection("product")}
+          >
+            Product
+          </a>
+          <a
+            className={navLinkClass("mentors")}
+            href="#mentors"
+            onClick={scrollToSection("mentors")}
+          >
+            Mentors
+          </a>
+          <a
+            className={navLinkClass("workflow")}
+            href="#workflow"
+            onClick={scrollToSection("workflow")}
+          >
+            Workflow
+          </a>
+          <a
+            className={navLinkClass("outcomes")}
+            href="#outcomes"
+            onClick={scrollToSection("outcomes")}
+          >
+            Outcomes
+          </a>
         </div>
 
         <div className="landing-nav-actions">
-          <button className="landing-button landing-button-ghost" type="button" onClick={onSelectLogin}>
+          <button
+            className="landing-button landing-button-ghost"
+            type="button"
+            onClick={onSelectLogin}
+          >
             Log in
           </button>
-          <button className="landing-button landing-button-dark" type="button" onClick={onSelectSignup}>
+          <button
+            className="landing-button landing-button-dark"
+            type="button"
+            onClick={onSelectSignup}
+          >
             Join free
           </button>
         </div>
@@ -190,14 +214,23 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             </span>
             <h1>Learn faster from experts who actually do the work.</h1>
             <p>
-              SkillSwap connects learners with verified mentors for live sessions, structured follow-ups,
-              messaging, wallet tracking, and admin-backed trust controls.
+              SkillSwap connects learners with verified mentors for live
+              sessions, structured follow-ups, messaging, wallet tracking, and
+              admin-backed trust controls.
             </p>
             <div className="landing-hero-actions">
-              <button className="landing-button landing-button-primary" type="button" onClick={onSelectSignup}>
+              <button
+                className="landing-button landing-button-primary"
+                type="button"
+                onClick={onSelectSignup}
+              >
                 Start learning
               </button>
-              <a className="landing-button landing-button-soft" href="#workflow" onClick={scrollToSection('workflow')}>
+              <a
+                className="landing-button landing-button-soft"
+                href="#workflow"
+                onClick={scrollToSection("workflow")}
+              >
                 See workflow
               </a>
             </div>
@@ -232,7 +265,10 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
                 src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=82"
                 priority
               />
-              <div className="landing-session-panel" aria-label="Session summary">
+              <div
+                className="landing-session-panel"
+                aria-label="Session summary"
+              >
                 <div>
                   <span className="landing-avatar-stack" aria-hidden="true">
                     <span>M</span>
@@ -244,7 +280,9 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               </div>
             </div>
             <div className="landing-floating-note">
-              <span className="material-symbols-outlined" aria-hidden="true">verified</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                verified
+              </span>
               <div>
                 <strong>Verified skill graph</strong>
                 <p>Mentor proof, ratings, and session outcomes in one place.</p>
@@ -254,7 +292,13 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         </section>
 
         <section className="landing-logo-row" aria-label="Trusted categories">
-          {['Design Systems', 'Full Stack', 'Finance', 'Marketing', 'Data Science'].map((item) => (
+          {[
+            "Design Systems",
+            "Full Stack",
+            "Finance",
+            "Marketing",
+            "Data Science",
+          ].map((item) => (
             <span key={item}>{item}</span>
           ))}
         </section>
@@ -263,29 +307,52 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           <div className="landing-section-heading landing-reveal">
             <span className="landing-kicker">Built for momentum</span>
             <h2>Everything feels connected, from discovery to follow-up.</h2>
-            <p>Cleaner flows, better hierarchy, and practical tools for sessions that do not end when the call ends.</p>
+            <p>
+              Cleaner flows, better hierarchy, and practical tools for sessions
+              that do not end when the call ends.
+            </p>
           </div>
 
           <div className="landing-feature-grid">
             <article className="landing-feature-card landing-reveal">
-              <span className="material-symbols-outlined" aria-hidden="true">travel_explore</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                travel_explore
+              </span>
               <h3>Browse with confidence</h3>
-              <p>Readable mentor cards, clear skill tags, ratings, and availability signals help learners decide faster.</p>
+              <p>
+                Readable mentor cards, clear skill tags, ratings, and
+                availability signals help learners decide faster.
+              </p>
             </article>
             <article className="landing-feature-card landing-feature-card-dark landing-reveal">
-              <span className="material-symbols-outlined" aria-hidden="true">calendar_month</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                calendar_month
+              </span>
               <h3>Book real sessions</h3>
-              <p>Create sessions, request slots, accept or decline bookings, and keep the status visible everywhere.</p>
+              <p>
+                Create sessions, request slots, accept or decline bookings, and
+                keep the status visible everywhere.
+              </p>
             </article>
             <article className="landing-feature-card landing-reveal">
-              <span className="material-symbols-outlined" aria-hidden="true">chat</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                chat
+              </span>
               <h3>Message with context</h3>
-              <p>Conversation, meeting links, attachments, and quick reactions stay connected to the booking.</p>
+              <p>
+                Conversation, meeting links, attachments, and quick reactions
+                stay connected to the booking.
+              </p>
             </article>
             <article className="landing-feature-card landing-reveal">
-              <span className="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>
+              <span className="material-symbols-outlined" aria-hidden="true">
+                account_balance_wallet
+              </span>
               <h3>Wallet clarity</h3>
-              <p>Balance and ledger views make earnings, credits, refunds, and admin adjustments easy to understand.</p>
+              <p>
+                Balance and ledger views make earnings, credits, refunds, and
+                admin adjustments easy to understand.
+              </p>
             </article>
           </div>
         </section>
@@ -293,46 +360,87 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         <section id="mentors" className="landing-section landing-mentors">
           <div className="landing-section-heading landing-reveal">
             <span className="landing-kicker">Expert network</span>
-            <h2>Premium mentor cards that feel human, not generated.</h2>
-            <p>Real data appears automatically when mentors exist; polished featured profiles keep the page strong while the marketplace grows.</p>
+            <h2>
+              Premium mentor cards that reflect real marketplace expertise.
+            </h2>
+            <p>
+              Mentor profiles are loaded from the backend and shown only when
+              verified mentors are available.
+            </p>
           </div>
 
           <div className="landing-mentor-grid">
-            {displayMentors.map((mentor) => {
-              const tags = getSkillTags(mentor.skills);
-              const rating = Number(mentor.averageRating || 0).toFixed(1);
-              const reviews = Number(mentor.totalReviews || 0);
-              const initials = getMentorInitials(mentor.fullName);
+            {mentorsLoading ? (
+              <div className="landing-mentor-empty">
+                Loading mentor profiles...
+              </div>
+            ) : displayMentors.length === 0 ? (
+              <div className="landing-mentor-empty">
+                <p>No mentors are available right now.</p>
+                <p>Check back soon for new mentors joining the marketplace.</p>
+              </div>
+            ) : (
+              displayMentors.map((mentor) => {
+                const tags = getSkillTags(mentor.skills);
+                const rating = Number(mentor.averageRating || 0).toFixed(1);
+                const reviews = Number(mentor.totalReviews || 0);
+                const initials = getMentorInitials(mentor.fullName);
 
-              return (
-                <article className="landing-mentor-card landing-reveal" key={`${mentor.fullName}-${tags.join('-')}`}>
-                  <div className="landing-mentor-image">
-                    {mentor.profileImageUrl ? (
-                      <OptimizedImage alt={`Portrait of ${mentor.fullName}`} src={mentor.profileImageUrl} />
-                    ) : (
-                      <span>{initials}</span>
-                    )}
-                    <span className={mentor.liveNow ? 'landing-presence is-live' : 'landing-presence'}>
-                      {mentor.liveNow ? 'Live now' : 'Available'}
-                    </span>
-                  </div>
-                  <div className="landing-mentor-body">
-                    <div>
-                      <h3>{mentor.fullName}</h3>
-                      <p>{tags.join(' / ')}</p>
+                return (
+                  <article
+                    className="landing-mentor-card landing-reveal"
+                    key={`${mentor.fullName}-${tags.join("-")}`}
+                  >
+                    <div className="landing-mentor-image">
+                      {mentor.profileImageUrl ? (
+                        <OptimizedImage
+                          alt={`Portrait of ${mentor.fullName}`}
+                          src={mentor.profileImageUrl}
+                        />
+                      ) : (
+                        <span>{initials}</span>
+                      )}
+                      <span
+                        className={
+                          mentor.liveNow
+                            ? "landing-presence is-live"
+                            : "landing-presence"
+                        }
+                      >
+                        {mentor.liveNow ? "Live now" : "Available"}
+                      </span>
                     </div>
-                    <div className="landing-mentor-meta">
-                      <span><strong>{rating}</strong> rating</span>
-                      <span><strong>{reviews || 'New'}</strong> reviews</span>
+                    <div className="landing-mentor-body">
+                      <div>
+                        <h3>{mentor.fullName}</h3>
+                        <p>{tags.join(" / ")}</p>
+                      </div>
+                      <div className="landing-mentor-meta">
+                        <span>
+                          <strong>{rating}</strong> rating
+                        </span>
+                        <span>
+                          <strong>{reviews || "New"}</strong> reviews
+                        </span>
+                      </div>
+                      <button
+                        className="landing-text-button"
+                        type="button"
+                        onClick={() => openMentor(mentor)}
+                      >
+                        View profile
+                        <span
+                          className="material-symbols-outlined"
+                          aria-hidden="true"
+                        >
+                          arrow_forward
+                        </span>
+                      </button>
                     </div>
-                    <button className="landing-text-button" type="button" onClick={() => openMentor(mentor)}>
-                      View profile
-                      <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                  </article>
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -344,9 +452,21 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
           <div className="landing-step-grid">
             {[
-              ['01', 'Choose your goal', 'Define the skill, level, and outcome you want from the session.'],
-              ['02', 'Match with a mentor', 'Compare skills, availability, proof, and pricing before you book.'],
-              ['03', 'Meet and follow up', 'Use messages, session links, notes, and wallet history after the call.'],
+              [
+                "01",
+                "Choose your goal",
+                "Define the skill, level, and outcome you want from the session.",
+              ],
+              [
+                "02",
+                "Match with a mentor",
+                "Compare skills, availability, proof, and pricing before you book.",
+              ],
+              [
+                "03",
+                "Meet and follow up",
+                "Use messages, session links, notes, and wallet history after the call.",
+              ],
             ].map(([number, title, text]) => (
               <article className="landing-step landing-reveal" key={number}>
                 <span>{number}</span>
@@ -362,10 +482,15 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             <span className="landing-kicker">Production-ready polish</span>
             <h2>Designed for trust, focus, and repeat use.</h2>
             <p>
-              The interface now leans into restrained color, strong spacing, crisp cards, and motion that supports the workflow
-              instead of distracting from it.
+              The interface now leans into restrained color, strong spacing,
+              crisp cards, and motion that supports the workflow instead of
+              distracting from it.
             </p>
-            <button className="landing-button landing-button-primary" type="button" onClick={onSelectSignup}>
+            <button
+              className="landing-button landing-button-primary"
+              type="button"
+              onClick={onSelectSignup}
+            >
               Create your profile
             </button>
           </div>
@@ -376,9 +501,24 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               <p>learners felt more confident after guided feedback</p>
             </div>
             <div className="landing-check-list">
-              <p><span className="material-symbols-outlined" aria-hidden="true">done</span> Accessible contrast and focus states</p>
-              <p><span className="material-symbols-outlined" aria-hidden="true">done</span> Responsive layouts for all viewports</p>
-              <p><span className="material-symbols-outlined" aria-hidden="true">done</span> Smooth, reduced-motion-aware animations</p>
+              <p>
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  done
+                </span>{" "}
+                Accessible contrast and focus states
+              </p>
+              <p>
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  done
+                </span>{" "}
+                Responsive layouts for all viewports
+              </p>
+              <p>
+                <span className="material-symbols-outlined" aria-hidden="true">
+                  done
+                </span>{" "}
+                Smooth, reduced-motion-aware animations
+              </p>
             </div>
           </div>
         </section>
@@ -386,19 +526,31 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
       <footer className="landing-footer">
         <div>
-          <a className="landing-brand" href="#product" onClick={scrollToSection('product')}>
+          <a
+            className="landing-brand"
+            href="#product"
+            onClick={scrollToSection("product")}
+          >
             <span className="landing-brand-mark">SS</span>
             <span>
               <strong>SkillSwap</strong>
               <small>Teach. Learn. Grow.</small>
             </span>
           </a>
-          <p>Modern mentorship infrastructure for learners, mentors, and admins.</p>
+          <p>
+            Modern mentorship infrastructure for learners, mentors, and admins.
+          </p>
         </div>
         <nav aria-label="Footer navigation">
-          <a href="#mentors" onClick={scrollToSection('mentors')}>Mentors</a>
-          <a href="#workflow" onClick={scrollToSection('workflow')}>Workflow</a>
-          <a href="#outcomes" onClick={scrollToSection('outcomes')}>Outcomes</a>
+          <a href="#mentors" onClick={scrollToSection("mentors")}>
+            Mentors
+          </a>
+          <a href="#workflow" onClick={scrollToSection("workflow")}>
+            Workflow
+          </a>
+          <a href="#outcomes" onClick={scrollToSection("outcomes")}>
+            Outcomes
+          </a>
         </nav>
       </footer>
     </div>

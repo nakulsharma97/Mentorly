@@ -86,10 +86,25 @@
     body,
     #root {
       height: 100%;
+      min-height: 100%;
+      width: 100%;
+      min-width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      overscroll-behavior-x: none;
+      border: 0;
+      box-sizing: border-box;
+      background-clip: border-box;
+      background-color: #f2f8f7;
+    }
+
+    html {
+      background-color: #f2f8f7;
     }
 
     body {
-      margin: 0;
+      min-height: 100%;
       background:
         radial-gradient(circle at top left, rgba(215, 243, 238, 0.95) 0%, transparent 38%),
         radial-gradient(circle at bottom right, rgba(220, 238, 253, 0.95) 0%, transparent 42%),
