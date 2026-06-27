@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import OptimizedImage from "../components/OptimizedImage";
+import PremiumFooter from "../components/PremiumFooter";
 import "./AuthPage.css";
 
 const SECTION_IDS = ["product", "mentors", "workflow", "outcomes"];
@@ -524,35 +525,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         </section>
       </main>
 
-      <footer className="landing-footer">
-        <div>
-          <a
-            className="landing-brand"
-            href="#product"
-            onClick={scrollToSection("product")}
-          >
-            <span className="landing-brand-mark">SS</span>
-            <span>
-              <strong>SkillSwap</strong>
-              <small>Teach. Learn. Grow.</small>
-            </span>
-          </a>
-          <p>
-            Modern mentorship infrastructure for learners, mentors, and admins.
-          </p>
-        </div>
-        <nav aria-label="Footer navigation">
-          <a href="#mentors" onClick={scrollToSection("mentors")}>
-            Mentors
-          </a>
-          <a href="#workflow" onClick={scrollToSection("workflow")}>
-            Workflow
-          </a>
-          <a href="#outcomes" onClick={scrollToSection("outcomes")}>
-            Outcomes
-          </a>
-        </nav>
-      </footer>
+      <PremiumFooter onScrollToSection={scrollToSection} />
     </div>
   );
 }

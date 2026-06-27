@@ -1564,8 +1564,21 @@ ul {
 .profile-setup-card input:focus,
 .profile-setup-card textarea:focus {
   outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef5ff;
   border-color: rgba(66, 153, 225, 0.75);
   box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.18);
+}
+
+/* Prevent browser autofill from changing textarea background */
+.profile-setup-card textarea:-webkit-autofill,
+.profile-setup-card textarea:-webkit-autofill:focus,
+.profile-setup-card textarea:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.06) inset !important;
+  -webkit-text-fill-color: #eef5ff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #eef5ff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 .profile-setup-actions {
@@ -1612,6 +1625,34 @@ ul {
 .project-form-grid input,
 .project-form-grid textarea {
   width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #eef5ff;
+}
+
+.project-form-grid input::placeholder,
+.project-form-grid textarea::placeholder {
+  color: #a8b5c8;
+}
+
+.project-form-grid input:focus,
+.project-form-grid textarea:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #eef5ff;
+  border-color: rgba(66, 153, 225, 0.75);
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.18);
+}
+
+/* Prevent browser autofill from changing textarea background */
+.project-form-grid textarea:-webkit-autofill,
+.project-form-grid textarea:-webkit-autofill:focus,
+.project-form-grid textarea:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.06) inset !important;
+  -webkit-text-fill-color: #eef5ff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #eef5ff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 .project-dates-row {
