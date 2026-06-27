@@ -147,6 +147,7 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody UserProfileUpdateRequest req) {
+        log.info("updateProfile userId={} payload={}", user.getId(), req);
         if (req.skills() != null) {
             user.setSkills(trimToNull(req.skills()));
         }

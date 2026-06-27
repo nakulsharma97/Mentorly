@@ -67,9 +67,6 @@ export default function Navbar({
     return normalized;
   };
 
-  const navClassName = ({ isActive }) =>
-    isActive ? "nav-link nav-link-active" : "nav-link";
-
   const navItems = isLoggedIn
     ? profile?.role === "ADMIN"
       ? [
@@ -103,45 +100,41 @@ export default function Navbar({
 
   return (
     <nav
-      className={`fixed inset-x-0 top-4 z-50 rounded-[18px] bg-white/95 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-all duration-300 ${scrolled ? "shadow-[0_24px_60px_rgba(15,23,42,0.1)] bg-white/100" : ""}`}
+      className={`site-navbar${scrolled ? " scrolled" : ""}`}
       aria-label="Site navigation"
     >
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-4 sm:py-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(16,185,129,0.16)]">
-            SS
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              SkillSwap
-            </p>
-            <p className="truncate text-sm font-semibold text-slate-950">
-              Mentor dashboard
+      <div className="site-navbar-inner">
+        <div className="site-navbar-brand">
+          <span className="site-navbar-logo">SS</span>
+          <div className="site-navbar-brand-text">
+            <p className="site-navbar-brand-label">SkillSwap</p>
+            <p className="site-navbar-brand-title">
+              {roleLabel} dashboard
             </p>
           </div>
         </div>
 
         <button
-          className="inline-flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 md:hidden"
+          className="site-navbar-hamburger"
           type="button"
           aria-label="Toggle navigation menu"
           aria-expanded={menuOpen}
           aria-controls="primary-nav-panel"
           onClick={() => setMenuOpen((prev) => !prev)}
         >
-          <span className="h-0.5 w-5 rounded-full bg-slate-700" />
-          <span className="h-0.5 w-5 rounded-full bg-slate-700" />
-          <span className="h-0.5 w-5 rounded-full bg-slate-700" />
+          <span />
+          <span />
+          <span />
         </button>
 
         <div
           id="primary-nav-panel"
-          className={`absolute inset-x-4 top-full mt-2 rounded-3xl bg-white/95 p-3 shadow-xl shadow-slate-900/5 backdrop-blur-xl transition-all duration-200 ${menuOpen ? "opacity-100 visible" : "pointer-events-none opacity-0 invisible"} md:static md:top-auto md:mt-0 md:flex md:items-center md:gap-2 md:bg-transparent md:p-0 md:shadow-none md:opacity-100 md:visible md:pointer-events-auto`}
+          className={`site-navbar-panel${menuOpen ? " open" : ""}`}
         >
           {isLoggedIn ? (
             <>
               <div
-                className="flex flex-col gap-2 md:flex-row md:items-center md:gap-3"
+                className="site-navbar-links"
                 role="list"
                 aria-label="Main navigation links"
               >
@@ -150,17 +143,13 @@ export default function Navbar({
                     key={item.path}
                     to={linkFor(item.path)}
                     className={({ isActive }) =>
-                      `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
-                        isActive
-                          ? "bg-slate-950 text-white shadow-sm shadow-slate-950/10"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                      }`
+                      `site-navbar-link${isActive ? " active" : ""}`
                     }
                     role="listitem"
                     onClick={() => setMenuOpen(false)}
                   >
                     {item.icon && (
-                      <span className="material-symbols-outlined text-base text-slate-500">
+                      <span className="material-symbols-outlined">
                         {item.icon}
                       </span>
                     )}
@@ -169,9 +158,9 @@ export default function Navbar({
                 ))}
               </div>
 
-              <div className="flex flex-col gap-2 pt-3 md:flex-row md:items-center md:gap-2 md:pt-0">
+              <div className="site-navbar-actions">
                 <Link
-                  className="inline-flex items-center justify-center rounded-full bg-slate-950 px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-slate-950/10 transition hover:bg-slate-800"
+                  className="site-navbar-cta"
                   to={
                     profile?.role === "ADMIN"
                       ? linkFor("/admin")
@@ -188,28 +177,28 @@ export default function Navbar({
                       : "Find Mentor"}
                 </Link>
 
-                <div className="flex items-center gap-2 md:gap-3">
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
-                    className="relative inline-flex h-8 w-8 items-center justify-center rounded-2xl border border-slate-200/80 bg-white text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                    className="site-navbar-icon-btn"
                     onClick={onOpenNotifications}
                     title="Notifications"
                     aria-label={`Notifications${unreadNotifications > 0 ? ` (${unreadNotifications} unread)` : ""}`}
                     type="button"
                   >
-                    <span className="material-symbols-outlined text-base">
+                    <span className="material-symbols-outlined">
                       notifications
                     </span>
                     {unreadNotifications > 0 && (
-                      <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">
+                      <span className="site-navbar-notif-badge">
                         {unreadNotifications > 99 ? "99+" : unreadNotifications}
                       </span>
                     )}
                   </button>
 
-                  <DarkModeToggle className="inline-flex h-8 w-8 items-center justify-center rounded-2xl border border-slate-200/80 bg-white text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50" />
+                  <DarkModeToggle className="site-navbar-icon-btn" />
 
                   <button
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-2xl border border-slate-200/80 bg-white text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                    className="site-navbar-avatar"
                     onClick={onOpenProfile}
                     title={avatarSource}
                     aria-label={avatarSource}
@@ -219,17 +208,17 @@ export default function Navbar({
                       <OptimizedImage
                         src={profileImageUrl}
                         alt={avatarSource}
-                        className="h-full w-full rounded-2xl object-cover"
+                        className="site-navbar-avatar-img"
                       />
                     ) : (
-                      <span className="text-sm font-semibold text-slate-950">
+                      <span className="site-navbar-avatar-initial">
                         {profileInitial}
                       </span>
                     )}
                   </button>
 
                   <button
-                    className="inline-flex h-8 items-center justify-center rounded-full bg-slate-50 px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                    className="site-navbar-logout"
                     onClick={onLogout}
                     type="button"
                   >
@@ -239,32 +228,20 @@ export default function Navbar({
               </div>
             </>
           ) : (
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                  EN
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <DarkModeToggle />
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+              className="site-navbar-actions"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <DarkModeToggle className="site-navbar-icon-btn" />
                 <button
-                  className={
-                    authMode === "login"
-                      ? "rounded-full bg-slate-950 px-3 py-1 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      : "rounded-full border border-slate-200/80 bg-white px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  }
+                  className={`site-navbar-auth-btn${authMode === "login" ? " active" : ""}`}
                   onClick={() => onSelectAuthMode("login")}
                   type="button"
                 >
                   {t(language, "login")}
                 </button>
                 <button
-                  className={
-                    authMode === "signup"
-                      ? "rounded-full bg-slate-950 px-3 py-1 text-sm font-semibold text-white transition hover:bg-slate-800"
-                      : "rounded-full border border-slate-200/80 bg-white px-3 py-1 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  }
+                  className={`site-navbar-auth-btn${authMode === "signup" ? " active" : ""}`}
                   onClick={() => onSelectAuthMode("signup")}
                   type="button"
                 >
@@ -294,7 +271,7 @@ function DarkModeToggle({ className }) {
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       type="button"
     >
-      <span aria-hidden="true" className="material-symbols-outlined text-base">
+      <span aria-hidden="true" className="material-symbols-outlined">
         {isDark ? "light_mode" : "dark_mode"}
       </span>
     </button>

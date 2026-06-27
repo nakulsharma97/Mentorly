@@ -83,6 +83,9 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                                 .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/api/v1/availability/my-slots",
+                                                                "/api/v1/availability/my-slots/**")
+                                                .hasAnyRole("MENTOR", "TEACHER", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login",
                                                                 "/api/v1/auth/signup",
                                                                 "/api/v1/auth/refresh",

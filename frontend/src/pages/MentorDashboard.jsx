@@ -144,7 +144,7 @@ export default function MentorDashboard({ profile }) {
   const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.value), 1);
 
   return (
-    <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+    <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '100px 20px 32px' }}>
 
       {/* ── Hero Banner ── */}
       <div className="dash-hero dash-hero-mentor">

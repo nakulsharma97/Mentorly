@@ -46,5 +46,8 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 app:
+  auth:
+    cookies:
+      secure: false
   email:
     enabled: false

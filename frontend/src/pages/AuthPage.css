@@ -49,6 +49,10 @@
 }
 
 .landing-shell .landing-brand {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: auto;
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;

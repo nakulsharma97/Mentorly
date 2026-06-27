@@ -61,7 +61,7 @@ export default function App() {
   const pathname = location.pathname;
   const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
-  const shouldShowGlobalNavbar = pathname !== "/" && pathname !== "/home";
+  const shouldShowGlobalNavbar = pathname !== "/";
 
   useEffect(() => {
     initGlobalMonitoring();

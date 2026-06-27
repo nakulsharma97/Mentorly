@@ -90,6 +90,9 @@ public class SkillSession {
     }
 
     public long getDurationMinutes() {
+        if (startTime == null || endTime == null) {
+            return 0L;
+        }
         return java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime);
     }
 }

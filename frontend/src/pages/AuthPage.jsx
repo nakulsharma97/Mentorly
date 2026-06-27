@@ -152,7 +152,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           <span className="landing-brand-mark">SS</span>
           <span>
             <strong>SkillSwap</strong>
-            <small>Mentorship marketplace</small>
+            <small>Teach. Learn. Grow.</small>
           </span>
         </a>
 

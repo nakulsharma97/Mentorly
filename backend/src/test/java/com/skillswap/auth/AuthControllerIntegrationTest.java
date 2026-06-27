@@ -1,5 +1,7 @@
 package com.skillswap.auth;
 
+import com.skillswap.common.GlobalExceptionHandler;
+import com.skillswap.common.exception.ServiceGlobalExceptionHandler;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.RequestTraceFilter;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AuthController.class)
+@Import({ GlobalExceptionHandler.class, ServiceGlobalExceptionHandler.class })
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerIntegrationTest {
 
@@ -84,8 +88,9 @@ class AuthControllerIntegrationTest {
             }
             """))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.status").value(400))
-        .andExpect(jsonPath("$.errors.email").value("must be a well-formed email address"))
-        .andExpect(jsonPath("$.errors.password").value("must not be blank"));
+        .andExpect(jsonPath("$.message").value("Request failed"))
+        .andExpect(jsonPath("$.data.status").value(400))
+        .andExpect(jsonPath("$.data.errors.email").value("must be a well-formed email address"))
+        .andExpect(jsonPath("$.data.errors.password").value("must not be blank"));
   }
 }

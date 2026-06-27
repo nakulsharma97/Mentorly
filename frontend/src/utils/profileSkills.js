@@ -58,14 +58,13 @@ export const serializeSkillTags = (tags) => {
 };
 
 export const getProfileQualityScore = (profile) => {
-  const checks = [
+  const requiredChecks = [
     Boolean(String(profile?.skills || "").trim()),
     Boolean(String(profile?.aboutMe || "").trim()),
     Boolean(String(profile?.githubUrl || "").trim()),
     Boolean(String(profile?.linkedinUrl || "").trim()),
-    Boolean(String(profile?.walletAddress || "").trim()),
   ];
 
-  const completed = checks.filter(Boolean).length;
-  return Math.round((completed / checks.length) * 100);
+  const completed = requiredChecks.filter(Boolean).length;
+  return Math.round((completed / requiredChecks.length) * 100);
 };

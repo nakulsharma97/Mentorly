@@ -15,3 +15,6 @@ app:
       max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:20}
     payment:
       max-per-minute: ${APP_RATE_LIMIT_PAYMENT_PER_MINUTE:30}
+  auth:
+    cookies:
+      secure: false

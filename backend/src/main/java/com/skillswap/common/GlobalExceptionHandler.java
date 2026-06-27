@@ -1,6 +1,10 @@
 package com.skillswap.common;
 
 import io.sentry.Sentry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -18,10 +22,14 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiClientException.class)
     public ResponseEntity<ApiResponse<Map<String, Object>>> handleApiClientException(ApiClientException ex) {
+        log.warn("API client exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(ex.getStatus())
                 .body(new ApiResponse<>("Request failed", baseError(ex.getCode(), ex.getMessage(), ex.isRetryable())));
     }
@@ -29,24 +37,26 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Invalid request: {}", ex.getMessage(), ex);
         return new ApiResponse<>("Request failed", baseError("BAD_REQUEST", ex.getMessage(), false));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .collect(Collectors.toMap(
                         err -> err.getField(),
                         err -> err.getDefaultMessage() == null ? "Invalid value" : err.getDefaultMessage(),
                         (first, second) -> first,
                         LinkedHashMap::new));
-        return ResponseEntity.badRequest().body(validationBody(errors));
+        log.warn("Validation failed: {}", errors, ex);
+        return ResponseEntity.badRequest().body(new ApiResponse<>("Request failed", validationBody(errors)));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleConstraintViolation(ConstraintViolationException ex) {
         Map<String, String> errors = ex.getConstraintViolations().stream()
                 .collect(Collectors.toMap(
                         violation -> {
@@ -58,20 +68,24 @@ public class GlobalExceptionHandler {
                         violation -> violation.getMessage() == null ? "Invalid value" : violation.getMessage(),
                         (first, second) -> first,
                         LinkedHashMap::new));
-        return ResponseEntity.badRequest().body(validationBody(errors));
+        log.warn("Constraint violation: {}", errors, ex);
+        return ResponseEntity.badRequest().body(new ApiResponse<>("Request failed", validationBody(errors)));
     }
 
     @ExceptionHandler({ MethodArgumentTypeMismatchException.class, ResponseStatusException.class })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Map<String, Object>> handleRequestFormat(Exception ex) {
+        log.warn("Request format error", ex);
         return new ApiResponse<>("Request failed", baseError("REQUEST_FORMAT_ERROR", "Invalid request format", false));
     }
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Map<String, Object>> handleUnhandled(Exception ex) {
+        log.error("Unhandled exception processing request", ex);
         Sentry.captureException(ex);
-        return new ApiResponse<>("Request failed", baseError("INTERNAL_ERROR", "Unexpected server error", true));
+        String message = ex.getMessage() == null ? "Unexpected server error" : ex.getMessage();
+        return new ApiResponse<>("Request failed", baseError("INTERNAL_ERROR", message, true));
     }
 
     private Map<String, Object> baseError(String code, String errorMessage, boolean retryable) {

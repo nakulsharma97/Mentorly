@@ -4,11 +4,14 @@ import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,6 +24,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AvailabilityController {
 
+    private static final Logger log = LoggerFactory.getLogger(AvailabilityController.class);
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final UserAvailabilitySlotRepository slotRepository;
@@ -34,6 +38,7 @@ public class AvailabilityController {
     @PostMapping("/my-slots")
     public ApiResponse<UserAvailabilitySlot> createSlot(@AuthenticationPrincipal User user,
             @RequestBody SlotRequest req) {
+        log.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
         validateSlotRequest(req);
 
         UserAvailabilitySlot slot = new UserAvailabilitySlot();
@@ -43,7 +48,9 @@ public class AvailabilityController {
         slot.setEndTime(req.endTime());
         slot.setTimezone(req.timezone());
         slot.setActive(req.active() == null || req.active());
-        return new ApiResponse<>("Availability slot created", slotRepository.save(slot));
+        UserAvailabilitySlot saved = slotRepository.save(slot);
+        log.info("Availability slot saved id={} for userId={}", saved.getId(), user.getId());
+        return new ApiResponse<>("Availability slot created", saved);
     }
 
     @DeleteMapping("/my-slots/{id}")
@@ -200,15 +207,33 @@ public class AvailabilityController {
     }
 
     private static void validateSlotRequest(SlotRequest req) {
+        if (req == null) {
+            throw new IllegalArgumentException("Availability request is required");
+        }
         if (req.dayOfWeek() == null || req.dayOfWeek() < 1 || req.dayOfWeek() > 7) {
             throw new IllegalArgumentException("dayOfWeek must be between 1 and 7");
         }
-        LocalTime start = LocalTime.parse(req.startTime(), TIME_FMT);
-        LocalTime end = LocalTime.parse(req.endTime(), TIME_FMT);
-        if (!start.isBefore(end)) {
-            throw new IllegalArgumentException("startTime must be before endTime");
+        if (req.startTime() == null || req.startTime().isBlank()) {
+            throw new IllegalArgumentException("startTime is required");
         }
-        ZoneId.of(req.timezone());
+        if (req.endTime() == null || req.endTime().isBlank()) {
+            throw new IllegalArgumentException("endTime is required");
+        }
+        if (req.timezone() == null || req.timezone().isBlank()) {
+            throw new IllegalArgumentException("timezone is required");
+        }
+
+        try {
+            LocalTime start = LocalTime.parse(req.startTime(), TIME_FMT);
+            LocalTime end = LocalTime.parse(req.endTime(), TIME_FMT);
+            if (!start.isBefore(end)) {
+                throw new IllegalArgumentException("startTime must be before endTime");
+            }
+            ZoneId.of(req.timezone());
+        } catch (DateTimeException ex) {
+            throw new IllegalArgumentException(
+                    "Invalid availability slot time or timezone. Use HH:mm times and a valid timezone identifier.");
+        }
     }
 
     public record SlotRequest(Integer dayOfWeek, String startTime, String endTime, String timezone, Boolean active) {
