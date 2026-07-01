@@ -22,6 +22,17 @@
   --accent-soft: #d7f3ee;
   --line: #dbe4ea;
   --error: #b42318;
+
+  /* Brand design tokens — single source of truth for the green/teal
+     identity. Reused by every redesigned surface (Messages, Professional
+     Profile, Certifications) instead of hardcoding accent colors. */
+  --brand: #0f766e;
+  --brand-strong: #0d5f58;
+  --brand-grad: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+  --brand-ring: rgba(15, 118, 110, 0.4);
+  --brand-tint: rgba(15, 118, 110, 0.1);
+  --brand-tint-strong: rgba(15, 118, 110, 0.18);
+  --brand-shadow: rgba(15, 118, 110, 0.28);
   
   /* Navbar & Header */
   --nav-bg: linear-gradient(105deg, rgba(10, 26, 40, 0.94), rgba(12, 36, 48, 0.92));
@@ -68,6 +79,15 @@
   --accent-soft: #0d3d35;
   --line: #404040;
   --error: #ff6b6b;
+
+  /* Brand tokens (dark) — brighter teal for contrast on dark surfaces. */
+  --brand: #2dd4bf;
+  --brand-strong: #14b8a6;
+  --brand-grad: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);
+  --brand-ring: rgba(45, 212, 191, 0.45);
+  --brand-tint: rgba(45, 212, 191, 0.14);
+  --brand-tint-strong: rgba(45, 212, 191, 0.22);
+  --brand-shadow: rgba(13, 148, 136, 0.4);
   
   /* Navbar & Header (Dark) */
   --nav-bg: linear-gradient(105deg, rgba(20, 30, 40, 0.98), rgba(25, 35, 45, 0.96));

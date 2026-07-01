@@ -73,14 +73,19 @@
   color: var(--on-surface) !important;
 }
 
-/* Shared page rhythm for responsive consistency */
+/* Shared page rhythm for responsive consistency.
+   The `padding` shorthand resets the padding-top that styles.css uses to clear
+   the fixed navbar, so the top padding must re-add --navbar-height here. This
+   keeps every route offset below the navbar (no overlap) on all screen sizes. */
 .route-transition {
   padding: var(--space-fluid);
+  padding-top: calc(var(--navbar-height) + var(--space-fluid));
 }
 
 @media (min-width: 1024px) {
   .route-transition {
     padding: clamp(1rem, 2vw, 1.4rem);
+    padding-top: calc(var(--navbar-height) + clamp(1rem, 2vw, 1.4rem));
   }
 }
 

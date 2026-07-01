@@ -31,6 +31,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final UserDetailsService userDetailsService;
+    private final com.skillswap.user.UserRepository userRepository;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -70,6 +71,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // update last active timestamp for the user on each authenticated request
+                    try {
+                        userRepository.findByEmail(userEmail).ifPresent(u -> {
+                            u.setLastActiveAt(OffsetDateTime.now());
+                            userRepository.save(u);
+                        });
+                    } catch (Exception ignore) {
+                    }
                 }
             }
         } catch (RuntimeException ex) {

@@ -30,6 +30,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
         List<User> findByRoleAndEnabledTrueAndLastActiveAtAfterOrderByLastActiveAtDesc(UserRole role,
                         OffsetDateTime cutoff);
 
+        long countByLastActiveAtAfter(OffsetDateTime cutoff);
+
         @Query(value = """
                                                                                                 SELECT DISTINCT u.* FROM users u
                         WHERE u.role = 'MENTOR'

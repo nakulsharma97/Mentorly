@@ -45,7 +45,7 @@ public class SecurityConfig {
         private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
         private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
-        @Value("${app.cors.allowed-origins:http://localhost:5173,http://127.0.0.1:5173}")
+        @Value("${app.cors.allowed-origins:http://localhost:5174,http://127.0.0.1:5174}")
         private String allowedOrigins;
 
         @Value("${app.cors.allow-credentials:true}")
@@ -99,6 +99,8 @@ public class SecurityConfig {
                                                                 "/api/v1/users/mentors/**")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/mentor/**")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/mentor/certifications/**")
                                                 .permitAll()
                                                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
                                                                 "/swagger-resources/**")

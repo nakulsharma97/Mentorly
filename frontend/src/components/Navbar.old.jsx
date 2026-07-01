@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "../utils/i18n";
-import { NavLink, useLocation, Link } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { UIBadge } from "./ui/Primitives";
 import { useOptionalTheme } from "../context/ThemeContext";
 import OptimizedImage from "./OptimizedImage";
@@ -159,24 +159,6 @@ export default function Navbar({
               </div>
 
               <div className="site-navbar-actions">
-                <Link
-                  className="site-navbar-cta"
-                  to={
-                    profile?.role === "ADMIN"
-                      ? linkFor("/admin")
-                      : profile?.role === "MENTOR"
-                        ? linkFor("/teach")
-                        : linkFor("/mentors")
-                  }
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {profile?.role === "ADMIN"
-                    ? "Review Queue"
-                    : profile?.role === "MENTOR"
-                      ? "Manage Sessions"
-                      : "Find Mentor"}
-                </Link>
-
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
                     className="site-navbar-icon-btn"

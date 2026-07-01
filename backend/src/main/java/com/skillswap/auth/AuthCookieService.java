@@ -40,7 +40,7 @@ public class AuthCookieService {
         ResponseCookie cookie = ResponseCookie.from(name, value)
                 .httpOnly(true)
                 .secure(secureCookies)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/")
                 .maxAge(maxAge)
                 .build();
@@ -51,7 +51,7 @@ public class AuthCookieService {
         ResponseCookie cookie = ResponseCookie.from(name, "")
                 .httpOnly(true)
                 .secure(secureCookies)
-                .sameSite("Strict")
+                .sameSite("None")
                 .path("/")
                 .maxAge(Duration.ZERO)
                 .build();

@@ -20,6 +20,9 @@ const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const TeachingPage = lazy(() => import("./pages/TeachingPage"));
 const ProfileSetup = lazy(() => import("./pages/ProfileSetup"));
 const MentorProfilePage = lazy(() => import("./pages/MentorProfilePage"));
+const ProfessionalProfilePage = lazy(
+  () => import("./pages/ProfessionalProfilePage"),
+);
 const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const AdminOperationsPage = lazy(() => import("./pages/AdminOperationsPage"));
 const WalletPage = lazy(() => import("./pages/WalletPage"));
@@ -682,6 +685,40 @@ export default function App() {
                           <LearningPage notify={notify} />
                         </Suspense>
                       </RouteErrorBoundary>
+                    )
+                  }
+                />
+                <Route
+                  path="/professional-profile"
+                  element={
+                    profile?.role === "MENTOR" ? (
+                      <RouteErrorBoundary key="professional-profile">
+                        <Suspense fallback={routeFallback}>
+                          <ProfessionalProfilePage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    ) : (
+                      <Navigate to="/home" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/professional-profile/:section"
+                  element={
+                    profile?.role === "MENTOR" ? (
+                      <RouteErrorBoundary key="professional-profile-section">
+                        <Suspense fallback={routeFallback}>
+                          <ProfessionalProfilePage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    ) : (
+                      <Navigate to="/home" replace />
                     )
                   }
                 />

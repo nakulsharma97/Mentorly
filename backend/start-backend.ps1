@@ -21,5 +21,10 @@ if (-not $SkipPortCleanup) {
   }
 }
 
+if (-not $env:SPRING_PROFILES_ACTIVE) {
+  $env:SPRING_PROFILES_ACTIVE = "dev"
+  Write-Host "Defaulting SPRING_PROFILES_ACTIVE=dev for local development"
+}
+
 Write-Host "Starting backend on port $Port..."
 mvn spring-boot:run "-Dspring-boot.run.arguments=--server.port=$Port"

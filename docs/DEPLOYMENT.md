@@ -140,7 +140,7 @@ This starts:
 
 - MySQL on `3306`
 - Backend on `8080`
-- Frontend on `5173`
+- Frontend on `5174`
 
 Stop it with:
 

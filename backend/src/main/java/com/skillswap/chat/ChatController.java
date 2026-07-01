@@ -15,11 +15,19 @@ public class ChatController {
 
     private final ChatService chatService;
 
+    @GetMapping("/conversations")
+    public ApiResponse<List<ChatService.ConversationDto>> listConversations(
+            @AuthenticationPrincipal User user,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String filter) {
+        return new ApiResponse<>("Conversations fetched", chatService.listConversations(user, query, filter));
+    }
+
     @GetMapping("/booking/{bookingId}")
-    public ApiResponse<List<ChatService.ChatMessageView>> list(
+    public ApiResponse<List<ChatService.ChatMessageView>> listMessages(
             @AuthenticationPrincipal User user,
             @PathVariable Long bookingId) {
-        return new ApiResponse<>("Chat history fetched", chatService.listMessages(user, bookingId));
+        return new ApiResponse<>("Chat history fetched", chatService.listMessages(user, bookingId, null, 50));
     }
 
     @PostMapping("/booking/{bookingId}")
@@ -28,6 +36,14 @@ public class ChatController {
             @PathVariable Long bookingId,
             @RequestBody SendMessageRequest request) {
         return new ApiResponse<>("Message sent", chatService.createMessage(user, bookingId, request.content()));
+    }
+
+    @PutMapping("/booking/{bookingId}/read")
+    public ApiResponse<Void> markRead(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long bookingId) {
+        chatService.markAllAsRead(bookingId, user.getEmail());
+        return new ApiResponse<>("Messages marked read", null);
     }
 
     public record SendMessageRequest(String content) {

@@ -13,7 +13,7 @@ This test validates the booking retry UX against a real running backend and fron
 ## Prerequisites
 
 - Backend running on `http://localhost:8080`.
-- Frontend running on `http://localhost:5173`.
+- Frontend running on `http://localhost:5174`.
 - Seeded learner account exists (`learner@test.com`).
 
 ## Run

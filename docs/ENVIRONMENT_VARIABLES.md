@@ -31,7 +31,7 @@ This document describes all environment variables used by the Skill Swapping Pla
 | `JWT_REFRESH_EXPIRATION`                                          | Refresh token expiration in ms         | `604800000` (7d)                              | `604800000`                                       |
 | `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID`     | Google OAuth2 client ID                | None                                          | `xxx.apps.googleusercontent.com`                  |
 | `SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET` | Google OAuth2 secret                   | None                                          | `GOCSPX-xxx...`                                   |
-| `CORS_ALLOWED_ORIGINS`                                            | CORS allowed origins (comma-separated) | `http://localhost:5173,http://127.0.0.1:5173` | `https://app.example.com,https://www.example.com` |
+| `CORS_ALLOWED_ORIGINS`                                            | CORS allowed origins (comma-separated) | `http://localhost:5174,http://127.0.0.1:5174` | `https://app.example.com,https://www.example.com` |
 
 ### Email Configuration
 

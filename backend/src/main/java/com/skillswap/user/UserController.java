@@ -323,6 +323,7 @@ public class UserController {
 
     public record PublicMentorProfileResponse(
             Long id,
+            String createdAt,
             String fullName,
             String skills,
             String aboutMe,
@@ -344,6 +345,7 @@ public class UserController {
                 int upcomingSessions) {
             return new PublicMentorProfileResponse(
                     mentor.getId(),
+                    mentor.getCreatedAt() == null ? null : mentor.getCreatedAt().toString(),
                     mentor.getFullName(),
                     mentor.getSkills(),
                     mentor.getAboutMe(),

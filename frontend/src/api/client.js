@@ -104,6 +104,31 @@ client.interceptors.response.use(
       extra: { url: config.url, method, status },
     });
 
+    if (
+      status === 401 &&
+      !config.__isRetry &&
+      !String(config.url || "").includes("/api/v1/auth/refresh") &&
+      !String(config.url || "").includes("/api/v1/auth/login") &&
+      !String(config.url || "").includes("/api/v1/auth/signup")
+    ) {
+      try {
+        await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
+          withCredentials: true,
+          headers: { "Content-Type": "application/json" },
+        });
+        const retryConfig = {
+          ...config,
+          __isRetry: true,
+          headers: {
+            ...(config.headers || {}),
+          },
+        };
+        return client(retryConfig);
+      } catch {
+        return Promise.reject(error);
+      }
+    }
+
     if (method !== "GET") {
       return Promise.reject(error);
     }

@@ -25,6 +25,8 @@ describe('Navbar role actions', () => {
     expect(screen.queryByText('Earnings')).not.toBeInTheDocument();
     expect(screen.getByText('Browse Mentors')).toBeInTheDocument();
     expect(screen.getByText('Payments')).toBeInTheDocument();
-    expect(screen.getByText('Find Mentor')).toBeInTheDocument();
+    // The duplicate call-to-action link was removed, so /mentors is reachable
+    // only through the single "Browse Mentors" nav item (no "Find Mentor" CTA).
+    expect(screen.queryByText('Find Mentor')).not.toBeInTheDocument();
   });
 });

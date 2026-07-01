@@ -7,6 +7,7 @@ import BookingFlowPage from "./BookingFlowPage";
 import MentorProfileHeader from "../components/mentor/MentorProfileHeader";
 import MentorSessionList from "../components/mentor/MentorSessionList";
 import MentorReviewSection from "../components/mentor/MentorReviewSection";
+import MentorCertifications from "../components/mentor/MentorCertifications";
 import {
   SkeletonLine,
   SkeletonSessionList,
@@ -54,6 +55,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin }) {
   const navigate = useNavigate();
   const [mentor, setMentor] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [certifications, setCertifications] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState({ averageRating: 0, totalReviews: 0 });
   const [eligibleBookings, setEligibleBookings] = useState([]);
@@ -99,11 +101,12 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin }) {
     setError("");
 
     try {
-      const [profileResult, sessionsResult, reviewsResult] =
+      const [profileResult, sessionsResult, reviewsResult, certificationsResult] =
         await Promise.allSettled([
           client.get(`/api/v1/users/mentors/${mentorId}`),
           client.get(`/api/v1/sessions/mentor/${mentorId}`),
           client.get(`/api/v1/reviews/mentor/${mentorId}`),
+          client.get(`/api/mentor/certifications/${mentorId}`),
         ]);
 
       if (profileResult.status !== "fulfilled") {
@@ -114,6 +117,11 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin }) {
       setSessions(
         sessionsResult.status === "fulfilled"
           ? sessionsResult.value?.data?.data || []
+          : [],
+      );
+      setCertifications(
+        certificationsResult.status === "fulfilled"
+          ? certificationsResult.value?.data?.data || []
           : [],
       );
 
@@ -263,6 +271,8 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin }) {
         trustSnapshot={trustSnapshot}
         skillChips={skillChips}
       />
+
+      <MentorCertifications certifications={certifications} />
 
       <div className="mentor-content-grid">
         <MentorSessionList

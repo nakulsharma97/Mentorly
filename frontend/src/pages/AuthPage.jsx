@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import OptimizedImage from "../components/OptimizedImage";
 import PremiumFooter from "../components/PremiumFooter";
+import CommunityStats from "../components/CommunityStats";
+import Testimonials from "../components/Testimonials";
 import "./AuthPage.css";
 
 const SECTION_IDS = ["product", "mentors", "workflow", "outcomes"];
@@ -523,6 +525,9 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             </div>
           </div>
         </section>
+
+        <CommunityStats />
+        <Testimonials />
       </main>
 
       <PremiumFooter onScrollToSection={scrollToSection} />

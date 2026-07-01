@@ -58,18 +58,18 @@ app:
     api-write:
       max-per-minute: ${APP_RATE_LIMIT_API_WRITE_PER_MINUTE:120}
   oauth2:
-    redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5173/oauth/callback}
+    redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5174/oauth/callback}
   polygon:
     rpc-url: ${POLYGON_RPC_URL:https://polygon-amoy.g.alchemy.com/v2/demo}
   email:
     enabled: ${APP_EMAIL_ENABLED:false}
     from: ${APP_EMAIL_FROM:no-reply@skillswap.app}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5174,http://127.0.0.1:5174}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
   auth:
     cookies:
-      secure: ${APP_AUTH_COOKIE_SECURE:true}
+      secure: ${APP_AUTH_COOKIE_SECURE:false}
     refresh-token:
       cleanup-cron: ${REFRESH_TOKEN_CLEANUP_CRON:0 20 3 * * *}
 
@@ -113,6 +113,3 @@ management:
       name: Skill Swapping Platform Backend
       description: Backend API for the Skill Swapping Platform
       version: 0.0.1
-
-
-

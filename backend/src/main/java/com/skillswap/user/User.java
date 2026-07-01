@@ -1,5 +1,6 @@
 package com.skillswap.user;
 
+import com.skillswap.messaging.MessagePrivacy;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,6 +32,10 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role = UserRole.LEARNER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_privacy", nullable = false)
+    private MessagePrivacy messagePrivacy = MessagePrivacy.ANYONE;
 
     @Column(nullable = false)
     private String fullName;

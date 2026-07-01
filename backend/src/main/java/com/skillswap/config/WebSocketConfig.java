@@ -17,6 +17,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(bookingChatWebSocketHandler, "/ws/chat")
-                .setAllowedOriginPatterns("http://localhost:5173", "http://127.0.0.1:5173");
+                .setAllowedOriginPatterns("http://localhost:5174", "http://127.0.0.1:5174");
     }
 }

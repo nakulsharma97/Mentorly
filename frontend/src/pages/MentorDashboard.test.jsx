@@ -1,21 +1,21 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { http, HttpResponse } from 'msw';
-import MentorDashboard from './MentorDashboard';
-import { server } from '../test/mocks/server';
+import { render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { http, HttpResponse } from "msw";
+import MentorDashboard from "./MentorDashboard";
+import { server } from "../test/mocks/server";
 
-const profile = { fullName: 'Mentor Prime' };
+const profile = { fullName: "Mentor Prime" };
 
 function renderMentorDashboard() {
   return render(
     <MemoryRouter>
       <MentorDashboard profile={profile} />
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
-describe('MentorDashboard', () => {
-  it('renders mentor name from profile prop', async () => {
+describe("MentorDashboard", () => {
+  it("renders mentor name from profile prop", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
@@ -23,51 +23,73 @@ describe('MentorDashboard', () => {
     });
   });
 
-  it('renders pending bookings count', async () => {
+  it("renders pending bookings count", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText('Pending Requests')).toBeInTheDocument();
+      expect(screen.getByText("Pending Requests")).toBeInTheDocument();
     });
 
-    const pendingStat = screen.getByText('Pending Requests').closest('.dash-hero-stat');
+    const pendingStat = screen
+      .getByText("Pending Requests")
+      .closest(".dash-hero-stat");
     expect(pendingStat).not.toBeNull();
-    expect(within(pendingStat).getByText('1')).toBeInTheDocument();
+    expect(within(pendingStat).getByText("1")).toBeInTheDocument();
   });
 
-  it('renders total completed sessions', async () => {
+  it("renders total completed sessions", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText('Completed')).toBeInTheDocument();
+      expect(screen.getByText("Completed")).toBeInTheDocument();
     });
 
-    const completedCard = screen.getByText('Completed').closest('.dash-metric-card');
+    const completedCard = screen
+      .getByText("Completed")
+      .closest(".dash-metric-card");
     expect(completedCard).not.toBeNull();
-    expect(within(completedCard).getByText('1')).toBeInTheDocument();
+    expect(within(completedCard).getByText("1")).toBeInTheDocument();
   });
 
-  it('renders average rating from reviews', async () => {
+  it("renders average rating from reviews", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText('Avg Rating')).toBeInTheDocument();
+      expect(screen.getByText("Avg Rating")).toBeInTheDocument();
     });
 
-    const avgRatingCard = screen.getByText('Avg Rating').closest('.dash-metric-card');
+    const avgRatingCard = screen
+      .getByText("Avg Rating")
+      .closest(".dash-metric-card");
     expect(avgRatingCard).not.toBeNull();
-    expect(within(avgRatingCard).getByText('5')).toBeInTheDocument();
+    expect(within(avgRatingCard).getByText("5")).toBeInTheDocument();
   });
 
-  it('shows empty state when no sessions exist', async () => {
+  it("routes certification actions to the professional profile certifications page", async () => {
+    renderMentorDashboard();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("No certifications added yet."),
+      ).toBeInTheDocument();
+    });
+
+    const addLink = screen.getByRole("link", { name: /add certification/i });
+    expect(addLink).toHaveAttribute(
+      "href",
+      "/professional-profile/certifications",
+    );
+  });
+
+  it("shows empty state when no sessions exist", async () => {
     server.use(
-      http.get('*/api/v1/sessions', () => HttpResponse.json({ data: [] }))
+      http.get("*/api/v1/sessions", () => HttpResponse.json({ data: [] })),
     );
 
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText('No upcoming sessions')).toBeInTheDocument();
+      expect(screen.getByText("No upcoming sessions")).toBeInTheDocument();
     });
   });
 });

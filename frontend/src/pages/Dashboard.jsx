@@ -7,6 +7,7 @@ import DateTimePicker from '../components/DateTimePicker';
 import { SkeletonDashboard, SkeletonMentorGrid } from '../components/SkeletonLoaders';
 import EmptyStateCard from '../components/dashboard/EmptyStateCard';
 import OptimizedImage from '../components/OptimizedImage';
+import MentorCertificationsManager from '../components/mentor/MentorCertificationsManager';
 import { getProfileQualityScore, parseSkillTags } from '../utils/profileSkills';
 import { t } from '../utils/i18n';
 import { getErrorFeedback, getInfoFeedback, showInfoFeedback } from '../utils/comingSoon';
@@ -65,7 +66,7 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
   const [bookings, setBookings] = useState([]);
   const [payments, setPayments] = useState([]);
   const [meetingLinks, setMeetingLinks] = useState({});
-  const [portfolioForm, setPortfolioForm] = useState({ projects: '', certificates: '', pastTeachingSessions: '' });
+  const [portfolioForm, setPortfolioForm] = useState({ projects: '', pastTeachingSessions: '' });
   const [portfolioMessage, setPortfolioMessage] = useState('');
   const [packageForm, setPackageForm] = useState({ title: '', description: '', sessionCount: '', discountPercent: '', totalPrice: '' });
   const [packageMessage, setPackageMessage] = useState('');
@@ -191,20 +192,6 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
   }, [mentorMinScore, mentorSortBy, searchParams, searchQuery, setSearchParams]);
 
   useEffect(() => {
-    if (!isMentorsPage || didRestoreMentorQueryRef.current) {
-      return;
-    }
-
-    const restoredQuery = String(searchQuery || '').trim();
-    if (!restoredQuery) {
-      return;
-    }
-
-    didRestoreMentorQueryRef.current = true;
-    runMentorSearch(restoredQuery, activeFilters, { skipRecent: true });
-  }, [activeFilters, isMentorsPage, runMentorSearch, searchQuery]);
-
-  useEffect(() => {
     const load = async () => {
       try {
         const results = await Promise.allSettled([
@@ -240,7 +227,6 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
         if (currentProfile) {
           setPortfolioForm({
             projects: currentProfile?.projects || '',
-            certificates: currentProfile?.certificates || '',
             pastTeachingSessions: currentProfile?.pastTeachingSessions || ''
           });
         }
@@ -463,7 +449,6 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
     try {
       const response = await client.put('/api/v1/users/me/profile', {
         projects: portfolioForm.projects,
-        certificates: portfolioForm.certificates,
         pastTeachingSessions: portfolioForm.pastTeachingSessions
       });
       setProfile(response.data.data);
@@ -823,6 +808,24 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
       setMentorSearchLoading(false);
     }
   }, [searchQuery]);
+
+  // Restore a persisted mentor search query on mount. This effect is declared
+  // AFTER runMentorSearch so the callback is initialized before the effect's
+  // dependency array reads it — otherwise evaluating the deps would throw
+  // "Cannot access 'runMentorSearch' before initialization" (temporal dead zone).
+  useEffect(() => {
+    if (!isMentorsPage || didRestoreMentorQueryRef.current) {
+      return;
+    }
+
+    const restoredQuery = String(searchQuery || '').trim();
+    if (!restoredQuery) {
+      return;
+    }
+
+    didRestoreMentorQueryRef.current = true;
+    runMentorSearch(restoredQuery, activeFilters, { skipRecent: true });
+  }, [activeFilters, isMentorsPage, runMentorSearch, searchQuery]);
 
   const handleBookNearestSession = async (mentorId) => {
     setMentorSearchMessage('');
@@ -2708,12 +2711,6 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
               rows={3}
             />
             <textarea
-              placeholder="Certificates"
-              value={portfolioForm.certificates}
-              onChange={(e) => setPortfolioForm((prev) => ({ ...prev, certificates: e.target.value }))}
-              rows={3}
-            />
-            <textarea
               placeholder="Past teaching sessions summary"
               value={portfolioForm.pastTeachingSessions}
               onChange={(e) => setPortfolioForm((prev) => ({ ...prev, pastTeachingSessions: e.target.value }))}
@@ -2726,6 +2723,10 @@ export default function Dashboard({ onLogout, language, page = 'mentors', notify
         )}
         {portfolioMessage && <p className="muted">{portfolioMessage}</p>}
       </section>
+      )}
+
+      {(isMentorsPage || isDiscoverPage) && isMentor && profile?.id && (
+        <MentorCertificationsManager mentorId={profile.id} notify={notify} />
       )}
 
       {(isMentorsPage || isDiscoverPage) && (

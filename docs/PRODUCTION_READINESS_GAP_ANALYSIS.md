@@ -160,7 +160,7 @@ docker-compose.yml - Local dev environment
 ```yaml
 services:
   backend: spring-boot-api (port 8080)
-  frontend: react-dev (port 5173)
+   frontend: react-dev (port 5174)
   mysql: database (port 3306)
   redis: cache/session (port 6379) - optional
 ```
