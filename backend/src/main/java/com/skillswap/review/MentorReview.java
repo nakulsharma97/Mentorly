@@ -36,6 +36,9 @@ public class MentorReview {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    @Column(name = "reply_text", columnDefinition = "TEXT")
+    private String replyText;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 }

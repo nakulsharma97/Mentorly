@@ -3,6 +3,43 @@ import { useMemo } from "react";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
 import "./ProfessionalProfilePage.css";
 
+function VerificationStatusPanel({ profile }) {
+  const isVerified = Boolean(
+    profile?.mentorVerified ||
+    profile?.verified ||
+    profile?.verificationStatus === "VERIFIED",
+  );
+  const statusLabel = isVerified ? "Verified" : "Pending review";
+  const badgeClass = isVerified
+    ? "pp-badge pp-badge--verified"
+    : "pp-badge pp-badge--pending";
+
+  return (
+    <Panel
+      title="Verification Status"
+      subtitle="Build trust with learners before they book."
+    >
+      <div className="pp-verification-card">
+        <div className="pp-verification-card__content">
+          <div
+            className={`pp-badge ${isVerified ? "pp-badge--verified" : "pp-badge--pending"}`}
+          >
+            {statusLabel}
+          </div>
+          <p className="pp-muted">
+            {isVerified
+              ? "Your mentor verification is active, which helps learners feel more confident booking with you."
+              : "Complete your profile and verification steps so learners can trust your expertise and book with confidence."}
+          </p>
+        </div>
+        <Link to="/profile-setup" className="pp-btn pp-btn-primary">
+          {isVerified ? "Update Profile" : "Complete Verification"}
+        </Link>
+      </div>
+    </Panel>
+  );
+}
+
 const tabs = [
   {
     key: "personal-information",
@@ -55,7 +92,10 @@ const completionChecklist = [
 
 function computeCompletion(profile) {
   if (!profile) {
-    return { percent: 0, missing: completionChecklist.map((item) => item.label) };
+    return {
+      percent: 0,
+      missing: completionChecklist.map((item) => item.label),
+    };
   }
   const missing = completionChecklist.filter(
     (item) => !String(profile[item.key] || "").trim(),
@@ -119,9 +159,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
           <div className="pp-completion-glow" aria-hidden="true" />
           <div className="pp-completion-main">
             <div className="pp-completion-icon" aria-hidden="true">
-              <span className="material-symbols-outlined">
-                account_circle
-              </span>
+              <span className="material-symbols-outlined">account_circle</span>
             </div>
             <div className="pp-completion-text">
               <p className="pp-completion-label">Profile Completion</p>
@@ -197,6 +235,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
                   </div>
                 </dl>
               </Panel>
+              <VerificationStatusPanel profile={profile} />
               <Panel
                 title="Profile Summary"
                 subtitle="How to make the most of this space."
@@ -222,10 +261,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
           )}
 
           {activeTab === "experience" && (
-            <Panel
-              title="Experience"
-              subtitle="Your professional background."
-            >
+            <Panel title="Experience" subtitle="Your professional background.">
               <p className="pp-muted">
                 Add your professional experience and session history here.
               </p>
@@ -233,7 +269,10 @@ export default function ProfessionalProfilePage({ profile, notify }) {
           )}
 
           {activeTab === "education" && (
-            <Panel title="Education" subtitle="Academic background and training.">
+            <Panel
+              title="Education"
+              subtitle="Academic background and training."
+            >
               <p className="pp-muted">
                 Add your academic background and training here.
               </p>
@@ -241,7 +280,10 @@ export default function ProfessionalProfilePage({ profile, notify }) {
           )}
 
           {activeTab === "certifications" && (
-            <MentorCertificationsManager mentorId={profile?.id} notify={notify} />
+            <MentorCertificationsManager
+              mentorId={profile?.id}
+              notify={notify}
+            />
           )}
 
           {activeTab === "portfolio" && (

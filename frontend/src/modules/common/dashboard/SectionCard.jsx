@@ -29,7 +29,11 @@ export default function SectionCard({
                 {action} <Icon name="arrow_forward" />
               </Link>
             ) : (
-              <button type="button" className="md-section__link" onClick={onAction}>
+              <button
+                type="button"
+                className="md-section__link"
+                onClick={onAction}
+              >
                 {action} <Icon name="arrow_forward" />
               </button>
             ))}
@@ -40,7 +44,14 @@ export default function SectionCard({
   );
 }
 
-export function EmptyState({ icon, title, description, actionLabel, actionTo }) {
+export function EmptyState({
+  icon,
+  title,
+  description,
+  actionLabel,
+  actionTo,
+  onAction,
+}) {
   return (
     <div className="md-empty">
       <div className="md-empty__icon">
@@ -48,11 +59,25 @@ export function EmptyState({ icon, title, description, actionLabel, actionTo }) 
       </div>
       <p className="md-empty__title">{title}</p>
       {description && <p className="md-empty__desc">{description}</p>}
-      {actionLabel && actionTo && (
-        <Link to={actionTo} className="md-btn md-btn--outline md-btn--sm" style={{ marginTop: 6 }}>
-          {actionLabel}
-        </Link>
-      )}
+      {actionLabel &&
+        (actionTo ? (
+          <Link
+            to={actionTo}
+            className="md-btn md-btn--outline md-btn--sm"
+            style={{ marginTop: 6 }}
+          >
+            {actionLabel}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="md-btn md-btn--outline md-btn--sm"
+            style={{ marginTop: 6 }}
+            onClick={onAction}
+          >
+            {actionLabel}
+          </button>
+        ))}
     </div>
   );
 }

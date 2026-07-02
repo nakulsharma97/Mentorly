@@ -6,15 +6,23 @@ const GROUPS = [
   {
     label: "Workspace",
     links: [
-      { to: "/mentor/dashboard", label: "Dashboard", icon: "grid_view", end: true },
-      { to: "/mentor/teach", label: "Manage Sessions", icon: "video_camera_front" },
+      {
+        to: "/mentor/dashboard",
+        label: "Dashboard",
+        icon: "grid_view",
+        end: true,
+      },
+      {
+        to: "/mentor/teach",
+        label: "Manage Sessions",
+        icon: "video_camera_front",
+      },
       { to: "/mentor/students", label: "Students", icon: "groups" },
       { to: "/mentor/calendar", label: "Calendar", icon: "calendar_month" },
       { to: "/mentor/messages", label: "Messages", icon: "chat" },
       { to: "/mentor/analytics", label: "Analytics", icon: "insights" },
       { to: "/mentor/wallet", label: "Earnings", icon: "payments" },
       { to: "/mentor/reviews", label: "Reviews", icon: "star_rate" },
-      { to: "/mentor/verification", label: "Verification", icon: "verified_user" },
     ],
   },
 ];
@@ -35,7 +43,6 @@ const PAGE_META = {
   earnings: { title: "Earnings", search: "Search transactions..." },
   wallet: { title: "Earnings", search: "Search transactions..." },
   reviews: { title: "Reviews", search: "Search reviews..." },
-  verification: { title: "Verification", search: "Search..." },
   "professional-profile": { title: "Profile", search: "Search..." },
 };
 
@@ -45,7 +52,11 @@ const PROFILE_MENU = [
   { to: "/mentor/wallet", label: "Earnings", icon: "payments" },
 ];
 
-export default function MentorLayout({ profile, onLogout, unreadNotifications }) {
+export default function MentorLayout({
+  profile,
+  onLogout,
+  unreadNotifications,
+}) {
   return (
     <WorkspaceLayout
       profile={profile}

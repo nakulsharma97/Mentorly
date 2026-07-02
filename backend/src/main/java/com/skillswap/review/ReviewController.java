@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/reviews")
@@ -24,18 +26,52 @@ public class ReviewController {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    @GetMapping("/mentor/{mentorId}")
-    public ApiResponse<ReviewSummaryResponse> listMentorReviews(@PathVariable Long mentorId) {
-        List<ReviewItemResponse> reviews = mentorReviewRepository.findByMentorIdOrderByCreatedAtDesc(mentorId)
-                .stream()
+    @GetMapping({ "/mentor", "/mentor/{mentorId}" })
+    public ApiResponse<ReviewSummaryResponse> listMentorReviews(
+            @AuthenticationPrincipal User mentor,
+            @PathVariable(required = false) Long mentorId) {
+        long resolvedMentorId = mentorId != null ? mentorId : mentor.getId();
+        List<MentorReview> reviews = mentorReviewRepository.findByMentorIdOrderByCreatedAtDesc(resolvedMentorId);
+        List<ReviewItemResponse> reviewItems = reviews.stream()
                 .map(ReviewItemResponse::from)
                 .toList();
 
-        double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
-        long totalReviews = mentorReviewRepository.countByMentorId(mentorId);
+        double averageRating = mentorReviewRepository.averageRatingByMentorId(resolvedMentorId).orElse(0.0);
+        long totalReviews = mentorReviewRepository.countByMentorId(resolvedMentorId);
+        long recommended = reviews.stream().filter(review -> review.getRating() >= 4).count();
+        Map<Integer, Long> distribution = new LinkedHashMap<>();
+        for (int star = 5; star >= 1; star--) {
+            final int currentStar = star;
+            long count = reviews.stream().filter(review -> review.getRating() == currentStar).count();
+            distribution.put(star, count);
+        }
 
+        int recommendationRate = totalReviews == 0 ? 0 : (int) Math.round((recommended * 100.0) / totalReviews);
         return new ApiResponse<>("Mentor reviews fetched",
-                new ReviewSummaryResponse(Math.round(averageRating * 10.0) / 10.0, totalReviews, reviews));
+                new ReviewSummaryResponse(
+                        Math.round(averageRating * 10.0) / 10.0,
+                        totalReviews,
+                        recommendationRate,
+                        reviews.stream().filter(review -> review.getRating() == 5).count(),
+                        distribution,
+                        reviewItems));
+    }
+
+    @PostMapping("/{reviewId}/reply")
+    public ApiResponse<ReviewItemResponse> replyToReview(
+            @AuthenticationPrincipal User mentor,
+            @PathVariable Long reviewId,
+            @RequestBody ReplyReviewRequest request) {
+        MentorReview review = mentorReviewRepository.findById(reviewId)
+                .orElseThrow(() -> new IllegalArgumentException("Review not found"));
+
+        if (!review.getMentor().getId().equals(mentor.getId())) {
+            throw new IllegalArgumentException("You can only reply to your own reviews");
+        }
+
+        review.setReplyText(trimToNull(request.replyText()));
+        MentorReview saved = mentorReviewRepository.save(review);
+        return new ApiResponse<>("Reply saved", ReviewItemResponse.from(saved));
     }
 
     @GetMapping("/eligible/mentor/{mentorId}")
@@ -66,6 +102,7 @@ public class ReviewController {
                         review.getMentor().getFullName(),
                         review.getRating(),
                         review.getComment(),
+                        null,
                         review.getCreatedAt() == null ? null : review.getCreatedAt().toString()))
                 .toList();
 
@@ -73,7 +110,13 @@ public class ReviewController {
         long totalReviews = learnerReviewRepository.countByLearnerId(learnerId);
 
         return new ApiResponse<>("Learner reviews fetched",
-                new ReviewSummaryResponse(Math.round(averageRating * 10.0) / 10.0, totalReviews, reviews));
+                new ReviewSummaryResponse(
+                        Math.round(averageRating * 10.0) / 10.0,
+                        totalReviews,
+                        totalReviews == 0 ? 0 : 100,
+                        totalReviews,
+                        Map.of(),
+                        reviews));
     }
 
     @GetMapping("/eligible/learner/{learnerId}")
@@ -210,6 +253,7 @@ public class ReviewController {
             String learnerName,
             Integer rating,
             String comment,
+            String replyText,
             String createdAt) {
         static ReviewItemResponse from(MentorReview review) {
             return new ReviewItemResponse(
@@ -219,10 +263,20 @@ public class ReviewController {
                     review.getLearner().getFullName(),
                     review.getRating(),
                     review.getComment(),
+                    review.getReplyText(),
                     review.getCreatedAt() == null ? null : review.getCreatedAt().toString());
         }
     }
 
-    public record ReviewSummaryResponse(Double averageRating, Long totalReviews, List<ReviewItemResponse> reviews) {
+    public record ReviewSummaryResponse(
+            Double averageRating,
+            Long totalReviews,
+            Integer recommendationRate,
+            Long fiveStarReviews,
+            Map<Integer, Long> distribution,
+            List<ReviewItemResponse> reviews) {
+    }
+
+    public record ReplyReviewRequest(String replyText) {
     }
 }

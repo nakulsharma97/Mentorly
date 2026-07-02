@@ -1,33 +1,36 @@
 /* ============================================================================
-   Shared workspace shell — fixed sidebar (ws-sb) + sticky topbar (ws-top).
+   Shared workspace shell — fixed sidebar (ws-sb) + fixed topbar (ws-top).
    Role-agnostic: used by both the Mentor and Learner dashboards.
-   Fluid full-width layout: `grid-template-columns: <sidebar> 1fr` with NO
-   max-width cap, so content always fills the viewport after the sidebar.
+
+   App-shell architecture: `.ws-shell` is a flex row locked to 100vh with
+   `overflow: hidden`. The sidebar and topbar are non-scrolling flex items;
+   ONLY `.ws-main-content` scrolls (`overflow-y: auto`). The content column is
+   `flex: 1` with no max-width, so it always fills the viewport after the
+   sidebar. Scroll is owned by the content pane (not <body>), so the sidebar
+   and topbar can never move and there is no reliance on `position: sticky`.
    ========================================================================== */
 
 .ws-shell {
     --sb-width:260px;
     --sb-rail:80px;
 
-    min-height:100vh;
-    display:grid;
-    grid-template-columns:var(--sb-width) minmax(0,1fr);
-
-    gap:0;
-    padding:0;
+    /* App-shell: exactly one viewport tall, nothing here scrolls — only
+       .ws-main-content does. This also sidesteps the `position: sticky`
+       failure caused by `overflow-x: hidden` on <html>/<body>. */
+    height:100vh;
+    display:flex;
+    overflow:hidden;
 
     width:100%;
+    background:var(--bg);
 }
-.ws-shell.is-collapsed {
-  grid-template-columns: var(--sb-rail) minmax(0, 1fr);
-}
+.ws-shell.is-collapsed .ws-sb { width: var(--sb-rail); }
 
 /* --------------------------------------------------------------- sidebar -- */
 .ws-sb {
-  position: sticky;
-  top: 0;
-  align-self: start;
-
+  position: relative;
+  flex-shrink: 0;
+  width: var(--sb-width);
   height: 100vh;
 
   display: flex;
@@ -127,18 +130,17 @@
 
 /* --------------------------------------------------------------- topbar --- */
 .ws-main{
+    flex: 1;
+    min-width: 0;
+    height: 100vh;
+
     display:flex;
     flex-direction:column;
-    min-width:0;
-
-    width:100%;
-
-    gap:0;
+    overflow: hidden;
 }
 
 .ws-top {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 30;
 
   display: flex;
@@ -248,20 +250,25 @@
    This is the ONLY outer padding in the workspace — the shell, sidebar and
    topbar are all flush; internal breathing room lives here (24px). */
 .ws-main-content {
+  flex: 1;
   min-width: 0;
   width: 100%;
   max-width: none;
   margin: 0;
   padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* --------------------------------------------------------------- responsive */
 @media (max-width: 1080px) {
-  .ws-shell, .ws-shell.is-collapsed { grid-template-columns: 1fr; padding: 0; }
   .ws-main-content { padding: 16px; }
   .ws-top { padding: 12px 16px; }
 
-  .ws-sb {
+  /* Sidebar leaves the flex flow and becomes an overlay drawer, so
+     .ws-main automatically expands to the full viewport width. */
+  .ws-sb,
+  .ws-shell.is-collapsed .ws-sb {
     position: fixed; top: 0; left: 0;
     height: 100vh; width: 280px;
     border-radius: 0 22px 22px 0;

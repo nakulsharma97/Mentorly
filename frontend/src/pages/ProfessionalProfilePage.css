@@ -302,6 +302,46 @@
   line-height: 1.6;
 }
 
+/* ---------- Verification panel ---------- */
+.pp-verification-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--pp-border);
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.06), rgba(15, 118, 110, 0.03));
+}
+
+.pp-verification-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pp-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pp-badge--verified {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.pp-badge--pending {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.14);
+}
+
 /* ---------- Buttons ---------- */
 .pp-btn {
   display: inline-flex;

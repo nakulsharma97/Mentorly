@@ -17,6 +17,9 @@ import RoleGuard from "./modules/common/RoleGuard";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const MentorDashboard = lazy(() => import("./pages/MentorDashboard"));
+const MentorStudentsPage = lazy(() => import("./pages/MentorStudentsPage"));
+const MentorCalendarPage = lazy(() => import("./pages/MentorCalendarPage"));
+const MentorReviewsPage = lazy(() => import("./pages/MentorReviewsPage"));
 const RoleGuide = lazy(() => import("./pages/RoleGuide"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const LearningPage = lazy(() => import("./pages/LearningPage"));
@@ -745,11 +748,50 @@ export default function App() {
                     }
                   />
                   <Route
+                    path="students"
+                    element={
+                      <RouteErrorBoundary key="mentor-students">
+                        <Suspense fallback={routeFallback}>
+                          <MentorStudentsPage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="calendar"
+                    element={
+                      <RouteErrorBoundary key="mentor-calendar">
+                        <Suspense fallback={routeFallback}>
+                          <MentorCalendarPage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
                     path="analytics"
                     element={
                       <RouteErrorBoundary key="mentor-analytics">
                         <Suspense fallback={routeFallback}>
                           <AnalyticsPage profile={profile} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="reviews"
+                    element={
+                      <RouteErrorBoundary key="mentor-reviews">
+                        <Suspense fallback={routeFallback}>
+                          <MentorReviewsPage
+                            profile={profile}
+                            notify={notify}
+                          />
                         </Suspense>
                       </RouteErrorBoundary>
                     }
