@@ -1303,7 +1303,7 @@ export default function TeachingPage({ notify }) {
             focused on session management.
           </p>
           <Link
-            to="/home"
+            to="/mentor/dashboard"
             className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:opacity-90"
           >
             Back to Mentor Hub

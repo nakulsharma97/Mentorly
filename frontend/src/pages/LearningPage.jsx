@@ -525,7 +525,7 @@ export default function LearningPage({ notify }) {
           </Link>
           <Link
             className="flex items-center gap-3 rounded-xl px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-emerald-800"
-            to="/home"
+            to="/learner/dashboard"
           >
             <span className="material-symbols-outlined">logout</span>
             Sign Out

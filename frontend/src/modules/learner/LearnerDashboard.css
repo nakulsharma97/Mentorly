@@ -1,0 +1,124 @@
+/* ============================================================================
+   Learner-dashboard–specific pieces. Reuses the shared `.md` design system
+   (cards, stats, rows, avatars, progress, charts) from common/dashboard.
+   ========================================================================== */
+
+/* Full-width 12-col grid — no max-width cap, content fills the viewport. */
+.ld-row {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 20px;
+}
+.ld-c7 { grid-column: span 7; min-width: 0; }
+.ld-c5 { grid-column: span 5; min-width: 0; }
+.ld-c4 { grid-column: span 4; min-width: 0; }
+.ld-c6 { grid-column: span 6; min-width: 0; }
+.ld-c8 { grid-column: span 8; min-width: 0; }
+@media (max-width: 1080px) {
+  .ld-c7, .ld-c5, .ld-c4, .ld-c6, .ld-c8 { grid-column: span 12; }
+}
+
+/* stats: 5 in a row on wide screens */
+.ld-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1280px) { .ld-stats { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .ld-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ------------------------------------------------------------ courses ----- */
+.ld-courses { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.ld-course {
+  display: flex; flex-direction: column;
+  border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--md-border-soft);
+  background: var(--panel);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.ld-course:hover { transform: translateY(-4px); box-shadow: var(--md-shadow); border-color: var(--md-border); }
+.ld-course__thumb {
+  height: 96px; display: grid; place-items: center;
+  color: #fff; position: relative;
+}
+.ld-course__thumb .md__icon { font-size: 2.4rem; opacity: 0.9; }
+.ld-course__body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ld-course__bar { display: flex; align-items: center; gap: 8px; }
+.ld-course__bar .md-progress-track { flex: 1; }
+.ld-course__pct { font-size: 0.74rem; font-weight: 700; color: var(--brand); }
+.ld-course__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ------------------------------------------------------------ mentors ----- */
+.ld-mentors { display: flex; flex-direction: column; gap: 12px; }
+.ld-mentor {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--md-border-soft);
+  background: color-mix(in srgb, var(--brand) 3%, var(--panel));
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.ld-mentor:hover { transform: translateY(-2px); box-shadow: var(--md-shadow); }
+.ld-mentor__head { display: flex; align-items: center; gap: 12px; }
+.ld-mentor__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.ld-mentor__actions { display: flex; gap: 8px; }
+.ld-mentor__actions .md-btn { flex: 1; }
+
+/* ------------------------------------------------------------ badges ------ */
+.ld-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; }
+.ld-badge {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px;
+  padding: 16px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--md-border-soft);
+  background: var(--panel);
+  opacity: 0.55;
+  filter: grayscale(0.6);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ld-badge.is-unlocked {
+  opacity: 1; filter: none;
+  background: color-mix(in srgb, var(--brand) 5%, var(--panel));
+  border-color: var(--md-border);
+}
+.ld-badge.is-unlocked:hover { transform: translateY(-4px); box-shadow: var(--md-shadow); }
+.ld-badge__icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--md-tint); color: var(--brand); font-size: 1.4rem;
+}
+.ld-badge.is-unlocked .ld-badge__icon { background: var(--brand-grad); color: #fff; }
+.ld-badge__label { font-size: 0.82rem; font-weight: 700; color: var(--md-ink); }
+.ld-badge__desc { font-size: 0.7rem; color: var(--md-muted); }
+
+/* ------------------------------------------------------------ certs ------- */
+.ld-cert {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--md-border-soft);
+  background: color-mix(in srgb, var(--brand) 3%, var(--panel));
+}
+.ld-cert__icon {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--brand-grad); color: #fff; font-size: 1.25rem;
+}
+
+/* ---------------------------------------------------------- timeline ------ */
+.ld-timeline { display: flex; flex-direction: column; gap: 4px; }
+.ld-timeline__item { display: flex; gap: 14px; padding-bottom: 14px; position: relative; }
+.ld-timeline__item::before {
+  content: ""; position: absolute;
+  left: 15px; top: 30px; bottom: -4px;
+  width: 2px; background: var(--md-border);
+}
+.ld-timeline__item:last-child::before { display: none; }
+.ld-timeline__dot {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--md-tint); color: var(--brand);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--md-border);
+  z-index: 1; font-size: 1rem;
+}
+.ld-timeline__item.is-done .ld-timeline__dot { background: var(--brand-grad); color: #fff; }
+.ld-timeline__body { flex: 1; min-width: 0; padding-top: 3px; }
+.ld-timeline__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }

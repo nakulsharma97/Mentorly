@@ -14,7 +14,7 @@ public class AuthCookieService {
     public static final String ACCESS_TOKEN_COOKIE = "access_token";
     public static final String REFRESH_TOKEN_COOKIE = "refresh_token";
 
-    @Value("${app.auth.cookies.secure:true}")
+    @Value("${app.auth.cookies.secure:false}")
     private boolean secureCookies;
 
     @Value("${app.jwt.expiration-ms}")
@@ -37,24 +37,27 @@ public class AuthCookieService {
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, Duration maxAge) {
-        ResponseCookie cookie = ResponseCookie.from(name, value)
-                .httpOnly(true)
-                .secure(secureCookies)
-                .sameSite("None")
-                .path("/")
-                .maxAge(maxAge)
-                .build();
+        ResponseCookie cookie = buildAuthCookie(name, value, maxAge);
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private void clearCookie(HttpServletResponse response, String name) {
-        ResponseCookie cookie = ResponseCookie.from(name, "")
-                .httpOnly(true)
-                .secure(secureCookies)
-                .sameSite("None")
-                .path("/")
-                .maxAge(Duration.ZERO)
-                .build();
+        ResponseCookie cookie = buildAuthCookie(name, "", Duration.ZERO);
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private ResponseCookie buildAuthCookie(String name, String value, Duration maxAge) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .path("/")
+                .maxAge(maxAge);
+
+        if (secureCookies) {
+            builder.secure(true).sameSite("None");
+        } else {
+            builder.secure(false).sameSite("Lax");
+        }
+
+        return builder.build();
     }
 }

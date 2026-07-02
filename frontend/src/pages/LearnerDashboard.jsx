@@ -1,29 +1,78 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import client from '../api/client';
-import DashboardMetricCard from '../components/dashboard/DashboardMetricCard';
-import DashboardSection from '../components/dashboard/DashboardSection';
-import EmptyStateCard from '../components/dashboard/EmptyStateCard';
-import { getBookingStatusMeta, getRoadmapMilestoneCount } from '../utils/dashboard';
-import { SkeletonDashboard } from '../components/SkeletonLoaders';
-import './dashboard.css';
+import { useEffect, useState } from "react";
+import client from "../api/client";
+import { SkeletonDashboard } from "../components/SkeletonLoaders";
+import StatsCard from "../modules/common/dashboard/StatsCard";
+import LearnerHero from "../modules/learner/components/dashboard/LearnerHero";
+import LearnerUpcomingSessions from "../modules/learner/components/dashboard/LearnerUpcomingSessions";
+import MentorRecommendations from "../modules/learner/components/dashboard/MentorRecommendations";
+import ContinueLearning from "../modules/learner/components/dashboard/ContinueLearning";
+import LearningProgress from "../modules/learner/components/dashboard/LearningProgress";
+import Achievements from "../modules/learner/components/dashboard/Achievements";
+import Certificates from "../modules/learner/components/dashboard/Certificates";
+import LearningRoadmap from "../modules/learner/components/dashboard/LearningRoadmap";
+import "../modules/common/dashboard/dashboard.css";
+import "../modules/learner/LearnerDashboard.css";
+
+const dayKey = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
+const monthKey = (d) => {
+  const date = d ? new Date(d) : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+function buildMonthBuckets() {
+  const months = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i -= 1) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
+      label: date.toLocaleString(undefined, { month: "short" }),
+      value: 0,
+    });
+  }
+  return months;
+}
+
+/** Longest run of consecutive active days ending at the most recent activity. */
+function computeStreak(daySet) {
+  if (!daySet.size) return 0;
+  const days = [...daySet].sort().reverse();
+  let streak = 1;
+  let prev = new Date(days[0]);
+  for (let i = 1; i < days.length; i += 1) {
+    const cur = new Date(days[i]);
+    const diff = Math.round((prev - cur) / 86400000);
+    if (diff === 1) {
+      streak += 1;
+      prev = cur;
+    } else if (diff === 0) {
+      // same day duplicate — ignore
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
 
 export default function LearnerDashboard({ profile }) {
-  const navigate = useNavigate();
-  const firstName = String(profile?.fullName || 'Learner').trim().split(' ')[0] || 'Learner';
+  const firstName =
+    String(profile?.fullName || "Learner")
+      .trim()
+      .split(" ")[0] || "Learner";
+
+  useEffect(() => {
+    document.title = `${firstName} · Learner Dashboard | SkillSwap`;
+  }, [firstName]);
+
   const [loading, setLoading] = useState(true);
-  const [referralSummary, setReferralSummary] = useState(null);
-  const [copyState, setCopyState] = useState('Copy code');
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [roadmaps, setRoadmaps] = useState([]);
-  const [watchedSkills, setWatchedSkills] = useState([]);
   const [certifications, setCertifications] = useState([]);
-  const [progressMetrics, setProgressMetrics] = useState({
-    completedThisMonth: 0,
-    roadmapCompletion: 0,
-    skillBreadth: 0,
-    learningConsistency: 0,
-  });
+  const [recommendedMentors, setRecommendedMentors] = useState([]);
+  const [streak, setStreak] = useState(0);
+  const [roadmapCompletion, setRoadmapCompletion] = useState(0);
+  const [series, setSeries] = useState({ weekly: [], monthly: [], hours: [] });
   const [stats, setStats] = useState({
     totalBookings: 0,
     completedSessions: 0,
@@ -31,513 +80,203 @@ export default function LearnerDashboard({ profile }) {
     skillsLearning: 0,
   });
 
-  useEffect(() => { loadLearnerData(); }, []);
+  useEffect(() => {
+    loadLearnerData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadLearnerData = async () => {
     try {
       setLoading(true);
-      await client.post('/api/v1/certifications/evaluate').catch(() => null);
-      const [bookingsRes, roadmapsRes, watchlistRes, referralRes, certificationsRes] = await Promise.all([
-        client.get('/api/v1/bookings'),
-        client.get('/api/v1/roadmaps'),
-        client.get('/api/v1/watchlist'),
-        client.get('/api/v1/users/me/referral').catch(() => ({ data: { data: null } })),
-        client.get('/api/v1/certifications/me').catch(() => ({ data: { data: [] } })),
-      ]);
+      await client.post("/api/v1/certifications/evaluate").catch(() => null);
+      const [bookingsRes, roadmapsRes, watchlistRes, certificationsRes, mentorsRes] =
+        await Promise.all([
+          client.get("/api/v1/bookings"),
+          client.get("/api/v1/roadmaps"),
+          client.get("/api/v1/watchlist"),
+          client.get("/api/v1/certifications/me").catch(() => ({ data: { data: [] } })),
+          client.get("/api/v1/users/mentors").catch(() => ({ data: { data: [] } })),
+        ]);
 
       const allBookings = bookingsRes.data.data || [];
-      const upcoming = allBookings.filter((b) => {
-        const start = b?.session?.startTime;
-        return start && new Date(start) > new Date();
-      });
-      const sortedUpcoming = [...upcoming].sort(
-        (a, b) => new Date(a?.session?.startTime || 0).getTime() - new Date(b?.session?.startTime || 0).getTime()
+      const allRoadmaps = roadmapsRes.data.data || [];
+      const watchlist = watchlistRes.data.data || [];
+
+      const sortedUpcoming = allBookings
+        .filter((b) => {
+          const start = b?.session?.startTime;
+          return start && new Date(start) > new Date();
+        })
+        .sort(
+          (a, b) =>
+            new Date(a?.session?.startTime || 0).getTime() -
+            new Date(b?.session?.startTime || 0).getTime(),
+        );
+
+      const completedBookings = allBookings.filter(
+        (b) => (b.bookingStatus || b.status) === "COMPLETED",
       );
-      setUpcomingSessions(sortedUpcoming);
-      setRoadmaps(roadmapsRes.data.data || []);
-      setWatchedSkills(watchlistRes.data.data || []);
-      setReferralSummary(referralRes.data.data || null);
-      setCertifications(certificationsRes.data.data || []);
 
-      const completedBookings = allBookings.filter((b) => (b.bookingStatus || b.status) === 'COMPLETED');
-      const completed = completedBookings.length;
-      const learningHours = allBookings.length * 1.5;
-      const now = new Date();
-      const completedThisMonth = completedBookings.filter((b) => {
-        const start = b?.session?.startTime;
-        if (!start) return false;
-        const date = new Date(start);
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      }).length;
-
-      const roadmapCompletion = roadmapsRes.data.data?.length
-        ? Math.round(roadmapsRes.data.data.reduce((sum, item) => sum + Number(item.progressPercent || 0), 0) / roadmapsRes.data.data.length)
+      const roadmapPct = allRoadmaps.length
+        ? Math.round(
+            allRoadmaps.reduce((s, r) => s + Number(r.progressPercent || 0), 0) /
+              allRoadmaps.length,
+          )
         : 0;
 
-      const uniqueSkills = new Set(completedBookings.map((b) => b?.session?.skill?.name).filter(Boolean));
+      const uniqueSkills = new Set(
+        completedBookings.map((b) => b?.session?.skill?.name).filter(Boolean),
+      );
       const activeDays = new Set(
-        completedBookings.map((b) => {
-          const d = b?.session?.startTime ? new Date(b.session.startTime) : null;
-          return d ? d.toISOString().slice(0, 10) : null;
-        }).filter(Boolean)
+        completedBookings.map((b) => dayKey(b?.session?.startTime)).filter(Boolean),
       );
 
-      setProgressMetrics({
-        completedThisMonth,
-        roadmapCompletion,
-        skillBreadth: uniqueSkills.size,
-        learningConsistency: Math.min(100, activeDays.size * 10),
+      // ── progress series ──
+      const weekly = [];
+      for (let k = 7; k >= 0; k -= 1) weekly.push({ label: k === 0 ? "Now" : `${k}w`, value: 0 });
+      const now = new Date();
+      completedBookings.forEach((b) => {
+        const t = b?.session?.startTime ? new Date(b.session.startTime).getTime() : NaN;
+        if (Number.isNaN(t)) return;
+        const weeksAgo = Math.floor((now.getTime() - t) / (7 * 86400000));
+        if (weeksAgo >= 0 && weeksAgo <= 7) weekly[7 - weeksAgo].value += 1;
       });
+
+      const monthly = buildMonthBuckets();
+      const hours = buildMonthBuckets();
+      completedBookings.forEach((b) => {
+        const key = monthKey(b?.session?.startTime);
+        const mBucket = monthly.find((m) => m.key === key);
+        if (mBucket) mBucket.value += 1;
+        const hBucket = hours.find((m) => m.key === key);
+        if (hBucket) hBucket.value += 1.5;
+      });
+      hours.forEach((m) => {
+        m.value = Number(m.value.toFixed(1));
+      });
+
+      // ── recommended mentors (best effort) ──
+      const mentors = mentorsRes.data.data || [];
+      const ranked = [...mentors]
+        .sort(
+          (a, b) =>
+            Number(b.averageRating || b.rating || 0) -
+            Number(a.averageRating || a.rating || 0),
+        )
+        .slice(0, 6);
+
+      setUpcomingSessions(sortedUpcoming);
+      setRoadmaps(allRoadmaps);
+      setCertifications(certificationsRes.data.data || []);
+      setRecommendedMentors(ranked);
+      setStreak(computeStreak(activeDays));
+      setRoadmapCompletion(roadmapPct);
+      setSeries({ weekly, monthly, hours });
       setStats({
         totalBookings: allBookings.length,
-        completedSessions: completed,
-        learningHours: Math.round(learningHours * 10) / 10,
-        skillsLearning: watchlistRes.data.data?.length || 0,
+        completedSessions: completedBookings.length,
+        learningHours: Math.round(allBookings.length * 1.5 * 10) / 10,
+        skillsLearning: watchlist.length || uniqueSkills.size,
       });
-      setLoading(false);
     } catch (error) {
-      console.error('Error loading learner data:', error);
+      console.error("Error loading learner data:", error);
+    } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+      <div className="md">
         <SkeletonDashboard />
-      </main>
+      </div>
     );
   }
 
   const nextSession = upcomingSessions[0] || null;
-  const hasProfileBasics = Boolean(String(profile?.aboutMe || '').trim() && String(profile?.skills || '').trim());
-  const hasBooking = stats.totalBookings > 0;
-  const hasMessageTrigger = hasBooking;
-  const referralCode = referralSummary?.referralCode || '';
-  const shareLink = referralCode ? `https://skillswap.app/signup?ref=${encodeURIComponent(referralCode)}` : '';
-
-  const copyReferralCode = async () => {
-    if (!referralCode) {
-      return;
-    }
-
-    await navigator.clipboard.writeText(referralCode);
-    setCopyState('Copied');
-  };
-
-  const onboardingSteps = [
-    { id: 'profile', title: 'Complete your profile', description: 'Add bio and skills so mentors can personalize guidance.', done: hasProfileBasics, route: '/profile-setup', cta: 'Update profile' },
-    { id: 'watchlist', title: 'Add 3 watched skills', description: 'Improve mentor matching and recommendation quality.', done: watchedSkills.length >= 3, route: '/home', cta: 'Open watchlist' },
-    { id: 'browse', title: 'Browse mentors', description: 'Find mentors aligned to your goals and learning stage.', done: stats.totalBookings > 0, route: '/mentors', cta: 'Browse mentors' },
-    { id: 'book', title: 'Book first session', description: 'Lock your first mentorship slot to begin active learning.', done: hasBooking, route: '/mentors', cta: 'Book a session' },
-    { id: 'message', title: 'Message your mentor', description: 'Share goals and prep notes before your session starts.', done: hasMessageTrigger, route: '/messages', cta: 'Open messages' },
-  ];
-  const completedOnboarding = onboardingSteps.filter((s) => s.done).length;
-  const onboardingPercent = Math.round((completedOnboarding / onboardingSteps.length) * 100);
-
-  let nextStepPanel = { title: 'Build your learning setup', text: 'Complete your profile and add watched skills to unlock better mentor matching.', route: '/profile-setup', cta: 'Complete setup' };
-  if (stats.totalBookings === 0) {
-    nextStepPanel = { title: 'Book your first mentor session', text: 'You are one booking away from converting your learning plan into real outcomes.', route: '/mentors', cta: 'Find a mentor now' };
-  } else if (nextSession) {
-    nextStepPanel = { title: 'Prepare for your upcoming session', text: 'Review mentor profile, note 3 questions, and send your goals in chat before session start.', route: '/messages', cta: 'Prepare in messages' };
-  } else if (stats.completedSessions > 0) {
-    nextStepPanel = { title: 'Continue your momentum', text: 'You completed sessions already. Book your next slot while context is still fresh.', route: '/mentors', cta: 'Book next session' };
-  }
 
   return (
-    <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
+    <div className="md">
+      <LearnerHero
+        firstName={firstName}
+        nextSession={nextSession}
+        roadmapCompletion={roadmapCompletion}
+        completedSessions={stats.completedSessions}
+        streak={streak}
+      />
 
-      {/* ── Hero Banner ── */}
-      <div className="dash-hero dash-hero-learner">
-        <div className="dash-hero-orb" style={{ width: 300, height: 300, top: -100, right: -60, background: 'rgba(56,189,248,0.18)' }} />
-        <div className="dash-hero-orb" style={{ width: 240, height: 240, bottom: -90, left: -50, background: 'rgba(52,211,153,0.15)' }} />
-        <div className="dash-hero-inner">
-          <div>
-            <p className="dash-hero-eyebrow">Learner Space</p>
-            <h1 className="dash-hero-title">Welcome back, {firstName} 🚀</h1>
-            <p className="dash-hero-sub">
-              Your workspace is organized for momentum — track progress, join upcoming sessions, and discover mentors faster.
-            </p>
-            <div className="dash-hero-actions">
-              <Link to="/mentors" className="dash-hero-btn-primary">Browse All Mentors</Link>
-              <Link to="/sessions" className="dash-hero-btn-ghost">Learning Path</Link>
-              <Link to="/messages" className="dash-hero-btn-ghost">Messages</Link>
-            </div>
-          </div>
-          <div className="dash-hero-stats">
-            <div className="dash-hero-stat">
-              <p className="dash-hero-stat-label">Next Session</p>
-              <p className="dash-hero-stat-value" style={{ fontSize: '0.95rem', fontWeight: 700 }}>
-                {nextSession ? (nextSession.session?.skill?.name || 'Mentor session') : 'No session booked'}
-              </p>
-              <p className="dash-hero-stat-desc">
-                {nextSession ? new Date(nextSession.session?.startTime).toLocaleString() : 'Find a mentor to start'}
-              </p>
-            </div>
-            <div className="dash-hero-stat">
-              <p className="dash-hero-stat-label">Roadmap Progress</p>
-              <p className="dash-hero-stat-value">{progressMetrics.roadmapCompletion}%</p>
-              <p className="dash-hero-stat-desc">Average across active paths</p>
-            </div>
-          </div>
+      {/* ── Statistics (5 cards) ── */}
+      <div className="ld-stats md-animate">
+        <StatsCard
+          icon="task_alt"
+          label="Sessions Completed"
+          value={stats.completedSessions}
+          description="Keep it going"
+        />
+        <StatsCard
+          icon="school"
+          label="Skills Learning"
+          value={stats.skillsLearning}
+          description="On your watchlist"
+        />
+        <StatsCard
+          icon="workspace_premium"
+          label="Certificates"
+          value={certifications.length}
+          description="Earned so far"
+        />
+        <StatsCard
+          icon="local_fire_department"
+          label="Learning Streak"
+          value={`${streak}d`}
+          description="Consecutive days"
+        />
+        <StatsCard
+          icon="schedule"
+          label="Hours Learned"
+          value={stats.learningHours}
+          description="Total time invested"
+        />
+      </div>
+
+      {/* ── Continue Learning (full width) ── */}
+      <div className="md-animate">
+        <ContinueLearning roadmaps={roadmaps} />
+      </div>
+
+      {/* ── Upcoming Sessions (8) + Learning Progress (4) ── */}
+      <div className="ld-row md-animate">
+        <div className="ld-c8">
+          <LearnerUpcomingSessions sessions={upcomingSessions} />
+        </div>
+        <div className="ld-c4">
+          <LearningProgress series={series} />
         </div>
       </div>
 
-      {/* ── Metric Cards ── */}
-      <div className="dash-metric-grid">
-        <DashboardMetricCard label="Total Bookings" value={stats.totalBookings} tone="primary" icon="bookmark_added" />
-        <DashboardMetricCard label="Completed" value={stats.completedSessions} tone="success" icon="task_alt" />
-        <DashboardMetricCard label="Learning Hours" value={stats.learningHours} tone="secondary" icon="schedule" />
-        <DashboardMetricCard label="Skills Watching" value={stats.skillsLearning} tone="neutral" icon="visibility" />
-      </div>
-
-      {/* ── Onboarding Checklist ── */}
-      <DashboardSection title="Learner Onboarding Checklist" icon="checklist" iconTone="primary">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--muted,#334155)', fontWeight: 600 }}>
-            {completedOnboarding} of {onboardingSteps.length} completed
-          </p>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0f766e' }}>{onboardingPercent}%</span>
+      {/* ── Recommended Mentors (8) + Achievements (4) ── */}
+      <div className="ld-row md-animate">
+        <div className="ld-c8">
+          <MentorRecommendations mentors={recommendedMentors} />
         </div>
-        <div className="dash-onboarding-progress-bar-wrap">
-          <div className="dash-onboarding-progress-fill" style={{ width: `${onboardingPercent}%` }} />
-        </div>
-        <div className="dash-onboarding-grid">
-          {onboardingSteps.map((step, idx) => (
-            <div key={step.id} className={`dash-onboarding-step${step.done ? ' is-done' : ''}`}>
-              <div className="dash-onboarding-step-header">
-                <p className="dash-onboarding-step-title">{step.title}</p>
-                <span className="dash-onboarding-step-num">
-                  {step.done
-                    ? <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>check</span>
-                    : idx + 1}
-                </span>
-              </div>
-              <p className="dash-onboarding-step-desc">{step.description}</p>
-              {!step.done && (
-                <Link to={step.route} className="dash-onboarding-step-cta">{step.cta} →</Link>
-              )}
-            </div>
-          ))}
-        </div>
-      </DashboardSection>
-
-      <DashboardSection title="Refer a friend" icon="group_add" iconTone="primary">
-        {!referralSummary ? (
-          <EmptyStateCard
-            icon="group_add"
-            title="Referral details are loading"
-            description="Your personal referral code will appear here once the account summary is ready."
-            actionLabel="Refresh"
-            actionTo="/home"
+        <div className="ld-c4">
+          <Achievements
+            stats={stats}
+            certificates={certifications.length}
+            streak={streak}
           />
-        ) : (
-          <div style={{ display: 'grid', gap: '14px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-              <div>
-                <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: 'var(--muted,#334155)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
-                  Your referral code
-                </p>
-                <div style={{
-                  marginTop: '8px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(15,118,110,0.18)',
-                  background: 'linear-gradient(135deg, rgba(15,118,110,0.08), rgba(59,130,246,0.08))',
-                  fontSize: '1rem',
-                  fontWeight: 800,
-                  letterSpacing: '0.12em',
-                  color: 'var(--text,#182028)',
-                  wordBreak: 'break-all',
-                }}>
-                  <span>{referralCode || 'Unavailable'}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={copyReferralCode}
-                disabled={!referralCode}
-                style={{
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '10px 16px',
-                  background: '#0f766e',
-                  color: '#fff',
-                  fontWeight: 700,
-                  cursor: referralCode ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {copyState}
-              </button>
-            </div>
-
-            <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text,#182028)' }}>
-              {referralSummary.totalReferrals} friends referred · {referralSummary.totalCreditsEarned} credits earned
-            </p>
-
-            {shareLink && (
-              <a
-                href={shareLink}
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  display: 'inline-flex',
-                  alignSelf: 'flex-start',
-                  fontSize: '0.86rem',
-                  fontWeight: 700,
-                  color: '#0f766e',
-                  textDecoration: 'none',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {shareLink}
-              </a>
-            )}
-          </div>
-        )}
-      </DashboardSection>
-
-      {/* ── Main Grid ── */}
-      <div style={{ display: 'grid', gap: '20px', marginTop: '20px' }}>
-
-        {/* Smart Next Step */}
-        <div style={{
-          borderRadius: '16px',
-          border: '1px solid rgba(15,118,110,0.2)',
-          background: 'rgba(15,118,110,0.05)',
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className="material-symbols-outlined" style={{ color: '#0f766e' }}>assistant</span>
-            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text,#182028)' }}>What Should I Do Now?</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <h3 style={{ margin: '0 0 4px', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text,#182028)' }}>{nextStepPanel.title}</h3>
-              <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--muted,#334155)', lineHeight: 1.55 }}>{nextStepPanel.text}</p>
-            </div>
-            <Link to={nextStepPanel.route} style={{
-              display: 'inline-flex',
-              alignSelf: 'flex-start',
-              padding: '10px 20px',
-              borderRadius: '10px',
-              background: '#0f766e',
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              textDecoration: 'none',
-            }}>
-              {nextStepPanel.cta}
-            </Link>
-          </div>
-        </div>
-
-        {/* Sessions + Roadmaps side by side */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-
-          {/* Upcoming Sessions */}
-          <DashboardSection title="Upcoming Sessions" icon="calendar_today" iconTone="primary" viewAll="All sessions" viewAllTo="/sessions">
-            {upcomingSessions.length === 0 ? (
-              <EmptyStateCard
-                icon="calendar_today"
-                title="No upcoming sessions yet"
-                description="Book your next session to keep your momentum and weekly learning streak."
-                actionLabel="Find mentors"
-                actionTo="/mentors"
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {upcomingSessions.slice(0, 3).map((booking) => {
-                  const statusMeta = getBookingStatusMeta(booking);
-                  return (
-                    <div
-                      key={booking.id}
-                      className="dash-session-card"
-                      onClick={() => navigate('/messages')}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => e.key === 'Enter' && navigate('/messages')}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text,#182028)' }}>
-                            {booking.session?.mentor?.fullName}
-                          </p>
-                          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--muted,#334155)' }}>
-                            {booking.session?.skill?.name}
-                          </p>
-                        </div>
-                        <span className={`dash-status-chip dash-status-${(booking.bookingStatus || booking.status || '').toLowerCase()}`}>
-                          {statusMeta.label}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--muted,#334155)', marginBottom: '6px' }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>schedule</span>
-                        {new Date(booking.session?.startTime).toLocaleString()}
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--muted,#334155)' }}>
-                        Next: {statusMeta.action}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </DashboardSection>
-
-          {/* Learning Roadmaps */}
-          <DashboardSection title="My Learning Paths" icon="route" iconTone="secondary" viewAll="All paths" viewAllTo="/sessions">
-            {roadmaps.length === 0 ? (
-              <EmptyStateCard
-                icon="route"
-                title="No active learning paths yet"
-                description="Roadmaps are generated after you complete a booking with a mentor."
-                actionLabel="Book to create roadmap"
-                actionTo="/mentors"
-                tone="secondary"
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {roadmaps.slice(0, 2).map((roadmap) => (
-                  <div
-                    key={roadmap.id}
-                    className="dash-session-card"
-                    onClick={() => navigate(`/sessions/${roadmap.id}`)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/sessions/${roadmap.id}`)}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem', color: 'var(--text,#182028)' }}>{roadmap.title}</p>
-                      <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#7c3aed' }}>{roadmap.progressPercent || 0}%</span>
-                    </div>
-                    <div className="dash-progress-track" style={{ marginBottom: '8px' }}>
-                      <div className="dash-progress-fill" style={{ width: `${roadmap.progressPercent || 0}%`, background: 'linear-gradient(90deg, #7c3aed, #a78bfa)' }} />
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--muted,#334155)' }}>
-                      With {roadmap.mentorName} · {getRoadmapMilestoneCount(roadmap)} milestones
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </DashboardSection>
-        </div>
-
-        {/* Progress Metrics + Sidebar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-
-          {/* Progress Metrics */}
-          <DashboardSection title="Progress Metrics" icon="trending_up" iconTone="secondary">
-            <div className="dash-analytics-grid">
-              <div className="dash-analytic-tile">
-                <p className="dash-analytic-label">Completed This Month</p>
-                <p className="dash-analytic-value">{progressMetrics.completedThisMonth}</p>
-              </div>
-              <div className="dash-analytic-tile">
-                <p className="dash-analytic-label">Roadmap Completion</p>
-                <p className="dash-analytic-value">{progressMetrics.roadmapCompletion}%</p>
-              </div>
-              <div className="dash-analytic-tile">
-                <p className="dash-analytic-label">Skill Breadth</p>
-                <p className="dash-analytic-value">{progressMetrics.skillBreadth}</p>
-              </div>
-              <div className="dash-analytic-tile">
-                <p className="dash-analytic-label">Learning Consistency</p>
-                <p className="dash-analytic-value">{progressMetrics.learningConsistency}%</p>
-              </div>
-            </div>
-          </DashboardSection>
-
-          {/* Watched Skills */}
-          <DashboardSection title="Watched Skills" icon="bookmark" iconTone="secondary">
-            {watchedSkills.length === 0 ? (
-              <EmptyStateCard
-                icon="bookmark"
-                title="Your watchlist is empty"
-                description="Add at least 3 skills to improve mentor recommendations."
-                actionLabel="Browse skills"
-                actionTo="/mentors"
-                tone="secondary"
-              />
-            ) : (
-              <div className="dash-skill-pills">
-                {watchedSkills.slice(0, 8).map((skill) => (
-                  <span key={skill.id} className="dash-skill-pill">
-                    {skill.name}
-                    <span className="dash-skill-pill-count">{skill.mentorCount || 0}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </DashboardSection>
-
-          {/* Certifications */}
-          <DashboardSection title="Certifications" icon="workspace_premium" iconTone="primary">
-            {certifications.length === 0 ? (
-              <EmptyStateCard
-                icon="workspace_premium"
-                title="No certifications yet"
-                description="Complete mentor sessions and milestones to earn credibility badges."
-                actionLabel="Browse mentors"
-                actionTo="/mentors"
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {certifications.slice(0, 4).map((cert) => (
-                  <div key={cert.id} style={{
-                    borderRadius: '10px',
-                    border: '1px solid var(--card-border,#dbe4ea)',
-                    padding: '10px 12px',
-                    background: 'var(--hover-bg,#f8fafc)',
-                  }}>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.84rem', color: 'var(--text,#182028)' }}>{cert.title}</p>
-                    <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--muted,#334155)' }}>{cert.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </DashboardSection>
-
-          {/* Today Focus */}
-          <DashboardSection title="Today's Focus" icon="check_circle" iconTone="success">
-            <div className="dash-focus-grid" style={{ gridTemplateColumns: '1fr' }}>
-              <div className="dash-focus-card">
-                <p className="dash-focus-label">Book a Session</p>
-                <p className="dash-focus-text">Explore mentor profiles and lock your next learning slot.</p>
-                <Link to="/mentors" className="dash-focus-link">Browse now →</Link>
-              </div>
-              <div className="dash-focus-card">
-                <p className="dash-focus-label">Finish a Milestone</p>
-                <p className="dash-focus-text">Pick one roadmap task and complete it before your next session.</p>
-                <Link to="/sessions" className="dash-focus-link">Open path →</Link>
-              </div>
-              <div className="dash-focus-card">
-                <p className="dash-focus-label">Stay Connected</p>
-                <p className="dash-focus-text">Send your latest updates to mentors for faster feedback loops.</p>
-                <Link to="/messages" className="dash-focus-link">Go to messages →</Link>
-              </div>
-            </div>
-          </DashboardSection>
-
-          {/* Quick Actions */}
-          <DashboardSection title="Quick Actions" icon="bolt" iconTone="primary">
-            <div className="dash-quick-actions">
-              <Link to="/mentors" className="quick-action-btn quick-action-btn-primary">Find New Mentor</Link>
-              <Link to="/sessions" className="quick-action-btn quick-action-btn-outline">My Learning Paths</Link>
-              <Link to="/messages" className="quick-action-btn quick-action-btn-outline">Messages</Link>
-              <Link to="/wallet" className="quick-action-btn quick-action-btn-outline">Wallet &amp; Payments</Link>
-            </div>
-          </DashboardSection>
-
         </div>
       </div>
-    </main>
+
+      {/* ── Learning Roadmap (8) + Certificates (4) ── */}
+      <div className="ld-row md-animate">
+        <div className="ld-c8">
+          <LearningRoadmap roadmaps={roadmaps} />
+        </div>
+        <div className="ld-c4">
+          <Certificates certificates={certifications} />
+        </div>
+      </div>
+    </div>
   );
 }

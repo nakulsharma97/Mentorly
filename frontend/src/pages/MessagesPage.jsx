@@ -98,8 +98,13 @@ export default function MessagesPage({ profile, notify }) {
 
   const currentUserId = profile?.id;
   const currentUserEmail = String(profile?.email || "").toLowerCase();
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-  const wsBase = useMemo(() => apiBase.replace(/^http/, "ws"), [apiBase]);
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "";
+  const wsBase = useMemo(() => {
+    if (apiBase) {
+      return apiBase.replace(/^http/, "ws");
+    }
+    return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+  }, [apiBase]);
 
   const closeSocket = useCallback(() => {
     if (wsRef.current) {
@@ -670,7 +675,9 @@ export default function MessagesPage({ profile, notify }) {
                 </div>
               ) : searchResults.length === 0 ? (
                 <div className="msg-search-empty">
-                  <span className="material-symbols-outlined">person_search</span>
+                  <span className="material-symbols-outlined">
+                    person_search
+                  </span>
                   No people found for “{searchTerm}”. Try another name or skill.
                 </div>
               ) : (
@@ -688,7 +695,9 @@ export default function MessagesPage({ profile, notify }) {
                     </div>
                     <textarea
                       className="msg-intro-input"
-                      value={requestTarget?.id === user.id ? requestMessage : ""}
+                      value={
+                        requestTarget?.id === user.id ? requestMessage : ""
+                      }
                       onChange={(event) => {
                         setRequestTarget(user);
                         setRequestMessage(event.target.value);
@@ -762,7 +771,8 @@ export default function MessagesPage({ profile, notify }) {
           <aside
             id="msg-sidebar"
             className="msg-sidebar"
-            aria-label="Conversations and requests">
+            aria-label="Conversations and requests"
+          >
             {/* Pending requests */}
             <section className="msg-card msg-section">
               <div className="msg-section-head">
@@ -1039,7 +1049,10 @@ export default function MessagesPage({ profile, notify }) {
                       aria-label="Start video call"
                       onClick={() => notifyComingSoon("Video calls")}
                     >
-                      <span className="material-symbols-outlined" aria-hidden="true">
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
                         videocam
                       </span>
                     </button>
@@ -1050,7 +1063,10 @@ export default function MessagesPage({ profile, notify }) {
                       aria-label="Start voice call"
                       onClick={() => notifyComingSoon("Voice calls")}
                     >
-                      <span className="material-symbols-outlined" aria-hidden="true">
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
                         call
                       </span>
                     </button>
@@ -1061,7 +1077,10 @@ export default function MessagesPage({ profile, notify }) {
                       aria-label="More options"
                       onClick={() => notifyComingSoon("More options")}
                     >
-                      <span className="material-symbols-outlined" aria-hidden="true">
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
                         more_horiz
                       </span>
                     </button>
@@ -1166,7 +1185,10 @@ export default function MessagesPage({ profile, notify }) {
                     aria-label="Attach a file"
                     onClick={() => notifyComingSoon("Attachments")}
                   >
-                    <span className="material-symbols-outlined" aria-hidden="true">
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
                       attach_file
                     </span>
                   </button>
@@ -1185,7 +1207,10 @@ export default function MessagesPage({ profile, notify }) {
                     aria-label="Add emoji"
                     onClick={() => notifyComingSoon("Emoji picker")}
                   >
-                    <span className="material-symbols-outlined" aria-hidden="true">
+                    <span
+                      className="material-symbols-outlined"
+                      aria-hidden="true"
+                    >
                       mood
                     </span>
                   </button>

@@ -28,10 +28,10 @@ export default function Navbar({
   const profileImageUrl = String(profile?.profileImageUrl || "").trim();
   const roleLabel =
     profile?.role === "ADMIN"
-      ? "Admin"
+      ? "Admin workspace"
       : profile?.role === "MENTOR"
-        ? "Mentor"
-        : "Learner";
+        ? "Mentor hub"
+        : "Learner hub";
 
   useEffect(() => {
     setMenuOpen(false);
@@ -44,25 +44,37 @@ export default function Navbar({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const roleRootPath = (role) => {
+    if (role === "ADMIN") {
+      return "/admin";
+    }
+    if (role === "MENTOR") {
+      return "/mentor/dashboard";
+    }
+    return "/learner/dashboard";
+  };
+
   const linkFor = (segment) => {
     const normalized = segment.startsWith("/") ? segment : `/${segment}`;
     if (isLoggedIn && normalized === "/home") {
-      return "/home";
+      return roleRootPath(profile?.role);
     }
     if (isLoggedIn && normalized === "/sessions") {
-      return "/sessions";
+      return profile?.role === "MENTOR" ? "/mentor/teach" : "/learner/sessions";
     }
     if (isLoggedIn && normalized === "/teach") {
-      return "/teach";
+      return "/mentor/teach";
     }
     if (isLoggedIn && normalized === "/messages") {
-      return "/messages";
+      return profile?.role === "MENTOR"
+        ? "/mentor/messages"
+        : "/learner/messages";
     }
     if (isLoggedIn && normalized === "/wallet") {
-      return "/wallet";
+      return profile?.role === "MENTOR" ? "/mentor/wallet" : "/learner/wallet";
     }
     if (isLoggedIn && normalized === "/mentors") {
-      return "/mentors";
+      return "/learner/mentors";
     }
     return normalized;
   };
@@ -108,9 +120,7 @@ export default function Navbar({
           <span className="site-navbar-logo">SS</span>
           <div className="site-navbar-brand-text">
             <p className="site-navbar-brand-label">SkillSwap</p>
-            <p className="site-navbar-brand-title">
-              {roleLabel} dashboard
-            </p>
+            <p className="site-navbar-brand-title">{roleLabel} dashboard</p>
           </div>
         </div>
 
@@ -159,7 +169,9 @@ export default function Navbar({
               </div>
 
               <div className="site-navbar-actions">
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
                   <button
                     className="site-navbar-icon-btn"
                     onClick={onOpenNotifications}
@@ -210,10 +222,13 @@ export default function Navbar({
               </div>
             </>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
               className="site-navbar-actions"
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <DarkModeToggle className="site-navbar-icon-btn" />
                 <button
                   className={`site-navbar-auth-btn${authMode === "login" ? " active" : ""}`}

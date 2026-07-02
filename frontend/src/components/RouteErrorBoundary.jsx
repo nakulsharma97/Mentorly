@@ -1,6 +1,6 @@
-import { Component } from 'react';
-import * as Sentry from '@sentry/react';
-import { reportError } from '../utils/monitoring';
+import { Component } from "react";
+import * as Sentry from "@sentry/react";
+import { reportError } from "../utils/monitoring";
 
 export default class RouteErrorBoundary extends Component {
   constructor(props) {
@@ -13,16 +13,18 @@ export default class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('route_render_crash', error, errorInfo);
-    Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo?.componentStack || '' } } });
+    console.error("route_render_crash", error, errorInfo);
+    Sentry.captureException(error, {
+      contexts: { react: { componentStack: errorInfo?.componentStack || "" } },
+    });
     reportError(error, {
-      type: 'react.route_error_boundary',
-      componentStack: errorInfo?.componentStack || '',
+      type: "react.route_error_boundary",
+      componentStack: errorInfo?.componentStack || "",
     });
   }
 
   handleGoHome = () => {
-    window.location.href = '/home';
+    window.location.href = "/";
   };
 
   handleTryAgain = () => {
@@ -33,14 +35,28 @@ export default class RouteErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <main className="app-crash-shell">
-          <section className="app-crash-card" role="alert" aria-live="assertive">
+          <section
+            className="app-crash-card"
+            role="alert"
+            aria-live="assertive"
+          >
             <h1>Something went wrong on this page</h1>
             <pre>
-              <code>{String(this.state.error?.message || 'Unknown error')}</code>
+              <code>
+                {String(this.state.error?.message || "Unknown error")}
+              </code>
             </pre>
             <div className="app-crash-actions">
-              <button type="button" onClick={this.handleGoHome}>Go back home</button>
-              <button type="button" className="secondary" onClick={this.handleTryAgain}>Try again</button>
+              <button type="button" onClick={this.handleGoHome}>
+                Go back home
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={this.handleTryAgain}
+              >
+                Try again
+              </button>
             </div>
           </section>
         </main>

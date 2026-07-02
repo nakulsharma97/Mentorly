@@ -34,6 +34,32 @@
 @media (min-width: 768px) {
   .dash-hero-inner { flex-direction: row; align-items: flex-end; justify-content: space-between; }
 }
+.dash-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.dash-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.26);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 160px;
+}
+.dash-hero-mentor .dash-hero-badge {
+  background: rgba(255,255,255,0.14);
+}
+.dash-hero-learner .dash-hero-badge {
+  background: rgba(255,255,255,0.18);
+}
 .dash-hero-eyebrow {
   font-size: 0.7rem;
   font-weight: 800;

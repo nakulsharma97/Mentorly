@@ -5,11 +5,15 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import TestChecklistPage from "./pages/TestChecklistPage";
 import LazyLoadingFallback from "./components/LazyLoadingFallback";
 import RouteErrorBoundary from "./components/RouteErrorBoundary";
+import LearnerLayout from "./modules/learner/layouts/LearnerLayout";
+import MentorLayout from "./modules/mentor/layouts/MentorLayout";
+import RoleGuard from "./modules/common/RoleGuard";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const MentorDashboard = lazy(() => import("./pages/MentorDashboard"));
@@ -37,6 +41,7 @@ import {
   createPerformanceReporter,
   initGlobalMonitoring,
 } from "./utils/monitoring";
+import { isPublicPath, roleRoot } from "./modules/common/routeUtils";
 
 const isProfileComplete = (profile) => {
   if (!profile) {
@@ -49,6 +54,12 @@ const isProfileComplete = (profile) => {
     String(profile.linkedinUrl || "").trim(),
   );
 };
+
+function RedirectToMentorProfessionalProfile() {
+  const { section } = useParams();
+  return <Navigate to={`/mentor/professional-profile/${section}`} replace />;
+}
+
 export default function App() {
   const [authMode, setAuthMode] = useState(null);
   const [oauthError, setOauthError] = useState("");
@@ -64,7 +75,10 @@ export default function App() {
   const pathname = location.pathname;
   const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
-  const shouldShowGlobalNavbar = pathname !== "/";
+  const shouldShowGlobalNavbar =
+    pathname !== "/" &&
+    !pathname.startsWith("/learner") &&
+    !pathname.startsWith("/mentor");
 
   useEffect(() => {
     initGlobalMonitoring();
@@ -314,7 +328,7 @@ export default function App() {
         localStorage.removeItem("auth_post_redirect");
         navigate(post, { replace: true });
       } else {
-        navigate("/home", { replace: true });
+        navigate(roleRoot(profile?.role), { replace: true });
       }
       return;
     }
@@ -342,14 +356,13 @@ export default function App() {
     }
 
     if (!isLoggedIn) {
-      const publicPaths = ["/", "/home", "/login", "/signup"];
       const isPublicMentorProfile = pathname.startsWith("/mentors/");
       if (
         pathname !== "/oauth/callback" &&
-        !publicPaths.includes(pathname) &&
+        !isPublicPath(pathname) &&
         !isPublicMentorProfile
       ) {
-        navigate("/home", { replace: true });
+        navigate("/", { replace: true });
       }
       return;
     }
@@ -358,9 +371,16 @@ export default function App() {
       !needsProfileSetup &&
       (pathname === "/" || pathname === "/login" || pathname === "/signup")
     ) {
-      navigate("/home", { replace: true });
+      navigate(roleRoot(profile?.role), { replace: true });
     }
-  }, [isLoggedIn, needsProfileSetup, pathname, profileChecked, navigate]);
+  }, [
+    isLoggedIn,
+    needsProfileSetup,
+    pathname,
+    profileChecked,
+    navigate,
+    profile,
+  ]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia(
@@ -394,7 +414,7 @@ export default function App() {
       title: "Logged out",
       message: "You have been signed out successfully.",
     });
-    navigate("/home", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleSelectAuthMode = (mode) => {
@@ -421,8 +441,14 @@ export default function App() {
           <Navbar
             isLoggedIn={isLoggedIn}
             profile={profile}
-            onOpenProfile={() => navigate("/home")}
-            onOpenNotifications={() => navigate("/messages")}
+            onOpenProfile={() => navigate(roleRoot(profile?.role))}
+            onOpenNotifications={() =>
+              navigate(
+                profile?.role === "MENTOR"
+                  ? "/mentor/messages"
+                  : "/learner/messages",
+              )
+            }
             onLogout={handleLogout}
             authMode={authMode}
             onSelectAuthMode={handleSelectAuthMode}
@@ -435,7 +461,7 @@ export default function App() {
         <div
           key={routeTransitionKey}
           id="route-content"
-          className="route-transition"
+          style={{ padding: 0, margin: 0 }}
           tabIndex={-1}
           role="main"
           aria-label="Primary content"
@@ -455,17 +481,6 @@ export default function App() {
                   }
                 />
                 <Route path="/test-checklist" element={<TestChecklistPage />} />
-                <Route
-                  path="/home"
-                  element={
-                    <AuthPage
-                      onSelectSignup={() => handleSelectAuthMode("signup")}
-                      onSelectLogin={() => handleSelectAuthMode("login")}
-                      language={language}
-                      onLanguageChange={handleLanguageChange}
-                    />
-                  }
-                />
                 <Route
                   path="/login"
                   element={
@@ -571,7 +586,12 @@ export default function App() {
                               message:
                                 "You can now browse mentors and start booking sessions.",
                             });
-                            navigate("/home", { replace: true });
+                            navigate(
+                              roleRoot(updatedProfile?.role || profile?.role),
+                              {
+                                replace: true,
+                              },
+                            );
                           }}
                           onLogout={handleLogout}
                           language={language}
@@ -580,27 +600,36 @@ export default function App() {
                     </RouteErrorBoundary>
                   }
                 />
-                <Route path="/" element={<Navigate to="/home" replace />} />
+                <Route
+                  path="/"
+                  element={<Navigate to={roleRoot(profile?.role)} replace />}
+                />
                 <Route
                   path="/home"
+                  element={<Navigate to={roleRoot(profile?.role)} replace />}
+                />
+                <Route
+                  path="/learner"
                   element={
-                    profile?.role === "ADMIN" ? (
-                      <RouteErrorBoundary key="home-admin">
-                        <Suspense fallback={routeFallback}>
-                          <AdminOperationsPage notify={notify} />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : profile?.role === "MENTOR" ? (
-                      <RouteErrorBoundary key="home-mentor">
-                        <Suspense fallback={routeFallback}>
-                          <MentorDashboard
-                            profile={profile}
-                            onLogout={handleLogout}
-                          />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : (
-                      <RouteErrorBoundary key="home-learner">
+                    <RoleGuard profile={profile} allowedRoles={["LEARNER"]}>
+                      <LearnerLayout
+                        profile={profile}
+                        onLogout={handleLogout}
+                        language={language}
+                        onLanguageChange={handleLanguageChange}
+                        unreadNotifications={unreadNotifications}
+                      />
+                    </RoleGuard>
+                  }
+                >
+                  <Route
+                    index
+                    element={<Navigate to="/learner/dashboard" replace />}
+                  />
+                  <Route
+                    path="dashboard"
+                    element={
+                      <RouteErrorBoundary key="learner-dashboard">
                         <Suspense fallback={routeFallback}>
                           <LearnerDashboard
                             profile={profile}
@@ -608,9 +637,165 @@ export default function App() {
                           />
                         </Suspense>
                       </RouteErrorBoundary>
-                    )
+                    }
+                  />
+                  <Route
+                    path="mentors"
+                    element={
+                      <RouteErrorBoundary key="learner-mentors">
+                        <Suspense fallback={routeFallback}>
+                          <Dashboard
+                            onLogout={handleLogout}
+                            language={language}
+                            page="mentors"
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="sessions"
+                    element={
+                      <RouteErrorBoundary key="learner-sessions">
+                        <Suspense fallback={routeFallback}>
+                          <LearningPage notify={notify} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="resources"
+                    element={
+                      <RouteErrorBoundary key="learner-resources">
+                        <Suspense fallback={routeFallback}>
+                          <ResourcesPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="messages"
+                    element={
+                      <RouteErrorBoundary key="learner-messages">
+                        <Suspense fallback={routeFallback}>
+                          <MessagesPage
+                            profile={profile}
+                            notify={notify}
+                            onLogout={handleLogout}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="wallet"
+                    element={
+                      <RouteErrorBoundary key="learner-wallet">
+                        <Suspense fallback={routeFallback}>
+                          <WalletPage profile={profile} notify={notify} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/learner/dashboard" replace />}
+                  />
+                </Route>
+                <Route
+                  path="/mentor"
+                  element={
+                    <RoleGuard profile={profile} allowedRoles={["MENTOR"]}>
+                      <MentorLayout
+                        profile={profile}
+                        onLogout={handleLogout}
+                        language={language}
+                        onLanguageChange={handleLanguageChange}
+                        unreadNotifications={unreadNotifications}
+                      />
+                    </RoleGuard>
                   }
-                />
+                >
+                  <Route
+                    index
+                    element={<Navigate to="/mentor/dashboard" replace />}
+                  />
+                  <Route
+                    path="dashboard"
+                    element={
+                      <RouteErrorBoundary key="mentor-dashboard">
+                        <Suspense fallback={routeFallback}>
+                          <MentorDashboard
+                            profile={profile}
+                            onLogout={handleLogout}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="teach"
+                    element={
+                      <RouteErrorBoundary key="mentor-teach">
+                        <Suspense fallback={routeFallback}>
+                          <TeachingPage notify={notify} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="analytics"
+                    element={
+                      <RouteErrorBoundary key="mentor-analytics">
+                        <Suspense fallback={routeFallback}>
+                          <AnalyticsPage profile={profile} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="messages"
+                    element={
+                      <RouteErrorBoundary key="mentor-messages">
+                        <Suspense fallback={routeFallback}>
+                          <MessagesPage
+                            profile={profile}
+                            notify={notify}
+                            onLogout={handleLogout}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="wallet"
+                    element={
+                      <RouteErrorBoundary key="mentor-wallet">
+                        <Suspense fallback={routeFallback}>
+                          <WalletPage profile={profile} notify={notify} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="professional-profile"
+                    element={
+                      <RouteErrorBoundary key="mentor-professional-profile">
+                        <Suspense fallback={routeFallback}>
+                          <ProfessionalProfilePage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={<Navigate to="/mentor/dashboard" replace />}
+                  />
+                </Route>
                 <Route
                   path="/role-guide"
                   element={
@@ -624,102 +809,79 @@ export default function App() {
                 <Route
                   path="/sessions"
                   element={
-                    <RouteErrorBoundary key="sessions">
-                      <Suspense fallback={routeFallback}>
-                        <LearningPage notify={notify} />
-                      </Suspense>
-                    </RouteErrorBoundary>
+                    <Navigate
+                      to={
+                        profile?.role === "MENTOR"
+                          ? "/mentor/teach"
+                          : "/learner/sessions"
+                      }
+                      replace
+                    />
+                  }
+                />
+                <Route
+                  path="/resources"
+                  element={<Navigate to="/learner/resources" replace />}
+                />
+                <Route
+                  path="/teach"
+                  element={<Navigate to="/mentor/teach" replace />}
+                />
+                <Route
+                  path="/mentors"
+                  element={<Navigate to="/learner/mentors" replace />}
+                />
+                <Route
+                  path="/professional-profile"
+                  element={
+                    <Navigate to="/mentor/professional-profile" replace />
+                  }
+                />
+                <Route
+                  path="/professional-profile/:section"
+                  element={<RedirectToMentorProfessionalProfile />}
+                />
+                <Route
+                  path="/wallet"
+                  element={
+                    <Navigate
+                      to={
+                        profile?.role === "MENTOR"
+                          ? "/mentor/wallet"
+                          : "/learner/wallet"
+                      }
+                      replace
+                    />
+                  }
+                />
+                <Route
+                  path="/analytics"
+                  element={<Navigate to="/mentor/analytics" replace />}
+                />
+                <Route
+                  path="/messages"
+                  element={
+                    <Navigate
+                      to={
+                        profile?.role === "MENTOR"
+                          ? "/mentor/messages"
+                          : "/learner/messages"
+                      }
+                      replace
+                    />
                   }
                 />
                 <Route
                   path="/sessions/:roadmapId"
                   element={
-                    <RouteErrorBoundary key="sessions-roadmap">
-                      <Suspense fallback={routeFallback}>
-                        <LearningPage notify={notify} />
-                      </Suspense>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/resources"
-                  element={
-                    <RouteErrorBoundary key="resources">
-                      <Suspense fallback={routeFallback}>
-                        <ResourcesPage />
-                      </Suspense>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/teach"
-                  element={
-                    profile?.role === "MENTOR" ? (
-                      <RouteErrorBoundary key="teach">
-                        <Suspense fallback={routeFallback}>
-                          <TeachingPage notify={notify} />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : (
-                      <Navigate to="/sessions" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/mentors"
-                  element={
-                    profile?.role === "MENTOR" ? (
-                      <RouteErrorBoundary key="mentors">
-                        <Suspense fallback={routeFallback}>
-                          <Dashboard
-                            onLogout={handleLogout}
-                            language={language}
-                            page="mentors"
-                            notify={notify}
-                          />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : (
-                      <RouteErrorBoundary key="mentors-fallback">
-                        <Suspense fallback={routeFallback}>
-                          <LearningPage notify={notify} />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    )
-                  }
-                />
-                <Route
-                  path="/professional-profile"
-                  element={
-                    profile?.role === "MENTOR" ? (
-                      <RouteErrorBoundary key="professional-profile">
-                        <Suspense fallback={routeFallback}>
-                          <ProfessionalProfilePage
-                            profile={profile}
-                            notify={notify}
-                          />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : (
-                      <Navigate to="/home" replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/professional-profile/:section"
-                  element={
-                    profile?.role === "MENTOR" ? (
-                      <RouteErrorBoundary key="professional-profile-section">
-                        <Suspense fallback={routeFallback}>
-                          <ProfessionalProfilePage
-                            profile={profile}
-                            notify={notify}
-                          />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    ) : (
-                      <Navigate to="/home" replace />
-                    )
+                    <Navigate
+                      to={
+                        profile?.role === "MENTOR"
+                          ? "/mentor/teach"
+                          : "/learner/sessions"
+                      }
+                      replace
+                    />
                   }
                 />
                 <Route
@@ -728,40 +890,6 @@ export default function App() {
                     <RouteErrorBoundary key="mentor-profile">
                       <Suspense fallback={routeFallback}>
                         <MentorProfilePage isLoggedIn={true} />
-                      </Suspense>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/wallet"
-                  element={
-                    <RouteErrorBoundary key="wallet">
-                      <Suspense fallback={routeFallback}>
-                        <WalletPage profile={profile} notify={notify} />
-                      </Suspense>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/analytics"
-                  element={
-                    <RouteErrorBoundary key="analytics">
-                      <Suspense fallback={routeFallback}>
-                        <AnalyticsPage profile={profile} />
-                      </Suspense>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/messages"
-                  element={
-                    <RouteErrorBoundary key="messages">
-                      <Suspense fallback={routeFallback}>
-                        <MessagesPage
-                          profile={profile}
-                          notify={notify}
-                          onLogout={handleLogout}
-                        />
                       </Suspense>
                     </RouteErrorBoundary>
                   }
@@ -776,7 +904,7 @@ export default function App() {
                         </Suspense>
                       </RouteErrorBoundary>
                     ) : (
-                      <Navigate to="/home" replace />
+                      <Navigate to={roleRoot(profile?.role)} replace />
                     )
                   }
                 />
@@ -801,7 +929,7 @@ export default function App() {
             mode={authMode}
             onClose={() => {
               setAuthMode(null);
-              navigate("/home");
+              navigate("/");
             }}
             language={language}
             initialError={oauthError}
@@ -809,7 +937,7 @@ export default function App() {
             onLoggedIn={async (loggedMode) => {
               setAuthMode(null);
               setOauthError("");
-              await syncCurrentUser();
+              const user = await syncCurrentUser();
               notify({
                 type: "success",
                 title:
@@ -821,7 +949,9 @@ export default function App() {
                 localStorage.removeItem("auth_post_redirect");
                 navigate(post, { replace: true });
               } else {
-                navigate("/home", { replace: true });
+                navigate(roleRoot(user?.role || profile?.role), {
+                  replace: true,
+                });
               }
             }}
           />

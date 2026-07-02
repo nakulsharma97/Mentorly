@@ -89,7 +89,7 @@ export default function MentorProfileHeader({
     >
       <div className="mentor-hero-topline">
         <p className="muted">Premium mentor profile</p>
-        <Link className="meeting-link" to="/home">
+        <Link className="meeting-link" to="/mentor/dashboard">
           Back to home
         </Link>
       </div>
