@@ -21,7 +21,45 @@
   color: var(--md-ink);
 }
 .mp-head__sub { margin: 4px 0 0; font-size: 0.88rem; color: var(--md-muted); }
-.mp-head__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+..mp-head__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.mp-export-group { position: relative; }
+.mp-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: var(--panel);
+  border: 1px solid var(--md-border-soft);
+  border-radius: 12px;
+  box-shadow: var(--md-shadow);
+  z-index: 10;
+  min-width: 180px;
+  overflow: hidden;
+}
+.mp-dropdown-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: var(--md-ink);
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+.mp-dropdown-item:hover {
+  background: var(--md-tint);
+}
+.mp-pagination {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mp-pagination span {
+  color: var(--md-muted);
+  font-size: 0.92rem;
+}
 
 /* --------------------------------------------------------------- toolbar -- */
 .mp-toolbar {

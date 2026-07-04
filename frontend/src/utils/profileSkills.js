@@ -58,6 +58,10 @@ export const serializeSkillTags = (tags) => {
 };
 
 export const getProfileQualityScore = (profile) => {
+  if (typeof profile?.profileCompletionPercent === "number") {
+    return profile.profileCompletionPercent;
+  }
+
   const requiredChecks = [
     Boolean(String(profile?.skills || "").trim()),
     Boolean(String(profile?.aboutMe || "").trim()),

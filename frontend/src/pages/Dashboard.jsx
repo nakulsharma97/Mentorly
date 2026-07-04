@@ -1568,7 +1568,7 @@ export default function Dashboard({
     : "Your skill exchange command center";
 
   const profileQualityScore = useMemo(
-    () => getProfileQualityScore(profile),
+    () => profile?.profileCompletionPercent ?? getProfileQualityScore(profile),
     [profile],
   );
 

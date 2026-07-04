@@ -21,11 +21,7 @@ function VerificationStatusPanel({ profile }) {
     >
       <div className="pp-verification-card">
         <div className="pp-verification-card__content">
-          <div
-            className={`pp-badge ${isVerified ? "pp-badge--verified" : "pp-badge--pending"}`}
-          >
-            {statusLabel}
-          </div>
+          <div className={badgeClass}>{statusLabel}</div>
           <p className="pp-muted">
             {isVerified
               ? "Your mentor verification is active, which helps learners feel more confident booking with you."
@@ -79,32 +75,6 @@ const tabs = [
   },
 ];
 
-// Presentational-only completion estimate derived from the fields we already
-// hold on the profile object. No backend/API call is involved.
-const completionChecklist = [
-  { key: "fullName", label: "Full name" },
-  { key: "aboutMe", label: "About you" },
-  { key: "skills", label: "Skills" },
-  { key: "githubUrl", label: "GitHub" },
-  { key: "linkedinUrl", label: "LinkedIn" },
-  { key: "profileImageUrl", label: "Profile photo" },
-];
-
-function computeCompletion(profile) {
-  if (!profile) {
-    return {
-      percent: 0,
-      missing: completionChecklist.map((item) => item.label),
-    };
-  }
-  const missing = completionChecklist.filter(
-    (item) => !String(profile[item.key] || "").trim(),
-  );
-  const filled = completionChecklist.length - missing.length;
-  const percent = Math.round((filled / completionChecklist.length) * 100);
-  return { percent, missing: missing.map((item) => item.label) };
-}
-
 function Panel({ title, subtitle, children }) {
   return (
     <section className="pp-card">
@@ -134,7 +104,13 @@ export default function ProfessionalProfilePage({ profile, notify }) {
               ? "portfolio"
               : "personal-information";
 
-  const completion = useMemo(() => computeCompletion(profile), [profile]);
+  const completion = useMemo(
+    () => ({
+      percent: profile?.profileCompletionPercent ?? 0,
+      missing: profile?.profileCompletionMissing || [],
+    }),
+    [profile],
+  );
   const completionMessage =
     completion.percent >= 100
       ? "Your profile is complete — you're ready to attract more learners."

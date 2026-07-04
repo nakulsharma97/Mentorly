@@ -268,6 +268,36 @@ public class UserController {
                 .toList();
     }
 
+    private static ProfileCompletion computeProfileCompletion(User user) {
+        List<String> missing = new ArrayList<>();
+
+        if (!hasValue(user.getSkills())) {
+            missing.add("Skills");
+        }
+        if (!hasValue(user.getAboutMe())) {
+            missing.add("About you");
+        }
+        if (!hasValue(user.getGithubUrl())) {
+            missing.add("GitHub");
+        }
+        if (!hasValue(user.getLinkedinUrl())) {
+            missing.add("LinkedIn");
+        }
+
+        int total = 4;
+        int completed = total - missing.size();
+        int percent = Math.round((completed / (float) total) * 100);
+
+        return new ProfileCompletion(percent, missing);
+    }
+
+    private static boolean hasValue(String value) {
+        return value != null && !value.trim().isEmpty();
+    }
+
+    private record ProfileCompletion(int percent, List<String> missing) {
+    }
+
     public record WalletUpdateRequest(String walletAddress) {
     }
 
@@ -300,8 +330,11 @@ public class UserController {
             String certificates,
             String pastTeachingSessions,
             Boolean mentorVerified,
-            String verifiedSkills) {
+            String verifiedSkills,
+            Integer profileCompletionPercent,
+            List<String> profileCompletionMissing) {
         static UserProfileResponse from(User user) {
+            ProfileCompletion completion = computeProfileCompletion(user);
             return new UserProfileResponse(
                     user.getId(),
                     user.getEmail(),
@@ -317,7 +350,9 @@ public class UserController {
                     user.getCertificates(),
                     user.getPastTeachingSessions(),
                     user.isMentorVerified(),
-                    user.getVerifiedSkills());
+                    user.getVerifiedSkills(),
+                    completion.percent(),
+                    completion.missing());
         }
     }
 

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable no-unused-vars */
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import client from "../api/client";
 import RoleSwitcher from "../components/RoleSwitcher";
 import OptimizedImage from "../components/OptimizedImage";
@@ -9,7 +10,6 @@ import {
   SKILL_LEVELS,
 } from "../utils/profileSkills";
 import { getErrorFeedback } from "../utils/comingSoon";
-import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import "./ProfileSetup.css";
 
 const emptyForm = {
@@ -57,6 +57,32 @@ export default function ProfileSetup({
       }),
     [form, skillTags],
   );
+
+  const basicInfoRef = useRef(null);
+  const skillsRef = useRef(null);
+  const experienceRef = useRef(null);
+  const educationRef = useRef(null);
+  const languagesRef = useRef(null);
+  const portfolioRef = useRef(null);
+  const pricingRef = useRef(null);
+  const verificationRef = useRef(null);
+
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [openSections, setOpenSections] = useState({
+    basic: true,
+    skills: false,
+    experience: false,
+    education: false,
+    languages: false,
+    portfolio: false,
+    pricing: false,
+    verification: false,
+  });
+  const [skillModalOpen, setSkillModalOpen] = useState(false);
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [skillSearch, setSkillSearch] = useState("");
 
   const fetchProjects = async () => {
     try {
@@ -168,19 +194,8 @@ export default function ProfileSetup({
         linkedinUrl: form.linkedinUrl,
         profileImageUrl: form.profileImageUrl,
       };
-      console.debug("Saving profile payload", payload);
-      const response = await client.put("/api/v1/users/me/profile", payload);
-      notify?.({
-        type: "success",
-        title: "Profile saved",
-        message: "Your profile was updated successfully.",
-      });
-      trackAnalyticsEvent("profile_setup_completed", {
-        qualityScore,
-        skillTagCount: finalSkillTags.length,
-      });
-      onProfileUpdated?.(response.data.data);
-      onCompleted(response.data.data);
+      const response = await saveProfile(payload, { notifySuccess: true });
+      if (response && onCompleted) onCompleted(response);
     } catch (err) {
       const backendError =
         err?.response?.data?.data?.error ||
@@ -319,6 +334,37 @@ export default function ProfileSetup({
     }
   };
 
+  const openAddSkill = () => {
+    setSkillSearch("");
+    setSkillModalOpen(true);
+  };
+
+  const confirmAddSkill = () => {
+    const cleaned = skillSearch.trim();
+    if (!cleaned) return;
+    const exists = skillTags.some(
+      (t) => t.name.toLowerCase() === cleaned.toLowerCase(),
+    );
+    if (!exists) {
+      setSkillTags((prev) => [
+        ...prev,
+        { name: cleaned, level: "Intermediate" },
+      ]);
+    }
+    setSkillModalOpen(false);
+    setSkillSearch("");
+  };
+
+  const startEditSkill = (tag) => {
+    setNewSkillName(tag.name);
+    setNewSkillLevel(tag.level || "Intermediate");
+    setSkillModalOpen(true);
+  };
+
+  const deleteSkill = (name) => {
+    setSkillTags((prev) => prev.filter((t) => t.name !== name));
+  };
+
   const handleProjectFieldChange = (event) => {
     const { name, value, type, checked } = event.target;
     setProjectEditor((prev) => ({
@@ -328,17 +374,95 @@ export default function ProfileSetup({
     setProjectError("");
   };
 
+  const saveProfile = useCallback(
+    async (payload, { notifySuccess } = {}) => {
+      setIsSaving(true);
+      try {
+        const response = await client.put("/api/v1/users/me/profile", payload);
+        const updated = response.data.data;
+        setLastSavedAt(new Date());
+        setLastSavedSnapshot({ form: { ...form }, skillTags: [...skillTags] });
+        onProfileUpdated?.(updated);
+        if (notifySuccess) {
+          notify?.({
+            type: "success",
+            title: "Profile saved",
+            message: "Changes saved.",
+          });
+        }
+        return updated;
+      } catch (err) {
+        console.debug("Profile save failed", err);
+        if (notifySuccess) {
+          notify?.({
+            type: "error",
+            title: "Save failed",
+            message: "Unable to save profile.",
+          });
+        }
+        throw err;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [form, skillTags, onProfileUpdated, notify],
+  );
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // autosave minimal payload
+      const payload = {
+        skills: serializeSkillTags(skillTags),
+        aboutMe: form.aboutMe,
+        githubUrl: form.githubUrl,
+        linkedinUrl: form.linkedinUrl,
+        profileImageUrl: form.profileImageUrl,
+      };
+      saveProfile(payload).catch(() => {});
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [form, skillTags, saveProfile]);
+
+  const scrollToSection = (key) => {
+    const mapping = {
+      basic: basicInfoRef,
+      skills: skillsRef,
+      experience: experienceRef,
+      education: educationRef,
+      languages: languagesRef,
+      portfolio: portfolioRef,
+      pricing: pricingRef,
+      verification: verificationRef,
+    };
+    const ref = mapping[key];
+    if (ref && ref.current) {
+      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      setOpenSections((prev) => ({ ...prev, [key]: true }));
+    }
+  };
+
+  const handleUndo = () => {
+    if (!lastSavedSnapshot) return;
+    setForm(lastSavedSnapshot.form || emptyForm);
+    setSkillTags(lastSavedSnapshot.skillTags || []);
+    notify?.({
+      type: "info",
+      title: "Restored",
+      message: "Reverted to last saved draft.",
+    });
+  };
+
   return (
     <main className="profile-setup-wrapper">
       <div className="profile-setup-container">
         {/* Header Section */}
         <div className="profile-setup-header">
-          <h1>Complete your mentor profile</h1>
+          <h1>Complete Your Mentor Profile</h1>
           <p>
-            A complete profile helps learners trust you and book more sessions.
+            Complete your profile to increase trust and attract more learners.
           </p>
 
-          {/* Progress Indicator */}
           <div className="progress-indicator">
             <div className="progress-step completed">
               <div className="progress-step-circle">✓</div>
@@ -355,57 +479,50 @@ export default function ProfileSetup({
           </div>
         </div>
 
-        {/* Main Content - Two Column Layout */}
         <div className="profile-setup-content">
-          {/* Left Column - Tips Panel */}
           <div className="profile-setup-tips">
             <div className="tips-card">
               <h3>Profile Tips 💡</h3>
-
-              <div className="tip-item">
-                <div className="tip-icon">👤</div>
-                <div className="tip-content">
-                  <h4>Add a professional bio</h4>
-                  <p>
-                    Write a compelling bio about yourself and your expertise.
-                  </p>
+              <div className="aside-checklist">
+                <h4>Checklist</h4>
+                <div
+                  className="checklist-item"
+                  onClick={() => scrollToSection("basic")}
+                >
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={form.aboutMe?.length > 0}
+                  />
+                  <div>Basic information</div>
                 </div>
-              </div>
-
-              <div className="tip-item">
-                <div className="tip-icon">⚡</div>
-                <div className="tip-content">
-                  <h4>Include relevant skills</h4>
-                  <p>
-                    Add skills with proficiency levels to help learners find
-                    you.
-                  </p>
+                <div
+                  className="checklist-item"
+                  onClick={() => scrollToSection("skills")}
+                >
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={skillTags.length > 0}
+                  />
+                  <div>Skills & experience</div>
                 </div>
-              </div>
-
-              <div className="tip-item">
-                <div className="tip-icon">🔗</div>
-                <div className="tip-content">
-                  <h4>Share your GitHub and LinkedIn</h4>
-                  <p>
-                    Links help learners verify your experience and portfolio.
-                  </p>
-                </div>
-              </div>
-
-              <div className="tip-item">
-                <div className="tip-icon">⭐</div>
-                <div className="tip-content">
-                  <h4>Complete your profile for visibility</h4>
-                  <p>Complete profiles are more discoverable to learners.</p>
+                <div
+                  className="checklist-item"
+                  onClick={() => scrollToSection("portfolio")}
+                >
+                  <input
+                    type="checkbox"
+                    readOnly
+                    checked={projects.length > 0}
+                  />
+                  <div>Portfolio</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column - Form */}
           <div className="profile-setup-form-wrapper">
-            {/* Profile Completion Card */}
             <div className="profile-completion-card">
               <div className="completion-progress-circle">
                 <svg viewBox="0 0 100 100">
@@ -457,11 +574,14 @@ export default function ProfileSetup({
               </div>
             </div>
 
-            {/* Main Form Card */}
             <div className="profile-form-card">
               <form className="profile-setup-form" onSubmit={handleSubmit}>
                 {/* Basic Information Section */}
-                <div className="form-section">
+                <div
+                  className="form-section"
+                  ref={basicInfoRef}
+                  data-open={openSections.basic}
+                >
                   <div>
                     <h3 className="form-section-title">Basic Information</h3>
                     <p className="form-section-description">
@@ -490,22 +610,6 @@ export default function ProfileSetup({
                     </p>
                   </div>
 
-                  {form.profileImageUrl && (
-                    <div>
-                      <label>Profile Picture Preview</label>
-                      <div className="profile-image-preview-wrap">
-                        <OptimizedImage
-                          src={form.profileImageUrl}
-                          alt="Profile preview"
-                          className="profile-image-preview"
-                          onError={(event) => {
-                            event.currentTarget.style.display = "none";
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
                   <div className="form-group">
                     <label htmlFor="profileImageUrl">Profile Picture URL</label>
                     <input
@@ -519,284 +623,6 @@ export default function ProfileSetup({
                     <p className="form-helper-text">
                       Use a professional headshot (JPG, PNG, or WebP).
                     </p>
-                  </div>
-                </div>
-
-                {/* Skills Section */}
-                <div className="form-section">
-                  <div>
-                    <h3 className="form-section-title">Skills & Expertise</h3>
-                    <p className="form-section-description">
-                      Add skills that learners will search for.
-                    </p>
-                  </div>
-
-                  <div className="skills-section">
-                    <div className="skills-input-group">
-                      <input
-                        placeholder="Add skill (e.g., React, Python, Design)"
-                        value={newSkillName}
-                        onChange={(e) => setNewSkillName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addSkillTag();
-                          }
-                        }}
-                      />
-                      <select
-                        value={newSkillLevel}
-                        onChange={(e) => setNewSkillLevel(e.target.value)}
-                      >
-                        {SKILL_LEVELS.map((level) => (
-                          <option key={level} value={level}>
-                            {level}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="skills-add-button"
-                        onClick={addSkillTag}
-                      >
-                        + Add Skill
-                      </button>
-                    </div>
-
-                    {skillTags.length > 0 ? (
-                      <div>
-                        <p style={{ fontSize: "13px", marginBottom: "12px" }}>
-                          Added skills:
-                        </p>
-                        <div className="skill-tags-container">
-                          {skillTags.map((tag) => (
-                            <span key={tag.name} className="skill-tag-chip">
-                              {tag.name}
-                              <span style={{ fontSize: "11px", opacity: 0.8 }}>
-                                ({tag.level})
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeSkillTag(tag.name)}
-                                aria-label={`Remove ${tag.name}`}
-                                title="Remove skill"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="muted">
-                        Add at least one skill to make your profile
-                        discoverable.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Links & Portfolio Section */}
-                <div className="form-section">
-                  <div>
-                    <h3 className="form-section-title">Links & Portfolio</h3>
-                    <p className="form-section-description">
-                      Share your professional profiles and portfolio.
-                    </p>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="githubUrl">GitHub Profile URL</label>
-                    <input
-                      id="githubUrl"
-                      name="githubUrl"
-                      type="url"
-                      placeholder="https://github.com/yourusername"
-                      value={form.githubUrl}
-                      onChange={handleChange}
-                      required
-                    />
-                    <p className="form-helper-text">
-                      Full URL including https://
-                    </p>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="linkedinUrl">LinkedIn Profile URL</label>
-                    <input
-                      id="linkedinUrl"
-                      name="linkedinUrl"
-                      type="url"
-                      placeholder="https://linkedin.com/in/yourprofile"
-                      value={form.linkedinUrl}
-                      onChange={handleChange}
-                      required
-                    />
-                    <p className="form-helper-text">
-                      Full URL including https://
-                    </p>
-                  </div>
-                </div>
-
-                {/* Projects Section */}
-                <div className="projects-section">
-                  <div className="project-section-header">
-                    <div>
-                      <h3>Projects & Portfolio</h3>
-                      <p className="muted">
-                        Showcase your best work to learners.
-                      </p>
-                    </div>
-                    {projects.length === 0 && (
-                      <button
-                        type="button"
-                        className="add-project-button"
-                        onClick={resetProjectEditor}
-                      >
-                        + Add Project
-                      </button>
-                    )}
-                  </div>
-
-                  {projectError && <p className="error">{projectError}</p>}
-
-                  <div className="project-form-grid">
-                    <input
-                      name="title"
-                      placeholder="Project title"
-                      value={projectEditor.title}
-                      onChange={handleProjectFieldChange}
-                    />
-                    <textarea
-                      name="description"
-                      placeholder="Project description"
-                      value={projectEditor.description}
-                      onChange={handleProjectFieldChange}
-                      rows={3}
-                    />
-                    <input
-                      name="technologies"
-                      placeholder="Technologies used"
-                      value={projectEditor.technologies}
-                      onChange={handleProjectFieldChange}
-                    />
-                    <input
-                      name="githubUrl"
-                      type="url"
-                      placeholder="GitHub repository URL (optional)"
-                      value={projectEditor.githubUrl}
-                      onChange={handleProjectFieldChange}
-                    />
-                    <input
-                      name="liveDemoUrl"
-                      type="url"
-                      placeholder="Live demo URL (optional)"
-                      value={projectEditor.liveDemoUrl}
-                      onChange={handleProjectFieldChange}
-                    />
-                    <div className="project-dates-row">
-                      <input
-                        name="startDate"
-                        type="date"
-                        placeholder="Start date"
-                        value={projectEditor.startDate}
-                        onChange={handleProjectFieldChange}
-                      />
-                      <input
-                        name="endDate"
-                        type="date"
-                        placeholder="End date"
-                        value={projectEditor.endDate}
-                        onChange={handleProjectFieldChange}
-                        disabled={projectEditor.currentlyWorking}
-                      />
-                    </div>
-                    <label className="project-currently-working">
-                      <input
-                        name="currentlyWorking"
-                        type="checkbox"
-                        checked={projectEditor.currentlyWorking}
-                        onChange={handleProjectFieldChange}
-                      />
-                      Currently working on this project
-                    </label>
-                    <div className="project-form-actions">
-                      <button
-                        type="button"
-                        className="submit-btn"
-                        onClick={saveProject}
-                      >
-                        {activeProjectId ? "Update Project" : "Save Project"}
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-btn"
-                        onClick={resetProjectEditor}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="project-list">
-                    {projects.length === 0 ? (
-                      <p className="muted">
-                        Add projects to showcase your work and expertise.
-                      </p>
-                    ) : (
-                      projects.map((project) => (
-                        <div key={project.id} className="project-card">
-                          <div className="project-card-header">
-                            <div>
-                              <h4>{project.title}</h4>
-                              <p className="muted">{project.technologies}</p>
-                            </div>
-                            <div className="project-card-actions">
-                              <button
-                                type="button"
-                                onClick={() => editProject(project)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                className="danger-btn"
-                                onClick={() => removeProject(project.id)}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                          <p>{project.description}</p>
-                          <div className="project-card-meta">
-                            <span>
-                              {project.startDate} →{" "}
-                              {project.currentlyWorking
-                                ? "Present"
-                                : project.endDate || "Ongoing"}
-                            </span>
-                            {project.githubUrl && (
-                              <a
-                                href={project.githubUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                GitHub
-                              </a>
-                            )}
-                            {project.liveDemoUrl && (
-                              <a
-                                href={project.liveDemoUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Live demo
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
                   </div>
                 </div>
 
@@ -827,10 +653,267 @@ export default function ProfileSetup({
                 />
               </form>
             </div>
+
+            <div
+              className="profile-setup-footer"
+              role="region"
+              aria-label="Profile actions"
+            >
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveProfile(
+                      {
+                        skills: serializeSkillTags(skillTags),
+                        aboutMe: form.aboutMe,
+                        githubUrl: form.githubUrl,
+                        linkedinUrl: form.linkedinUrl,
+                        profileImageUrl: form.profileImageUrl,
+                      },
+                      { notifySuccess: true },
+                    )
+                  }
+                  className="secondary-btn"
+                >
+                  Save draft
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    notify?.({
+                      type: "info",
+                      title: "Preview",
+                      message: "Preview not implemented",
+                    })
+                  }
+                  className="secondary-btn"
+                >
+                  Preview
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUndo()}
+                  className="secondary-btn"
+                >
+                  Undo
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <div style={{ fontSize: 13, color: "var(--muted, #6b7280)" }}>
+                  {isSaving
+                    ? "Saving..."
+                    : lastSavedAt
+                      ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                      : "Not saved"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    document
+                      .querySelector(".profile-setup-form")
+                      .dispatchEvent(new Event("submit", { cancelable: true }))
+                  }
+                  className="submit-btn"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Role Switcher */}
+        {/* Modals */}
+        {skillModalOpen && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div className="modal">
+              <h3>{newSkillName ? "Edit Skill" : "Add Skill"}</h3>
+              <p className="muted">
+                Search or type a skill name and choose proficiency.
+              </p>
+              <input
+                list="skill-suggestions"
+                placeholder="e.g. React, Java, Spring Boot"
+                value={skillSearch || newSkillName}
+                onChange={(e) => setSkillSearch(e.target.value)}
+              />
+              <datalist id="skill-suggestions">
+                <option>Java</option>
+                <option>Spring Boot</option>
+                <option>React</option>
+                <option>Python</option>
+                <option>Node.js</option>
+                <option>TypeScript</option>
+              </datalist>
+              <div style={{ marginTop: 8 }}>
+                <label style={{ fontWeight: 600 }}>Proficiency</label>
+                <select
+                  value={newSkillLevel}
+                  onChange={(e) => setNewSkillLevel(e.target.value)}
+                >
+                  {SKILL_LEVELS.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setSkillModalOpen(false);
+                    setNewSkillName("");
+                    setNewSkillLevel("Intermediate");
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  onClick={() => {
+                    const name = (skillSearch || newSkillName).trim();
+                    if (!name) return;
+                    const exists = skillTags.some(
+                      (t) => t.name.toLowerCase() === name.toLowerCase(),
+                    );
+                    if (!exists) {
+                      setSkillTags((prev) => [
+                        ...prev,
+                        { name, level: newSkillLevel },
+                      ]);
+                    } else {
+                      setSkillTags((prev) =>
+                        prev.map((t) =>
+                          t.name.toLowerCase() === name.toLowerCase()
+                            ? { ...t, level: newSkillLevel }
+                            : t,
+                        ),
+                      );
+                    }
+                    setSkillModalOpen(false);
+                    setSkillSearch("");
+                    setNewSkillName("");
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {projectModalOpen && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div className="modal modal-large">
+              <h3>{activeProjectId ? "Edit Project" : "Add Project"}</h3>
+              {projectError && <p className="error">{projectError}</p>}
+              <div className="project-form-grid">
+                <input
+                  name="title"
+                  placeholder="Project title"
+                  value={projectEditor.title}
+                  onChange={handleProjectFieldChange}
+                />
+                <textarea
+                  name="description"
+                  placeholder="Project description"
+                  value={projectEditor.description}
+                  onChange={handleProjectFieldChange}
+                  rows={4}
+                />
+                <input
+                  name="technologies"
+                  placeholder="Technologies used"
+                  value={projectEditor.technologies}
+                  onChange={handleProjectFieldChange}
+                />
+                <input
+                  name="githubUrl"
+                  type="url"
+                  placeholder="GitHub repository URL (optional)"
+                  value={projectEditor.githubUrl}
+                  onChange={handleProjectFieldChange}
+                />
+                <input
+                  name="liveDemoUrl"
+                  type="url"
+                  placeholder="Live demo URL (optional)"
+                  value={projectEditor.liveDemoUrl}
+                  onChange={handleProjectFieldChange}
+                />
+                <div className="project-dates-row">
+                  <input
+                    name="startDate"
+                    type="date"
+                    placeholder="DD / MM / YYYY"
+                    value={projectEditor.startDate}
+                    onChange={handleProjectFieldChange}
+                  />
+                  <input
+                    name="endDate"
+                    type="date"
+                    placeholder="DD / MM / YYYY"
+                    value={projectEditor.endDate}
+                    onChange={handleProjectFieldChange}
+                    disabled={projectEditor.currentlyWorking}
+                  />
+                </div>
+                <label className="project-currently-working">
+                  <input
+                    name="currentlyWorking"
+                    type="checkbox"
+                    checked={projectEditor.currentlyWorking}
+                    onChange={handleProjectFieldChange}
+                  />{" "}
+                  Currently working on this project
+                </label>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                  marginTop: 12,
+                }}
+              >
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setProjectModalOpen(false);
+                    resetProjectEditor();
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  onClick={() => {
+                    saveProject()
+                      .then(() => setProjectModalOpen(false))
+                      .catch(() => {});
+                  }}
+                >
+                  {activeProjectId ? "Update Project" : "Save Project"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {initialProfile && (
           <div style={{ marginTop: "40px", textAlign: "center" }}>
             <RoleSwitcher

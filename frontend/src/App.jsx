@@ -50,6 +50,9 @@ const isProfileComplete = (profile) => {
   if (!profile) {
     return false;
   }
+  if (typeof profile.profileCompletionPercent === "number") {
+    return profile.profileCompletionPercent >= 100;
+  }
   return Boolean(
     String(profile.skills || "").trim() &&
     String(profile.aboutMe || "").trim() &&
@@ -144,8 +147,11 @@ export default function App() {
         // Ensure server clears cookies and always reset local UI state
         try {
           await client.post("/api/v1/auth/logout");
-        } catch (ignore) {}
+        } catch (logoutError) {
+          console.debug("Logout cleanup failed", logoutError);
+        }
         setProfile(null);
+        console.debug("Logout cleanup failed", err);
         return null;
       }
     } finally {
@@ -339,7 +345,14 @@ export default function App() {
     setOauthError("OAuth login failed. Please try again.");
     setAuthMode("login");
     navigate("/login", { replace: true });
-  }, [isLoggedIn, location.search, navigate, pathname, profileChecked]);
+  }, [
+    isLoggedIn,
+    location.search,
+    navigate,
+    pathname,
+    profileChecked,
+    profile?.role,
+  ]);
 
   useEffect(() => {
     if (pathname === "/login") {
