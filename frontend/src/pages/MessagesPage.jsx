@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import { getErrorFeedback } from "../utils/comingSoon";
+import { filterConversationsBySearch } from "../utils/messagesPage";
 import "./MessagesPage.css";
 
 const RECONNECT_MAX_ATTEMPTS = 5;
@@ -80,11 +81,7 @@ export default function MessagesPage({ profile, notify }) {
   const [requestActioningId, setRequestActioningId] = useState(null);
   const [typingUsers, setTypingUsers] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [requestMessage, setRequestMessage] = useState("");
-  const [requestTarget, setRequestTarget] = useState(null);
-  const [requestSending, setRequestSending] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const wsRef = useRef(null);
@@ -513,63 +510,8 @@ export default function MessagesPage({ profile, notify }) {
     }
   };
 
-  const handleSearch = async (event) => {
-    const next = event.target.value.trim();
-    setSearchTerm(next);
-    if (!next) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      setSearchLoading(true);
-      const response = await client.get(
-        `/api/v1/users/mentors?skill=${encodeURIComponent(next)}`,
-      );
-      const mentors = (response?.data?.data || []).filter(
-        (user) => String(user.id) !== String(profile?.id),
-      );
-      setSearchResults(
-        mentors.map((mentor) => ({
-          id: mentor.id,
-          fullName: mentor.fullName || mentor.name || mentor.email || "Mentor",
-          role: mentor.role || "MENTOR",
-          email: mentor.email,
-          rating: mentor.averageRating,
-        })),
-      );
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleSendRequest = async (user) => {
-    if (!user?.id || !requestMessage.trim()) {
-      return;
-    }
-
-    try {
-      setRequestSending(true);
-      await client.post("/api/message-requests", {
-        receiver: Number(user.id),
-        firstMessage: requestMessage.trim(),
-      });
-      setRequestTarget(user);
-      setRequestMessage("");
-      notify?.({
-        type: "success",
-        title: "Message request sent",
-        message: `Your request was sent to ${user.fullName || user.email || "this user"}.`,
-      });
-    } catch (err) {
-      setErrorText(
-        err?.response?.data?.message || "Unable to send the request right now.",
-      );
-    } finally {
-      setRequestSending(false);
-    }
+  const handleSearch = (event) => {
+    setSearchTerm(event.target.value);
   };
 
   const notifyComingSoon = (feature) =>
@@ -593,7 +535,21 @@ export default function MessagesPage({ profile, notify }) {
   const selectedConversation = conversations.find(
     (item) => item.bookingId === selectedBookingId,
   );
-  const showSearchPanel = Boolean(searchTerm);
+  const filteredConversations = useMemo(() => {
+    let next = conversations;
+    if (activeFilter === "unread") {
+      next = next.filter((item) => (item.unreadCount || 0) > 0);
+    } else if (activeFilter === "mentors") {
+      next = next.filter(
+        (item) => String(item.role || "").toUpperCase() === "MENTOR",
+      );
+    } else if (activeFilter === "learners") {
+      next = next.filter(
+        (item) => String(item.role || "").toUpperCase() === "LEARNER",
+      );
+    }
+    return filterConversationsBySearch(next, searchTerm);
+  }, [activeFilter, conversations, searchTerm]);
 
   const wsStatusBanner =
     wsState === "reconnecting"
@@ -603,7 +559,7 @@ export default function MessagesPage({ profile, notify }) {
         : "";
 
   return (
-    <main className="msg-page">
+    <main className="msg-page md-page">
       <div className="msg-container">
         {/* ---------- Header ---------- */}
         <header className="msg-header">
@@ -631,11 +587,11 @@ export default function MessagesPage({ profile, notify }) {
             </span>
             <button
               type="button"
-              className="msg-btn msg-btn-primary"
+              className="msg-btn msg-btn-outline msg-btn-sm"
               onClick={focusSearch}
             >
               <span className="material-symbols-outlined">edit_square</span>
-              New Message
+              New
             </button>
           </div>
         </header>
@@ -652,80 +608,11 @@ export default function MessagesPage({ profile, notify }) {
               className="msg-search-input"
               value={searchTerm}
               onChange={handleSearch}
-              placeholder="Search mentors, learners or skills..."
-              aria-label="Search mentors, learners or skills"
+              placeholder="Search conversations"
+              aria-label="Search conversations"
             />
             <kbd className="msg-kbd">⌘K</kbd>
-            <button
-              type="button"
-              className="msg-filter-btn"
-              onClick={() => notifyComingSoon("Filters")}
-            >
-              <span className="material-symbols-outlined">tune</span>
-              <span className="msg-filter-label">Filters</span>
-            </button>
           </div>
-
-          {showSearchPanel && (
-            <div className="msg-search-panel" role="listbox">
-              {searchLoading ? (
-                <div className="msg-search-loading">
-                  <span className="msg-spinner" aria-hidden="true" />
-                  Searching…
-                </div>
-              ) : searchResults.length === 0 ? (
-                <div className="msg-search-empty">
-                  <span className="material-symbols-outlined">
-                    person_search
-                  </span>
-                  No people found for “{searchTerm}”. Try another name or skill.
-                </div>
-              ) : (
-                searchResults.map((user) => (
-                  <div className="msg-search-result" key={user.id}>
-                    <div className="msg-search-result-head">
-                      <Avatar name={user.fullName} size={40} />
-                      <div className="msg-search-result-meta">
-                        <p className="msg-name">{user.fullName}</p>
-                        <p className="msg-role">{roleLabel(user.role)}</p>
-                      </div>
-                      {user.rating ? (
-                        <span className="msg-rating">★ {user.rating}</span>
-                      ) : null}
-                    </div>
-                    <textarea
-                      className="msg-intro-input"
-                      value={
-                        requestTarget?.id === user.id ? requestMessage : ""
-                      }
-                      onChange={(event) => {
-                        setRequestTarget(user);
-                        setRequestMessage(event.target.value);
-                      }}
-                      placeholder={`Send a short intro to ${user.fullName || "this person"}`}
-                      rows={2}
-                    />
-                    <div className="msg-search-result-actions">
-                      <button
-                        type="button"
-                        className="msg-btn msg-btn-primary msg-btn-sm"
-                        onClick={() => handleSendRequest(user)}
-                        disabled={
-                          requestSending ||
-                          requestTarget?.id !== user.id ||
-                          !requestMessage.trim()
-                        }
-                      >
-                        {requestSending && requestTarget?.id === user.id
-                          ? "Sending…"
-                          : "Send request"}
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
         </div>
 
         {errorText ? (
@@ -743,7 +630,7 @@ export default function MessagesPage({ profile, notify }) {
           </div>
         ) : null}
 
-        {/* ---------- Two-column layout ---------- */}
+        {/* ---------- Three-column messaging layout ---------- */}
         <div className={`msg-layout${sidebarOpen ? " sidebar-open" : ""}`}>
           <button
             type="button"
@@ -773,18 +660,32 @@ export default function MessagesPage({ profile, notify }) {
             className="msg-sidebar"
             aria-label="Conversations and requests"
           >
-            {/* Pending requests */}
-            <section className="msg-card msg-section">
+            <section className="msg-card msg-section msg-section-compact">
               <div className="msg-section-head">
                 <h2 className="msg-section-title">
                   <span className="material-symbols-outlined">schedule</span>
-                  Pending Requests
+                  Message Requests
                 </h2>
                 {messageRequests.length > 0 && (
                   <span className="msg-count-chip">
                     {messageRequests.length}
                   </span>
                 )}
+              </div>
+
+              <div
+                className="msg-request-chip-row"
+                aria-label="Message request filters"
+              >
+                <button type="button" className="msg-filter-pill is-active">
+                  Pending
+                </button>
+                <button type="button" className="msg-filter-pill">
+                  Accepted
+                </button>
+                <button type="button" className="msg-filter-pill">
+                  Rejected
+                </button>
               </div>
 
               {loadingRequests ? (
@@ -801,7 +702,7 @@ export default function MessagesPage({ profile, notify }) {
                 </div>
               ) : messageRequests.length > 0 ? (
                 <div className="msg-request-list">
-                  {messageRequests.map((request) => {
+                  {messageRequests.slice(0, 2).map((request) => {
                     const name =
                       request.sender?.fullName ||
                       request.sender?.email ||
@@ -810,7 +711,7 @@ export default function MessagesPage({ profile, notify }) {
                     return (
                       <article className="msg-request-card" key={request.id}>
                         <div className="msg-request-top">
-                          <Avatar name={name} size={42} />
+                          <Avatar name={name} size={36} />
                           <div className="msg-request-meta">
                             <p className="msg-name">{name}</p>
                             <p className="msg-role">
@@ -830,9 +731,6 @@ export default function MessagesPage({ profile, notify }) {
                             }
                             disabled={busy}
                           >
-                            <span className="material-symbols-outlined">
-                              check
-                            </span>
                             {busy ? "…" : "Accept"}
                           </button>
                           <button
@@ -843,9 +741,6 @@ export default function MessagesPage({ profile, notify }) {
                             }
                             disabled={busy}
                           >
-                            <span className="material-symbols-outlined">
-                              close
-                            </span>
                             Decline
                           </button>
                         </div>
@@ -855,31 +750,43 @@ export default function MessagesPage({ profile, notify }) {
                 </div>
               ) : (
                 <div className="msg-empty msg-empty-sm">
-                  <div className="msg-empty-icon">
-                    <span className="material-symbols-outlined">inbox</span>
-                  </div>
-                  <p className="msg-empty-title">You're all caught up</p>
+                  <p className="msg-empty-title">You are all caught up</p>
                   <p className="msg-empty-desc">
-                    New connection requests will show up here.
+                    New connection requests appear here first.
                   </p>
-                  <button
-                    type="button"
-                    className="msg-btn msg-btn-outline msg-btn-sm"
-                    onClick={focusSearch}
-                  >
-                    Find people
-                  </button>
                 </div>
               )}
             </section>
 
-            {/* Recent conversations */}
-            <section className="msg-card msg-section">
+            <section className="msg-card msg-section msg-section-compact">
               <div className="msg-section-head">
                 <h2 className="msg-section-title">
                   <span className="material-symbols-outlined">forum</span>
-                  Recent Conversations
+                  Conversations
                 </h2>
+              </div>
+
+              <div
+                className="msg-filter-row"
+                role="tablist"
+                aria-label="Conversation filters"
+              >
+                {[
+                  { value: "all", label: "All" },
+                  { value: "unread", label: "Unread" },
+                  { value: "mentors", label: "Mentors" },
+                  { value: "learners", label: "Learners" },
+                  { value: "archived", label: "Archived" },
+                ].map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    className={`msg-filter-pill${activeFilter === filter.value ? " is-active" : ""}`}
+                    onClick={() => setActiveFilter(filter.value)}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
               </div>
 
               {loadingConversations ? (
@@ -894,9 +801,9 @@ export default function MessagesPage({ profile, notify }) {
                     </div>
                   ))}
                 </div>
-              ) : conversations.length > 0 ? (
+              ) : filteredConversations.length > 0 ? (
                 <div className="msg-convo-list">
-                  {conversations.map((item) => {
+                  {filteredConversations.map((item) => {
                     const active = item.bookingId === selectedBookingId;
                     return (
                       <button
@@ -935,20 +842,18 @@ export default function MessagesPage({ profile, notify }) {
                 </div>
               ) : (
                 <div className="msg-empty msg-empty-sm">
-                  <div className="msg-empty-icon">
-                    <span className="material-symbols-outlined">chat</span>
-                  </div>
-                  <p className="msg-empty-title">No conversations yet</p>
+                  <p className="msg-empty-title">
+                    No conversations match this view
+                  </p>
                   <p className="msg-empty-desc">
-                    Accepted requests turn into chats here.
+                    Try another filter or start a new conversation.
                   </p>
                 </div>
               )}
             </section>
 
-            {/* Online users */}
             {onlineUsers.length > 0 && (
-              <section className="msg-card msg-section">
+              <section className="msg-card msg-section msg-section-compact">
                 <div className="msg-section-head">
                   <h2 className="msg-section-title">
                     <span className="material-symbols-outlined">group</span>
@@ -970,7 +875,7 @@ export default function MessagesPage({ profile, notify }) {
                         setSidebarOpen(false);
                       }}
                     >
-                      <Avatar name={item.title} online size={40} />
+                      <Avatar name={item.title} online size={38} />
                       <span className="msg-online-name">
                         {item.title.split(" ")[0]}
                       </span>
@@ -1192,13 +1097,17 @@ export default function MessagesPage({ profile, notify }) {
                       attach_file
                     </span>
                   </button>
-                  <input
-                    type="text"
+                  <textarea
                     className="msg-composer-input"
                     value={chatInput}
                     onChange={handleChatInputChange}
                     placeholder="Write a message…"
                     aria-label="Write a message"
+                    rows={1}
+                    onInput={(event) => {
+                      event.target.style.height = "auto";
+                      event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+                    }}
                   />
                   <button
                     type="button"
@@ -1226,6 +1135,74 @@ export default function MessagesPage({ profile, notify }) {
               </>
             )}
           </section>
+
+          <aside className="msg-details" aria-label="Conversation details">
+            {selectedConversation ? (
+              <div className="msg-card msg-details-card">
+                <div className="msg-details-header">
+                  <Avatar
+                    name={selectedConversation.title}
+                    online={selectedConversation.online}
+                    size={56}
+                  />
+                  <div>
+                    <p className="msg-name">{selectedConversation.title}</p>
+                    <p className="msg-role">
+                      {roleLabel(selectedConversation.role)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="msg-detail-block">
+                  <div className="msg-detail-label">Current Session</div>
+                  <div className="msg-detail-value">
+                    {selectedConversation.conversation?.sessionTitle ||
+                      "Active learning session"}
+                  </div>
+                </div>
+
+                <div className="msg-detail-block">
+                  <div className="msg-detail-label">Upcoming Session</div>
+                  <div className="msg-detail-value">Tuesday · 6:30 PM</div>
+                </div>
+
+                <div className="msg-detail-block">
+                  <div className="msg-detail-label">Shared Files</div>
+                  <div className="msg-detail-list">
+                    <span className="msg-detail-chip">Project brief.pdf</span>
+                    <span className="msg-detail-chip">Session notes.docx</span>
+                  </div>
+                </div>
+
+                <div className="msg-detail-block">
+                  <div className="msg-detail-label">Quick Actions</div>
+                  <div className="msg-detail-actions">
+                    <button
+                      type="button"
+                      className="msg-btn msg-btn-outline msg-btn-sm"
+                      onClick={() => notifyComingSoon("Schedule Session")}
+                    >
+                      Schedule
+                    </button>
+                    <button
+                      type="button"
+                      className="msg-btn msg-btn-outline msg-btn-sm"
+                      onClick={() => notifyComingSoon("View Profile")}
+                    >
+                      View Profile
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="msg-card msg-details-card msg-details-empty">
+                <p className="msg-empty-title">Select a conversation</p>
+                <p className="msg-empty-desc">
+                  Details and next steps will appear here.
+                </p>
+              </div>
+            )}
+          </aside>
         </div>
       </div>
     </main>

@@ -530,7 +530,7 @@ export default function MentorReviewsPage({ profile, notify }) {
   ];
 
   return (
-    <main className="md">
+    <main className="md md-page">
       <div className="md-shell md-animate">
         <header className="mp-head">
           <div>

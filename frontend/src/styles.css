@@ -747,7 +747,7 @@ body,
   border-color: var(--text, #182028);
 }
 
-main {
+.app-shell > main {
   padding: 28px 24px;
   max-width: 1160px;
   margin: 0 auto;

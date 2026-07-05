@@ -125,7 +125,9 @@ export default function MentorDashboard({ profile }) {
             )
           : 0;
 
-      const nonPending = allBookings.filter((b) => statusOf(b) !== "PENDING").length;
+      const nonPending = allBookings.filter(
+        (b) => statusOf(b) !== "PENDING",
+      ).length;
       const accepted = allBookings.filter((b) =>
         ["ACCEPTED", "CONFIRMED", "COMPLETED"].includes(statusOf(b)),
       ).length;
@@ -141,19 +143,20 @@ export default function MentorDashboard({ profile }) {
       allBookings.forEach((b) => {
         const l = b?.learner;
         if (!l?.id) return;
-        const entry =
-          learnerMap.get(l.id) || {
-            id: l.id,
-            name: l.fullName || "Learner",
-            email: l.email || "",
-            skill: b?.session?.skill?.name || b?.session?.title || "",
-            total: 0,
-            completed: 0,
-            last: 0,
-          };
+        const entry = learnerMap.get(l.id) || {
+          id: l.id,
+          name: l.fullName || "Learner",
+          email: l.email || "",
+          skill: b?.session?.skill?.name || b?.session?.title || "",
+          total: 0,
+          completed: 0,
+          last: 0,
+        };
         entry.total += 1;
         if (statusOf(b) === "COMPLETED") entry.completed += 1;
-        const t = new Date(b?.session?.startTime || b?.createdAt || 0).getTime();
+        const t = new Date(
+          b?.session?.startTime || b?.createdAt || 0,
+        ).getTime();
         if (t > entry.last) entry.last = t;
         if (!entry.skill && b?.session?.skill?.name)
           entry.skill = b.session.skill.name;
@@ -219,7 +222,8 @@ export default function MentorDashboard({ profile }) {
       });
 
       const prevMonth = revenueBuckets[revenueBuckets.length - 2]?.value || 0;
-      const currentMonth = revenueBuckets[revenueBuckets.length - 1]?.value || 0;
+      const currentMonth =
+        revenueBuckets[revenueBuckets.length - 1]?.value || 0;
       const monthGrowth =
         prevMonth > 0
           ? Math.round(((currentMonth - prevMonth) / prevMonth) * 100)
@@ -277,7 +281,7 @@ export default function MentorDashboard({ profile }) {
   const nextUpcomingSession = upcomingSessions[0] || null;
 
   return (
-    <div className="md">
+    <div className="md md-page">
       <HeroBanner
         firstName={firstName}
         nextSession={nextUpcomingSession}

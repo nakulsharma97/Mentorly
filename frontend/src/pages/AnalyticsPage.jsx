@@ -567,8 +567,8 @@ export default function AnalyticsPage({ profile }) {
   };
 
   return (
-    <div className="text-on-surface min-h-screen bg-surface">
-      <div className="flex min-h-screen bg-surface">
+    <div className="md-page">
+      <div className="flex min-h-full w-full gap-6">
         <aside className="hidden lg:flex flex-col h-screen w-64 border-r border-slate-200 bg-slate-50 sticky top-0">
           <div className="flex flex-col h-full p-4 space-y-6">
             <div className="flex items-center space-x-3 px-2 py-4">
@@ -655,7 +655,7 @@ export default function AnalyticsPage({ profile }) {
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 pt-6 space-y-8">
+          <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-6 space-y-8">
             <div className="lg:hidden">
               <button
                 type="button"

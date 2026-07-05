@@ -316,7 +316,7 @@ export default function MentorCalendarPage({ profile, notify }) {
   };
 
   return (
-    <div className="md">
+    <div className="md md-page">
       <div className="mp-head md-animate">
         <div>
           <h1 className="mp-head__title">Calendar</h1>

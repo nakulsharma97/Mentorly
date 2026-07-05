@@ -303,7 +303,7 @@ export default function WalletPage({ profile, notify }) {
     profile?.role === "MENTOR" ? "Earnings dashboard" : "Payments dashboard";
 
   return (
-    <main className="wallet-page wallet-dashboard">
+    <main className="wallet-page wallet-dashboard md-page">
       <section className="wallet-hero md-hero">
         <div className="md-hero__body">
           <p className="md-hero__eyebrow">{pageTitle}</p>

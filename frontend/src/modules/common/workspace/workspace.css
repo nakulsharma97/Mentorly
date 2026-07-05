@@ -20,6 +20,7 @@
     height:100vh;
     display:flex;
     overflow:hidden;
+    overflow:clip;
 
     width:100%;
     background:var(--bg);
@@ -37,11 +38,14 @@
   flex-direction: column;
   padding: 18px 14px;
 
-  border-radius: 0 22px 22px 0;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
+  border-left: 0;
+  border-top: 0;
+  border-bottom: 0;
 
   background: var(--panel);
-  border: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
-  box-shadow: 0 18px 50px -30px rgba(15,118,110,.4);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--brand) 10%, transparent);
 
   transition: width .24s ease;
   overflow: hidden;
@@ -149,7 +153,7 @@
 
   padding: 12px 24px;
 
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  background: var(--panel);
   backdrop-filter: blur(12px);
 
   border-bottom: 1px solid color-mix(in srgb, var(--brand) 10%, transparent);
@@ -255,14 +259,14 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 24px;
+  padding: 20px 24px 24px;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 /* --------------------------------------------------------------- responsive */
 @media (max-width: 1080px) {
-  .ws-main-content { padding: 16px; }
+  .ws-main-content { padding: 16px 16px 20px; }
   .ws-top { padding: 12px 16px; }
 
   /* Sidebar leaves the flex flow and becomes an overlay drawer, so

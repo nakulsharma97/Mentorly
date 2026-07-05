@@ -5,6 +5,20 @@
    All classes are namespaced with `md-` to avoid clashing with legacy `dash-`.
    ========================================================================== */
 
+.md-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.md-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
 .md {
   --md-radius-lg: 22px;
   --md-radius: 16px;

@@ -457,10 +457,10 @@ export default function TeachingPage({ notify }) {
     }
   };
 
-  const openAvailabilityModal = (slot = null) => {
+  const openAvailabilityModal = (slot = null, dayOfWeek = null) => {
     setEditingAvailability(slot);
     setAvailabilityForm({
-      dayOfWeek: slot?.dayOfWeek || 1,
+      dayOfWeek: dayOfWeek ?? slot?.dayOfWeek ?? 1,
       startTime: slot?.startTime || "09:00",
       endTime: slot?.endTime || "17:00",
       timezone:
@@ -574,159 +574,215 @@ export default function TeachingPage({ notify }) {
 
   const sectionTitle = "Manage Sessions";
 
+  const availabilityByDay = useMemo(() => {
+    const slotMap = new Map();
+    availabilitySlots.forEach((slot) => {
+      const day = Number(slot?.dayOfWeek || 1);
+      if (!slotMap.has(day)) slotMap.set(day, slot);
+    });
+
+    return DAYS.map((dayName, index) => {
+      const dayNumber = index + 1;
+      return {
+        dayName,
+        dayNumber,
+        slot: slotMap.get(dayNumber),
+      };
+    });
+  }, [availabilitySlots]);
+
   return (
-    <div className="min-h-screen bg-surface text-on-surface pb-24 md:pb-0">
-      <main className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-6 pb-10 space-y-8">
-        <section className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="max-w-2xl space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-on-surface-variant">
-                {sectionTitle}
-              </p>
-              <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-on-surface sm:text-4xl">
-                  {sectionTitle}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-7 text-on-surface-variant">
-                  Publish sessions, manage requests, and keep availability
-                  current.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
-                onClick={() => openSessionModal()}
-              >
-                + Create Session
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-5 py-3 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-                onClick={() => navigate("/mentor/calendar")}
-              >
-                Import Calendar
-              </button>
-            </div>
+    <div className="md-page space-y-6">
+      <section className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-8 shadow-xl shadow-slate-200/40 transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-on-surface-variant">
+              Mentor &gt; Manage Sessions
+            </p>
+            <h1 className="mt-3 text-[2.4rem] font-bold tracking-tight text-on-surface">
+              Manage Sessions
+            </h1>
+            <p className="mt-4 max-w-2xl text-[16px] font-normal leading-[1.6] text-on-surface-variant">
+              Publish sessions, manage bookings, and keep your availability updated.
+            </p>
           </div>
-        </section>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button
+              type="button"
+              className="inline-flex min-h-[50px] items-center justify-center rounded-[18px] bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              onClick={() => openSessionModal()}
+            >
+              + Create Session
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-[50px] items-center justify-center rounded-[18px] border border-outline-variant/20 bg-surface-container-low px-6 py-3 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
+              onClick={() => navigate("/mentor/calendar")}
+            >
+              Import Calendar
+            </button>
+          </div>
+        </div>
+      </section>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <div className="min-h-[130px] rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "Total Sessions",
+            value: stats.total,
+            hint: "All published and historical sessions",
+            icon: "calendar_month",
+          },
+          {
+            label: "Active Sessions",
+            value: stats.active,
+            hint: "Upcoming sessions learners can book",
+            icon: "bolt",
+          },
+          {
+            label: "Pending Requests",
+            value: stats.pending,
+            hint: "Bookings awaiting your response",
+            icon: "mail",
+          },
+          {
+            label: "This Week",
+            value: stats.thisWeek,
+            hint: stats.trend,
+            icon: "schedule",
+          },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className="group min-h-[168px] rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+          >
             <div className="flex items-center gap-3 text-primary">
-              <span className="material-symbols-outlined">calendar_month</span>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                Total Sessions
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-xl">
+                <span className="material-symbols-outlined">{card.icon}</span>
+              </span>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                {card.label}
               </p>
             </div>
-            <p className="mt-4 text-3xl font-extrabold text-on-surface">
-              {stats.total}
+            <p className="mt-5 text-[40px] md:text-[44px] font-semibold leading-none text-on-surface">
+              {card.value}
             </p>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              All active and historical sessions.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md">
-            <div className="flex items-center gap-3 text-primary">
-              <span className="material-symbols-outlined">bolt</span>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                Active Sessions
-              </p>
-            </div>
-            <p className="mt-4 text-3xl font-extrabold text-on-surface">
-              {stats.active}
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              Upcoming sessions published to learners.
+            <p className="mt-3 text-[14px] leading-7 text-on-surface-variant">
+              {card.hint}
             </p>
           </div>
-          <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md">
-            <div className="flex items-center gap-3 text-primary">
-              <span className="material-symbols-outlined">mail</span>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                Pending Requests
-              </p>
-            </div>
-            <p className="mt-4 text-3xl font-extrabold text-on-surface">
-              {stats.pending}
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              Requests awaiting your response.
-            </p>
-          </div>
-          <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md">
-            <div className="flex items-center gap-3 text-primary">
-              <span className="material-symbols-outlined">schedule</span>
-              <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                Sessions This Week
-              </p>
-            </div>
-            <p className="mt-4 text-3xl font-extrabold text-on-surface">
-              {stats.thisWeek}
-            </p>
-            <p className="mt-2 text-sm text-on-surface-variant">
-              {stats.trend}
-            </p>
-          </div>
-        </section>
+        ))}
+      </section>
 
-        <section className="grid gap-8 xl:grid-cols-[1.75fr_1fr]">
-          <div className="space-y-6 rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <section className="grid gap-6 xl:grid-cols-[1.75fr_0.95fr]">
+        <div className="space-y-6">
+          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-on-surface-variant">
                   Session Management
                 </p>
-                <h2 className="mt-3 text-2xl font-bold text-on-surface">
-                  Your sessions
+                <h2 className="mt-2 text-[1.85rem] font-semibold text-on-surface">
+                  Your Sessions
                 </h2>
+                <p className="mt-3 max-w-2xl text-[16px] font-normal leading-[1.6] text-on-surface-variant">
+                  Manage your live sessions, keep bookings organized, and update
+                  availability with confidence.
+                </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative w-full sm:w-80">
-                  <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
-                    search
-                  </span>
-                  <input
-                    type="search"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Search sessions..."
-                    className="w-full rounded-full border border-outline-variant/20 bg-surface-container-low py-3 pl-11 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none"
-                  />
-                </div>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-3 text-sm font-semibold transition ${upcomingOnly ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
-                  onClick={() => setUpcomingOnly((prev) => !prev)}
+                  className="inline-flex min-h-[50px] items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                  onClick={() => openSessionModal()}
                 >
-                  Upcoming only
+                  + Create Session
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex min-h-[50px] items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-6 py-3 text-sm font-semibold text-on-surface transition duration-200 hover:bg-surface-container-high"
+                  onClick={() => navigate("/mentor/calendar")}
+                >
+                  Import Calendar
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${statusFilter === tab.key ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
-                  onClick={() => setStatusFilter(tab.key)}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Sessions live
+                </p>
+                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
+                  {mentorSessions.length}
+                </p>
+                <p className="mt-2 text-[14px] text-on-surface-variant">
+                  Total sessions currently available.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Pending requests
+                </p>
+                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
+                  {pendingRequests.length}
+                </p>
+                <p className="mt-2 text-[14px] text-on-surface-variant">
+                  Requests waiting for your response.
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
+                  Upcoming only
+                </p>
+                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
+                  {upcomingOnly ? "Yes" : "No"}
+                </p>
+                <p className="mt-2 text-[14px] text-on-surface-variant">
+                  Showing {upcomingOnly ? "only upcoming" : "all"} sessions.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+                  Sessions overview
+                </p>
+                <h3 className="mt-2 text-[1.35rem] font-semibold text-on-surface">
+                  Live sessions & controls
+                </h3>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {STATUS_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition duration-200 ${statusFilter === tab.key ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
+                    onClick={() => setStatusFilter(tab.key)}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-4 rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-on-surface-variant">
-                Showing {filteredSessions.length} of {mentorSessions.length}{" "}
-                sessions
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="text-sm font-semibold text-on-surface-variant">
-                  Sort by
-                </label>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto]">
+              <div className="relative w-full">
+                <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                  search
+                </span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search sessions..."
+                  className="w-full rounded-full border border-outline-variant/20 bg-surface-container-low py-3 pl-12 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={sortKey}
                   onChange={(event) => setSortKey(event.target.value)}
@@ -738,57 +794,73 @@ export default function TeachingPage({ notify }) {
                     </option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  className={`rounded-full px-4 py-3 text-sm font-semibold transition duration-200 ${upcomingOnly ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
+                  onClick={() => setUpcomingOnly((prev) => !prev)}
+                >
+                  {upcomingOnly ? "Upcoming only" : "All dates"}
+                </button>
               </div>
             </div>
 
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-outline-variant/15 bg-surface-container-lowest/60 px-4 py-3 text-sm">
+              <p className="text-on-surface-variant">
+                Showing {filteredSessions.length} of {mentorSessions.length}{" "}
+                sessions
+              </p>
+              <p className="text-[13px] font-medium text-on-surface">
+                {upcomingOnly ? "Upcoming only" : "All dates"}
+              </p>
+            </div>
+
             {loading ? (
-              <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-10 text-center text-sm text-on-surface-variant">
+              <div className="mt-6 rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-8 text-center text-sm text-on-surface-variant">
                 Loading sessions...
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-outline-variant/30 bg-white/80 p-10 text-center text-sm text-on-surface-variant shadow-sm">
-                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-surface-container-high text-3xl">
-                  📅
+              <div className="mt-6 rounded-[20px] border border-dashed border-outline-variant/30 bg-surface-container-lowest/70 p-12 text-center text-sm text-on-surface-variant shadow-sm flex flex-col items-center justify-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary text-[40px] mb-4">
+                  <span className="material-symbols-outlined text-[40px]">calendar_month</span>
                 </div>
-                <h3 className="mt-6 text-xl font-bold text-on-surface">
-                  No sessions published yet
+                <h3 className="mt-2 text-xl font-semibold text-on-surface">
+                  No Sessions Published Yet
                 </h3>
-                <p className="mt-2 text-sm text-on-surface-variant">
-                  Create your first mentoring session to start receiving
-                  bookings.
+                <p className="mt-2 text-[15px] leading-6 text-on-surface-variant max-w-sm mx-auto">
+                  Create your first mentoring session to start receiving bookings from learners.
                 </p>
                 <button
                   type="button"
-                  className="mt-6 inline-flex rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
+                  className="mt-6 inline-flex rounded-[14px] bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:opacity-90"
                   onClick={() => openSessionModal()}
                 >
-                  Create Session
+                  + Create Session
                 </button>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-3xl border border-outline-variant/15 bg-surface-container-low shadow-sm">
+              <div className="mt-6 overflow-hidden rounded-[20px] border border-outline-variant/15 bg-surface-container-low shadow-sm">
                 <table className="min-w-full border-separate border-spacing-0 text-left">
                   <thead className="bg-surface-container-lowest">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Session
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Type
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Date & Time
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Price
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Seats
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Status
                       </th>
-                      <th className="px-6 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
+                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
                         Actions
                       </th>
                     </tr>
@@ -801,7 +873,7 @@ export default function TeachingPage({ notify }) {
                           key={session.id}
                           className="border-t border-outline-variant/10 transition-colors hover:bg-surface-container-lowest"
                         >
-                          <td className="px-6 py-4 align-top">
+                          <td className="px-5 py-3 align-top">
                             <div className="font-semibold text-on-surface">
                               {session.title || "Untitled session"}
                             </div>
@@ -809,29 +881,29 @@ export default function TeachingPage({ notify }) {
                               {session.description || "No description."}
                             </p>
                           </td>
-                          <td className="px-6 py-4 align-top text-sm text-on-surface">
+                          <td className="px-5 py-3 align-top text-sm text-on-surface">
                             {session.sessionType || "Mentoring"}
                           </td>
-                          <td className="px-6 py-4 align-top text-sm text-on-surface">
+                          <td className="px-5 py-3 align-top text-sm text-on-surface">
                             {formatDateTime(session.startTime)} —{" "}
                             {formatDateTime(session.endTime)}
                           </td>
-                          <td className="px-6 py-4 align-top text-sm text-on-surface">
+                          <td className="px-5 py-3 align-top text-sm text-on-surface">
                             {formatCurrency(
                               session.priceAmount || session.pricePerHour || 0,
                             )}
                           </td>
-                          <td className="px-6 py-4 align-top text-sm text-on-surface">
+                          <td className="px-5 py-3 align-top text-sm text-on-surface">
                             {session.maxParticipants || session.capacity || 1}
                           </td>
-                          <td className="px-6 py-4 align-top">
+                          <td className="px-5 py-3 align-top">
                             <span
                               className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeStyle(status)}`}
                             >
                               {status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 align-top">
+                          <td className="px-5 py-3 align-top">
                             <div className="relative inline-flex">
                               <button
                                 type="button"
@@ -903,205 +975,226 @@ export default function TeachingPage({ notify }) {
               </div>
             )}
           </div>
+        </div>
 
-          <aside className="space-y-6">
-            <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                    Session Requests
-                  </p>
-                  <h2 className="mt-3 text-xl font-bold text-on-surface">
-                    Pending requests
-                  </h2>
-                </div>
-                <span className="rounded-full bg-surface-container-lowest px-3 py-1 text-xs font-semibold text-on-surface-variant">
-                  {pendingRequests.length} open
-                </span>
+        <aside className="space-y-6">
+          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+                  Session Requests
+                </p>
+                <h2 className="mt-2 text-[1.2rem] font-semibold text-on-surface">
+                  Pending Requests
+                </h2>
               </div>
-              <div className="space-y-4">
-                {pendingRequests.length === 0 ? (
-                  <div className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 text-sm text-on-surface-variant">
-                    No pending session requests right now.
+              <span className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-[11px] font-semibold text-on-surface-variant">
+                {pendingRequests.length} open
+              </span>
+            </div>
+            <div className="mt-6 space-y-4">
+              {pendingRequests.length === 0 ? (
+                <div className="rounded-[24px] border border-outline-variant/15 bg-surface-container-lowest/70 p-5 text-center text-sm text-on-surface-variant">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <span className="material-symbols-outlined text-base">
+                      inbox
+                    </span>
                   </div>
-                ) : (
-                  pendingRequests.slice(0, 4).map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="overflow-hidden rounded-3xl border border-outline-variant/15 bg-surface-container-low p-4 shadow-sm"
-                    >
-                      <div className="flex items-center gap-3">
-                        {booking.learner?.profileImageUrl ? (
-                          <img
-                            src={booking.learner.profileImageUrl}
-                            alt={booking.learner.fullName}
-                            className="h-12 w-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-container-high text-sm font-bold text-primary">
-                            {String(booking.learner?.fullName || "?").charAt(0)}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-surface">
-                            {booking.learner?.fullName || "Learner"}
-                          </p>
-                          <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">
-                            {booking.session?.title || "Session request"}
-                          </p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-                            {formatDateOnly(booking.session?.startTime)}
-                          </p>
+                  <h3 className="mt-4 text-[1rem] font-semibold text-on-surface">
+                    No pending requests
+                  </h3>
+                  <p className="mt-2 text-[13px] leading-6 text-on-surface-variant">
+                    Requests will appear here as soon as learners book.
+                  </p>
+                  <Link
+                    to="/mentor/messages"
+                    className="mt-5 inline-flex rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
+                  >
+                    View All Requests
+                  </Link>
+                </div>
+              ) : (
+                pendingRequests.slice(0, 4).map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="overflow-hidden rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3">
+                      {booking.learner?.profileImageUrl ? (
+                        <img
+                          src={booking.learner.profileImageUrl}
+                          alt={booking.learner.fullName}
+                          className="h-12 w-12 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-container-high text-sm font-bold text-primary">
+                          {String(booking.learner?.fullName || "?").charAt(0)}
                         </div>
-                      </div>
-                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                        <button
-                          type="button"
-                          className="rounded-2xl bg-primary px-4 py-2 text-sm font-semibold text-on-primary transition hover:opacity-90"
-                          onClick={() =>
-                            updateBookingStatus(booking.id, "ACCEPTED")
-                          }
-                        >
-                          Accept
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-2xl border border-outline-variant/20 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-                          onClick={() =>
-                            updateBookingStatus(booking.id, "REJECTED")
-                          }
-                        >
-                          Reject
-                        </button>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-on-surface">
+                          {booking.learner?.fullName || "Learner"}
+                        </p>
+                        <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">
+                          {booking.session?.title || "Session request"}
+                        </p>
+                        <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-on-surface-variant">
+                          {formatDateOnly(booking.session?.startTime)}
+                        </p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-              <Link
-                to="/mentor/messages"
-                className="inline-flex w-full items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-              >
-                View all requests
-              </Link>
+                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        className="rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition hover:opacity-90"
+                        onClick={() =>
+                          updateBookingStatus(booking.id, "ACCEPTED")
+                        }
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-2xl border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
+                        onClick={() =>
+                          updateBookingStatus(booking.id, "REJECTED")
+                        }
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-
-            <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                  <span className="material-symbols-outlined text-base">
-                    tips_and_updates
-                  </span>
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-on-surface">
-                    Quick tips
-                  </p>
-                  <p className="text-xs text-on-surface-variant">
-                    Keep the mentor experience high value.
-                  </p>
-                </div>
-              </div>
-              <ul className="space-y-3 text-sm text-on-surface-variant">
-                {[
-                  "Publish sessions regularly",
-                  "Keep your availability updated",
-                  "Respond to requests quickly",
-                  "Keep session details concise",
-                ].map((tip) => (
-                  <li key={tip} className="flex items-start gap-3">
-                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface-container-low text-primary">
-                      <span className="material-symbols-outlined text-sm">
-                        check
-                      </span>
-                    </span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </aside>
-        </section>
-
-        <section className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                Availability
-              </p>
-              <h2 className="mt-3 text-2xl font-bold text-on-surface">
-                Teaching windows
-              </h2>
-            </div>
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
-              onClick={() => openAvailabilityModal()}
+            <Link
+              to="/mentor/messages"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
             >
-              + Add Availability
-            </button>
+              View all requests
+            </Link>
           </div>
 
-          {availabilitySlots.length === 0 ? (
-            <div className="mt-8 rounded-3xl border border-dashed border-outline-variant/30 bg-white/80 p-10 text-center text-sm text-on-surface-variant shadow-sm">
-              You have no availability yet. Add a time window so learners can
-              book your sessions.
+          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                <span className="material-symbols-outlined text-base">
+                  tips_and_updates
+                </span>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-on-surface">
+                  Quick tips
+                </p>
+                <p className="text-sm text-on-surface-variant">
+                  Keep the mentor experience polished and predictable.
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="mt-8 grid gap-4 md:grid-cols-2">
-              {availabilitySlots.map((slot) => (
-                <div
-                  key={slot.id}
-                  className="rounded-3xl border border-outline-variant/15 bg-surface-container-low p-5 shadow-sm transition hover:shadow-md"
+            <ul className="mt-5 space-y-3 text-sm text-on-surface-variant">
+              {[
+                "Publish sessions regularly",
+                "Keep your availability updated",
+                "Respond to requests quickly",
+                "Keep session details concise",
+              ].map((tip) => (
+                <li key={tip} className="flex items-start gap-3">
+                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface-container-low text-primary">
+                    <span className="material-symbols-outlined text-sm">
+                      check
+                    </span>
+                  </span>
+                  <span>{tip}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      </section>
+
+      <section className="rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+              Availability
+            </p>
+            <h2 className="mt-2 text-[1.35rem] font-semibold text-on-surface sm:text-[1.5rem]">
+              Availability
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:opacity-90"
+            onClick={() => openAvailabilityModal()}
+          >
+            + Add Time
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {availabilityByDay.map(({ dayName, dayNumber, slot }) => (
+            <div
+              key={dayName}
+              className="rounded-[20px] border border-outline-variant/15 bg-surface-container-lowest/70 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-semibold text-on-surface">
+                    {dayName}
+                  </p>
+                  <p className="mt-2 text-[13px] leading-5 text-on-surface-variant">
+                    {slot ? `${slot.startTime} – ${slot.endTime}` : "No availability added"}
+                  </p>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${slot?.active ? "bg-emerald-500/10 text-emerald-700" : "bg-surface-container-high text-on-surface-variant"}`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-on-surface">
-                        {DAYS[(slot.dayOfWeek || 1) - 1] || "Day"}
-                      </p>
-                      <p className="mt-1 text-sm text-on-surface-variant">
-                        {slot.startTime} — {slot.endTime}
-                      </p>
-                      <p className="mt-1 text-xs text-on-surface-variant">
-                        {slot.timezone || "UTC"}
-                      </p>
-                    </div>
+                  {slot ? (slot.active ? "Active" : "Open") : "Closed"}
+                </span>
+              </div>
+              {slot && (
+                <p className="mt-3 text-[12px] text-on-surface-variant">
+                  {slot.timezone || "Timezone not set"}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {slot ? (
+                  <>
                     <button
                       type="button"
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${slot.active ? "bg-emerald-500 text-white" : "bg-surface-container-low text-on-surface"}`}
-                      onClick={() => toggleAvailability(slot)}
-                    >
-                      {slot.active ? "On" : "Off"}
-                    </button>
-                  </div>
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded-2xl border border-outline-variant/20 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
+                      className="rounded-full border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
                       onClick={() => openAvailabilityModal(slot)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
                       onClick={() => removeAvailability(slot.id)}
                     >
                       Delete
                     </button>
-                  </div>
-                </div>
-              ))}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
+                    onClick={() => openAvailabilityModal(null, dayNumber)}
+                  >
+                    + Add Time
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+          ))}
+        </div>
 
-          {availabilityMessage && (
-            <p className="mt-4 text-sm font-semibold text-primary">
-              {availabilityMessage}
-            </p>
-          )}
-        </section>
-      </main>
+        {availabilityMessage && (
+          <p className="mt-4 text-sm font-semibold text-primary">
+            {availabilityMessage}
+          </p>
+        )}
+      </section>
 
       {(isSessionModalOpen || isAvailabilityModalOpen) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-8">
