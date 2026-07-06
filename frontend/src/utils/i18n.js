@@ -1,0 +1,68 @@
+export const translations = {
+  en: {
+    navbarHome: "Home",
+    navbarMessages: "Messages",
+    navbarSessions: "Sessions",
+    navbarTeach: "Teach",
+    navbarResources: "Resources",
+    navbarMentors: "Mentors",
+    navbarWallet: "Wallet",
+    login: "Login",
+    signup: "Sign Up",
+    logout: "Logout",
+    createAccount: "Create Account",
+    landingTitle: "Skill Swapping Platform",
+    landingSubtitle:
+      "Teach, learn, and earn through fiat, credits, or Polygon payments. Join a vibrant global community today.",
+    aiAssistantTitle: "AI Profile Assistant",
+    aiAssistantEmpty:
+      "Complete more profile details to unlock stronger recommendations.",
+    revenueTitle: "Revenue Analytics (Mentor)",
+    referralTitle: "Referral Program",
+    weeklyEarnings: "Weekly earnings",
+    conversionFunnel: "Conversion funnel",
+    repeatLearners: "Repeat learners",
+    topSkillDemand: "Top skill demand",
+    yourReferralCode: "Your referral code",
+    invitedFriends: "Invited friends",
+    successfulReferrals: "Successful referrals",
+    creditsEarned: "Credits earned",
+    addReferralSuccess: "Add successful referral",
+    refreshInsights: "Refresh insights",
+  },
+  hi: {
+    navbarHome: "होम",
+    navbarMessages: "संदेश",
+    navbarSessions: "सेशंस",
+    navbarTeach: "शिक्षण",
+    navbarResources: "संसाधन",
+    navbarMentors: "मेंटर्स",
+    navbarWallet: "वॉलेट",
+    login: "लॉगिन",
+    signup: "साइन अप",
+    logout: "लॉगआउट",
+    createAccount: "खाता बनाएं",
+    landingTitle: "स्किल स्वैपिंग प्लेटफॉर्म",
+    landingSubtitle:
+      "फिएट, क्रेडिट्स या पॉलीगॉन पेमेंट्स के साथ सिखाएं, सीखें और कमाएं। आज ही समुदाय से जुड़ें।",
+    aiAssistantTitle: "एआई प्रोफाइल असिस्टेंट",
+    aiAssistantEmpty: "बेहतर सुझाव पाने के लिए अपनी प्रोफाइल पूरी करें।",
+    revenueTitle: "राजस्व विश्लेषण (मेंटोर)",
+    referralTitle: "रेफरल प्रोग्राम",
+    weeklyEarnings: "साप्ताहिक कमाई",
+    conversionFunnel: "कन्वर्ज़न फ़नल",
+    repeatLearners: "दोबारा आने वाले शिक्षार्थी",
+    topSkillDemand: "सबसे ज्यादा मांग वाला स्किल",
+    yourReferralCode: "आपका रेफरल कोड",
+    invitedFriends: "आमंत्रित मित्र",
+    successfulReferrals: "सफल रेफरल",
+    creditsEarned: "कमाए गए क्रेडिट्स",
+    addReferralSuccess: "सफल रेफरल जोड़ें",
+    refreshInsights: "इनसाइट्स रीफ्रेश करें",
+  },
+};
+
+export const t = (language, key) => {
+  const table = translations[language] || translations.en;
+  return table[key] || translations.en[key] || key;
+};

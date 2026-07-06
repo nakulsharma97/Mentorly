@@ -1,0 +1,4 @@
+.landing-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-top:18px}
+.landing-stat-card{border-radius:22px;padding:20px;min-height:140px;display:flex;align-items:center}
+@media (max-width:1020px){.landing-stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:720px){.landing-stats-grid{grid-template-columns:1fr}}

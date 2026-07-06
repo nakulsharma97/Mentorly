@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -q -o compile)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(timeout 130 mvn -q -o spring-boot:run -Dspring-boot.run.profiles=local)",
+      "Bash(echo \"EXIT=$?\")",
+      "Read(//tmp/**)"
+    ]
+  }
+}

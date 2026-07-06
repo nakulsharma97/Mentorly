@@ -1,0 +1,58 @@
+# Build directories
+/backend/target/
+/frontend/dist/
+/frontend/node_modules/
+/frontend/coverage/
+/frontend/playwright-report/
+/frontend/test-results/
+/backups/
+
+# Root-level artifacts
+node_modules/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Lock files
+yarn.lock
+pnpm-lock.yaml
+
+# Environment
+.env
+.env.*
+.env.local
+!.env.example
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+
+# OS files
+.DS_Store
+
+# System and user-specific
+%AppData%/
+Downloads/
+
+# Dependencies
+/backend/.classpath
+/backend/.project
+/backend/.settings/
+
+# Maven / Java
+/target/
+*.jar
+*.war
+
+# Node
+.npm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class

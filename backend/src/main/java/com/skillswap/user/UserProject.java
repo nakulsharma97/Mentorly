@@ -1,0 +1,74 @@
+package com.skillswap.user;
+
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@Table(name = "user_projects")
+public class UserProject {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false, length = 500)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String description;
+
+    @Column(nullable = false, length = 1000)
+    private String technologies;
+
+    @Column(name = "github_url", length = 500)
+    private String githubUrl;
+
+    @Column(name = "live_demo_url", length = 500)
+    private String liveDemoUrl;
+
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
+    @Column(name = "currently_working", nullable = false)
+    private boolean currentlyWorking = false;
+
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private OffsetDateTime updatedAt = OffsetDateTime.now();
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public UserProject(User user, String title, String description, String technologies,
+            String githubUrl, String liveDemoUrl, LocalDate startDate,
+            LocalDate endDate, boolean currentlyWorking) {
+        this.user = user;
+        this.title = title;
+        this.description = description;
+        this.technologies = technologies;
+        this.githubUrl = githubUrl;
+        this.liveDemoUrl = liveDemoUrl;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.currentlyWorking = currentlyWorking;
+    }
+}
