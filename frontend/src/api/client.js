@@ -12,6 +12,20 @@ const client = axios.create({
   },
 });
 
+const AUTH_STORAGE_KEYS = [
+  "token",
+  "refreshToken",
+  "user",
+  "profile",
+  "currentUser",
+  "mentorProfile",
+  "learnerProfile",
+  "auth_cache",
+  "auth_session",
+];
+
+let activeAuthToken = null;
+
 function readCookie(name) {
   if (typeof document === "undefined") {
     return null;
@@ -25,6 +39,246 @@ function readCookie(name) {
     return null;
   }
   return decodeURIComponent(found.substring(encodedName.length));
+}
+
+function readStoredCookieAuthToken() {
+  return readCookie("access_token") || readCookie("accessToken") || null;
+}
+
+function readStoredAuthToken() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return (
+    window.localStorage.getItem("token") ||
+    window.sessionStorage.getItem("token")
+  );
+}
+
+function applyAuthHeader(token) {
+  if (!token) {
+    delete client.defaults.headers.common.Authorization;
+    return;
+  }
+  client.defaults.headers.common.Authorization = `Bearer ${token}`;
+}
+
+function clearBrowserAuthCookies() {
+  if (typeof document === "undefined") {
+    return;
+  }
+  ["access_token", "refresh_token"].forEach((name) => {
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+  });
+}
+
+function clearBrowserAuthCaches() {
+  if (typeof window === "undefined" || !("caches" in window)) {
+    return;
+  }
+  window.caches
+    .keys()
+    .then((cacheNames) => {
+      cacheNames.forEach((cacheName) => window.caches.delete(cacheName));
+    })
+    .catch(() => undefined);
+}
+
+export function setAuthToken(token) {
+  activeAuthToken = token || null;
+  if (token) {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("token", token);
+      window.sessionStorage.setItem("token", token);
+    }
+    applyAuthHeader(token);
+    return;
+  }
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("token");
+    window.sessionStorage.removeItem("token");
+  }
+  applyAuthHeader(null);
+}
+
+export function clearAuthSessionState(options = {}) {
+  const { preserveCookies = false } = options;
+  if (typeof window !== "undefined") {
+    const preservedLanguage = window.localStorage.getItem("language");
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    if (preservedLanguage) {
+      window.localStorage.setItem("language", preservedLanguage);
+    }
+  }
+  activeAuthToken = null;
+  applyAuthHeader(null);
+  if (!preserveCookies) {
+    clearBrowserAuthCookies();
+  }
+  clearBrowserAuthCaches();
+}
+
+export function resolveAuthResponsePayload(payload) {
+  const visit = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+
+    if (
+      value?.token ||
+      value?.accessToken ||
+      value?.jwt ||
+      value?.refreshToken ||
+      value?.email ||
+      value?.role
+    ) {
+      return value;
+    }
+
+    for (const candidate of [value?.data, value?.payload, value?.result]) {
+      const nestedValue = visit(candidate);
+      if (nestedValue) {
+        return nestedValue;
+      }
+    }
+
+    return null;
+  };
+
+  return visit(payload);
+}
+
+export function persistAuthSession(authResponse) {
+  const cookieTokenBeforeClear = readStoredCookieAuthToken();
+  const cookieRefreshTokenBeforeClear =
+    readCookie("refresh_token") || readCookie("refreshToken") || null;
+
+  clearAuthSessionState({ preserveCookies: true });
+
+  const normalizedAuthResponse = resolveAuthResponsePayload(authResponse);
+
+  // DEBUG: Log the parsed values so we can see why tokens may be missing.
+  try {
+    console.info("[auth] cookieTokenBeforeClear", cookieTokenBeforeClear);
+    console.info(
+      "[auth] cookieRefreshTokenBeforeClear",
+      cookieRefreshTokenBeforeClear,
+    );
+    console.info("[auth] normalizedAuthResponse", normalizedAuthResponse);
+  } catch (e) {
+    /* ignore logging failures in non-browser envs */
+  }
+
+  const nextToken =
+    normalizedAuthResponse?.token ||
+    normalizedAuthResponse?.accessToken ||
+    normalizedAuthResponse?.jwt ||
+    cookieTokenBeforeClear ||
+    null;
+  const nextRefreshToken =
+    normalizedAuthResponse?.refreshToken ||
+    normalizedAuthResponse?.refresh_token ||
+    cookieRefreshTokenBeforeClear ||
+    null;
+  const nextEmail =
+    normalizedAuthResponse?.email ||
+    normalizedAuthResponse?.user?.email ||
+    null;
+  const nextRole =
+    normalizedAuthResponse?.role || normalizedAuthResponse?.user?.role || null;
+
+  // DEBUG: Log what tokens were resolved before persisting
+  try {
+    console.info("[auth] nextToken", nextToken);
+    console.info("[auth] nextRefreshToken", nextRefreshToken);
+    console.info("[auth] nextEmail", nextEmail);
+    console.info("[auth] nextRole", nextRole);
+  } catch (e) {
+    /* ignore */
+  }
+
+  if (nextToken) {
+    setAuthToken(nextToken);
+  }
+
+  if (typeof window !== "undefined") {
+    if (nextRefreshToken) {
+      window.localStorage.setItem("refreshToken", nextRefreshToken);
+      window.sessionStorage.setItem("refreshToken", nextRefreshToken);
+    }
+    if (nextEmail) {
+      window.localStorage.setItem("user", nextEmail);
+      window.sessionStorage.setItem("user", nextEmail);
+    }
+    if (nextRole) {
+      const currentUserData = { email: nextEmail, role: nextRole };
+      window.localStorage.setItem(
+        "currentUser",
+        JSON.stringify(currentUserData),
+      );
+      window.sessionStorage.setItem(
+        "currentUser",
+        JSON.stringify(currentUserData),
+      );
+    }
+  }
+
+  return nextToken;
+}
+
+export function getActiveAuthToken() {
+  const storedToken = activeAuthToken || readStoredAuthToken();
+  if (!storedToken) {
+    return null;
+  }
+
+  const payload = decodeJwtPayload(storedToken);
+  if (!payload?.exp) {
+    return storedToken;
+  }
+
+  const expiryMs = Number(payload.exp) * 1000;
+  if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
+    clearAuthSessionState();
+    return null;
+  }
+
+  return storedToken;
+}
+
+export function decodeJwtPayload(token) {
+  if (!token) {
+    return null;
+  }
+
+  const segments = String(token).split(".");
+  if (segments.length < 2) {
+    return null;
+  }
+
+  try {
+    const payload = segments[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = payload.padEnd(Math.ceil(payload.length / 4) * 4, "=");
+    return JSON.parse(window.atob(normalized));
+  } catch {
+    return null;
+  }
+}
+
+export function extractJwtUserId(token) {
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return null;
+  }
+
+  const rawUserId = payload.userId ?? payload.sub;
+  if (rawUserId == null) {
+    return null;
+  }
+
+  const parsed = Number(rawUserId);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 let idempotencySeed = 0;
@@ -46,6 +300,11 @@ client.interceptors.request.use((config) => {
     if (csrfToken && !config.headers["X-XSRF-TOKEN"]) {
       config.headers["X-XSRF-TOKEN"] = csrfToken;
     }
+  }
+
+  const authToken = getActiveAuthToken();
+  if (authToken && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${authToken}`;
   }
 
   if (
@@ -111,6 +370,7 @@ client.interceptors.response.use(
       !String(config.url || "").includes("/api/v1/auth/signup")
     ) {
       try {
+        clearAuthSessionState();
         await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
           withCredentials: true,
           headers: { "Content-Type": "application/json" },

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -52,8 +53,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ApiResponse<LogoutResponse> logout(
-            @CookieValue(value = AuthCookieService.ACCESS_TOKEN_COOKIE, required = false) String accessToken,
+            @CookieValue(value = AuthCookieService.ACCESS_TOKEN_COOKIE, required = false) String accessTokenCookie,
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
             HttpServletResponse response) {
+        String accessToken = resolveAccessToken(accessTokenCookie, authorizationHeader);
         LogoutResponse logoutResponse = accessToken == null || accessToken.isBlank()
                 ? new LogoutResponse(0)
                 : authService.logoutCurrentSession(accessToken);
@@ -69,6 +72,17 @@ public class AuthController {
     }
 
     private AuthSessionResponse sanitize(AuthResponse authResponse) {
-        return new AuthSessionResponse(authResponse.email(), authResponse.role());
+        return new AuthSessionResponse(authResponse.email(), authResponse.role(), authResponse.token(),
+                authResponse.refreshToken());
+    }
+
+    private String resolveAccessToken(String accessTokenCookie, String authorizationHeader) {
+        if (accessTokenCookie != null && !accessTokenCookie.isBlank()) {
+            return accessTokenCookie;
+        }
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            return authorizationHeader.substring(7).trim();
+        }
+        return null;
     }
 }

@@ -1,5 +1,6 @@
 package com.skillswap.auth;
 
+import com.skillswap.user.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -19,9 +20,8 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    
     @Value("${app.jwt.secret}")
-private String secret;
+    private String secret;
 
     @Value("${app.jwt.expiration-ms}")
     private long expirationMs;
@@ -61,7 +61,7 @@ private String secret;
     }
 
     public String generateToken(UserDetails userDetails, String tokenId) {
-        return generateToken(Map.of("tokenType", "access", "tokenId", tokenId), userDetails);
+        return generateToken(buildAccessClaims(userDetails, tokenId), userDetails);
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
@@ -71,9 +71,10 @@ private String secret;
     public String generateRefreshToken(UserDetails userDetails, String tokenId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + refreshExpirationMs);
+        Map<String, Object> claims = buildRefreshClaims(userDetails, tokenId);
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
-                .claims(Map.of("tokenType", "refresh", "tokenId", tokenId))
+                .claims(claims)
                 .subject(userDetails.getUsername())
                 .issuedAt(now)
                 .expiration(expiry)
@@ -121,6 +122,21 @@ private String secret;
         return String.valueOf(tokenId);
     }
 
+    public Long extractUserId(String token) {
+        Object userId = extractAllClaims(token).get("userId");
+        if (userId instanceof Number number) {
+            return number.longValue();
+        }
+        if (userId != null) {
+            try {
+                return Long.parseLong(String.valueOf(userId));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     public String extractJwtId(String token) {
         String jwtId = extractAllClaims(token).getId();
         if (jwtId == null || jwtId.isBlank()) {
@@ -139,6 +155,29 @@ private String secret;
         } catch (JwtException ex) {
             throw new IllegalArgumentException("Invalid token", ex);
         }
+    }
+
+    private Map<String, Object> buildAccessClaims(UserDetails userDetails, String tokenId) {
+        Map<String, Object> claims = new java.util.LinkedHashMap<>();
+        claims.put("tokenType", "access");
+        claims.put("tokenId", tokenId);
+        claims.put("userId", resolveUserId(userDetails));
+        return claims;
+    }
+
+    private Map<String, Object> buildRefreshClaims(UserDetails userDetails, String tokenId) {
+        Map<String, Object> claims = new java.util.LinkedHashMap<>();
+        claims.put("tokenType", "refresh");
+        claims.put("tokenId", tokenId);
+        claims.put("userId", resolveUserId(userDetails));
+        return claims;
+    }
+
+    private Long resolveUserId(UserDetails userDetails) {
+        if (userDetails instanceof User user) {
+            return user.getId();
+        }
+        return null;
     }
 
     private boolean isTokenExpired(String token) {

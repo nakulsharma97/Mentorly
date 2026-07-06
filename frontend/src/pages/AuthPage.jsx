@@ -215,27 +215,27 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               <span aria-hidden="true" />
               Live mentorship for practical career growth
             </span>
-            <h1>Learn faster from experts who actually do the work.</h1>
+            <h1>Learn from operators who have already built the path.</h1>
             <p>
-              SkillSwap connects learners with verified mentors for live
-              sessions, structured follow-ups, messaging, wallet tracking, and
-              admin-backed trust controls.
+              SkillSwap brings together verified mentors, live sessions, and
+              clear follow-up workflows so learners can move faster with less
+              friction.
             </p>
             <div className="landing-hero-actions">
-              <button
+              <a
                 className="landing-button landing-button-primary"
+                href="#mentors"
+                onClick={scrollToSection("mentors")}
+              >
+                Find a Mentor
+              </a>
+              <button
+                className="landing-button landing-button-soft"
                 type="button"
                 onClick={onSelectSignup}
               >
-                Start learning
+                Become a Mentor
               </button>
-              <a
-                className="landing-button landing-button-soft"
-                href="#workflow"
-                onClick={scrollToSection("workflow")}
-              >
-                See workflow
-              </a>
             </div>
             <dl className="landing-metrics" aria-label="Platform highlights">
               <div>
@@ -257,17 +257,39 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             <div className="landing-product-card">
               <div className="landing-product-header">
                 <div>
-                  <span>Session room</span>
-                  <strong>React architecture review</strong>
+                  <span>Mentor marketplace</span>
+                  <strong>Find your next advantage</strong>
                 </div>
                 <span className="landing-live-pill">Live</span>
               </div>
-              <OptimizedImage
-                className="landing-hero-photo"
-                alt="Mentor and learner reviewing a laptop in a modern workspace"
-                src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=82"
-                priority
-              />
+              <div className="landing-hero-photo-shell">
+                <OptimizedImage
+                  className="landing-hero-photo"
+                  alt="Mentor and learner reviewing a laptop in a modern workspace"
+                  src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=82"
+                  priority
+                />
+                <div className="landing-hero-badge">
+                  <span
+                    className="material-symbols-outlined"
+                    aria-hidden="true"
+                  >
+                    verified
+                  </span>
+                  <div>
+                    <strong>4.9/5 average</strong>
+                    <p>Trusted by ambitious learners</p>
+                  </div>
+                </div>
+                <div className="landing-hero-mini-card landing-hero-mini-card-top">
+                  <span>Next match</span>
+                  <strong>Senior product designer</strong>
+                </div>
+                <div className="landing-hero-mini-card landing-hero-mini-card-bottom">
+                  <span>Focus areas</span>
+                  <strong>System design • Growth</strong>
+                </div>
+              </div>
               <div
                 className="landing-session-panel"
                 aria-label="Session summary"
@@ -279,16 +301,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
                   </span>
                   <p>1:1 live feedback</p>
                 </div>
-                <strong>Booked for Friday, 6:30 PM</strong>
-              </div>
-            </div>
-            <div className="landing-floating-note">
-              <span className="material-symbols-outlined" aria-hidden="true">
-                verified
-              </span>
-              <div>
-                <strong>Verified skill graph</strong>
-                <p>Mentor proof, ratings, and session outcomes in one place.</p>
+                <strong>Booked for Friday • 6:30 PM</strong>
               </div>
             </div>
           </div>

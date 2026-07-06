@@ -23,7 +23,7 @@ public class AuthDtos {
         public record AuthResponse(String token, String refreshToken, String email, String role) {
         }
 
-        public record AuthSessionResponse(String email, String role) {
+        public record AuthSessionResponse(String email, String role, String token, String refreshToken) {
         }
 
         public record RefreshTokenRequest(

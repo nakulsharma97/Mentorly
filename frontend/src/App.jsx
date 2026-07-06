@@ -39,7 +39,12 @@ import Navbar from "./components/Navbar";
 import ToastCenter from "./components/ToastCenter";
 import OfflineStatusBanner from "./components/OfflineStatusBanner";
 import { ThemeProvider } from "./context/ThemeContext";
-import client from "./api/client";
+import client, {
+  clearAuthSessionState,
+  extractJwtUserId,
+  getActiveAuthToken,
+  persistAuthSession,
+} from "./api/client";
 import {
   createPerformanceReporter,
   initGlobalMonitoring,
@@ -131,33 +136,116 @@ export default function App() {
     };
   }, []);
 
+  const resetProfileState = useCallback(() => {
+    setProfile(null);
+    setProfileChecked(false);
+    setUnreadNotifications(0);
+  }, []);
+
   const syncCurrentUser = useCallback(async () => {
+    resetProfileState();
+    const activeToken = getActiveAuthToken();
+    if (!activeToken) {
+      // No local token found. Try relying on cookie-based auth (HttpOnly cookies)
+      // by attempting to fetch the current user. The dev server proxies /api
+      // and axios is configured with `withCredentials: true`, so this request
+      // will send any HttpOnly auth cookies the backend set. If that succeeds,
+      // we can treat the user as logged in even without a token in localStorage.
+      try {
+        const maybe = await client.get("/api/v1/users/me");
+        const maybeProfile = maybe?.data?.data || null;
+        if (maybeProfile?.id) {
+          setProfile(maybeProfile);
+          setProfileChecked(true);
+          return maybeProfile;
+        }
+      } catch {
+        // ignore and fall through to clearing session state below
+      }
+
+      clearAuthSessionState();
+      setProfile(null);
+      setProfileChecked(true);
+      return null;
+    }
+
+    const tokenUserId = extractJwtUserId(activeToken);
+    if (tokenUserId == null) {
+      clearAuthSessionState();
+      setProfile(null);
+      setProfileChecked(true);
+      return null;
+    }
+
     try {
       const response = await client.get("/api/v1/users/me");
-      setProfile(response.data.data);
-      return response.data.data;
-    } catch {
-      // Attempt silent refresh using refresh token cookie, then retry once
+      const nextProfile = response?.data?.data || null;
+      if (!nextProfile?.id) {
+        clearAuthSessionState();
+        setProfile(null);
+        setProfileChecked(true);
+        return null;
+      }
+
+      const profileUserId = Number(nextProfile.id);
+      if (!Number.isFinite(profileUserId) || profileUserId !== tokenUserId) {
+        clearAuthSessionState();
+        setProfile(null);
+        setProfileChecked(true);
+        return null;
+      }
+
+      setProfile(nextProfile);
+      setProfileChecked(true);
+      return nextProfile;
+    } catch (err) {
+      const status = Number(err?.response?.status || 0);
+      if (status === 401 || status === 403) {
+        clearAuthSessionState();
+        setProfile(null);
+        setProfileChecked(true);
+        return null;
+      }
+
       try {
         await client.post("/api/v1/auth/refresh");
         const retry = await client.get("/api/v1/users/me");
-        setProfile(retry.data.data);
-        return retry.data.data;
-      } catch (err) {
-        // Ensure server clears cookies and always reset local UI state
+        const refreshedProfile = retry?.data?.data || null;
+        if (!refreshedProfile?.id) {
+          clearAuthSessionState();
+          setProfile(null);
+          setProfileChecked(true);
+          return null;
+        }
+
+        const refreshedUserId = Number(refreshedProfile.id);
+        if (
+          !Number.isFinite(refreshedUserId) ||
+          refreshedUserId !== tokenUserId
+        ) {
+          clearAuthSessionState();
+          setProfile(null);
+          setProfileChecked(true);
+          return null;
+        }
+
+        setProfile(refreshedProfile);
+        setProfileChecked(true);
+        return refreshedProfile;
+      } catch (refreshError) {
         try {
           await client.post("/api/v1/auth/logout");
         } catch (logoutError) {
           console.debug("Logout cleanup failed", logoutError);
         }
+        clearAuthSessionState();
         setProfile(null);
-        console.debug("Logout cleanup failed", err);
+        setProfileChecked(true);
+        console.debug("Logout cleanup failed", refreshError);
         return null;
       }
-    } finally {
-      setProfileChecked(true);
     }
-  }, []);
+  }, [resetProfileState]);
 
   const isLoggedIn = Boolean(profile);
   const needsProfileSetup =
@@ -422,9 +510,11 @@ export default function App() {
     } catch {
       // Clear the local UI state even if the server call fails.
     }
+    clearAuthSessionState();
     setProfile(null);
     setProfileChecked(true);
     setUnreadNotifications(0);
+    setAuthMode(null);
     notify({
       type: "info",
       title: "Logged out",
@@ -989,24 +1079,64 @@ export default function App() {
             language={language}
             initialError={oauthError}
             notify={notify}
-            onLoggedIn={async (loggedMode) => {
+            onLoggedIn={async (loggedMode, authResponse) => {
               setAuthMode(null);
               setOauthError("");
-              const user = await syncCurrentUser();
-              notify({
-                type: "success",
-                title:
-                  loggedMode === "signup" ? "Account created" : "Welcome back",
-                message: "Authentication successful. Loading your dashboard.",
-              });
-              const post = localStorage.getItem("auth_post_redirect");
-              if (post) {
-                localStorage.removeItem("auth_post_redirect");
-                navigate(post, { replace: true });
-              } else {
-                navigate(roleRoot(user?.role || profile?.role), {
-                  replace: true,
+              try {
+                console.info("[auth] onLoggedIn authResponse", authResponse);
+              } catch (_) {}
+              const nextToken = persistAuthSession(authResponse);
+              try {
+                console.info(
+                  "[auth] persistAuthSession returned",
+                  nextToken,
+                  "cookies",
+                  typeof document !== "undefined" ? document.cookie : null,
+                );
+              } catch (_) {}
+              if (!nextToken) {
+                notify({
+                  type: "error",
+                  title: "Authentication failed",
+                  message: "No access token was returned by the server.",
                 });
+                return;
+              }
+
+              try {
+                const user = await syncCurrentUser();
+                if (!user?.id) {
+                  throw new Error("Profile initialization failed");
+                }
+
+                notify({
+                  type: "success",
+                  title:
+                    loggedMode === "signup"
+                      ? "Account created"
+                      : "Welcome back",
+                  message: "Authentication successful. Loading your dashboard.",
+                });
+
+                const post = localStorage.getItem("auth_post_redirect");
+                if (post) {
+                  localStorage.removeItem("auth_post_redirect");
+                  navigate(post, { replace: true });
+                } else {
+                  navigate(roleRoot(user.role), { replace: true });
+                }
+              } catch (error) {
+                console.error(
+                  "Post-login profile initialization failed",
+                  error,
+                );
+                clearAuthSessionState();
+                notify({
+                  type: "error",
+                  title: "Authentication failed",
+                  message: "We could not load your profile. Please try again.",
+                });
+                navigate("/login", { replace: true });
               }
             }}
           />
