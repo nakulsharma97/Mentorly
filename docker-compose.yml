@@ -49,7 +49,33 @@ services:
       - backend
     ports:
       - "5174:80"
+      - "${FRONTEND_HTTPS_PORT:-443}:443"
+    volumes:
+      # Mount SSL certificates (optional — only needed for HTTPS)
+      - ${SSL_CERT_DIR:-./certs}:/etc/nginx/ssl:ro
+      # Mount certbot challenge directory for initial certificate issuance
+      - certbot_www:/var/www/certbot
     restart: unless-stopped
+
+  # ── Certbot (Let's Encrypt) — for automatic SSL certificate management ──
+  # Usage:
+  #   docker compose --profile ssl run certbot certonly --webroot \
+  #     -w /var/www/certbot -d yourdomain.com
+  # Renewal (set up as daily cron):
+  #   docker compose --profile ssl run certbot renew && \
+  #     docker compose exec frontend nginx -s reload
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+      - ${SSL_CERT_DIR:-./certs}:/certs
+    profiles:
+      - ssl  # Only run explicitly, not on `docker compose up`
+    command: --help
 
 volumes:
   mysql_data:
+  certbot_conf:
+  certbot_www:
+  certs:

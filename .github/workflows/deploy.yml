@@ -1,0 +1,251 @@
+name: deploy
+
+on:
+  # ── Triggered after a successful Docker image push ─────
+  workflow_run:
+    workflows: ["backend-ci"]
+    types:
+      - completed
+    branches:
+      - main
+
+  # ── Manual trigger for quick redeploys / rollbacks ────
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options:
+          - staging
+          - production
+        default: production
+      image_tag:
+        description: "Docker image tag to deploy (defaults to 'latest' for main, commit SHA for rollback)"
+        required: false
+        default: ""
+      skip_health_check:
+        description: "Skip health check verification"
+        type: boolean
+        default: false
+
+env:
+  # Image registry — must match backend-ci.yml
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-backend
+  # ── Notification colors ────────────────────────────────
+  SLACK_COLOR_SUCCESS: "good"
+  SLACK_COLOR_FAILURE: "danger"
+  SLACK_COLOR_WARNING: "warning"
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment || 'production' }}
+    # Only deploy if the triggering CI workflow succeeded
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+    concurrency: deploy-${{ inputs.environment || 'production' }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      env_name: ${{ steps.target.outputs.env_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Determine image tag ──────────────────────────────
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+            echo "source=manual input"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # Get SHA from the triggering workflow's commit
+            SHA="${{ github.event.workflow_run.head_sha }}"
+            SHORT_SHA="${SHA:0:7}"
+            echo "tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+            echo "source=commit SHA (${SHORT_SHA})"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            echo "source=default (latest)"
+          fi
+          echo "Deploying tag: ${{ steps.tag.outputs.tag }}"
+
+      # ── Determine target host from environment ───────────
+      - name: Set deployment target
+        id: target
+        run: |
+          ENV="${{ inputs.environment || 'production' }}"
+          echo "env_name=${ENV}" >> "$GITHUB_OUTPUT"
+          case "$ENV" in
+            staging)
+              echo "host=${{ secrets.STAGING_HOST }}" >> "$GITHUB_OUTPUT"
+              echo "user=${{ secrets.STAGING_USER }}" >> "$GITHUB_OUTPUT"
+              echo "path=${{ secrets.STAGING_PATH }}" >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo "host=${{ secrets.DEPLOY_HOST }}" >> "$GITHUB_OUTPUT"
+              echo "user=${{ secrets.DEPLOY_USER }}" >> "$GITHUB_OUTPUT"
+              echo "path=${{ secrets.DEPLOY_PATH }}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      # ── Deploy via SSH ───────────────────────────────────
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_TAG: ${{ steps.tag.outputs.tag }}
+          COMPOSE_DIR: ${{ steps.target.outputs.path }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        with:
+          host: ${{ steps.target.outputs.host }}
+          username: ${{ steps.target.outputs.user }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script: |
+            set -e
+            echo "=== Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ==="
+            echo ""
+
+            # Run the deploy script from the project directory
+            cd "$COMPOSE_DIR"
+
+            chmod +x scripts/deploy.sh
+            bash scripts/deploy.sh \
+              --tag "$IMAGE_TAG" \
+              ${{ inputs.skip_health_check && '--no-rollback' || '' }}
+
+      # ── Post-deployment smoke tests ──────────────────────
+      - name: Smoke test — Health endpoint
+        if: ${{ !inputs.skip_health_check }}
+        env:
+          PROTOCOL: ${{ secrets.DEPLOY_PROTOCOL || 'https' }}
+        run: |
+          echo "Waiting for backend to be reachable..."
+          sleep 10
+          for i in $(seq 1 12); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              "$PROTOCOL://${{ steps.target.outputs.host }}/actuator/health" \
+              2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Backend healthy (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "  Attempt $i/12: HTTP $HTTP_CODE — retrying in 5s..."
+            sleep 5
+          done
+          echo "❌ Health check failed from GitHub runner"
+          exit 1
+
+      - name: Smoke test — Signup page loads
+        env:
+          PROTOCOL: ${{ secrets.DEPLOY_PROTOCOL || 'https' }}
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$PROTOCOL://${{ steps.target.outputs.host }}/api/v1/auth/signup" \
+            2>/dev/null || echo "000")
+          echo "Signup endpoint: HTTP $HTTP_CODE"
+          # 401 or 400 means the server is responding (authentication challenge)
+          if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "400" ] || [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Server is responding"
+          else
+            echo "⚠️ Unexpected status: $HTTP_CODE"
+          fi
+
+      # ── Log deployment summary ───────────────────────────
+      - name: Log deployment summary
+        id: summary
+        run: |
+          ENV_NAME="${{ inputs.environment || 'production' }}"
+          IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+          HOST="${{ steps.target.outputs.host }}"
+          echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMG}" >> "$GITHUB_OUTPUT"
+          echo "host=${HOST}" >> "$GITHUB_OUTPUT"
+          echo ""
+          echo "=========================================="
+          echo "  Deployment complete"
+          echo "=========================================="
+          echo "  Environment:  ${ENV_NAME}"
+          echo "  Image:        ${IMG}"
+          echo "  Host:         ${HOST}"
+          echo "  Triggered by: ${{ github.event_name }}"
+          echo "  Status:       ${{ job.status }}"
+          echo ""
+
+  # ─────────────── Notifications ─────────────────
+  notify:
+    name: Send notifications
+    needs: deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "emoji=✅" >> "$GITHUB_OUTPUT"
+            echo "title=Deploy successful" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_SUCCESS }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Deploy completed successfully" >> "$GITHUB_OUTPUT"
+          elif [ "${{ needs.deploy.result }}" = "skipped" ]; then
+            echo "emoji=⏭️" >> "$GITHUB_OUTPUT"
+            echo "title=Deploy skipped" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_WARNING }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Deploy was skipped — check CI status" >> "$GITHUB_OUTPUT"
+          else
+            echo "emoji=❌" >> "$GITHUB_OUTPUT"
+            echo "title=Deploy failed" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_FAILURE }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Deploy to ${{ needs.deploy.outputs.env_name || '?' }} failed — check the workflow for details" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Slack notification ───────────────────────────────
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [{
+                "color": "${{ steps.status.outputs.color }}",
+                "title": "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.title }}",
+                "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                "fields": [
+                  {"title": "Environment", "value": "${{ needs.deploy.outputs.env_name || 'production' }}", "short": true},
+                  {"title": "Image", "value": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.deploy.outputs.tag || 'latest' }}", "short": true},
+                  {"title": "Host", "value": "${{ secrets.DEPLOY_HOST || 'N/A' }}", "short": true},
+                  {"title": "Trigger", "value": "${{ github.event_name }}", "short": true}
+                ],
+                "footer": "SkillSwap Deploy",
+                "ts": $(date +%s)
+              }]
+            }
+
+      # ── Email notification ───────────────────────────────
+      - name: Send email notification
+        if: ${{ secrets.MAIL_SERVER != '' && secrets.MAIL_TO != '' }}
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT || 587 }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "${{ steps.status.outputs.emoji }} SkillSwap Deploy: ${{ steps.status.outputs.title }} to ${{ needs.deploy.outputs.env_name || 'production' }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: ${{ secrets.MAIL_FROM || 'SkillSwap Deploy <deploy@skillswap.app>' }}
+          body: |
+            Environment:  ${{ needs.deploy.outputs.env_name || 'production' }}
+            Image:        ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.deploy.outputs.tag || 'latest' }}
+            Status:       ${{ steps.status.outputs.title }}
+            Details:      ${{ steps.status.outputs.detail }}
+            Host:         ${{ secrets.DEPLOY_HOST || 'N/A' }}
+            Trigger:      ${{ github.event_name }}
+            Workflow:     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            --
+            SkillSwap Deployment Bot

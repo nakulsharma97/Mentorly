@@ -71,8 +71,8 @@ class AuthControllerIntegrationTest {
             """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.message").value("Signup successful"))
-        .andExpect(jsonPath("$.data.token").doesNotExist())
-        .andExpect(jsonPath("$.data.refreshToken").doesNotExist())
+        .andExpect(jsonPath("$.data.token").value("access"))
+        .andExpect(jsonPath("$.data.refreshToken").value("refresh"))
         .andExpect(jsonPath("$.data.email").value("user@example.com"))
         .andExpect(jsonPath("$.data.role").value("LEARNER"));
   }

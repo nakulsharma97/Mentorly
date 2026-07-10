@@ -3,6 +3,7 @@ package com.skillswap.review;
 import com.skillswap.auth.JwtService;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
+import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -11,9 +12,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
@@ -32,23 +35,26 @@ class ReviewControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private MentorReviewRepository mentorReviewRepository;
 
-    @MockBean
+    @MockitoBean
     private LearnerReviewRepository learnerReviewRepository;
 
-    @MockBean
+    @MockitoBean
     private BookingRepository bookingRepository;
 
-    @MockBean
+    @MockitoBean
     private UserRepository userRepository;
 
-    @MockBean
+    @MockitoBean
     private NotificationService notificationService;
 
-    @MockBean
+    @MockitoBean
     private JwtService jwtService;
+
+    @MockitoBean
+    private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
     void mentorReviewSummaryEndpointReturnsDistributionAndReplyData() throws Exception {
@@ -82,15 +88,22 @@ class ReviewControllerTest {
         given(mentorReviewRepository.averageRatingByMentorId(10L)).willReturn(Optional.of(5.0));
         given(mentorReviewRepository.countByMentorId(10L)).willReturn(1L);
 
-        mockMvc.perform(get("/api/v1/reviews/mentor")
-                .principal(new UsernamePasswordAuthenticationToken(mentor, null))
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Mentor reviews fetched"))
-                .andExpect(jsonPath("$.data.averageRating").value(5.0))
-                .andExpect(jsonPath("$.data.totalReviews").value(1))
-                .andExpect(jsonPath("$.data.recommendationRate").value(100))
-                .andExpect(jsonPath("$.data.distribution.5").value(1))
-                .andExpect(jsonPath("$.data.reviews[0].replyText").value("Thanks for the feedback"));
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null));
+        SecurityContextHolder.setContext(context);
+
+        try {
+            mockMvc.perform(get("/api/v1/reviews/mentor")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Mentor reviews fetched"))
+                    .andExpect(jsonPath("$.data.averageRating").value(5.0))
+                    .andExpect(jsonPath("$.data.totalReviews").value(1))
+                    .andExpect(jsonPath("$.data.recommendationRate").value(100))
+                    .andExpect(jsonPath("$.data.distribution.5").value(1))
+                    .andExpect(jsonPath("$.data.reviews[0].replyText").value("Thanks for the feedback"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }

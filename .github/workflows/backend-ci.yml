@@ -1,0 +1,250 @@
+name: backend-ci
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "pom.xml"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "pom.xml"
+      - ".github/workflows/backend-ci.yml"
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-backend
+  JAVA_VERSION: "21"
+  SLACK_COLOR_SUCCESS: "good"
+  SLACK_COLOR_FAILURE: "danger"
+  SLACK_COLOR_WARNING: "warning"
+
+jobs:
+  # ─────────────── CI: Test & Build ───────────────
+  test-and-build:
+    name: Test & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testpass123
+          MYSQL_DATABASE: skill_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass123
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root -ptestpass123"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('backend/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Run tests
+        run: mvn -B verify
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/skill_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          SPRING_DATASOURCE_USERNAME: root
+          SPRING_DATASOURCE_PASSWORD: testpass123
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage-report
+          path: backend/target/site/jacoco/
+          retention-days: 7
+
+      - name: Package JAR
+        run: mvn -B package -DskipTests -Dmaven.test.skip=true
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+          retention-days: 3
+
+  # ─────────────── CD: Docker Image ───────────────
+  docker-build-and-push:
+    name: Build & Push Docker Image
+    needs: test-and-build
+    # Only run on push to main or release
+    if: github.event_name == 'push' || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=,suffix=,format=short
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Log image digest
+        id: done
+        run: |
+          echo "✅ Image pushed: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          echo "   Digest: ${{ steps.push.outputs.digest }}"
+          echo "   Tags:"
+          echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | sed 's/^/     - /'
+
+  # ─────────────── Notifications ─────────────────
+  notify:
+    name: Send notifications
+    needs: [test-and-build, docker-build-and-push]
+    # Run on any CI outcome except when docker-build was never triggered (PR events)
+    if: always() && needs.test-and-build.result != 'skipped'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          TEST_RESULT="${{ needs.test-and-build.result }}"
+          DOCKER_RESULT="${{ needs.docker-build-and-push.result }}"
+          EVENT="${{ github.event_name }}"
+
+          if [ "$TEST_RESULT" != "success" ]; then
+            echo "emoji=❌" >> "$GITHUB_OUTPUT"
+            echo "title=Tests failed (${{ github.ref_name }})" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_FAILURE }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Tests: $TEST_RESULT | Branch: ${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ "$DOCKER_RESULT" = "success" ]; then
+            echo "emoji=🐳" >> "$GITHUB_OUTPUT"
+            echo "title=Tests passed + Docker image pushed" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_SUCCESS }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Image pushed to ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "pull_request" ]; then
+            echo "emoji=✅" >> "$GITHUB_OUTPUT"
+            echo "title=Tests passed (PR #${{ github.event.pull_request.number }})" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_SUCCESS }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Tests passed for PR #${{ github.event.pull_request.number }} on ${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "emoji=⏭️" >> "$GITHUB_OUTPUT"
+            echo "title=CI skipped (${{ github.ref_name }})" >> "$GITHUB_OUTPUT"
+            echo "color=${{ env.SLACK_COLOR_WARNING }}" >> "$GITHUB_OUTPUT"
+            echo "detail=Tests: $TEST_RESULT | Docker: $DOCKER_RESULT" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Slack notification ───────────────────────────────
+      - name: Send Slack notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "attachments": [{
+                "color": "${{ steps.status.outputs.color }}",
+                "title": "${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.title }}",
+                "title_link": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                "fields": [
+                  {"title": "Branch", "value": "${{ github.ref_name }}", "short": true},
+                  {"title": "Event", "value": "${{ github.event_name }}", "short": true},
+                  {"title": "Details", "value": "${{ steps.status.outputs.detail }}", "short": false}
+                ],
+                "footer": "SkillSwap CI",
+                "ts": $(date +%s)
+              }]
+            }
+
+      # ── Email notification ───────────────────────────────
+      - name: Send email notification
+        if: ${{ secrets.MAIL_SERVER != '' && secrets.MAIL_TO != '' }}
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT || 587 }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "${{ steps.status.outputs.emoji }} SkillSwap CI: ${{ steps.status.outputs.title }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: ${{ secrets.MAIL_FROM || 'SkillSwap CI <ci@skillswap.app>' }}
+          body: |
+            Branch:    ${{ github.ref_name }}
+            Event:     ${{ github.event_name }}
+            Status:    ${{ steps.status.outputs.title }}
+            Details:   ${{ steps.status.outputs.detail }}
+            Workflow:  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            --
+            SkillSwap CI Bot
