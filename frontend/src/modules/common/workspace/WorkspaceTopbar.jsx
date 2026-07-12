@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../../context/ThemeContext";
 import Icon from "../dashboard/Icon";
 import { initials } from "../dashboard/dashboardUtils";
+import NotificationCenter from "../../../components/NotificationCenter";
 
 /**
  * Role-agnostic sticky topbar: breadcrumb + page title, centered search,
@@ -21,6 +22,7 @@ export default function WorkspaceTopbar({
   crumbRoot = "Workspace",
   notificationsTo = "#",
   profileMenu = [],
+  onUnreadCountChange,
 }) {
   const { isDark, toggle } = useTheme();
   const location = useLocation();
@@ -78,19 +80,11 @@ export default function WorkspaceTopbar({
       </label>
 
       <div className="ws-top__right">
-        <button
-          type="button"
-          className="ws-top__icon-btn"
-          onClick={() => navigate(notificationsTo)}
-          aria-label="Notifications"
-        >
-          <Icon name="notifications" />
-          {unreadNotifications > 0 && (
-            <span className="ws-top__badge">
-              {unreadNotifications > 99 ? "99+" : unreadNotifications}
-            </span>
-          )}
-        </button>
+        <NotificationCenter
+          profile={profile}
+          unreadNotifications={unreadNotifications}
+          onUnreadCountChange={onUnreadCountChange}
+        />
 
         <button type="button" className="ws-top__icon-btn" onClick={toggle} aria-label="Toggle theme">
           <Icon name={isDark ? "light_mode" : "dark_mode"} />

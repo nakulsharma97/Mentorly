@@ -6,6 +6,7 @@ import StatsCard from "../modules/common/dashboard/StatsCard";
 import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import Icon from "../modules/common/dashboard/Icon";
 import StudentDrawer from "../modules/mentor/components/students/StudentDrawer";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import {
   initials,
   formatMoney,
@@ -230,31 +231,27 @@ export default function MentorStudentsPage({ profile, notify }) {
 
   return (
     <div className="md md-page">
-      <div className="mp-head md-animate">
-        <div>
-          <h1 className="mp-head__title">Students</h1>
-          <p className="mp-head__sub">
-            Everyone who has booked a session with you, with live progress and
-            history.
-          </p>
-        </div>
-        <div className="mp-head__actions">
-          <button
-            type="button"
-            className="md-btn md-btn--outline md-btn--sm"
-            onClick={loadStudents}
-          >
-            <Icon name="refresh" /> Refresh
-          </button>
-          <button
-            type="button"
-            className="md-btn md-btn--brand md-btn--sm"
-            onClick={() => navigate("/mentor/calendar")}
-          >
-            <Icon name="add" /> New Session
-          </button>
-        </div>
-      </div>
+      <MentorPageHero
+        eyebrow="Your Learners"
+        icon="groups"
+        title="Students"
+        sub="Everyone who has booked a session with you, with live progress and history."
+      >
+        <button
+          type="button"
+          className="md-btn md-btn--outline md-btn--sm"
+          onClick={loadStudents}
+        >
+          <Icon name="refresh" /> Refresh
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--brand md-btn--sm"
+          onClick={() => navigate("/mentor/calendar")}
+        >
+          <Icon name="add" /> New Session
+        </button>
+      </MentorPageHero>
 
       {/* Summary cards */}
       <div

@@ -11,11 +11,7 @@ const GROUPS = [
       { to: "/learner/skills", label: "Explore Skills", icon: "auto_stories" },
       { to: "/learner/learning", label: "My Learning", icon: "school" },
       { to: "/learner/sessions", label: "Booked Sessions", icon: "calendar_month" },
-      { to: "/learner/certificates", label: "Certificates", icon: "workspace_premium" },
       { to: "/learner/messages", label: "Messages", icon: "chat" },
-      { to: "/learner/saved", label: "Saved Mentors", icon: "bookmark" },
-      { to: "/learner/path", label: "Learning Path", icon: "route" },
-      { to: "/learner/achievements", label: "Achievements", icon: "military_tech" },
     ],
   },
 ];

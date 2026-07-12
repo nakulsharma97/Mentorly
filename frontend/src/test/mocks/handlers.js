@@ -68,7 +68,13 @@ export const handlers = [
   http.get("*/api/v1/roadmaps", () => {
     return HttpResponse.json({ data: mockRoadmaps });
   }),
-  http.get("*/api/v1/watchlist", () => {
+  http.get("*/api/v1/watchlist/skills", () => {
+    return HttpResponse.json({ data: [] });
+  }),
+  http.get("*/api/v1/watchlist/mentors", () => {
+    return HttpResponse.json({ data: [] });
+  }),
+  http.get("*/api/v1/users/mentors", () => {
     return HttpResponse.json({ data: [] });
   }),
   http.get("*/api/v1/certifications/me", () => {

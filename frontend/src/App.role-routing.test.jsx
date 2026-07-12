@@ -18,15 +18,18 @@ vi.mock("./api/client", () => ({
   },
   createIdempotencyKey: vi.fn(() => "mock-idempotency-key"),
   API_BASE_URL: "http://localhost:8080",
+  getActiveAuthToken: vi.fn(() => null),
+  extractJwtUserId: vi.fn(() => null),
+  persistAuthSession: vi.fn(() => "mock-token"),
+  clearAuthSessionState: vi.fn(),
 }));
 
 vi.mock("./pages/AuthPage", () => ({ default: () => <div>Auth Page</div> }));
-vi.mock("./pages/Dashboard", () => ({ default: () => <div>Dashboard</div> }));
-vi.mock("./pages/ExecutiveDashboard", () => ({
-  default: () => <div>Executive Dashboard</div>,
-}));
 vi.mock("./pages/LearnerDashboard", () => ({
   default: () => <div>Learner Dashboard</div>,
+}));
+vi.mock("./pages/LearnerSessionsPage", () => ({
+  default: () => <div>Learner Sessions Page</div>,
 }));
 vi.mock("./pages/MentorDashboard", () => ({
   default: () => <div>Mentor Dashboard</div>,
@@ -34,9 +37,6 @@ vi.mock("./pages/MentorDashboard", () => ({
 vi.mock("./pages/RoleGuide", () => ({ default: () => <div>Role Guide</div> }));
 vi.mock("./pages/AnalyticsPage", () => ({
   default: () => <div>Analytics Page</div>,
-}));
-vi.mock("./pages/LearningPage", () => ({
-  default: () => <div>Learning Page</div>,
 }));
 vi.mock("./pages/ResourcesPage", () => ({
   default: () => <div>Resources Page</div>,
@@ -68,6 +68,7 @@ describe("App role routing", () => {
         return Promise.resolve({
           data: {
             data: {
+              id: 1,
               role,
               skills: role === "MENTOR" ? "Java,Spring Boot" : "React",
               aboutMe: role === "MENTOR" ? "Mentor profile" : "Learner profile",
@@ -86,7 +87,7 @@ describe("App role routing", () => {
       if (url === "/api/v1/notifications/unread-count") {
         return Promise.resolve({ data: { data: 0 } });
       }
-      return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { message: "OK", data: [] } });
     });
   };
 
@@ -129,7 +130,7 @@ describe("App role routing", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Learning Page")).toBeInTheDocument();
+      expect(screen.getByText("Learner Sessions Page")).toBeInTheDocument();
     });
 
     expect(screen.queryByText("Teaching Page")).not.toBeInTheDocument();

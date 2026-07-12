@@ -7,6 +7,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import { initSentry } from './sentry';
 import './styles.css';
 import './ui-polish.css';
+import './premium-ui-enhancement.css';
 import './styles/forms.css';
 import './styles/responsive.css';
 

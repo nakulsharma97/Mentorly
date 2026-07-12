@@ -971,6 +971,60 @@
   color: var(--m-accent-2);
 }
 
+/* Day dividers + same-sender grouping (visual layer over the flat thread) */
+.msg-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.msg-day-divider {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  margin: var(--sp-1) 0;
+  pointer-events: none;
+}
+
+.msg-day-divider span {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--m-canvas) 82%, transparent);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--m-border);
+  color: var(--m-faint);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* Bubbles within a run stack tightly */
+.msg-bubble-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.msg-bubble-row.mine .msg-bubble-group { align-items: flex-end; }
+
+.msg-bubble-group .msg-bubble:not(:last-child) {
+  border-bottom-left-radius: var(--r-lg);
+}
+.msg-bubble-row.mine .msg-bubble-group .msg-bubble:not(:last-child) {
+  border-bottom-right-radius: var(--r-lg);
+}
+
+/* Meta now lives inside the final bubble of a run */
+.msg-bubble-meta {
+  margin-top: 4px;
+}
+.msg-bubble-row.mine .msg-bubble-meta {
+  color: rgba(255, 255, 255, 0.82);
+}
+.msg-bubble-row.mine .msg-bubble-meta .msg-read .material-symbols-outlined {
+  color: #eafff9;
+}
+
 /* Typing indicator */
 .msg-typing {
   display: inline-flex;
@@ -1444,6 +1498,17 @@
 
 [data-theme="dark"] .msg-bubble {
   color: var(--m-text);
+}
+
+/* "Mine" bubbles sit on the saturated brand gradient — keep text white in
+   dark mode despite the global p/span/div !important overrides. */
+[data-theme="dark"] .msg-bubble-row.mine .msg-bubble,
+[data-theme="dark"] .msg-bubble-row.mine .msg-bubble-meta,
+[data-theme="dark"] .msg-bubble-row.mine .msg-bubble-meta span {
+  color: #f4fffd !important;
+}
+[data-theme="dark"] .msg-day-divider span {
+  background: color-mix(in srgb, var(--m-canvas) 78%, transparent);
 }
 
 [data-theme="dark"] .msg-error {

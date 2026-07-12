@@ -32,61 +32,99 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         long countByLastActiveAtAfter(OffsetDateTime cutoff);
 
+        /**
+         * Backend-driven mentor search with keyword matching, price / rating /
+         * experience filters, "online now" and "saved by learner" scopes, and a
+         * server-side {@code sort} switch. Every filter is optional: pass
+         * {@code null} (or 0) to disable it. Sorting is resolved entirely in SQL so
+         * the frontend never re-orders results.
+         *
+         * <p>Supported {@code sort} values: {@code rating}, {@code experience},
+         * {@code price}, {@code availability}, {@code newest}. Any other value
+         * (including {@code recent}) falls back to most-recently-active first.
+         */
         @Query(value = """
-                                                                                                SELECT DISTINCT u.* FROM users u
+                        SELECT DISTINCT u.* FROM users u
                         WHERE u.role = 'MENTOR'
-                        AND u.enabled = true
-                                                                                                AND (
-                                                                                                        :keyword IS NULL OR :keyword = ''
-                                                                                                        OR MATCH(u.full_name, u.about_me, u.skills)
-                                                                                                                 AGAINST (:keyword IN BOOLEAN MODE)
-                                                                                                )
-                                                                                                AND (
-                                                                                                        :minPrice IS NULL
-                                                                                                        OR EXISTS (
-                                                                                                                SELECT 1 FROM sessions s
-                                                                                                                WHERE s.mentor_id = u.id
-                                                                                                                AND s.price_amount >= :minPrice
-                                                                                                                AND s.status IN ('PENDING', 'ACCEPTED')
-                                                                                                        )
-                                                                                                )
-                                                                                                AND (
-                                                                                                        :maxPrice IS NULL
-                                                                                                        OR EXISTS (
-                                                                                                                SELECT 1 FROM sessions s
-                                                                                                                WHERE s.mentor_id = u.id
-                                                                                                                AND s.price_amount <= :maxPrice
-                                                                                                                AND s.status IN ('PENDING', 'ACCEPTED')
-                                                                                                        )
-                                                                                                )
-                                                                                                AND (
-                                                                                                        :minRating IS NULL OR :minRating = 0
-                                                                                                        OR (
-                                                                                                                SELECT COALESCE(AVG(r.rating), 0)
-                                                                                                                FROM mentor_reviews r
-                                                                                                                WHERE r.mentor_id = u.id
-                                                                                                        ) >= :minRating
-                                                                                                )
+                          AND u.enabled = true
+                          AND (
+                                :keyword IS NULL OR :keyword = ''
+                                OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
+                                     AGAINST (:keyword IN BOOLEAN MODE)
+                          )
+                          AND (
+                                :minPrice IS NULL
+                                OR EXISTS (
+                                        SELECT 1 FROM sessions s
+                                        WHERE s.mentor_id = u.id
+                                          AND s.price_amount >= :minPrice
+                                          AND s.status IN ('PENDING', 'ACCEPTED')
+                                )
+                          )
+                          AND (
+                                :maxPrice IS NULL
+                                OR EXISTS (
+                                        SELECT 1 FROM sessions s
+                                        WHERE s.mentor_id = u.id
+                                          AND s.price_amount <= :maxPrice
+                                          AND s.status IN ('PENDING', 'ACCEPTED')
+                                )
+                          )
+                          AND (
+                                :minRating IS NULL OR :minRating = 0
+                                OR (
+                                        SELECT COALESCE(AVG(r.rating), 0)
+                                        FROM mentor_reviews r
+                                        WHERE r.mentor_id = u.id
+                                ) >= :minRating
+                          )
+                          AND (
+                                :minExperience IS NULL OR :minExperience = 0
+                                OR COALESCE(u.years_of_experience, 0) >= :minExperience
+                          )
+                          AND (
+                                :onlineCutoff IS NULL
+                                OR u.last_active_at >= :onlineCutoff
+                          )
+                          AND (
+                                :savedLearnerId IS NULL
+                                OR EXISTS (
+                                        SELECT 1 FROM saved_mentors sm
+                                        WHERE sm.mentor_id = u.id
+                                          AND sm.learner_id = :savedLearnerId
+                                )
+                          )
                         ORDER BY
-                                                                                                        CASE
-                                                                                                                WHEN :keyword IS NULL OR :keyword = ''
-                                                                                                                THEN u.last_active_at
-                                                                                                                ELSE NULL
-                                                                                                        END DESC,
-                                                                                                        CASE
-                                                                                                                WHEN :keyword IS NOT NULL AND :keyword != ''
-                                                                                                                THEN MATCH(u.full_name, u.about_me, u.skills)
-                                                                                                                                 AGAINST (:keyword IN BOOLEAN MODE)
-                                                                                                                ELSE NULL
-                          END,
-                                                                                                        u.last_active_at DESC
+                          CASE WHEN :sort = 'rating' THEN (
+                                SELECT COALESCE(AVG(r.rating), 0)
+                                FROM mentor_reviews r WHERE r.mentor_id = u.id
+                          ) END DESC,
+                          CASE WHEN :sort = 'experience' THEN COALESCE(u.years_of_experience, 0) END DESC,
+                          CASE WHEN :sort = 'price' THEN (
+                                SELECT COALESCE(MIN(s.price_amount), 999999)
+                                FROM sessions s
+                                WHERE s.mentor_id = u.id
+                                  AND s.status IN ('PENDING', 'ACCEPTED')
+                          ) END ASC,
+                          CASE WHEN :sort = 'newest' THEN u.created_at END DESC,
+                          CASE
+                                WHEN :keyword IS NOT NULL AND :keyword != ''
+                                THEN MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
+                                        AGAINST (:keyword IN BOOLEAN MODE)
+                                ELSE NULL
+                          END DESC,
+                          u.last_active_at DESC
                         LIMIT :pageSize OFFSET :offset
                         """, nativeQuery = true)
-        List<User> searchMentorsFiltered(
+        List<User> searchMentorsAdvanced(
                         @Param("keyword") String keyword,
                         @Param("minPrice") BigDecimal minPrice,
                         @Param("maxPrice") BigDecimal maxPrice,
                         @Param("minRating") Double minRating,
+                        @Param("minExperience") Integer minExperience,
+                        @Param("onlineCutoff") OffsetDateTime onlineCutoff,
+                        @Param("savedLearnerId") Long savedLearnerId,
+                        @Param("sort") String sort,
                         @Param("pageSize") int pageSize,
                         @Param("offset") int offset);
 }

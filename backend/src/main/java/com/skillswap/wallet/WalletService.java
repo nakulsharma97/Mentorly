@@ -61,6 +61,37 @@ public class WalletService {
         return ledgerRepository.save(entry);
     }
 
+    @Transactional
+    public WalletLedgerEntry withdraw(User currentUser, WithdrawRequest request) {
+        if (request.amount() == null || request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Withdrawal amount must be greater than zero");
+        }
+
+        if (request.amount().compareTo(balance(currentUser).balance()) > 0) {
+            throw new IllegalArgumentException("Insufficient wallet balance for withdrawal");
+        }
+
+        if (request.amount().compareTo(new BigDecimal("10.00")) < 0) {
+            throw new IllegalArgumentException("Minimum withdrawal amount is 10.00 credits");
+        }
+
+        return addEntry(currentUser, new WalletEntryRequest(
+                WalletTransactionType.WITHDRAWAL,
+                request.amount(),
+                "CREDITS",
+                request.description() != null && !request.description().isBlank()
+                        ? request.description()
+                        : "Wallet withdrawal to " + (request.paymentMethod() != null ? request.paymentMethod() : "bank account"),
+                "WITHDRAWAL",
+                null));
+    }
+
+    public record WithdrawRequest(
+            BigDecimal amount,
+            String description,
+            String paymentMethod) {
+    }
+
     public record WalletBalance(BigDecimal balance, String currency) {
     }
 

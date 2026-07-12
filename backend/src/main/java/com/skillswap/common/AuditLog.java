@@ -30,7 +30,7 @@ public class AuditLog {
     @Column(name = "user_id")
     private Long userId;
 
-    @Column(nullable = false)
+    @Column
     private String resource;
 
     @Column(name = "resource_id")
@@ -44,6 +44,20 @@ public class AuditLog {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
+
+    // ── Admin audit fields ──
+
+    @Column(name = "admin_id")
+    private Long adminId;
+
+    @Column(name = "admin_email")
+    private String adminEmail;
+
+    @Column(name = "entity_type")
+    private String entityType;
+
+    @Column(name = "entity_id")
+    private Long entityId;
 
     public AuditLog(String action, String resource, Long resourceId, String details, Long userId, String ipAddress) {
         this.action = action;

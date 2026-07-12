@@ -2,8 +2,10 @@
   --surface: #f5f9fb;
   --surface-container-lowest: #ffffff;
   --surface-container-low: #f3f8fb;
+  --surface-container: #edf4f7;
   --surface-container-high: #eaf2f7;
   --surface-container-highest: #dde8f0;
+  --surface-dim: #dce5eb;
   --on-surface: #0f172a;
   --on-surface-variant: #334155;
   --outline-variant: #bfd0dc;
@@ -14,6 +16,9 @@
   --secondary-container: #075985;
   --tertiary: #7c3aed;
   --tertiary-container: #6d28d9;
+  --tertiary-fixed: #f0e7ff;
+  --on-tertiary-fixed: #3b0764;
+  --on-tertiary-fixed-variant: #5b21b6;
   --warning: #d97706;
   --success: #15803d;
   --error-container: #dc2626;
@@ -25,8 +30,10 @@
   --surface: #0f172a;
   --surface-container-lowest: #111827;
   --surface-container-low: #1e293b;
+  --surface-container: #1a2638;
   --surface-container-high: #243244;
   --surface-container-highest: #2f3e52;
+  --surface-dim: #0b1220;
   --on-surface: #f8fafc;
   --on-surface-variant: #cbd5e1;
   --outline-variant: #334155;
@@ -37,6 +44,9 @@
   --secondary-container: #0891b2;
   --tertiary: #c084fc;
   --tertiary-container: #a855f7;
+  --tertiary-fixed: #2e1065;
+  --on-tertiary-fixed: #f3e8ff;
+  --on-tertiary-fixed-variant: #d8b4fe;
   --warning: #f59e0b;
   --success: #22c55e;
   --error-container: #f87171;
@@ -181,15 +191,22 @@
 .bg-surface { background: var(--surface); }
 .bg-surface-container-lowest { background: var(--surface-container-lowest); }
 .bg-surface-container-low { background: var(--surface-container-low); }
+.bg-surface-container { background: var(--surface-container); }
 .bg-surface-container-high { background: var(--surface-container-high); }
 .bg-surface-container-highest { background: var(--surface-container-highest); }
+.bg-surface-dim { background: var(--surface-dim); }
+.border-surface-dim { border-color: var(--surface-dim); }
 .bg-primary { background: var(--primary); }
 .text-on-surface { color: var(--on-surface); }
 .text-on-surface-variant { color: var(--on-surface-variant); }
 .text-on-primary { color: var(--on-primary); }
 .text-primary { color: var(--primary); }
+.text-primary-container { color: var(--primary-container); }
 .text-secondary { color: var(--secondary); }
 .text-tertiary { color: var(--tertiary); }
+.text-on-tertiary-fixed { color: var(--on-tertiary-fixed); }
+.text-on-tertiary-fixed-variant { color: var(--on-tertiary-fixed-variant); }
+.bg-tertiary-fixed { background: var(--tertiary-fixed); }
 .text-success { color: var(--success); }
 .text-warning { color: var(--warning); }
 .text-error { color: var(--error-container); }

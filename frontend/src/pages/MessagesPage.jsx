@@ -21,6 +21,63 @@ const formatMessageTime = (value) => {
   }).format(date);
 };
 
+const formatDayDivider = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const today = new Date();
+  const startToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  ).getTime();
+  const t = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).getTime();
+  if (t === startToday) {
+    return "Today";
+  }
+  if (t === startToday - 86400000) {
+    return "Yesterday";
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  }).format(date);
+};
+
+/**
+ * Group a chronological message list into day buckets, and within each day
+ * collapse consecutive same-sender messages into runs so the thread can render
+ * a single avatar + timestamp per run (modern chat-app style).
+ */
+const groupMessagesForThread = (messages, currentUserId) => {
+  const days = [];
+  let currentDay = null;
+  let currentRun = null;
+  messages.forEach((msg) => {
+    const dayLabel = formatDayDivider(msg.createdAt);
+    if (!currentDay || currentDay.label !== dayLabel) {
+      currentDay = { label: dayLabel, runs: [] };
+      days.push(currentDay);
+      currentRun = null;
+    }
+    const mine = String(msg?.senderId) === String(currentUserId);
+    const runKey = mine ? "me" : `peer-${msg?.senderId ?? "?"}`;
+    if (!currentRun || currentRun.runKey !== runKey) {
+      currentRun = { runKey, mine, messages: [] };
+      currentDay.runs.push(currentRun);
+    }
+    currentRun.messages.push(msg);
+  });
+  return days;
+};
+
 const initialsOf = (name) => {
   const parts = String(name || "")
     .trim()
@@ -67,8 +124,10 @@ function Avatar({ name, online, size = 44 }) {
 }
 
 export default function MessagesPage({ profile, notify }) {
-  const [conversations, setConversations] = useState([]);
-  const [selectedBookingId, setSelectedBookingId] = useState("");
+  const [bookingConvs, setBookingConvs] = useState([]);
+  const [directConvs, setDirectConvs] = useState([]);
+  const [selectedConvId, setSelectedConvId] = useState("");
+  const [selKind, setSelKind] = useState(null); // "booking" | "direct" | null
   const [messages, setMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [errorText, setErrorText] = useState("");
@@ -121,22 +180,28 @@ export default function MessagesPage({ profile, notify }) {
     }
   }, []);
 
-  const sendReadMessage = useCallback((bookingId) => {
+  const sendReadMessage = useCallback((convId, kind) => {
     if (
-      !bookingId ||
+      !convId ||
       !wsRef.current ||
       wsRef.current.readyState !== WebSocket.OPEN
     ) {
       return;
     }
-    wsRef.current.send(
-      JSON.stringify({ type: "READ", bookingId: Number(bookingId) }),
-    );
+    if (kind === "direct") {
+      wsRef.current.send(
+        JSON.stringify({ type: "READ", conversationId: Number(convId) }),
+      );
+    } else {
+      wsRef.current.send(
+        JSON.stringify({ type: "READ", bookingId: Number(convId) }),
+      );
+    }
   }, []);
 
   const connectWebSocket = useCallback(
-    (bookingId) => {
-      if (!bookingId || stopReconnectRef.current) {
+    (convId, kind) => {
+      if (!convId || stopReconnectRef.current) {
         return;
       }
 
@@ -144,9 +209,10 @@ export default function MessagesPage({ profile, notify }) {
       closeSocket();
       setWsState(wsReconnectAttempt === 0 ? "connecting" : "reconnecting");
 
-      const socket = new WebSocket(
-        `${wsBase}/ws/chat?bookingId=${encodeURIComponent(bookingId)}`,
-      );
+      const wsUrl = kind === "direct"
+        ? `${wsBase}/ws/chat/direct?conversationId=${encodeURIComponent(convId)}`
+        : `${wsBase}/ws/chat?bookingId=${encodeURIComponent(convId)}`;
+      const socket = new WebSocket(wsUrl);
       wsRef.current = socket;
 
       socket.onopen = () => {
@@ -155,7 +221,12 @@ export default function MessagesPage({ profile, notify }) {
         }
         setWsState("connected");
         setWsReconnectAttempt(0);
-        sendReadMessage(bookingId);
+        // sendReadMessage moved to open handler below
+        if (kind === "direct") {
+          sendReadMessage(convId, "direct");
+        } else {
+          sendReadMessage(convId, "booking");
+        }
       };
 
       socket.onmessage = (event) => {
@@ -199,21 +270,18 @@ export default function MessagesPage({ profile, notify }) {
             const typingUserEmail = String(
               incoming?.typingUserEmail || "",
             ).toLowerCase();
-            const targetBookingId = String(incoming?.bookingId || "");
-            if (
-              !typingUserEmail ||
-              typingUserEmail === currentUserEmail ||
-              !targetBookingId
-            ) {
+            if (!typingUserEmail || typingUserEmail === currentUserEmail) {
               return;
             }
+            const targetId = String(incoming?.conversationId || incoming?.bookingId || "");
+            if (!targetId) return;
 
-            setTypingUsers((prev) => ({ ...prev, [targetBookingId]: true }));
-            if (typingSeenTimeoutsRef.current[targetBookingId]) {
-              clearTimeout(typingSeenTimeoutsRef.current[targetBookingId]);
+            setTypingUsers((prev) => ({ ...prev, [targetId]: true }));
+            if (typingSeenTimeoutsRef.current[targetId]) {
+              clearTimeout(typingSeenTimeoutsRef.current[targetId]);
             }
-            typingSeenTimeoutsRef.current[targetBookingId] = setTimeout(() => {
-              setTypingUsers((prev) => ({ ...prev, [targetBookingId]: false }));
+            typingSeenTimeoutsRef.current[targetId] = setTimeout(() => {
+              setTypingUsers((prev) => ({ ...prev, [targetId]: false }));
             }, 3000);
           }
         } catch {
@@ -243,7 +311,7 @@ export default function MessagesPage({ profile, notify }) {
           const delay = Math.min(1000 * Math.pow(2, prev), 30000);
           reconnectTimerRef.current = setTimeout(() => {
             if (!stopReconnectRef.current) {
-              connectWebSocket(bookingId);
+              connectWebSocket(convId, kind);
             }
           }, delay);
 
@@ -281,7 +349,8 @@ export default function MessagesPage({ profile, notify }) {
   useEffect(() => {
     if (!profile?.id) {
       setLoadingConversations(false);
-      setConversations([]);
+      setBookingConvs([]);
+      setDirectConvs([]);
       return;
     }
 
@@ -289,35 +358,13 @@ export default function MessagesPage({ profile, notify }) {
     const loadConversations = async () => {
       setLoadingConversations(true);
       try {
-        const response = await client.get("/api/v1/chat/conversations");
-        if (cancelled) {
-          return;
-        }
-        const rows = (response?.data?.data || []).map((conversation) => ({
-          bookingId: String(conversation.bookingId),
-          conversation,
-          title: String(
-            conversation.participantName ||
-              conversation.sessionTitle ||
-              "SkillSwap Member",
-          ),
-          subtitle: String(
-            conversation.lastMessagePreview || conversation.sessionTitle || "",
-          ),
-          role: conversation.participantRole || conversation.role || "",
-          time:
-            conversation.lastMessageAt ||
-            conversation.updatedAt ||
-            conversation.lastActivityAt ||
-            "",
-          unreadCount: Number(conversation.unreadCount || 0),
-          online: Boolean(conversation.participantOnline),
-          presence: String(conversation.participantPresenceText || "Offline"),
-        }));
-        setConversations(rows);
-        if (rows.length > 0) {
-          setSelectedBookingId((prev) => prev || rows[0].bookingId);
-        }
+        const [bookingRes, directRes] = await Promise.all([
+          client.get("/api/v1/chat/conversations").catch(() => ({ data: { data: [] } })),
+          client.get("/api/v1/chat/direct/conversations").catch(() => ({ data: { data: [] } })),
+        ]);
+        if (cancelled) return;
+        setBookingConvs(bookingRes?.data?.data || []);
+        setDirectConvs(directRes?.data?.data || []);
       } catch {
         if (!cancelled) {
           setErrorText(getErrorFeedback("conversationsLoadFailed").message);
@@ -366,8 +413,63 @@ export default function MessagesPage({ profile, notify }) {
     };
   }, [profile?.id]);
 
+  // Build unified conversations list for rendering
+  const conversations = useMemo(() => {
+    const bookingRows = (bookingConvs || []).map((conversation) => ({
+      id: `booking-${conversation.bookingId}`,
+      kind: "booking",
+      convId: String(conversation.bookingId),
+      conversation,
+      title: String(
+        conversation.participantName ||
+          conversation.sessionTitle ||
+          "SkillSwap Member",
+      ),
+      subtitle: String(
+        conversation.lastMessagePreview || conversation.sessionTitle || "",
+      ),
+      role: conversation.participantRole || conversation.role || "",
+      time:
+        conversation.lastMessageAt ||
+        conversation.updatedAt ||
+        conversation.lastActivityAt ||
+        "",
+      unreadCount: Number(conversation.unreadCount || 0),
+      online: Boolean(conversation.participantOnline),
+      presence: String(conversation.participantPresenceText || "Offline"),
+    }));
+    const directRows = (directConvs || []).map((c) => ({
+      id: `direct-${c.conversationId}`,
+      kind: "direct",
+      convId: String(c.conversationId),
+      conversation: c,
+      title: String(c.participantName || "SkillSwap Member"),
+      subtitle: String(c.lastMessagePreview || "Direct conversation"),
+      role: "LEARNER",
+      time: c.lastMessageAt || c.updatedAt || "",
+      unreadCount: Number(c.unreadCount || 0),
+      online: Boolean(c.participantOnline),
+      presence: String(c.participantPresenceText || "Offline"),
+    }));
+    const all = [...bookingRows, ...directRows];
+    all.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
+    return all;
+  }, [bookingConvs, directConvs]);
+
+  // Derived current selection (must be after conversations useMemo)
+  const selConv = conversations.find((c) => c.id === selectedConvId) || null;
+
+  // Auto-select first conversation on load
   useEffect(() => {
-    if (!selectedBookingId || !profile?.id) {
+    if (conversations.length > 0 && !selectedConvId) {
+      setSelectedConvId(conversations[0].id);
+      setSelKind(conversations[0].kind);
+    }
+  }, [conversations, selectedConvId]);
+
+  // ── Message loading effect ──
+  useEffect(() => {
+    if (!selectedConvId || !selConv || !profile?.id) {
       setMessages([]);
       stopReconnectRef.current = true;
       clearReconnectTimer();
@@ -381,9 +483,11 @@ export default function MessagesPage({ profile, notify }) {
     const loadMessages = async () => {
       setLoadingMessages(true);
       try {
-        const response = await client.get(
-          `/api/v1/chat/booking/${selectedBookingId}`,
-        );
+        const endpoint =
+          selConv.kind === "booking"
+            ? `/api/v1/chat/booking/${selConv.convId}`
+            : `/api/v1/chat/direct/${selConv.convId}/messages`;
+        const response = await client.get(endpoint);
         if (!cancelled) {
           setMessages(response?.data?.data || []);
         }
@@ -399,21 +503,24 @@ export default function MessagesPage({ profile, notify }) {
     };
 
     loadMessages();
-    connectWebSocket(selectedBookingId);
+
+    // Connect WebSocket for real-time messaging
+    connectWebSocket(selConv.convId, selConv.kind);
 
     return () => {
       cancelled = true;
       stopReconnectRef.current = true;
       clearReconnectTimer();
       closeSocket();
-      setTypingUsers((prev) => ({ ...prev, [selectedBookingId]: false }));
+      setTypingUsers((prev) => ({ ...prev, [selConv.convId]: false }));
     };
   }, [
     clearReconnectTimer,
     closeSocket,
     connectWebSocket,
     profile?.id,
-    selectedBookingId,
+    selectedConvId,
+    selConv,
   ]);
 
   // UI-only: focus the search box with Cmd/Ctrl+K.
@@ -438,7 +545,7 @@ export default function MessagesPage({ profile, notify }) {
     setChatInput(nextValue);
 
     if (
-      !selectedBookingId ||
+      !selectedConvId ||
       !wsRef.current ||
       wsRef.current.readyState !== WebSocket.OPEN
     ) {
@@ -449,12 +556,11 @@ export default function MessagesPage({ profile, notify }) {
       return;
     }
 
-    wsRef.current.send(
-      JSON.stringify({
-        type: "TYPING",
-        bookingId: Number(selectedBookingId),
-      }),
-    );
+    const typingPayload =
+      selKind === "direct"
+        ? { type: "TYPING", conversationId: Number(selConv?.convId), typingUserEmail: currentUserEmail }
+        : { type: "TYPING", bookingId: Number(selConv?.convId), typingUserEmail: currentUserEmail };
+    wsRef.current.send(JSON.stringify(typingPayload));
 
     typingTimeoutRef.current = setTimeout(() => {
       typingTimeoutRef.current = null;
@@ -464,15 +570,16 @@ export default function MessagesPage({ profile, notify }) {
   const handleSendMessage = async (event) => {
     event.preventDefault();
     const content = chatInput.trim();
-    if (!content || !selectedBookingId) {
+    if (!content || !selConv) {
       return;
     }
 
     try {
-      const response = await client.post(
-        `/api/v1/chat/booking/${selectedBookingId}`,
-        { content },
-      );
+      const endpoint =
+        selConv.kind === "booking"
+          ? `/api/v1/chat/booking/${selConv.convId}`
+          : `/api/v1/chat/direct/${selConv.convId}/messages`;
+      const response = await client.post(endpoint, { content });
       const created = response?.data?.data;
       if (created) {
         setMessages((prev) => [...prev, created]);
@@ -526,15 +633,12 @@ export default function MessagesPage({ profile, notify }) {
     searchInputRef.current?.focus();
   };
 
-  const isTyping = Boolean(typingUsers[String(selectedBookingId)]);
+  const isTyping = Boolean(selConv && typingUsers[String(selConv.convId)]);
   const totalUnread = conversations.reduce(
     (sum, item) => sum + (item.unreadCount || 0),
     0,
   );
   const onlineUsers = conversations.filter((item) => item.online);
-  const selectedConversation = conversations.find(
-    (item) => item.bookingId === selectedBookingId,
-  );
   const filteredConversations = useMemo(() => {
     let next = conversations;
     if (activeFilter === "unread") {
@@ -804,14 +908,15 @@ export default function MessagesPage({ profile, notify }) {
               ) : filteredConversations.length > 0 ? (
                 <div className="msg-convo-list">
                   {filteredConversations.map((item) => {
-                    const active = item.bookingId === selectedBookingId;
+                    const active = item.id === selectedConvId;
                     return (
                       <button
-                        key={item.bookingId}
+                        key={item.id}
                         type="button"
                         className={`msg-convo${active ? " is-active" : ""}`}
                         onClick={() => {
-                          setSelectedBookingId(item.bookingId);
+                          setSelectedConvId(item.id);
+                          setSelKind(item.kind);
                           setSidebarOpen(false);
                         }}
                       >
@@ -866,12 +971,13 @@ export default function MessagesPage({ profile, notify }) {
                 <div className="msg-online-row">
                   {onlineUsers.map((item) => (
                     <button
-                      key={item.bookingId}
+                      key={item.id}
                       type="button"
                       className="msg-online-user"
                       title={item.title}
                       onClick={() => {
-                        setSelectedBookingId(item.bookingId);
+                        setSelectedConvId(item.id);
+                        setSelKind(item.kind);
                         setSidebarOpen(false);
                       }}
                     >
@@ -893,7 +999,7 @@ export default function MessagesPage({ profile, notify }) {
                 <span className="msg-spinner" aria-hidden="true" />
                 <p>Loading conversations…</p>
               </div>
-            ) : !selectedConversation ? (
+            ) : !selConv ? (
               <div className="msg-empty msg-empty-hero">
                 <div className="msg-empty-illustration" aria-hidden="true">
                   <span className="material-symbols-outlined">forum</span>
@@ -925,23 +1031,23 @@ export default function MessagesPage({ profile, notify }) {
                 <header className="msg-chat-header">
                   <div className="msg-chat-peer">
                     <Avatar
-                      name={selectedConversation.title}
-                      online={selectedConversation.online}
+                      name={selConv.title}
+                      online={selConv.online}
                       size={46}
                     />
                     <div className="msg-chat-peer-meta">
-                      <p className="msg-name">{selectedConversation.title}</p>
+                      <p className="msg-name">{selConv.title}</p>
                       <p className="msg-chat-status">
                         <span
                           className={`msg-status-dot${
-                            selectedConversation.online ? " is-online" : ""
+                            selConv.online ? " is-online" : ""
                           }`}
                         />
-                        {selectedConversation.online
+                        {selConv.online
                           ? "Online"
-                          : selectedConversation.presence}
-                        {selectedConversation.role
-                          ? ` · ${roleLabel(selectedConversation.role)}`
+                          : selConv.presence}
+                        {selConv.role
+                          ? ` · ${roleLabel(selConv.role)}`
                           : ""}
                       </p>
                     </div>
@@ -1005,7 +1111,7 @@ export default function MessagesPage({ profile, notify }) {
                   role="log"
                   aria-live="polite"
                   aria-relevant="additions"
-                  aria-label={`Conversation with ${selectedConversation.title}`}
+                  aria-label={`Conversation with ${selConv.title}`}
                 >
                   {loadingMessages ? (
                     <div className="msg-skel-bubbles">
@@ -1023,54 +1129,72 @@ export default function MessagesPage({ profile, notify }) {
                       <p className="msg-empty-title">Say hello 👋</p>
                       <p className="msg-empty-desc">
                         This is the beginning of your conversation with{" "}
-                        {selectedConversation.title}.
+                        {selConv.title}.
                       </p>
                     </div>
                   ) : (
-                    messages.map((msg) => {
-                      const mine =
-                        String(msg?.senderId) === String(currentUserId);
-                      return (
-                        <div
-                          key={msg.id}
-                          className={`msg-bubble-row${mine ? " mine" : ""}`}
-                        >
-                          {!mine && (
-                            <Avatar
-                              name={selectedConversation.title}
-                              size={30}
-                            />
-                          )}
-                          <div className="msg-bubble-group">
-                            <div className="msg-bubble">{msg.content}</div>
-                            <div className="msg-bubble-meta">
-                              {formatMessageTime(msg.createdAt)}
-                              {mine && msg.readByRecipient ? (
-                                <span
-                                  className="msg-read"
-                                  title="Read"
-                                  aria-label="Read"
-                                >
-                                  <span className="material-symbols-outlined">
-                                    done_all
-                                  </span>
-                                </span>
-                              ) : null}
-                            </div>
+                    groupMessagesForThread(messages, currentUserId).map(
+                      (day) => (
+                        <div className="msg-day" key={day.label}>
+                          <div className="msg-day-divider">
+                            <span>{day.label}</span>
                           </div>
+                          {day.runs.map((run, runIdx) => {
+                            const mine = run.mine;
+                            return (
+                              <div
+                                key={`${day.label}-${runIdx}`}
+                                className={`msg-bubble-row${mine ? " mine" : ""}`}
+                              >
+                                {!mine && (
+                                  <Avatar
+                                    name={selConv.title}
+                                    size={30}
+                                  />
+                                )}
+                                <div className="msg-bubble-group">
+                                  {run.messages.map((msg, msgIdx) => {
+                                    const isLast =
+                                      msgIdx === run.messages.length - 1;
+                                    return (
+                                      <div key={msg.id} className="msg-bubble">
+                                        {msg.content}
+                                        {isLast ? (
+                                          <span className="msg-bubble-meta">
+                                            {formatMessageTime(msg.createdAt)}
+                                            {mine && msg.readByRecipient ? (
+                                              <span
+                                                className="msg-read"
+                                                title="Read"
+                                                aria-label="Read"
+                                              >
+                                                <span className="material-symbols-outlined">
+                                                  done_all
+                                                </span>
+                                              </span>
+                                            ) : null}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      ),
+                    )
                   )}
 
                   {isTyping ? (
                     <div className="msg-bubble-row">
-                      <Avatar name={selectedConversation.title} size={30} />
+                      <Avatar name={selConv.title} size={30} />
                       <div
                         className="msg-typing"
                         role="status"
                         aria-live="polite"
-                        aria-label={`${selectedConversation.title} is typing`}
+                        aria-label={`${selConv.title} is typing`}
                       >
                         <span />
                         <span />
@@ -1137,18 +1261,18 @@ export default function MessagesPage({ profile, notify }) {
           </section>
 
           <aside className="msg-details" aria-label="Conversation details">
-            {selectedConversation ? (
+            {selConv ? (
               <div className="msg-card msg-details-card">
                 <div className="msg-details-header">
                   <Avatar
-                    name={selectedConversation.title}
-                    online={selectedConversation.online}
+                    name={selConv.title}
+                    online={selConv.online}
                     size={56}
                   />
                   <div>
-                    <p className="msg-name">{selectedConversation.title}</p>
+                    <p className="msg-name">{selConv.title}</p>
                     <p className="msg-role">
-                      {roleLabel(selectedConversation.role)}
+                      {roleLabel(selConv.role)}
                     </p>
                   </div>
                 </div>
@@ -1156,7 +1280,7 @@ export default function MessagesPage({ profile, notify }) {
                 <div className="msg-detail-block">
                   <div className="msg-detail-label">Current Session</div>
                   <div className="msg-detail-value">
-                    {selectedConversation.conversation?.sessionTitle ||
+                    {selConv.conversation?.sessionTitle || selConv.subtitle ||
                       "Active learning session"}
                   </div>
                 </div>

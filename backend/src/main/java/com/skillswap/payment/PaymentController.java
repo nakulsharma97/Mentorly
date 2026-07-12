@@ -1,18 +1,10 @@
 package com.skillswap.payment;
 
-import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
-import com.skillswap.common.AuditableOperation;
-import com.skillswap.common.IdempotencyKeySupport;
-import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
-import com.skillswap.user.UserRole;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,184 +15,111 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
-@Tag(name = "Payments", description = "Payment processing, refunds, and transaction history")
+@Tag(name = "Payments", description = "Payment processing, gateway adapters, refunds, and transaction history")
 @RestController
 @Validated
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
 
-        private final PaymentRepository paymentRepository;
-        private final BookingRepository bookingRepository;
-        private final NotificationService notificationService;
-        private final PaymentIdempotencyKeyRepository paymentIdempotencyKeyRepository;
-        private final MeterRegistry meterRegistry;
+    private final PaymentService paymentService;
+    private final PaymentVerificationService paymentVerificationService;
+    private final PaymentRepository paymentRepository;
 
-        @GetMapping
-        public ApiResponse<List<Payment>> history(@AuthenticationPrincipal User currentUser) {
-                if (currentUser.getRole() == UserRole.ADMIN) {
-                        return new ApiResponse<>("Payments fetched", paymentRepository.findAll());
-                }
-                return new ApiResponse<>("Payments fetched",
-                                paymentRepository.findByBookingLearnerIdOrBookingSessionMentorId(currentUser.getId(),
-                                                currentUser.getId()));
-        }
+    /**
+     * Get payment history for the current user.
+     */
+    @GetMapping
+    public ApiResponse<List<Payment>> history(@AuthenticationPrincipal User currentUser) {
+        List<Payment> payments = paymentService.getPaymentHistory(currentUser);
+        return new ApiResponse<>("Payments fetched", payments);
+    }
 
-        @PostMapping("/intent")
-        @Transactional
-        public ApiResponse<Payment> createIntent(@AuthenticationPrincipal User currentUser,
-                        @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
-                        @Valid @RequestBody PaymentIntentRequest req) {
-                if (currentUser.getRole() != UserRole.LEARNER && currentUser.getRole() != UserRole.ADMIN) {
-                        incrementCounter("payment.authz.denied", "action", "create_intent");
-                        throw new IllegalArgumentException("Only learners can create payment intents");
-                }
+    /**
+     * Get a specific payment by ID.
+     */
+    @GetMapping("/{id}")
+    public ApiResponse<Payment> getPayment(@AuthenticationPrincipal User currentUser,
+            @PathVariable @NotNull @Min(1) Long id) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        return new ApiResponse<>("Payment fetched", payment);
+    }
 
-                IdempotencyKeySupport.validate(idempotencyKey);
+    /**
+     * Create a payment order/intent via the specified gateway adapter.
+     * Body can include: { "bookingId": Long, "amount": BigDecimal, "gateway": "razorpay"|"stripe"|"paypal" }
+     */
+    @PostMapping("/intent")
+    public ApiResponse<Payment> createIntent(@AuthenticationPrincipal User currentUser,
+            @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
+            @Valid @RequestBody CreatePaymentIntentRequest req) {
+        String gateway = req.gateway() != null && !req.gateway().isBlank() ? req.gateway() : "razorpay";
+        Payment payment = paymentService.createPaymentOrder(currentUser, idempotencyKey,
+                req.bookingId(), req.amount(), gateway);
+        return new ApiResponse<>("Payment intent created", payment);
+    }
 
-                String endpoint = "payments.intent";
-                String requestHash = String.join("|",
-                                String.valueOf(req.bookingId()),
-                                String.valueOf(req.amount()),
-                                String.valueOf(req.mode()));
+    /**
+     * Verify a payment after gateway callback/redirect.
+     */
+    @PostMapping("/verify")
+    public ApiResponse<Payment> verifyPayment(@AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody VerifyPaymentRequest req) {
+        Payment verified = paymentVerificationService.verifyPayment(
+                req.paymentId(), req.gatewayPaymentId(), req.signature(), req.extraParams());
+        return new ApiResponse<>("Payment verified", verified);
+    }
 
-                var existingKey = paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
-                                currentUser.getId(), endpoint, idempotencyKey);
-                if (existingKey.isPresent()) {
-                        PaymentIdempotencyKey key = existingKey.get();
-                        if (!key.getRequestHash().equals(requestHash)) {
-                                throw new IllegalArgumentException("Idempotency key reuse with different payload");
-                        }
-                        if (key.getPayment() != null) {
-                                incrementCounter("payment.intent.replay");
-                                return new ApiResponse<>("Payment intent replayed", key.getPayment());
-                        }
-                }
+    /**
+     * Process a refund for a payment.
+     */
+    @PostMapping("/{id}/refund")
+    public ApiResponse<Payment> refundPayment(@AuthenticationPrincipal User currentUser,
+            @PathVariable @NotNull @Min(1) Long id,
+            @Valid @RequestBody RefundPaymentRequest req) {
+        Payment refunded = paymentService.refundPayment(id, req.amount(), req.reason());
+        return new ApiResponse<>("Refund processed", refunded);
+    }
 
-                var booking = bookingRepository.findById(req.bookingId())
-                                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+    /**
+     * Process a gateway webhook event.
+     */
+    @PostMapping("/webhook/{gateway}")
+    public ApiResponse<Payment> handleWebhook(@PathVariable @NotBlank String gateway,
+            @RequestBody Map<String, Object> webhookPayload) {
+        // Extract common webhook fields - adapters may parse differently
+        String eventType = (String) webhookPayload.getOrDefault("event", "unknown");
+        // In production, extract payment_id from gateway-specific payload location
+        @SuppressWarnings("unchecked")
+        Map<String, Object> eventData = (Map<String, Object>) webhookPayload.getOrDefault("data", Map.of());
+        String gatewayPaymentId = (String) eventData.getOrDefault("payment_id",
+                webhookPayload.getOrDefault("payment_id", "").toString());
 
-                if (currentUser.getRole() != UserRole.ADMIN
-                                && !booking.getLearner().getId().equals(currentUser.getId())) {
-                        throw new IllegalArgumentException("You can only pay for your own booking");
-                }
+        Payment processed = paymentVerificationService.processWebhookEvent(gateway, eventType,
+                gatewayPaymentId, webhookPayload);
+        return new ApiResponse<>("Webhook processed", processed);
+    }
 
-                if (req.amount() == null || req.amount().compareTo(BigDecimal.ZERO) <= 0) {
-                        throw new IllegalArgumentException("Amount must be greater than zero");
-                }
+    // --- Request DTOs ---
 
-                Payment payment = new Payment();
-                payment.setBooking(booking);
-                payment.setAmount(req.amount());
-                payment.setMode(req.mode());
-                payment.setStatus(PaymentStatus.INITIATED);
-                payment.setProviderRef("demo-intent-" + System.currentTimeMillis());
+    public record CreatePaymentIntentRequest(
+            @NotNull @Min(1) Long bookingId,
+            @NotNull java.math.BigDecimal amount,
+            String gateway) {
+    }
 
-                Payment saved = paymentRepository.save(payment);
-                incrementCounter("payment.intent.created");
+    public record VerifyPaymentRequest(
+            @NotNull @Min(1) Long paymentId,
+            @NotBlank String gatewayPaymentId,
+            @NotBlank String signature,
+            Map<String, String> extraParams) {
+    }
 
-                try {
-                        PaymentIdempotencyKey key = existingKey.orElseGet(PaymentIdempotencyKey::new);
-                        key.setUser(currentUser);
-                        key.setEndpoint(endpoint);
-                        key.setIdempotencyKey(idempotencyKey);
-                        key.setRequestHash(requestHash);
-                        key.setPayment(saved);
-                        paymentIdempotencyKeyRepository.save(key);
-                } catch (DataIntegrityViolationException ex) {
-                        Payment replayed = paymentIdempotencyKeyRepository
-                                        .findByUserIdAndEndpointAndIdempotencyKey(currentUser.getId(), endpoint,
-                                                        idempotencyKey)
-                                        .map(PaymentIdempotencyKey::getPayment)
-                                        .orElse(saved);
-                        return new ApiResponse<>("Payment intent replayed", replayed);
-                }
-
-                notificationService.notifyUser(
-                                booking.getLearner().getId(),
-                                "PAYMENT_UPDATE",
-                                "Payment initiated",
-                                "Payment intent created for booking #" + booking.getId(),
-                                saved.getId());
-                notificationService.notifyUser(
-                                booking.getSession().getMentor().getId(),
-                                "PAYMENT_UPDATE",
-                                "Payment initiated",
-                                "Payment initiated for your booking #" + booking.getId(),
-                                saved.getId());
-
-                return new ApiResponse<>("Payment intent created", saved);
-        }
-
-        @PatchMapping("/{id}/status")
-        @Transactional
-        public ApiResponse<Payment> updateStatus(@AuthenticationPrincipal User currentUser,
-                        @PathVariable @NotNull @Min(1) Long id,
-                        @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
-                        @Valid @RequestBody UpdatePaymentStatusRequest req) {
-                Payment payment = paymentRepository.findById(id)
-                                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-
-                boolean ownerMentor = payment.getBooking().getSession().getMentor().getId().equals(currentUser.getId());
-                if (currentUser.getRole() != UserRole.ADMIN && !ownerMentor) {
-                        incrementCounter("payment.authz.denied", "action", "update_status");
-                        throw new IllegalArgumentException("Only the session mentor can update payment status");
-                }
-
-                IdempotencyKeySupport.validate(idempotencyKey);
-
-                String endpoint = "payments.status." + id;
-                String requestHash = String.valueOf(req.status());
-                var existingKey = paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
-                                currentUser.getId(), endpoint, idempotencyKey);
-                if (existingKey.isPresent()) {
-                        PaymentIdempotencyKey key = existingKey.get();
-                        if (!key.getRequestHash().equals(requestHash)) {
-                                throw new IllegalArgumentException("Idempotency key reuse with different payload");
-                        }
-                        if (key.getPayment() != null) {
-                                incrementCounter("payment.status.replay");
-                                return new ApiResponse<>("Payment status replayed", key.getPayment());
-                        }
-                }
-
-                PaymentStatus previousStatus = payment.getStatus();
-                payment.setStatus(req.status());
-                Payment saved = paymentRepository.save(payment);
-                incrementCounter("payment.status.transition",
-                                "from", previousStatus.name(),
-                                "to", saved.getStatus().name());
-
-                PaymentIdempotencyKey key = existingKey.orElseGet(PaymentIdempotencyKey::new);
-                key.setUser(currentUser);
-                key.setEndpoint(endpoint);
-                key.setIdempotencyKey(idempotencyKey);
-                key.setRequestHash(requestHash);
-                key.setPayment(saved);
-                paymentIdempotencyKeyRepository.save(key);
-
-                notificationService.notifyUser(
-                                saved.getBooking().getLearner().getId(),
-                                "PAYMENT_UPDATE",
-                                "Payment status updated",
-                                "Payment #" + saved.getId() + " is now " + saved.getStatus().name(),
-                                saved.getId());
-                notificationService.notifyUser(
-                                saved.getBooking().getSession().getMentor().getId(),
-                                "PAYMENT_UPDATE",
-                                "Payment status updated",
-                                "Payment #" + saved.getId() + " is now " + saved.getStatus().name(),
-                                saved.getId());
-
-                return new ApiResponse<>("Payment status updated", saved);
-        }
-
-        private void incrementCounter(String name, String... tags) {
-                try {
-                        meterRegistry.counter(name, tags).increment();
-                } catch (RuntimeException ignored) {
-                        // No-op in tests where metrics are mocked.
-                }
-        }
+    public record RefundPaymentRequest(
+            @NotNull @Min(1) BigDecimal amount,
+            String reason) {
+    }
 }

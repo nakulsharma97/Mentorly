@@ -5,6 +5,7 @@ import Icon from "../modules/common/dashboard/Icon";
 import { SkeletonTable } from "../components/SkeletonLoaders";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import { EmptyState } from "../modules/common/dashboard/SectionCard";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
 
 const VIEW_TABS = ["day", "week", "month", "agenda"];
@@ -317,31 +318,27 @@ export default function MentorCalendarPage({ profile, notify }) {
 
   return (
     <div className="md md-page">
-      <div className="mp-head md-animate">
-        <div>
-          <h1 className="mp-head__title">Calendar</h1>
-          <p className="mp-head__sub">
-            Manage bookings, availability, and your mentor schedule from one
-            place.
-          </p>
-        </div>
-        <div className="mp-head__actions">
-          <button
-            type="button"
-            className="md-btn md-btn--outline md-btn--sm"
-            onClick={loadData}
-          >
-            <Icon name="refresh" /> Refresh
-          </button>
-          <button
-            type="button"
-            className="md-btn md-btn--brand md-btn--sm"
-            onClick={() => navigate("/mentor/students")}
-          >
-            <Icon name="groups" /> View Students
-          </button>
-        </div>
-      </div>
+      <MentorPageHero
+        eyebrow="Your Schedule"
+        icon="calendar_month"
+        title="Calendar"
+        sub="Manage bookings, availability, and your mentor schedule from one place."
+      >
+        <button
+          type="button"
+          className="md-btn md-btn--outline md-btn--sm"
+          onClick={loadData}
+        >
+          <Icon name="refresh" /> Refresh
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--brand md-btn--sm"
+          onClick={() => navigate("/mentor/students")}
+        >
+          <Icon name="groups" /> View Students
+        </button>
+      </MentorPageHero>
 
       <div
         className="md-stats md-animate"

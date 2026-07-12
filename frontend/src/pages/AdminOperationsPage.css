@@ -1,16 +1,196 @@
+:root {
+  --admin-bg: #fff;
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-border: #e2e8f0;
+  --admin-border-strong: #cbd5e1;
+  --admin-hover: #f1f5f9;
+  --admin-hero-bg: linear-gradient(135deg, #0f172a 0%, #155e75 55%, #166534 100%);
+  --admin-panel-bg: #fff;
+  --admin-input-bg: #fff;
+  --admin-input-text: #0f172a;
+  --admin-msg-bg: #f8fafc;
+  --admin-header-bg: #fafafa;
+  --admin-divider: #f1f5f9;
+  --admin-card-bg: #fcfdff;
+  --admin-brand: #0f766e;
+  --admin-brand-light: #f0fdfa;
+  --admin-brand-soft: rgba(15, 118, 110, 0.15);
+  --admin-accent: #0f766e;
+  --admin-shadow: rgba(15, 23, 42, 0.22);
+  --admin-empty: #94a3b8;
+  --admin-tab-active-bg: #0f766e;
+  --admin-tab-active-text: #fff;
+  --admin-warn: #b91c1c;
+  --admin-error: #b42318;
+  --admin-success: #166534;
+  /* Status pill colors (semantic - stay consistent in dark) */
+  --admin-pill-initiated-bg: #fef3c7;
+  --admin-pill-initiated-text: #92400e;
+  --admin-pill-escrowed-bg: #dbeafe;
+  --admin-pill-escrowed-text: #1e40af;
+  --admin-pill-released-bg: #d1fae5;
+  --admin-pill-released-text: #065f46;
+  --admin-pill-refunded-bg: #ede9fe;
+  --admin-pill-refunded-text: #5b21b6;
+  --admin-pill-failed-bg: #fee2e2;
+  --admin-pill-failed-text: #b91c1c;
+  --admin-pill-booking-bg: #ede9fe;
+  --admin-pill-booking-text: #5b21b6;
+  --admin-pill-direct-bg: #dbeafe;
+  --admin-pill-direct-text: #1e40af;
+  --admin-badge-status-bg: #ecfdf5;
+  --admin-badge-status-border: #bbf7d0;
+  --admin-badge-status-text: #166534;
+  --admin-badge-count-bg: #ecfeff;
+  --admin-badge-count-border: #a5f3fc;
+  --admin-badge-count-text: #0f766e;
+  --admin-btn-approve-bg: #16a34a;
+  --admin-btn-approve-border: #15803d;
+  --admin-btn-approve-text: #fff;
+  --admin-btn-reject-bg: #dc2626;
+  --admin-btn-reject-border: #b91c1c;
+  --admin-btn-reject-text: #fff;
+  --admin-btn-cancel-bg: #fff;
+  --admin-btn-cancel-border: #cbd5e1;
+  --admin-btn-cancel-text: #334155;
+  --admin-btn-refund-bg: #7c3aed;
+  --admin-btn-refund-border: #6d28d9;
+  --admin-btn-refund-text: #fff;
+  --admin-verification-card-bg: #fcfdff;
+  --admin-input-border: #cbd5e1;
+}
+
+[data-theme="dark"] {
+  --admin-bg: #1e293b;
+  --admin-text: #f1f5f9;
+  --admin-muted: #94a3b8;
+  --admin-border: #334155;
+  --admin-border-strong: #475569;
+  --admin-hover: #334155;
+  --admin-hero-bg: linear-gradient(135deg, #0f172a 0%, #0c4a6e 55%, #065f46 100%);
+  --admin-panel-bg: #2d3748;
+  --admin-input-bg: #334155;
+  --admin-input-text: #f1f5f9;
+  --admin-msg-bg: #374151;
+  --admin-header-bg: #2d3748;
+  --admin-divider: #374151;
+  --admin-card-bg: #374151;
+  --admin-brand: #2dd4bf;
+  --admin-brand-light: #1a3d35;
+  --admin-brand-soft: rgba(45, 212, 191, 0.15);
+  --admin-accent: #2dd4bf;
+  --admin-shadow: rgba(0, 0, 0, 0.4);
+  --admin-empty: #64748b;
+  --admin-tab-active-bg: #2dd4bf;
+  --admin-tab-active-text: #0f172a;
+  --admin-warn: #fca5a5;
+  --admin-error: #fca5a5;
+  --admin-success: #6ee7b7;
+  /* Status pills get slightly muted in dark mode */
+  --admin-pill-initiated-bg: #78350f;
+  --admin-pill-initiated-text: #fde68a;
+  --admin-pill-escrowed-bg: #1e3a5f;
+  --admin-pill-escrowed-text: #93c5fd;
+  --admin-pill-released-bg: #064e3b;
+  --admin-pill-released-text: #6ee7b7;
+  --admin-pill-refunded-bg: #3b1f6e;
+  --admin-pill-refunded-text: #c4b5fd;
+  --admin-pill-failed-bg: #450a0a;
+  --admin-pill-failed-text: #fca5a5;
+  --admin-pill-booking-bg: #3b1f6e;
+  --admin-pill-booking-text: #c4b5fd;
+  --admin-pill-direct-bg: #1e3a5f;
+  --admin-pill-direct-text: #93c5fd;
+  --admin-badge-status-bg: #064e3b;
+  --admin-badge-status-border: #065f46;
+  --admin-badge-status-text: #6ee7b7;
+  --admin-badge-count-bg: #164e63;
+  --admin-badge-count-border: #155e75;
+  --admin-badge-count-text: #67e8f9;
+  --admin-btn-approve-bg: #16a34a;
+  --admin-btn-approve-border: #22c55e;
+  --admin-btn-approve-text: #fff;
+  --admin-btn-reject-bg: #dc2626;
+  --admin-btn-reject-border: #ef4444;
+  --admin-btn-reject-text: #fff;
+  --admin-btn-cancel-bg: #334155;
+  --admin-btn-cancel-border: #475569;
+  --admin-btn-cancel-text: #f1f5f9;
+  --admin-btn-refund-bg: #7c3aed;
+  --admin-btn-refund-border: #a78bfa;
+  --admin-btn-refund-text: #fff;
+  --admin-verification-card-bg: #2d3748;
+  --admin-input-border: #475569;
+}
+
 .admin-page {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 48px;
 }
 
+/* ─── Tabs ─── */
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.admin-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-panel-bg);
+  color: var(--admin-muted);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-tab:hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-border-strong);
+  color: var(--admin-text);
+}
+
+.admin-tab--active {
+  background: var(--admin-tab-active-bg);
+  color: var(--admin-tab-active-text);
+  border-color: var(--admin-tab-active-bg);
+}
+
+.admin-tab .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+/* ─── Field group ─── */
+.admin-field-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-field-group select {
+  border: 1px solid var(--admin-input-border);
+  border-radius: 8px;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+  padding: 8px 10px;
+}
+
 .admin-hero {
-  background: linear-gradient(135deg, #0f172a 0%, #155e75 55%, #166534 100%);
+  background: var(--admin-hero-bg);
   border-radius: 18px;
   color: #fff;
   padding: 32px;
   margin-bottom: 22px;
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 18px 44px var(--admin-shadow);
 }
 
 .admin-eyebrow {
@@ -43,27 +223,27 @@
 }
 
 .admin-stat {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
   border-radius: 12px;
   padding: 18px;
 }
 
 .admin-stat span {
-  color: #64748b;
+  color: var(--admin-muted);
   display: block;
   font-size: 0.84rem;
   margin-bottom: 8px;
 }
 
 .admin-stat strong {
-  color: #0f172a;
+  color: var(--admin-text);
   font-size: 1.8rem;
 }
 
 .admin-panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
   border-radius: 12px;
   padding: 22px;
   margin-top: 18px;
@@ -79,7 +259,7 @@
 
 .admin-field {
   align-items: center;
-  color: #334155;
+  color: var(--admin-muted);
   display: flex;
   gap: 8px;
   font-size: 0.9rem;
@@ -88,14 +268,397 @@
 
 .admin-field select,
 .admin-table select {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--admin-input-border);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
   padding: 8px 10px;
 }
 
 .admin-table-wrap {
   overflow-x: auto;
+}
+
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--admin-input-bg);
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.admin-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--admin-input-text);
+}
+
+.admin-search .material-symbols-outlined {
+  color: var(--admin-empty);
+  font-size: 1.2rem;
+}
+
+/* ─── Pills ─── */
+.admin-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.admin-pill--booking {
+  background: var(--admin-pill-booking-bg);
+  color: var(--admin-pill-booking-text);
+}
+
+.admin-pill--direct {
+  background: var(--admin-pill-direct-bg);
+  color: var(--admin-pill-direct-text);
+}
+
+.admin-text-muted {
+  color: var(--admin-muted);
+}
+
+.admin-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--admin-empty);
+  text-align: center;
+}
+
+.admin-empty-state .material-symbols-outlined {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+/* ── Section divider ── */
+.admin-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 24px 0 20px;
+}
+
+.admin-section-divider__line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e2e8f0, #cbd5e1, #e2e8f0, transparent);
+}
+
+.admin-section-divider__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--admin-brand);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 6px 14px;
+  background: var(--admin-brand-light);
+  border-radius: 999px;
+}
+
+.admin-section-divider__label .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+/* ═══════════════════════════════════
+   Conversations Tab
+   ═══════════════════════════════════ */
+
+.admin-conv-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.admin-conv-search input {
+  flex: 1;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.admin-conv-search input:focus {
+  border-color: var(--admin-brand);
+  box-shadow: 0 0 0 3px var(--admin-brand-soft);
+}
+
+.admin-conv-search .material-symbols-outlined {
+  color: var(--admin-empty);
+}
+
+.admin-conv-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-height: 400px;
+}
+
+.admin-conv-list {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  overflow-y: auto;
+  max-height: 600px;
+  background: var(--admin-panel-bg);
+}
+
+.admin-conv-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--admin-divider);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font: inherit;
+  color: var(--admin-text);
+}
+
+.admin-conv-item:hover {
+  background: var(--admin-hover);
+}
+
+.admin-conv-item.is-selected {
+  background: var(--admin-brand-light);
+  border-left: 3px solid var(--admin-brand);
+}
+
+.admin-conv-item-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.admin-conv-item-title {
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+  margin-bottom: 4px;
+}
+
+.admin-conv-item-preview {
+  font-size: 0.82rem;
+  color: var(--admin-empty);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.admin-conv-item-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--admin-empty);
+}
+
+.admin-conv-messages {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-panel-bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.admin-conv-messages-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-header-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.admin-conv-messages-header h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  color: var(--admin-text);
+}
+
+.admin-conv-messages-header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.admin-conv-messages-list {
+  padding: 12px;
+  flex: 1;
+}
+
+.admin-msg {
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--admin-msg-bg);
+  margin-bottom: 10px;
+}
+
+.admin-msg:last-child {
+  margin-bottom: 0;
+}
+
+.admin-msg-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
+.admin-msg-header strong {
+  color: var(--admin-text);
+}
+
+.admin-msg-header span {
+  color: var(--admin-muted);
+}
+
+.admin-msg-content {
+  margin: 0;
+  color: var(--admin-text);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.admin-read-badge {
+  color: var(--admin-brand);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ═══════════════════════════════════
+   Payments Tab
+   ═══════════════════════════════════ */
+
+.admin-payment-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.admin-payment-stat {
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.admin-payment-stat span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--admin-muted);
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.admin-payment-stat strong {
+  display: block;
+  font-size: 1.3rem;
+  color: var(--admin-text);
+}
+
+.admin-payment-stat small {
+  font-size: 0.75rem;
+  color: var(--admin-empty);
+}
+
+.admin-payment-stat--warn strong {
+  color: var(--admin-warn);
+}
+
+.admin-payment-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-payment-filters select {
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+}
+
+.admin-payment-table th {
+  white-space: nowrap;
+}
+
+.admin-cell-mono {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-cell-num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-status-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.admin-status-pill--initiated { background: var(--admin-pill-initiated-bg); color: var(--admin-pill-initiated-text); }
+.admin-status-pill--escrowed { background: var(--admin-pill-escrowed-bg); color: var(--admin-pill-escrowed-text); }
+.admin-status-pill--released { background: var(--admin-pill-released-bg); color: var(--admin-pill-released-text); }
+.admin-status-pill--refunded { background: var(--admin-pill-refunded-bg); color: var(--admin-pill-refunded-text); }
+.admin-status-pill--failed { background: var(--admin-pill-failed-bg); color: var(--admin-pill-failed-text); }
+
+.admin-action-refund {
+  background: var(--admin-btn-refund-bg);
+  border-color: var(--admin-btn-refund-border);
+  color: var(--admin-btn-refund-text);
+}
+
+.admin-action-refund:hover:not(:disabled) {
+  background: var(--admin-btn-refund-border);
 }
 
 .admin-table {
@@ -105,21 +668,22 @@
 
 .admin-table th,
 .admin-table td {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--admin-border);
   padding: 12px;
   text-align: left;
   vertical-align: top;
+  color: var(--admin-text);
 }
 
 .admin-table th {
-  color: #475569;
+  color: var(--admin-muted);
   font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .admin-table p {
-  color: #64748b;
+  color: var(--admin-muted);
   margin: 6px 0 0;
 }
 
@@ -129,22 +693,23 @@
 }
 
 .admin-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--admin-border);
   border-radius: 10px;
   padding: 16px;
+  background: var(--admin-panel-bg);
 }
 
 .admin-card p {
-  color: #64748b;
+  color: var(--admin-muted);
   line-height: 1.6;
   margin: 8px 0 12px;
 }
 
 .admin-status {
-  background: #ecfdf5;
-  border: 1px solid #bbf7d0;
+  background: var(--admin-badge-status-bg);
+  border: 1px solid var(--admin-badge-status-border);
   border-radius: 999px;
-  color: #166534;
+  color: var(--admin-badge-status-text);
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 800;
@@ -152,10 +717,10 @@
 }
 
 .admin-count-badge {
-  background: #ecfeff;
-  border: 1px solid #a5f3fc;
+  background: var(--admin-badge-count-bg);
+  border: 1px solid var(--admin-badge-count-border);
   border-radius: 999px;
-  color: #0f766e;
+  color: var(--admin-badge-count-text);
   display: inline-flex;
   font-size: 0.8rem;
   font-weight: 700;
@@ -165,8 +730,8 @@
 }
 
 .admin-refresh-btn {
-  background: var(--accent, #0f766e);
-  border: 1px solid var(--accent, #0f766e);
+  background: var(--admin-accent);
+  border: 1px solid var(--admin-accent);
   border-radius: 8px;
   color: #fff;
   cursor: pointer;
@@ -180,7 +745,7 @@
 }
 
 .admin-verification-card {
-  background: #fcfdff;
+  background: var(--admin-verification-card-bg);
 }
 
 .admin-verification-header {
@@ -195,7 +760,7 @@
 }
 
 .admin-verification-meta strong {
-  color: #334155;
+  color: var(--admin-muted);
 }
 
 .admin-verification-actions,
@@ -220,48 +785,114 @@
 }
 
 .admin-action-approve {
-  background: #16a34a;
-  border-color: #15803d;
-  color: #fff;
+  background: var(--admin-btn-approve-bg);
+  border-color: var(--admin-btn-approve-border);
+  color: var(--admin-btn-approve-text);
 }
 
 .admin-action-reject {
-  background: #dc2626;
-  border-color: #b91c1c;
-  color: #fff;
+  background: var(--admin-btn-reject-bg);
+  border-color: var(--admin-btn-reject-border);
+  color: var(--admin-btn-reject-text);
 }
 
 .admin-action-cancel {
-  background: #fff;
-  border-color: #cbd5e1;
-  color: #334155;
+  background: var(--admin-btn-cancel-bg);
+  border-color: var(--admin-btn-cancel-border);
+  color: var(--admin-btn-cancel-text);
 }
 
 .admin-reject-form {
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--admin-border);
   margin-top: 14px;
   padding-top: 14px;
 }
 
 .admin-reject-form label {
-  color: #334155;
+  color: var(--admin-text);
   display: block;
   font-weight: 700;
   margin-bottom: 6px;
 }
 
 .admin-reject-form input {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--admin-input-border);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
   padding: 9px 10px;
   width: 100%;
 }
 
 .admin-reject-error {
-  color: #b42318;
+  color: var(--admin-error);
   font-size: 0.9rem;
   margin: 6px 0 0;
+}
+
+/* ── Referrer leaderboard rows ── */
+.admin-referrer-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 80px 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 8px;
+  border-radius: 8px;
+  border-bottom: 1px solid var(--admin-divider);
+  transition: background 0.15s ease;
+}
+
+.admin-referrer-row:hover {
+  background: var(--admin-hover);
+}
+
+.admin-referrer-rank {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--admin-muted);
+  background: var(--admin-hover);
+}
+
+.admin-referrer-rank--top {
+  color: #1e293b;
+}
+
+.admin-referrer-row:nth-child(2) .admin-referrer-rank--top {
+  background: #fbbf24;
+}
+
+.admin-referrer-row:nth-child(3) .admin-referrer-rank--top {
+  background: #c0c0c0;
+}
+
+.admin-referrer-row:nth-child(4) .admin-referrer-rank--top {
+  background: #cd7f32;
+}
+
+.admin-referrer-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--admin-text);
+}
+
+.admin-referrer-count {
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #059669;
+}
+
+.admin-referrer-credits {
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--admin-muted);
 }
 
 @media (max-width: 680px) {

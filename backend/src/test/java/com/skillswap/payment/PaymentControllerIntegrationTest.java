@@ -41,6 +41,10 @@ class PaymentControllerIntegrationTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private PaymentService paymentService;
+    @MockitoBean
+    private PaymentVerificationService paymentVerificationService;
+    @MockitoBean
     private PaymentRepository paymentRepository;
     @MockitoBean
     private BookingRepository bookingRepository;
@@ -80,6 +84,9 @@ class PaymentControllerIntegrationTest {
                 mentorCaller.getAuthorities()));
         SecurityContextHolder.setContext(context);
 
+        when(paymentService.createPaymentOrder(any(User.class), anyString(), anyLong(), any(), anyString()))
+                .thenThrow(new IllegalArgumentException("Only learners can create payment intents"));
+
         try {
             mockMvc.perform(post("/api/v1/payments/intent")
                     .header("Idempotency-Key", "test-key-1")
@@ -88,7 +95,7 @@ class PaymentControllerIntegrationTest {
                             {
                               "bookingId": 1,
                               "amount": 10.0,
-                              "mode": "CARD"
+                              "gateway": "razorpay"
                             }
                             """))
                     .andExpect(status().isBadRequest())
@@ -122,15 +129,15 @@ class PaymentControllerIntegrationTest {
 
         Payment payment = new Payment();
         payment.setId(501L);
-        payment.setBooking(booking);
-        payment.setMode("CARD");
+        payment.setLearnerId(11L);
+        payment.setMentorId(31L);
+        payment.setSessionId(88L);
+        payment.setAmount(new java.math.BigDecimal("12.50"));
+        payment.setGateway("razorpay");
         payment.setStatus(PaymentStatus.INITIATED);
 
-        when(bookingRepository.findById(88L)).thenReturn(Optional.of(booking));
-        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(anyLong(), anyString(),
-                anyString()))
-                .thenReturn(Optional.empty());
+        when(paymentService.createPaymentOrder(any(User.class), anyString(), anyLong(), any(), anyString()))
+                .thenReturn(payment);
 
         try {
             mockMvc.perform(post("/api/v1/payments/intent")
@@ -140,7 +147,7 @@ class PaymentControllerIntegrationTest {
                             {
                               "bookingId": 88,
                               "amount": 12.50,
-                              "mode": "CARD"
+                              "gateway": "razorpay"
                             }
                             """))
                     .andExpect(status().isOk())
@@ -153,170 +160,65 @@ class PaymentControllerIntegrationTest {
     }
 
     @Test
-    void createIntentReplaysByIdempotencyKey() throws Exception {
-        User learner = new User();
-        learner.setId(11L);
-        learner.setRole(UserRole.LEARNER);
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(learner, null,
-                learner.getAuthorities()));
-        SecurityContextHolder.setContext(context);
-
-        Payment existing = new Payment();
-        existing.setId(900L);
-        existing.setStatus(PaymentStatus.INITIATED);
-
-        PaymentIdempotencyKey key = new PaymentIdempotencyKey();
-        key.setRequestHash("88|12.50|CARD");
-        key.setPayment(existing);
-
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(anyLong(), anyString(),
-                anyString()))
-                .thenReturn(Optional.of(key));
-
-        try {
-            mockMvc.perform(post("/api/v1/payments/intent")
-                    .header("Idempotency-Key", "test-key-replay")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
-                            {
-                              "bookingId": 88,
-                              "amount": 12.50,
-                              "mode": "CARD"
-                            }
-                            """))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.message").value("Payment intent replayed"))
-                    .andExpect(jsonPath("$.data.id").value(900));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
-    }
-
-    @Test
-    void updateStatusRejectsLearnerCaller() throws Exception {
-        User learner = new User();
-        learner.setId(11L);
-        learner.setRole(UserRole.LEARNER);
-
-        User mentor = new User();
-        mentor.setId(31L);
-        mentor.setRole(UserRole.MENTOR);
-
-        Payment payment = buildPayment(601L, learner, mentor, PaymentStatus.INITIATED);
-        when(paymentRepository.findById(601L)).thenReturn(Optional.of(payment));
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(anyLong(), anyString(),
-                anyString()))
-                .thenReturn(Optional.empty());
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(learner, null, learner.getAuthorities()));
-        SecurityContextHolder.setContext(context);
-
-        try {
-            mockMvc.perform(patch("/api/v1/payments/601/status")
-                    .header("Idempotency-Key", "test-key-3")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
-                            {"status":"ESCROWED"}
-                            """))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.data.error").value("Only the session mentor can update payment status"));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
-    }
-
-    @Test
-    void updateStatusAllowsMentorCaller() throws Exception {
-        User learner = new User();
-        learner.setId(11L);
-        learner.setRole(UserRole.LEARNER);
-
-        User mentor = new User();
-        mentor.setId(31L);
-        mentor.setRole(UserRole.MENTOR);
-
-        Payment payment = buildPayment(602L, learner, mentor, PaymentStatus.INITIATED);
-        when(paymentRepository.findById(602L)).thenReturn(Optional.of(payment));
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(anyLong(), anyString(),
-                anyString()))
-                .thenReturn(Optional.empty());
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null, mentor.getAuthorities()));
-        SecurityContextHolder.setContext(context);
-
-        try {
-            mockMvc.perform(patch("/api/v1/payments/602/status")
-                    .header("Idempotency-Key", "test-key-4")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
-                            {"status":"ESCROWED"}
-                            """))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.message").value("Payment status updated"))
-                    .andExpect(jsonPath("$.data.status").value("ESCROWED"));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
-    }
-
-    @Test
-    void updateStatusAllowsAdminCaller() throws Exception {
-        User learner = new User();
-        learner.setId(11L);
-        learner.setRole(UserRole.LEARNER);
-
-        User mentor = new User();
-        mentor.setId(31L);
-        mentor.setRole(UserRole.MENTOR);
-
-        User admin = new User();
-        admin.setId(1L);
-        admin.setRole(UserRole.ADMIN);
-
-        Payment payment = buildPayment(603L, learner, mentor, PaymentStatus.INITIATED);
-        when(paymentRepository.findById(603L)).thenReturn(Optional.of(payment));
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(anyLong(), anyString(),
-                anyString()))
-                .thenReturn(Optional.empty());
-
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities()));
-        SecurityContextHolder.setContext(context);
-
-        try {
-            mockMvc.perform(patch("/api/v1/payments/603/status")
-                    .header("Idempotency-Key", "test-key-5")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("""
-                                    {"status":"RELEASED"}
-                            """))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.status").value("RELEASED"));
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
-    }
-
-    private static Payment buildPayment(Long paymentId, User learner, User mentor, PaymentStatus status) {
-        SkillSession session = new SkillSession();
-        session.setMentor(mentor);
-
-        Booking booking = new Booking();
-        booking.setId(777L);
-        booking.setLearner(learner);
-        booking.setSession(session);
-
+    void verifyPaymentReturnsSuccess() throws Exception {
         Payment payment = new Payment();
-        payment.setId(paymentId);
-        payment.setBooking(booking);
-        payment.setMode("CARD");
-        payment.setStatus(status);
-        return payment;
+        payment.setId(601L);
+        payment.setPaymentId("pay_test_123");
+        payment.setStatus(PaymentStatus.ESCROWED);
+
+        when(paymentVerificationService.verifyPayment(anyLong(), anyString(), anyString(), any()))
+                .thenReturn(payment);
+
+        mockMvc.perform(post("/api/v1/payments/verify")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "paymentId": 601,
+                          "gatewayPaymentId": "pay_test_123",
+                          "signature": "test_signature",
+                          "extraParams": {
+                            "razorpay_order_id": "order_test_123"
+                          }
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Payment verified"))
+                .andExpect(jsonPath("$.data.status").value("ESCROWED"));
+    }
+
+    @Test
+    void processRefundReturnsSuccess() throws Exception {
+        Payment payment = new Payment();
+        payment.setId(701L);
+        payment.setStatus(PaymentStatus.REFUNDED);
+
+        when(paymentService.refundPayment(anyLong(), any(), anyString())).thenReturn(payment);
+
+        mockMvc.perform(post("/api/v1/payments/701/refund")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "amount": 10.00,
+                          "reason": "Customer requested"
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Refund processed"))
+                .andExpect(jsonPath("$.data.status").value("REFUNDED"));
+    }
+
+    @Test
+    void getPaymentByIdReturnsPayment() throws Exception {
+        Payment payment = new Payment();
+        payment.setId(801L);
+        payment.setStatus(PaymentStatus.INITIATED);
+
+        when(paymentRepository.findById(801L)).thenReturn(Optional.of(payment));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/payments/801")
+                .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Payment fetched"))
+                .andExpect(jsonPath("$.data.id").value(801));
     }
 }

@@ -34,6 +34,10 @@ public class User implements UserDetails {
     private UserRole role = UserRole.LEARNER;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "admin_sub_role", nullable = true)
+    private AdminSubRole adminSubRole;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "message_privacy", nullable = false)
     private MessagePrivacy messagePrivacy = MessagePrivacy.ANYONE;
 
@@ -73,6 +77,24 @@ public class User implements UserDetails {
 
     @Column(columnDefinition = "TEXT")
     private String verifiedSkills;
+
+    @Column(name = "company")
+    private String company;
+
+    @Column(name = "headline")
+    private String headline;
+
+    @Column(name = "years_of_experience")
+    private Integer yearsOfExperience;
+
+    @Column(name = "languages")
+    private String languages;
+
+    @Column(name = "hourly_rate")
+    private java.math.BigDecimal hourlyRate;
+
+    @Column(name = "response_time_minutes")
+    private Integer responseTimeMinutes;
 
     @Column(nullable = false)
     private boolean mentorVerified = false;

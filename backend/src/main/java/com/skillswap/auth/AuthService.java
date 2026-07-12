@@ -35,13 +35,20 @@ public class AuthService {
 
     @Transactional
     public AuthResponse signup(SignupRequest req) {
-        if (userRepository.existsByEmail(req.email())) {
+        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
             incrementCounter("auth.signup.failed", "reason", "duplicate_email");
             throw new IllegalArgumentException("Email already registered");
         }
 
+        if (req.role() == UserRole.ADMIN) {
+            incrementCounter("auth.signup.failed", "reason", "admin_signup_blocked");
+            throw new IllegalArgumentException("Admin accounts cannot be created via signup. Contact the platform administrator.");
+        }
+
         User user = new User();
-        user.setEmail(req.email());
+        user.setEmail(normalizedEmail);
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setFullName(req.fullName());
         user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
@@ -65,9 +72,10 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest req) {
+        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(req.email(), req.password()));
-        User user = userRepository.findByEmail(req.email())
+                new UsernamePasswordAuthenticationToken(normalizedEmail, req.password()));
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
         user.setLastActiveAt(OffsetDateTime.now());
@@ -83,7 +91,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginWithOAuth(String provider, Map<String, Object> attributes) {
-        String email = extractOAuthEmail(provider, attributes);
+        String email = extractOAuthEmail(provider, attributes).toLowerCase(Locale.ROOT);
 
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User created = new User();

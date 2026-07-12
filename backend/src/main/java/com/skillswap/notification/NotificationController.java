@@ -3,6 +3,9 @@ package com.skillswap.notification;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +20,13 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ApiResponse<List<AppNotification>> list(@AuthenticationPrincipal User user) {
+    public ApiResponse<Page<AppNotification>> list(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        PageRequest pr = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return new ApiResponse<>("Notifications fetched",
-                notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId()));
+                notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pr));
     }
 
     @GetMapping("/unread-count")
@@ -41,7 +48,7 @@ public class NotificationController {
         return new ApiResponse<>("Notification marked as read", notificationRepository.save(notification));
     }
 
-    @PatchMapping("/mark-all-read")
+    @PatchMapping("/read-all")
     public ApiResponse<Integer> markAllRead(@AuthenticationPrincipal User user) {
         List<AppNotification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
         int updated = 0;
@@ -53,6 +60,19 @@ public class NotificationController {
         }
         notificationRepository.saveAll(notifications);
         return new ApiResponse<>("All notifications marked as read", updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot delete another user's notification");
+        }
+
+        notificationRepository.delete(notification);
+        return new ApiResponse<>("Notification deleted", null);
     }
 
     @GetMapping("/preferences")

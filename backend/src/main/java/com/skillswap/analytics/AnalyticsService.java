@@ -95,10 +95,10 @@ public class AnalyticsService {
                                 .toList();
 
                 List<Payment> payments = mentor
-                                ? paymentRepository.findByBookingSessionMentorIdAndCreatedAtGreaterThanEqual(
+                                ? paymentRepository.findByMentorIdAndCreatedAtGreaterThanEqual(
                                                 currentUser.getId(),
                                                 cutoff)
-                                : paymentRepository.findByBookingLearnerIdAndCreatedAtGreaterThanEqual(
+                                : paymentRepository.findByLearnerIdAndCreatedAtGreaterThanEqual(
                                                 currentUser.getId(), cutoff);
 
                 List<LearningRoadmap> roadmaps = mentor
@@ -189,12 +189,12 @@ public class AnalyticsService {
                 int goalProgressPercent = (int) Math.min(100,
                                 Math.round((goalCurrent / Math.max(1, goalTarget)) * 100));
 
-                Map<Long, Double> paymentByBookingId = new LinkedHashMap<>();
+                Map<Long, Double> paymentBySessionId = new LinkedHashMap<>();
                 amountPayments.forEach(payment -> {
-                        Long bookingId = payment.getBooking() == null ? null : payment.getBooking().getId();
-                        if (bookingId != null) {
-                                paymentByBookingId.put(bookingId,
-                                                paymentByBookingId.getOrDefault(bookingId, 0.0) + amountOf(payment));
+                        Long sessionId = payment.getSessionId();
+                        if (sessionId != null) {
+                                paymentBySessionId.put(sessionId,
+                                                paymentBySessionId.getOrDefault(sessionId, 0.0) + amountOf(payment));
                         }
                 });
 
@@ -208,7 +208,10 @@ public class AnalyticsService {
                                                                 : booking.getSession().getTitle(),
                                                 String.valueOf(eventTime(booking)),
                                                 String.valueOf(booking.getBookingStatus()),
-                                                paymentByBookingId.getOrDefault(booking.getId(), 0.0),
+                                                // Map payment amount by session ID
+                                                booking.getSession() != null
+                                                                ? paymentBySessionId.getOrDefault(booking.getSession().getId(), 0.0)
+                                                                : 0.0,
                                                 sessionHours(booking)))
                                 .toList();
 
@@ -283,15 +286,21 @@ public class AnalyticsService {
                 });
 
                 settledPayments.forEach(payment -> {
-                        Long bookingId = payment.getBooking() == null ? null : payment.getBooking().getId();
-                        if (bookingId == null) {
+                        // Map payment by session ID to find corresponding bookings
+                        Long sessionId = payment.getSessionId();
+                        if (sessionId == null) {
                                 return;
                         }
-                        String mentorKey = mentorByBookingId.get(bookingId);
-                        if (mentorKey == null || !history.containsKey(mentorKey)) {
-                                return;
-                        }
-                        history.get(mentorKey).totalSpend += amountOf(payment);
+                        // Find the booking for this session and get its mentor key
+                        bookings.stream()
+                                .filter(b -> b.getSession() != null && sessionId.equals(b.getSession().getId()))
+                                .findFirst()
+                                .ifPresent(booking -> {
+                                        String mentorKey = mentorByBookingId.get(booking.getId());
+                                        if (mentorKey != null && history.containsKey(mentorKey)) {
+                                                history.get(mentorKey).totalSpend += amountOf(payment);
+                                        }
+                                });
                 });
 
                 List<AnalyticsDtos.MentorHistoryDto> mentors = history.values().stream()

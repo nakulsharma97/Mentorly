@@ -51,11 +51,15 @@ public class MentorSearchController {
                                 || safeMinRating > 0.0;
 
                 List<User> mentors = hasSearchCriteria
-                                ? userRepository.searchMentorsFiltered(
+                                ? userRepository.searchMentorsAdvanced(
                                                 normalizedQuery,
                                                 safeMinPrice,
                                                 safeMaxPrice,
                                                 safeMinRating,
+                                                null,  // minExperience - not filtered by default
+                                                null,  // onlineCutoff - not filtered by default
+                                                null,  // savedLearnerId - not filtered by default
+                                                "recent",  // default sort
                                                 safeSize,
                                                 offset)
                                 : userRepository.findByRole(UserRole.MENTOR).stream()

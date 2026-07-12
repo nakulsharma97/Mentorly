@@ -1,6 +1,7 @@
 package com.skillswap.config;
 
 import com.skillswap.chat.BookingChatWebSocketHandler;
+import com.skillswap.chat.DirectChatWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
@@ -13,10 +14,13 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final BookingChatWebSocketHandler bookingChatWebSocketHandler;
+    private final DirectChatWebSocketHandler directChatWebSocketHandler;
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(bookingChatWebSocketHandler, "/ws/chat")
+                .setAllowedOriginPatterns("http://localhost:5174", "http://127.0.0.1:5174");
+        registry.addHandler(directChatWebSocketHandler, "/ws/chat/direct")
                 .setAllowedOriginPatterns("http://localhost:5174", "http://127.0.0.1:5174");
     }
 }

@@ -46,6 +46,48 @@ public class ChatController {
         return new ApiResponse<>("Messages marked read", null);
     }
 
+    // ── Direct conversations (not tied to bookings) ──
+
+    @PostMapping("/direct/{targetUserId}")
+    public ApiResponse<ChatService.DirectConversationResponse> createOrGetDirectConversation(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long targetUserId) {
+        return new ApiResponse<>("Conversation ready",
+                chatService.createOrGetDirectConversation(user, targetUserId));
+    }
+
+    @GetMapping("/direct/conversations")
+    public ApiResponse<List<ChatService.DirectConversationResponse>> listDirectConversations(
+            @AuthenticationPrincipal User user) {
+        return new ApiResponse<>("Direct conversations fetched",
+                chatService.listDirectConversations(user));
+    }
+
+    @GetMapping("/direct/{conversationId}")
+    public ApiResponse<ChatService.DirectConversationDetail> getDirectConversation(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long conversationId) {
+        return new ApiResponse<>("Conversation fetched",
+                chatService.getDirectConversation(user, conversationId));
+    }
+
+    @GetMapping("/direct/{conversationId}/messages")
+    public ApiResponse<List<ChatService.DirectMessageView>> listDirectMessages(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long conversationId) {
+        return new ApiResponse<>("Messages fetched",
+                chatService.listDirectMessages(user, conversationId));
+    }
+
+    @PostMapping("/direct/{conversationId}/messages")
+    public ApiResponse<ChatService.DirectMessageView> sendDirectMessage(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long conversationId,
+            @RequestBody SendMessageRequest request) {
+        return new ApiResponse<>("Message sent",
+                chatService.sendDirectMessage(user, conversationId, request.content()));
+    }
+
     public record SendMessageRequest(String content) {
     }
 }

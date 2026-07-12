@@ -10,6 +10,10 @@
 # Root-level artifacts
 node_modules/
 *.log
+
+# Windows reserved device names / accidental artifacts
+nul
+out.txt
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*

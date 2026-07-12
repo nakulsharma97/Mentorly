@@ -25,7 +25,7 @@ export default function TestChecklistPage() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen" style={styles.container}>
       <h1 style={styles.heading}>SkillSwapper Testing Checklist</h1>
 
       {checklist.map((item) => (
@@ -52,18 +52,21 @@ const styles = {
   },
   heading: {
     fontSize: "28px",
-    marginBottom: "20px"
+    marginBottom: "20px",
+    color: "var(--text)"
   },
   card: {
-    background: "#fff",
+    background: "var(--card-bg, #fff)",
     padding: "15px",
     borderRadius: "10px",
     marginBottom: "12px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+    boxShadow: "var(--shadow-sm, 0 2px 8px rgba(0,0,0,0.1))",
+    border: "1px solid var(--card-border, #dbe4ea)"
   },
   label: {
     display: "flex",
     alignItems: "center",
-    fontSize: "18px"
+    fontSize: "18px",
+    color: "var(--text)"
   }
 };

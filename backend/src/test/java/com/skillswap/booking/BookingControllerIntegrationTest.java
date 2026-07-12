@@ -31,7 +31,6 @@ import com.skillswap.booking.BookingLifecycleService;
 import com.skillswap.referral.ReferralService;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.test.web.servlet.result.MockMvcResultHandlers;
@@ -502,9 +501,6 @@ class BookingControllerIntegrationTest {
                                 anyLong(),
                                 any(User.class)))
                                 .thenReturn(cancelledBooking);
-
-                when(paymentRepository.findByBookingId(702L))
-                                .thenReturn(Collections.emptyList());
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(new UsernamePasswordAuthenticationToken(admin, null, admin.getAuthorities()));

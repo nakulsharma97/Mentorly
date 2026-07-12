@@ -14,7 +14,6 @@ import RouteErrorBoundary from "./components/RouteErrorBoundary";
 import LearnerLayout from "./modules/learner/layouts/LearnerLayout";
 import MentorLayout from "./modules/mentor/layouts/MentorLayout";
 import RoleGuard from "./modules/common/RoleGuard";
-const Dashboard = lazy(() => import("./pages/Dashboard"));
 const LearnerDashboard = lazy(() => import("./pages/LearnerDashboard"));
 const MentorDashboard = lazy(() => import("./pages/MentorDashboard"));
 const MentorStudentsPage = lazy(() => import("./pages/MentorStudentsPage"));
@@ -22,7 +21,6 @@ const MentorCalendarPage = lazy(() => import("./pages/MentorCalendarPage"));
 const MentorReviewsPage = lazy(() => import("./pages/MentorReviewsPage"));
 const RoleGuide = lazy(() => import("./pages/RoleGuide"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
-const LearningPage = lazy(() => import("./pages/LearningPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const TeachingPage = lazy(() => import("./pages/TeachingPage"));
 const ProfileSetup = lazy(() => import("./pages/ProfileSetup"));
@@ -33,7 +31,38 @@ const ProfessionalProfilePage = lazy(
 const MessagesPage = lazy(() => import("./pages/MessagesPage"));
 const AdminOperationsPage = lazy(() => import("./pages/AdminOperationsPage"));
 const WalletPage = lazy(() => import("./pages/WalletPage"));
+const AdminLayout = lazy(() => import("./modules/admin/layouts/AdminLayout"));
+const UserManagementPage = lazy(() => import("./pages/UserManagementPage"));
+const SessionManagementPage = lazy(() => import("./pages/SessionManagementPage"));
+const AdminAnalyticsPage = lazy(() => import("./pages/AdminAnalyticsPage"));
+const NotificationBroadcastPage = lazy(() => import("./pages/NotificationBroadcastPage"));
+const SystemSettingsPage = lazy(() => import("./pages/SystemSettingsPage"));
+const AuditLogPage = lazy(() => import("./pages/AuditLogPage"));
+const ContentModerationPage = lazy(() => import("./pages/ContentModerationPage"));
+const PlatformHealthPage = lazy(() => import("./pages/PlatformHealthPage"));
+const AdminApiDocsPage = lazy(() => import("./pages/AdminApiDocsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+// Premium learner workspace pages (rendered inside LearnerLayout)
+const LearnerMentorsPage = lazy(() => import("./pages/LearnerMentorsPage"));
+const LearnerSkillsPage = lazy(() => import("./pages/LearnerSkillsPage"));
+const LearnerLearningPage = lazy(() => import("./pages/LearnerLearningPage"));
+const LearnerSessionsPage = lazy(() => import("./pages/LearnerSessionsPage"));
+const LearnerCertificatesPage = lazy(
+  () => import("./pages/LearnerCertificatesPage"),
+);
+const LearnerMessagesPage = lazy(() => import("./pages/LearnerMessagesPage"));
+const LearnerSavedMentorsPage = lazy(
+  () => import("./pages/LearnerSavedMentorsPage"),
+);
+const LearnerPathPage = lazy(() => import("./pages/LearnerPathPage"));
+const LearnerAchievementsPage = lazy(
+  () => import("./pages/LearnerAchievementsPage"),
+);
+const LearnerProfilePage = lazy(() => import("./pages/LearnerProfilePage"));
+const LearnerSettingsPage = lazy(() => import("./pages/LearnerSettingsPage"));
+const LearnerNotificationsPage = lazy(
+  () => import("./pages/LearnerNotificationsPage"),
+);
 import AuthModal from "./components/AuthModal";
 import Navbar from "./components/Navbar";
 import ToastCenter from "./components/ToastCenter";
@@ -618,6 +647,7 @@ export default function App() {
                           <MentorProfilePage
                             isLoggedIn={false}
                             onRequireLogin={() => handleSelectAuthMode("login")}
+                            notify={notify}
                           />
                         </main>
                       </Suspense>
@@ -750,12 +780,27 @@ export default function App() {
                     element={
                       <RouteErrorBoundary key="learner-mentors">
                         <Suspense fallback={routeFallback}>
-                          <Dashboard
-                            onLogout={handleLogout}
-                            language={language}
-                            page="mentors"
-                            notify={notify}
-                          />
+                          <LearnerMentorsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="skills"
+                    element={
+                      <RouteErrorBoundary key="learner-skills">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerSkillsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="learning"
+                    element={
+                      <RouteErrorBoundary key="learner-learning">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerLearningPage />
                         </Suspense>
                       </RouteErrorBoundary>
                     }
@@ -765,7 +810,97 @@ export default function App() {
                     element={
                       <RouteErrorBoundary key="learner-sessions">
                         <Suspense fallback={routeFallback}>
-                          <LearningPage notify={notify} />
+                          <LearnerSessionsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="certificates"
+                    element={
+                      <RouteErrorBoundary key="learner-certificates">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerCertificatesPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="messages"
+                    element={
+                      <RouteErrorBoundary key="learner-messages">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerMessagesPage profile={profile} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="messages/:conversationId"
+                    element={
+                      <RouteErrorBoundary key="learner-messages-conversation">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerMessagesPage profile={profile} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="saved"
+                    element={
+                      <RouteErrorBoundary key="learner-saved">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerSavedMentorsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="path"
+                    element={
+                      <RouteErrorBoundary key="learner-path">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerPathPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="achievements"
+                    element={
+                      <RouteErrorBoundary key="learner-achievements">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerAchievementsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="notifications"
+                    element={
+                      <RouteErrorBoundary key="learner-notifications">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerNotificationsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="profile"
+                    element={
+                      <RouteErrorBoundary key="learner-profile">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerProfilePage profile={profile} />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="settings"
+                    element={
+                      <RouteErrorBoundary key="learner-settings">
+                        <Suspense fallback={routeFallback}>
+                          <LearnerSettingsPage profile={profile} />
                         </Suspense>
                       </RouteErrorBoundary>
                     }
@@ -776,20 +911,6 @@ export default function App() {
                       <RouteErrorBoundary key="learner-resources">
                         <Suspense fallback={routeFallback}>
                           <ResourcesPage />
-                        </Suspense>
-                      </RouteErrorBoundary>
-                    }
-                  />
-                  <Route
-                    path="messages"
-                    element={
-                      <RouteErrorBoundary key="learner-messages">
-                        <Suspense fallback={routeFallback}>
-                          <MessagesPage
-                            profile={profile}
-                            notify={notify}
-                            onLogout={handleLogout}
-                          />
                         </Suspense>
                       </RouteErrorBoundary>
                     }
@@ -1034,7 +1155,7 @@ export default function App() {
                   element={
                     <RouteErrorBoundary key="mentor-profile">
                       <Suspense fallback={routeFallback}>
-                        <MentorProfilePage isLoggedIn={true} />
+                        <MentorProfilePage isLoggedIn={true} notify={notify} />
                       </Suspense>
                     </RouteErrorBoundary>
                   }
@@ -1043,16 +1164,120 @@ export default function App() {
                   path="/admin"
                   element={
                     profile?.role === "ADMIN" ? (
-                      <RouteErrorBoundary key="admin">
+                      <RoleGuard profile={profile} allowedRoles={["ADMIN"]}>
                         <Suspense fallback={routeFallback}>
-                          <AdminOperationsPage notify={notify} />
+                          <AdminLayout
+                            profile={profile}
+                            onLogout={handleLogout}
+                            unreadNotifications={unreadNotifications}
+                          />
                         </Suspense>
-                      </RouteErrorBoundary>
+                      </RoleGuard>
                     ) : (
                       <Navigate to={roleRoot(profile?.role)} replace />
                     )
                   }
-                />
+                >
+                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                  <Route path="dashboard" element={
+                    <RouteErrorBoundary key="admin-dashboard">
+                      <Suspense fallback={routeFallback}>
+                        <AdminOperationsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="users" element={
+                    <RouteErrorBoundary key="admin-users">
+                      <Suspense fallback={routeFallback}>
+                        <UserManagementPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="sessions" element={
+                    <RouteErrorBoundary key="admin-sessions">
+                      <Suspense fallback={routeFallback}>
+                        <SessionManagementPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="analytics" element={
+                    <RouteErrorBoundary key="admin-analytics">
+                      <Suspense fallback={routeFallback}>
+                        <AdminAnalyticsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="notifications" element={
+                    <RouteErrorBoundary key="admin-notifications">
+                      <Suspense fallback={routeFallback}>
+                        <NotificationBroadcastPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="settings" element={
+                    <RouteErrorBoundary key="admin-settings">
+                      <Suspense fallback={routeFallback}>
+                        <SystemSettingsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="audit-log" element={
+                    <RouteErrorBoundary key="admin-audit-log">
+                      <Suspense fallback={routeFallback}>
+                        <AuditLogPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="flagged-content" element={
+                    <RouteErrorBoundary key="admin-flagged-content">
+                      <Suspense fallback={routeFallback}>
+                        <ContentModerationPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="health" element={
+                    <RouteErrorBoundary key="admin-health">
+                      <Suspense fallback={routeFallback}>
+                        <PlatformHealthPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="api-docs" element={
+                    <RouteErrorBoundary key="admin-api-docs">
+                      <Suspense fallback={routeFallback}>
+                        <AdminApiDocsPage />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="reports" element={
+                    <RouteErrorBoundary key="admin-reports">
+                      <Suspense fallback={routeFallback}>
+                        <AdminOperationsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="verifications" element={
+                    <RouteErrorBoundary key="admin-verifications">
+                      <Suspense fallback={routeFallback}>
+                        <AdminOperationsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="payments" element={
+                    <RouteErrorBoundary key="admin-payments">
+                      <Suspense fallback={routeFallback}>
+                        <AdminOperationsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                  <Route path="conversations" element={
+                    <RouteErrorBoundary key="admin-conversations">
+                      <Suspense fallback={routeFallback}>
+                        <AdminOperationsPage notify={notify} />
+                      </Suspense>
+                    </RouteErrorBoundary>
+                  } />
+                </Route>
                 <Route
                   path="*"
                   element={

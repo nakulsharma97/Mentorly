@@ -344,88 +344,83 @@ public class BookingController {
                                 "BOOKING",
                                 booking.getId()));
 
-                Payment payment = paymentRepository.findByBookingId(booking.getId()).stream()
-                                .findFirst()
-                                .orElseGet(Payment::new);
-                payment.setBooking(booking);
-                payment.setAmount(priceAmount);
-                payment.setMode("WALLET");
-                payment.setStatus(PaymentStatus.ESCROWED);
-                paymentRepository.save(payment);
+                // Use existing payment if already linked, or create a new wallet-based payment
+                Payment payment = booking.getPayment();
+                if (payment == null) {
+                        payment = Payment.builder()
+                                        .orderId("WALLET_" + System.currentTimeMillis())
+                                        .learnerId(booking.getLearner().getId())
+                                        .mentorId(booking.getSession().getMentor().getId())
+                                        .sessionId(booking.getSession().getId())
+                                        .amount(priceAmount)
+                                        .currency("INR")
+                                        .gateway("wallet")
+                                        .status(PaymentStatus.ESCROWED)
+                                        .createdAt(OffsetDateTime.now())
+                                        .build();
+                } else {
+                        payment.setAmount(priceAmount);
+                        payment.setStatus(PaymentStatus.ESCROWED);
+                }
+
+                payment = paymentRepository.save(payment);
+                booking.setPayment(payment);
+                bookingRepository.save(booking);
         }
 
         private void releaseEscrowForCompletedBooking(Booking booking) {
-                paymentRepository.findByBookingId(booking.getId())
-                                .stream()
-                                .findFirst()
-                                .filter(payment -> payment.getStatus() == PaymentStatus.ESCROWED)
-                                .ifPresent(payment -> {
-                                        BigDecimal fee = payment.getAmount()
-                                                        .multiply(BigDecimal.valueOf(0.10))
-                                                        .setScale(2, RoundingMode.HALF_UP);
-                                        BigDecimal payout = payment.getAmount().subtract(fee)
-                                                        .setScale(2, RoundingMode.HALF_UP);
+                Payment payment = booking.getPayment();
+                if (payment == null || payment.getStatus() != PaymentStatus.ESCROWED) {
+                        return;
+                }
 
-                                        User mentor = booking.getSession().getMentor();
-                                        SkillSession session = booking.getSession();
-                                        walletService.addEntryForUser(mentor.getId(),
-                                                        new WalletService.WalletEntryRequest(
-                                                                        WalletTransactionType.EARNING,
-                                                                        payout,
-                                                                        "CREDITS",
-                                                                        "Session payout: " + session.getTitle()
-                                                                                        + " (after 10% platform fee)",
-                                                                        "BOOKING",
-                                                                        booking.getId()));
+                BigDecimal fee = payment.getAmount()
+                                .multiply(BigDecimal.valueOf(0.10))
+                                .setScale(2, RoundingMode.HALF_UP);
+                BigDecimal payout = payment.getAmount().subtract(fee)
+                                .setScale(2, RoundingMode.HALF_UP);
 
-                                        payment.setStatus(PaymentStatus.RELEASED);
-                                        payment.setProviderRef("WALLET_RELEASE_" + booking.getId());
-                                        paymentRepository.save(payment);
-                                });
+                User mentor = booking.getSession().getMentor();
+                SkillSession session = booking.getSession();
+                walletService.addEntryForUser(mentor.getId(),
+                                new WalletService.WalletEntryRequest(
+                                                WalletTransactionType.EARNING,
+                                                payout,
+                                                "CREDITS",
+                                                "Session payout: " + session.getTitle()
+                                                                + " (after 10% platform fee)",
+                                                "BOOKING",
+                                                booking.getId()));
+
+                payment.setStatus(PaymentStatus.RELEASED);
+                paymentRepository.save(payment);
         }
 
         private int refundEscrowForCancelledBooking(Booking booking) {
-                Payment payment = paymentRepository.findByBookingId(booking.getId())
-                                .stream()
-                                .findFirst()
-                                .orElse(null);
+                Payment payment = booking.getPayment();
                 if (payment == null) {
                         return 0;
                 }
 
                 if (payment.getStatus() != PaymentStatus.ESCROWED
                                 && payment.getStatus() != PaymentStatus.REFUNDED) {
-                        return payment.getRefundPercent() == null ? 0 : payment.getRefundPercent();
+                        return 0;
                 }
 
-                int refundPercent = payment.getRefundPercent() == null ? 0 : payment.getRefundPercent();
-                BigDecimal refundAmount = payment.getRefundAmount();
-                if (refundAmount == null && refundPercent > 0) {
-                        refundAmount = payment.getAmount()
-                                        .multiply(BigDecimal.valueOf(refundPercent))
-                                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                        payment.setRefundAmount(refundAmount);
-                }
+                int refundPercent = 100;
+                BigDecimal refundAmount = payment.getAmount();
 
-                boolean refundAlreadyApplied = payment.getProviderRef() != null
-                                && payment.getProviderRef().startsWith("WALLET_REFUND_");
-                if (refundPercent > 0
-                                && refundAmount != null
-                                && refundAmount.compareTo(BigDecimal.ZERO) > 0
-                                && !refundAlreadyApplied) {
-                        User learner = booking.getLearner();
-                        SkillSession session = booking.getSession();
-                        walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
-                                        WalletTransactionType.REFUND,
-                                        refundAmount,
-                                        "CREDITS",
-                                        "Refund for cancelled session: " + session.getTitle(),
-                                        "BOOKING",
-                                        booking.getId()));
-                }
+                User learner = booking.getLearner();
+                SkillSession session = booking.getSession();
+                walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                                WalletTransactionType.REFUND,
+                                refundAmount,
+                                "CREDITS",
+                                "Refund for cancelled session: " + session.getTitle(),
+                                "BOOKING",
+                                booking.getId()));
 
                 payment.setStatus(PaymentStatus.REFUNDED);
-                payment.setProviderRef("WALLET_REFUND_" + booking.getId());
                 paymentRepository.save(payment);
                 return refundPercent;
         }

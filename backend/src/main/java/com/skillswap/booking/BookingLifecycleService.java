@@ -165,19 +165,13 @@ public class BookingLifecycleService {
     }
 
     private void requestRefundForConfirmedCancellation(Booking booking) {
-        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-        for (Payment payment : payments) {
-            if (payment.getStatus() == PaymentStatus.ESCROWED || payment.getStatus() == PaymentStatus.INITIATED) {
-                BigDecimal refundAmount = payment.getAmount().multiply(BigDecimal.valueOf(100))
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                payment.setRefundPercent(100);
-                payment.setRefundAmount(refundAmount);
-                payment.setRefundNote("Refund requested after booking confirmation cancellation");
-                payment.setStatus(PaymentStatus.REFUNDED);
-            }
+        Payment payment = booking.getPayment();
+        if (payment != null && (payment.getStatus() == PaymentStatus.ESCROWED || payment.getStatus() == PaymentStatus.INITIATED)) {
+            payment.setStatus(PaymentStatus.REFUNDED);
+            paymentRepository.save(payment);
+            log.info("booking_refund_requested bookingId={} sessionId={} paymentId={}",
+                    booking.getId(), booking.getSession().getId(), payment.getId());
         }
-        paymentRepository.saveAll(payments);
-        log.info("booking_refund_requested bookingId={} sessionId={}", booking.getId(), booking.getSession().getId());
     }
 
     private void notifyWaitlist(Booking booking) {

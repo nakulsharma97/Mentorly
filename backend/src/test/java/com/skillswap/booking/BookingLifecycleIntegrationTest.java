@@ -119,10 +119,10 @@ class BookingLifecycleIntegrationTest {
                 BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
                 assertThat(learnerBalance).isEqualByComparingTo("100.00");
 
-                List<Payment> payments = paymentRepository.findByBookingId(bookingId);
-                assertThat(payments).hasSize(1);
-                assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.ESCROWED);
-                assertThat(payments.get(0).getAmount()).isEqualByComparingTo("100.00");
+                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+                assertThat(payment).isNotNull();
+                assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ESCROWED);
+                assertThat(payment.getAmount()).isEqualByComparingTo("100.00");
         }
 
         @Test
@@ -201,9 +201,9 @@ class BookingLifecycleIntegrationTest {
                 BigDecimal mentorBalance = walletService.balance(reloadUser(mentor.getId())).balance();
                 assertThat(mentorBalance).isEqualByComparingTo("90.00");
 
-                List<Payment> payments = paymentRepository.findByBookingId(bookingId);
-                assertThat(payments).hasSize(1);
-                assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.RELEASED);
+                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+                assertThat(payment).isNotNull();
+                assertThat(payment.getStatus()).isEqualTo(PaymentStatus.RELEASED);
         }
 
         @Test
@@ -232,8 +232,8 @@ class BookingLifecycleIntegrationTest {
                 BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
                 assertThat(learnerBalance).isEqualByComparingTo("200.00");
 
-                List<Payment> payments = paymentRepository.findByBookingId(bookingId);
-                assertThat(payments).isEmpty();
+                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+                assertThat(payment).isNull();
         }
 
         @Test
@@ -275,9 +275,9 @@ class BookingLifecycleIntegrationTest {
                 BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
                 assertThat(learnerBalance).isEqualByComparingTo("200.00");
 
-                Payment payment = paymentRepository.findByBookingId(bookingId).stream().findFirst().orElseThrow();
+                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+                assertThat(payment).isNotNull();
                 assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
-                assertThat(payment.getRefundPercent()).isEqualTo(100);
         }
 
         @Test

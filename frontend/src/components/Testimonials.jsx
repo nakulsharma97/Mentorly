@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import client from "../api/client";
 import { motion } from "framer-motion";
 
-export default function Testimonials() {
+export default function Testimonials({ onShareReview }) {
   const [items, setItems] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -71,7 +71,11 @@ export default function Testimonials() {
         </div>
         <div className="landing-outcome-copy">
           <p>Be the first member to share your learning experience.</p>
-          <button className="landing-button landing-button-primary">
+          <button
+            className="landing-button landing-button-primary"
+            type="button"
+            onClick={onShareReview}
+          >
             Share your review
           </button>
         </div>

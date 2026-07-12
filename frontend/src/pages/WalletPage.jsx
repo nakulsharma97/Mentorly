@@ -133,6 +133,9 @@ export default function WalletPage({ profile, notify }) {
   const [dateRange, setDateRange] = useState("30");
   const [activeTab, setActiveTab] = useState("overview");
   const [exporting, setExporting] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawMethod, setWithdrawMethod] = useState("bank");
+  const [withdrawProcessing, setWithdrawProcessing] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -296,6 +299,41 @@ export default function WalletPage({ profile, notify }) {
       });
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amount = Number(withdrawAmount);
+    if (!amount || amount <= 0) {
+      notify?.({ type: "error", title: "Invalid amount", message: "Please enter a valid withdrawal amount." });
+      return;
+    }
+    const balanceNum = Number(balance?.balance || 0);
+    if (amount > balanceNum) {
+      notify?.({ type: "error", title: "Insufficient balance", message: `Your balance is ${balanceNum.toFixed(2)} credits.` });
+      return;
+    }
+    if (amount < 10) {
+      notify?.({ type: "error", title: "Minimum amount", message: "Minimum withdrawal amount is 10.00 credits." });
+      return;
+    }
+    setWithdrawProcessing(true);
+    try {
+      const res = await client.post("/api/v1/wallet/withdraw", {
+        amount,
+        description: `Withdrawal via ${withdrawMethod === "bank" ? "Bank Transfer" : withdrawMethod === "paypal" ? "PayPal" : "UPI"}`,
+        paymentMethod: withdrawMethod === "bank" ? "Bank Transfer" : withdrawMethod === "paypal" ? "PayPal" : "UPI",
+      });
+      const entry = res?.data?.data;
+      setLedger((prev) => [entry, ...prev]);
+      setBalance((prev) => ({ ...prev, balance: entry?.balanceAfter ?? prev?.balance }));
+      setWithdrawAmount("");
+      notify?.({ type: "success", title: "Withdrawal processed", message: `${amount.toFixed(2)} credits withdrawal has been recorded.` });
+    } catch (err) {
+      const detail = err?.response?.data?.data?.message || err?.response?.data?.data?.error || err?.response?.data?.message || err?.message || "Withdrawal failed";
+      notify?.({ type: "error", title: "Withdrawal failed", message: detail });
+    } finally {
+      setWithdrawProcessing(false);
     }
   };
 
@@ -560,6 +598,68 @@ export default function WalletPage({ profile, notify }) {
               <strong>
                 {formatCurrency(metrics.refunds, balance?.currency)}
               </strong>
+            </div>
+          </div>
+
+          {/* ── Withdrawal Form ── */}
+          <div className="wallet-withdraw-card">
+            <div className="wallet-withdraw-card__head">
+              <Icon name="account_balance_wallet" />
+              <div>
+                <strong>Request a withdrawal</strong>
+                <span>Minimum 10.00 credits. Your balance: {loading ? "..." : formatCurrency(balance?.balance, balance?.currency)}</span>
+              </div>
+            </div>
+            <div className="wallet-withdraw-card__form">
+              <div className="wallet-withdraw-card__amount-row">
+                <div className="wallet-withdraw-card__input-wrapper">
+                  <span className="wallet-withdraw-card__currency">CR</span>
+                  <input
+                    type="number"
+                    className="wallet-withdraw-card__input"
+                    placeholder="0.00"
+                    min="10"
+                    step="0.01"
+                    value={withdrawAmount}
+                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    disabled={withdrawProcessing}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="wallet-withdraw-card__max"
+                  onClick={() => setWithdrawAmount(String(Number(balance?.balance || 0).toFixed(2)))}
+                  disabled={withdrawProcessing}
+                >
+                  Max
+                </button>
+              </div>
+              <div className="wallet-withdraw-card__method-row">
+                {[
+                  { value: "bank", label: "Bank Transfer", icon: "account_balance" },
+                  { value: "paypal", label: "PayPal", icon: "payments" },
+                  { value: "upi", label: "UPI", icon: "smartphone" },
+                ].map((method) => (
+                  <button
+                    key={method.value}
+                    type="button"
+                    className={`wallet-withdraw-card__method ${withdrawMethod === method.value ? "wallet-withdraw-card__method--active" : ""}`}
+                    onClick={() => setWithdrawMethod(method.value)}
+                    disabled={withdrawProcessing}
+                  >
+                    <Icon name={method.icon} />
+                    {method.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="md-btn md-btn--primary wallet-withdraw-card__submit"
+                onClick={handleWithdraw}
+                disabled={withdrawProcessing || !withdrawAmount || Number(withdrawAmount) <= 0}
+              >
+                {withdrawProcessing ? "Processing..." : `Withdraw ${withdrawAmount ? Number(withdrawAmount).toFixed(2) : "0.00"} credits`}
+              </button>
             </div>
           </div>
 

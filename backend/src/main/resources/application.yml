@@ -61,6 +61,10 @@ app:
     redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5174/oauth/callback}
   polygon:
     rpc-url: ${POLYGON_RPC_URL:https://polygon-amoy.g.alchemy.com/v2/demo}
+  admin:
+    email: ${APP_ADMIN_EMAIL:}
+    password: ${APP_ADMIN_PASSWORD:}
+    name: ${APP_ADMIN_NAME:Platform Admin}
   email:
     enabled: ${APP_EMAIL_ENABLED:false}
     from: ${APP_EMAIL_FROM:no-reply@skillswap.app}

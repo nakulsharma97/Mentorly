@@ -2,15 +2,21 @@ package com.skillswap.wallet;
 
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
+@Validated
 @RequestMapping("/api/v1/wallet")
 @RequiredArgsConstructor
 public class WalletController {
@@ -25,6 +31,28 @@ public class WalletController {
     @GetMapping("/ledger")
     public ApiResponse<List<WalletLedgerEntry>> ledger(@AuthenticationPrincipal User currentUser) {
         return new ApiResponse<>("Wallet ledger fetched", walletService.history(currentUser));
+    }
+
+    /**
+     * Withdraw funds from the user's wallet balance.
+     */
+    @PostMapping("/withdraw")
+    public ApiResponse<WalletLedgerEntry> withdraw(@AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody WithdrawRequestDTO req) {
+        WalletLedgerEntry entry = walletService.withdraw(currentUser,
+                new WalletService.WithdrawRequest(req.amount(), req.description(), req.paymentMethod()));
+        return new ApiResponse<>("Withdrawal processed", entry);
+    }
+
+    public record WithdrawRequestDTO(
+            @NotNull(message = "Amount is required")
+            @DecimalMin(value = "10.00", message = "Minimum withdrawal amount is 10.00 credits")
+            @Digits(integer = 10, fraction = 2)
+            BigDecimal amount,
+            @Size(max = 500)
+            String description,
+            @Size(max = 100)
+            String paymentMethod) {
     }
 
 }

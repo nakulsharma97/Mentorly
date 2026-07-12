@@ -2,10 +2,15 @@ package com.skillswap.chat;
 
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
+import com.skillswap.messaging.DirectConversation;
+import com.skillswap.messaging.DirectConversationRepository;
+import com.skillswap.messaging.DirectMessage;
+import com.skillswap.messaging.DirectMessageRepository;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.safety.UserBlockRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
+import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -14,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +36,8 @@ public class ChatService {
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
     private final NotificationService notificationService;
+    private final DirectConversationRepository directConversationRepository;
+    private final DirectMessageRepository directMessageRepository;
 
     public List<ConversationDto> listConversations(User currentUser, String query, String filter) {
         List<Booking> bookings = loadBookingsForUser(currentUser);
@@ -243,6 +253,206 @@ public class ChatService {
                 message.getCreatedAt() == null ? OffsetDateTime.now() : message.getCreatedAt());
     }
 
+    @Transactional
+    public DirectConversationResponse createOrGetDirectConversation(User currentUser, Long targetUserId) {
+        if (currentUser.getId().equals(targetUserId)) {
+            throw new IllegalArgumentException("You cannot message yourself");
+        }
+
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        boolean blocked = userBlockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), targetUserId)
+                || userBlockRepository.existsByBlockerIdAndBlockedId(targetUserId, currentUser.getId());
+        if (blocked) {
+            throw new IllegalArgumentException("Cannot start a conversation with this user");
+        }
+
+        // Check if direct conversation already exists
+        Optional<DirectConversation> existing = directConversationRepository.findBetweenUsers(currentUser, target);
+        if (existing.isPresent()) {
+            DirectConversation dc = existing.get();
+            return new DirectConversationResponse(
+                    dc.getId(),
+                    target.getId(),
+                    target.getFullName(),
+                    target.getRole().name(),
+                    target.getSkills() == null ? "" : target.getSkills(),
+                    target.getProfileImageUrl(),
+                    target.isMentorVerified(),
+                    isUserOnline(target),
+                    computePresenceText(target),
+                    "",
+                    dc.getCreatedAt(),
+                    0);
+        }
+
+        // Create new direct conversation
+        DirectConversation conversation = new DirectConversation();
+        conversation.setParticipantOne(currentUser);
+        conversation.setParticipantTwo(target);
+        conversation.setCreatedAt(OffsetDateTime.now());
+        conversation.setUpdatedAt(OffsetDateTime.now());
+        DirectConversation saved = directConversationRepository.save(conversation);
+
+        // Notify the target user
+        notificationService.notifyUser(
+                targetUserId,
+                "CHAT_MESSAGE",
+                "New conversation",
+                currentUser.getFullName() + " started a conversation with you",
+                saved.getId());
+
+        return new DirectConversationResponse(
+                saved.getId(),
+                target.getId(),
+                target.getFullName(),
+                target.getRole().name(),
+                target.getSkills() == null ? "" : target.getSkills(),
+                target.getProfileImageUrl(),
+                target.isMentorVerified(),
+                false,
+                "Offline",
+                "",
+                saved.getCreatedAt(),
+                0);
+    }
+
+    public List<DirectMessageView> listDirectMessages(User currentUser, Long conversationId) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+
+        boolean isParticipant = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                || conversation.getParticipantTwo().getId().equals(currentUser.getId());
+        if (!isParticipant) {
+            throw new IllegalArgumentException("Access denied");
+        }
+
+        return directMessageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId)
+                .stream()
+                .map(this::toDirectMessageView)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Lightweight check — validates the user is a participant in a direct conversation
+     * without fetching any messages. Throws on failure, returns true on success.
+     */
+    public boolean isParticipantInConversation(String userEmail, Long conversationId) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        boolean isParticipant = conversation.getParticipantOne().getId().equals(user.getId())
+                || conversation.getParticipantTwo().getId().equals(user.getId());
+        if (!isParticipant) {
+            throw new IllegalArgumentException("Access denied");
+        }
+        return true;
+    }
+
+    @Transactional
+    public DirectMessageView sendDirectMessage(String senderEmail, Long conversationId, String content) {
+        User sender = userRepository.findByEmail(senderEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        return sendDirectMessage(sender, conversationId, content);
+    }
+
+    @Transactional
+    public DirectMessageView sendDirectMessage(User currentUser, Long conversationId, String content) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+
+        boolean isParticipant = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                || conversation.getParticipantTwo().getId().equals(currentUser.getId());
+        if (!isParticipant) {
+            throw new IllegalArgumentException("Access denied");
+        }
+
+        String normalized = content == null ? "" : content.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("Message cannot be empty");
+        }
+
+        DirectMessage message = new DirectMessage();
+        message.setConversation(conversation);
+        message.setSender(currentUser);
+        message.setContent(normalized);
+        DirectMessage saved = directMessageRepository.save(message);
+
+        // Update conversation timestamp
+        conversation.setUpdatedAt(OffsetDateTime.now());
+        directConversationRepository.save(conversation);
+
+        // Notify the other participant
+        User receiver = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                ? conversation.getParticipantTwo()
+                : conversation.getParticipantOne();
+        notificationService.notifyUser(
+                receiver.getId(),
+                "CHAT_MESSAGE",
+                "New message",
+                currentUser.getFullName() + " sent a message",
+                conversationId);
+
+        return toDirectMessageView(saved);
+    }
+
+    public List<DirectConversationResponse> listDirectConversations(User currentUser) {
+        List<DirectConversation> asOne = directConversationRepository
+                .findByParticipantOneOrderByUpdatedAtDesc(currentUser);
+        List<DirectConversation> asTwo = directConversationRepository
+                .findByParticipantTwoOrderByUpdatedAtDesc(currentUser);
+
+        List<DirectConversation> all = new ArrayList<>();
+        all.addAll(asOne);
+        all.addAll(asTwo);
+        all.sort(Comparator.comparing(DirectConversation::getUpdatedAt).reversed());
+
+        return all.stream()
+                .map(dc -> {
+                    User participant = dc.getParticipantOne().getId().equals(currentUser.getId())
+                            ? dc.getParticipantTwo()
+                            : dc.getParticipantOne();
+                    DirectMessage lastMsg = directMessageRepository
+                            .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
+                    return new DirectConversationResponse(
+                            dc.getId(),
+                            participant.getId(),
+                            participant.getFullName(),
+                            participant.getRole().name(),
+                            participant.getSkills() == null ? "" : participant.getSkills(),
+                            participant.getProfileImageUrl(),
+                            participant.isMentorVerified(),
+                            isUserOnline(participant),
+                            computePresenceText(participant),
+                            lastMsg == null ? "No messages yet" : lastMsg.getContent(),
+                            lastMsg == null ? dc.getCreatedAt() : lastMsg.getCreatedAt(),
+                            0);
+                })
+                .collect(Collectors.toList());
+    }
+
+    private boolean isUserOnline(User user) {
+        return user.getLastActiveAt() != null
+                && user.getLastActiveAt().isAfter(OffsetDateTime.now().minusMinutes(5));
+    }
+
+    private DirectMessageView toDirectMessageView(DirectMessage message) {
+        return new DirectMessageView(
+                message.getId(),
+                message.getConversation().getId(),
+                message.getSender().getId(),
+                message.getSender().getEmail(),
+                message.getSender().getFullName(),
+                message.getSender().getRole().name(),
+                message.getSender().getProfileImageUrl(),
+                message.getContent(),
+                message.isReadByRecipient(),
+                message.getCreatedAt());
+    }
+
     public record ConversationDto(
             Long bookingId,
             String sessionTitle,
@@ -257,6 +467,88 @@ public class ChatService {
             String lastMessagePreview,
             OffsetDateTime lastMessageAt,
             int unreadCount) {
+    }
+
+    public record DirectConversationResponse(
+            Long conversationId,
+            Long participantId,
+            String participantName,
+            String participantRole,
+            String participantSkills,
+            String participantProfileImageUrl,
+            boolean participantVerified,
+            boolean participantOnline,
+            String participantPresenceText,
+            String lastMessagePreview,
+            OffsetDateTime lastMessageAt,
+            int unreadCount) {
+    }
+
+    @Transactional
+    public void markDirectMessagesAsRead(Long conversationId, String readerEmail) {
+        User reader = userRepository.findByEmail(readerEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        isParticipantInConversation(readerEmail, conversationId);
+        directMessageRepository.markAllAsReadByConversationId(conversationId, readerEmail);
+    }
+
+    public DirectConversationDetail getDirectConversation(User currentUser, Long conversationId) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+
+        boolean isParticipant = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                || conversation.getParticipantTwo().getId().equals(currentUser.getId());
+        if (!isParticipant) {
+            throw new IllegalArgumentException("Access denied");
+        }
+
+        User participant = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                ? conversation.getParticipantTwo()
+                : conversation.getParticipantOne();
+
+        List<DirectMessageView> messages = directMessageRepository
+                .findByConversationIdOrderByCreatedAtAsc(conversationId)
+                .stream()
+                .map(this::toDirectMessageView)
+                .collect(Collectors.toList());
+
+        return new DirectConversationDetail(
+                conversation.getId(),
+                participant.getId(),
+                participant.getFullName(),
+                participant.getRole().name(),
+                participant.getSkills() == null ? "" : participant.getSkills(),
+                participant.getProfileImageUrl(),
+                participant.isMentorVerified(),
+                isUserOnline(participant),
+                computePresenceText(participant),
+                messages);
+    }
+
+    public record DirectConversationDetail(
+            Long conversationId,
+            Long participantId,
+            String participantName,
+            String participantRole,
+            String participantSkills,
+            String participantProfileImageUrl,
+            boolean participantVerified,
+            boolean participantOnline,
+            String participantPresenceText,
+            List<DirectMessageView> messages) {
+    }
+
+    public record DirectMessageView(
+            Long id,
+            Long conversationId,
+            Long senderId,
+            String senderEmail,
+            String senderName,
+            String senderRole,
+            String senderProfileImageUrl,
+            String content,
+            boolean readByRecipient,
+            OffsetDateTime createdAt) {
     }
 
     public record ChatMessageView(

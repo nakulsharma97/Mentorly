@@ -1,6 +1,15 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useOptionalTheme } from "../context/ThemeContext";
+
+const BASE_CLASS =
+  "flex flex-col items-center justify-center rounded-xl px-4 py-1 transition-all";
+const INACTIVE_CLASS = "text-on-surface-variant hover:text-primary";
+const ACTIVE_CLASS = "bg-primary/10 text-primary shadow-sm";
+
+function navLinkClass({ isActive }) {
+  return `${BASE_CLASS} ${isActive ? ACTIVE_CLASS : INACTIVE_CLASS}`;
+}
 
 export default function MobileBottomNav({ className = "" }) {
   const theme = useOptionalTheme();
@@ -8,6 +17,9 @@ export default function MobileBottomNav({ className = "" }) {
   const roleHomePath = location.pathname.startsWith("/mentor")
     ? "/mentor/dashboard"
     : "/learner/dashboard";
+  const roleMessagesPath = location.pathname.startsWith("/mentor")
+    ? "/mentor/messages"
+    : "/learner/messages";
 
   const toggleLanguage = () => {
     const next =
@@ -18,53 +30,60 @@ export default function MobileBottomNav({ className = "" }) {
 
   return (
     <nav
-      className={`fixed bottom-0 z-50 w-full bg-white/90 backdrop-blur-md md:hidden ${className}`}
+      className={`fixed bottom-0 z-50 w-full backdrop-blur-md md:hidden ${className}`}
+      style={{ background: 'color-mix(in srgb, var(--panel, #fff) 92%, transparent)' }}
       aria-label="Mobile navigation"
     >
       <div className="flex h-20 items-center justify-around px-4 pb-safe">
-        <Link
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-on-surface-variant transition-all hover:text-primary"
-          to="/teach"
+        {/* Messages — universal for both roles */}
+        <NavLink
+          className={navLinkClass}
+          to={roleMessagesPath}
         >
-          <span className="material-symbols-outlined">school</span>
+          <span className="material-symbols-outlined">chat</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
-            Teach
+            Messages
           </span>
-        </Link>
+        </NavLink>
 
-        <Link
-          className="flex flex-col items-center justify-center rounded-xl bg-surface-container-low px-4 py-1 text-primary transition-all"
+        {/* Resources */}
+        <NavLink
+          className={navLinkClass}
           to="/resources"
         >
           <span className="material-symbols-outlined">library_books</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Resources
           </span>
-        </Link>
+        </NavLink>
 
-        <Link
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-on-surface-variant transition-all hover:text-primary"
+        {/* Schedule */}
+        <NavLink
+          className={navLinkClass}
           to="/sessions"
         >
           <span className="material-symbols-outlined">calendar_today</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Schedule
           </span>
-        </Link>
+        </NavLink>
 
-        <Link
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-on-surface-variant transition-all hover:text-primary"
+        {/* Profile / Dashboard home */}
+        <NavLink
+          className={navLinkClass}
           to={roleHomePath}
+          end
         >
           <span className="material-symbols-outlined">account_circle</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Profile
           </span>
-        </Link>
+        </NavLink>
 
+        {/* Theme toggle */}
         <button
           type="button"
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-on-surface-variant transition-all"
+          className={`${BASE_CLASS} ${INACTIVE_CLASS}`}
           onClick={() => theme?.toggle?.()}
           aria-label="Toggle dark mode"
         >
@@ -76,9 +95,10 @@ export default function MobileBottomNav({ className = "" }) {
           </span>
         </button>
 
+        {/* Language toggle */}
         <button
           type="button"
-          className="flex flex-col items-center justify-center rounded-xl px-4 py-1 text-on-surface-variant transition-all"
+          className={`${BASE_CLASS} ${INACTIVE_CLASS}`}
           onClick={toggleLanguage}
           aria-label="Switch language"
         >

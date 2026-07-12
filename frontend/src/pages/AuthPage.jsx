@@ -128,8 +128,55 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     };
   }, []);
 
+  const [openFaq, setOpenFaq] = useState(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
   const displayMentors = useMemo(() => mentors.slice(0, 3), [mentors]);
   const mentorCountLabel = String(mentors.length);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 800);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleFaq = (idx) => {
+    setOpenFaq((prev) => (prev === idx ? null : idx));
+  };
+
+  const faqItems = [
+    {
+      q: 'How does SkillSwap work?',
+      a: 'SkillSwap connects learners with verified mentors for live, one-on-one sessions. Browse mentor profiles, find someone whose expertise matches your goals, book a session, and meet via the platform — with message context, session links, and follow-up tools all in one place.'
+    },
+    {
+      q: 'How are mentors verified?',
+      a: 'Every mentor profile goes through a manual verification process. We review professional background, skill endorsements, and teaching history before approving a mentor to offer sessions on the platform. Verified mentors are clearly marked on their profiles.'
+    },
+    {
+      q: 'What payment methods are supported?',
+      a: 'We support multiple payment methods including credit/debit cards (via Stripe), UPI (via Razorpay), PayPal, and wallet credits. Payments are held in escrow and released to mentors after the session is completed to ensure trust on both sides.'
+    },
+    {
+      q: 'Can I get a refund if Im not satisfied?',
+      a: 'Yes. If a session doesnt meet expectations, you can request a refund within 48 hours. Our admin team reviews each case and can issue a full or partial refund. Funds are held in escrow, so refunds are processed quickly.'
+    },
+    {
+      q: 'How do I become a mentor?',
+      a: 'Sign up as a mentor, complete your professional profile with your skills, experience, and certifications, and submit it for verification. Once approved, you can create sessions, set your availability, and start accepting bookings from learners.'
+    },
+    {
+      q: 'Are sessions recorded?',
+      a: 'By default, sessions are not recorded. However, mentors and learners can mutually agree to record a session. All communication and shared resources remain accessible through the platform after the session ends.'
+    }
+  ];
+
 
   const navLinkClass = (sectionId) =>
     activeSection === sectionId
@@ -210,6 +257,16 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
       <main>
         <section id="product" className="landing-hero">
+          <div className="landing-particles" aria-hidden="true">
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+            <div className="landing-particle" />
+          </div>
           <div className="landing-hero-copy landing-reveal is-visible">
             <span className="landing-eyebrow">
               <span aria-hidden="true" />
@@ -306,6 +363,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             </div>
           </div>
         </section>
+
+        <div className="landing-section-divider" aria-hidden="true" />
 
         <section className="landing-logo-row" aria-label="Trusted categories">
           {[
@@ -540,8 +599,112 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         </section>
 
         <CommunityStats />
-        <Testimonials />
+
+        <div className="landing-section-divider" aria-hidden="true" />
+
+        <Testimonials onShareReview={onSelectSignup} />
+
+        <div className="landing-section-divider-wave" aria-hidden="true" />
+
+        <section className="landing-faq" id="faq">
+          <div className="landing-section-heading landing-reveal">
+            <span className="landing-kicker">Questions?</span>
+            <h2>Frequently asked questions.</h2>
+            <p>
+              Everything you need to know about SkillSwap. Still have questions?
+              Reach out to our support team.
+            </p>
+          </div>
+          <div className="landing-faq-grid">
+            {faqItems.map((item, idx) => (
+              <article
+                key={idx}
+                className={`landing-faq-item landing-reveal${openFaq === idx ? ' is-open' : ''}`}
+              >
+                <button
+                  className="landing-faq-question"
+                  type="button"
+                  onClick={() => toggleFaq(idx)}
+                  aria-expanded={openFaq === idx}
+                  aria-controls={`faq-answer-${idx}`}
+                >
+                  <span>{item.q}</span>
+                  <span className="landing-faq-question-icon" aria-hidden="true">+</span>
+                </button>
+                <div
+                  id={`faq-answer-${idx}`}
+                  className={`landing-faq-answer${openFaq === idx ? ' is-open' : ''}`}
+                  role="region"
+                >
+                  <p>{item.a}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="landing-cta-band">
+          <div className="landing-cta-card landing-reveal">
+            <div className="landing-cta-shimmer" aria-hidden="true" />
+            <span className="landing-cta-kicker">
+              <span aria-hidden="true">✨</span>
+              Join thousands of learners
+            </span>
+            <h2>Ready to accelerate your career?</h2>
+            <p>
+              Sign up free, find your mentor, and start learning from industry
+              experts who have already built the path.
+            </p>
+            <div className="landing-cta-actions">
+              <button
+                className="landing-button landing-button-primary"
+                type="button"
+                onClick={onSelectSignup}
+              >
+                Get started free
+              </button>
+              <button
+                className="landing-button landing-button-ghost"
+                type="button"
+                onClick={scrollToSection('mentors')}
+              >
+                Browse mentors
+              </button>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <button
+        className={`landing-back-to-top${showBackToTop ? ' is-visible' : ''}`}
+        type="button"
+        onClick={scrollToTop}
+        aria-label="Back to top"
+        title="Back to top"
+      >
+        <span className="material-symbols-outlined" aria-hidden="true">
+          arrow_upward
+        </span>
+      </button>
+
+      <div className="landing-mobile-cta">
+        <div className="landing-mobile-cta-inner">
+          <button
+            className="landing-button landing-button-ghost"
+            type="button"
+            onClick={onSelectLogin}
+          >
+            Log in
+          </button>
+          <button
+            className="landing-button landing-button-dark"
+            type="button"
+            onClick={onSelectSignup}
+          >
+            Join free
+          </button>
+        </div>
+      </div>
 
       <PremiumFooter onScrollToSection={scrollToSection} />
     </div>

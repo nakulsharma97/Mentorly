@@ -28,6 +28,9 @@ public class DirectMessage {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(name = "read_by_recipient", nullable = false)
+    private boolean readByRecipient = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 }

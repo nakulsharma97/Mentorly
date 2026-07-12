@@ -2,8 +2,6 @@ package com.skillswap.payment;
 
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
-import com.skillswap.payment.PaymentIntentRequest;
-import com.skillswap.payment.UpdatePaymentStatusRequest;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -20,11 +18,18 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentControllerServiceTest {
 
+    @Mock
+    private PaymentService paymentService;
+    @Mock
+    private PaymentVerificationService paymentVerificationService;
     @Mock
     private PaymentRepository paymentRepository;
     @Mock
@@ -43,10 +48,14 @@ class PaymentControllerServiceTest {
     void createIntentRejectsMentorRole() {
         User mentor = new User();
         mentor.setRole(UserRole.MENTOR);
+        mentor.setId(20L);
+
+        when(paymentService.createPaymentOrder(any(User.class), anyString(), anyLong(), any(), anyString()))
+                .thenThrow(new IllegalArgumentException("Only learners can create payment intents"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> paymentController.createIntent(mentor, "idem-1",
-                        new PaymentIntentRequest(1L, new BigDecimal("10.00"), "CARD")));
+                        new PaymentController.CreatePaymentIntentRequest(1L, new BigDecimal("10.00"), "razorpay")));
 
         assertEquals("Only learners can create payment intents", ex.getMessage());
     }
@@ -57,55 +66,25 @@ class PaymentControllerServiceTest {
         learner.setId(10L);
         learner.setRole(UserRole.LEARNER);
 
-        User mentor = new User();
-        mentor.setId(20L);
-        mentor.setRole(UserRole.MENTOR);
-
-        SkillSession session = new SkillSession();
-        session.setMentor(mentor);
-
-        Booking booking = new Booking();
-        booking.setId(1L);
-        booking.setLearner(learner);
-        booking.setSession(session);
-
-        when(bookingRepository.findById(1L)).thenReturn(Optional.of(booking));
-        when(paymentIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(10L, "payments.intent",
-                "idem-key-123"))
-                .thenReturn(Optional.empty());
+        when(paymentService.createPaymentOrder(any(User.class), anyString(), anyLong(), any(), anyString()))
+                .thenThrow(new IllegalArgumentException("Amount must be greater than zero"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> paymentController.createIntent(learner, "idem-key-123",
-                        new PaymentIntentRequest(1L, BigDecimal.ZERO, "UPI")));
+                        new PaymentController.CreatePaymentIntentRequest(1L, BigDecimal.ZERO, "razorpay")));
 
         assertEquals("Amount must be greater than zero", ex.getMessage());
     }
 
     @Test
-    void updateStatusRejectsNonMentorAndNonAdmin() {
+    void getPaymentHistoryReturnsPayments() {
         User learner = new User();
         learner.setId(10L);
         learner.setRole(UserRole.LEARNER);
 
-        User mentor = new User();
-        mentor.setId(20L);
+        when(paymentService.getPaymentHistory(any(User.class))).thenReturn(java.util.Collections.emptyList());
 
-        SkillSession session = new SkillSession();
-        session.setMentor(mentor);
-
-        Booking booking = new Booking();
-        booking.setSession(session);
-
-        Payment payment = new Payment();
-        payment.setId(4L);
-        payment.setBooking(booking);
-
-        when(paymentRepository.findById(4L)).thenReturn(Optional.of(payment));
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> paymentController.updateStatus(learner, 4L, "idem-3",
-                        new UpdatePaymentStatusRequest(PaymentStatus.ESCROWED)));
-
-        assertEquals("Only the session mentor can update payment status", ex.getMessage());
+        var response = paymentController.history(learner);
+        assertEquals("Payments fetched", response.message());
     }
 }

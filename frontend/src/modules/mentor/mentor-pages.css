@@ -4,6 +4,88 @@
    Namespaced with `mp-` (mentor pages).
    ========================================================================== */
 
+/* ----------------------------------------------------------------- hero --- */
+/* Premium page hero to match the learner surfaces' polish. */
+.mp-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 30px 34px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--brand) 15%, var(--panel)) 0%,
+    color-mix(in srgb, var(--brand) 6%, var(--panel)) 60%,
+    var(--panel) 100%);
+  border: 1px solid var(--md-border);
+  box-shadow: var(--md-shadow-sm);
+}
+.mp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 92% 15%,
+    color-mix(in srgb, var(--brand) 12%, transparent) 0%, transparent 70%);
+  pointer-events: none;
+}
+.mp-hero__watermark {
+  position: absolute;
+  top: 50%;
+  right: 26px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  border-radius: 28px;
+  color: color-mix(in srgb, var(--brand) 16%, transparent);
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+  pointer-events: none;
+  animation: mp-hero-float 7s ease-in-out infinite;
+}
+.mp-hero__watermark .md__icon { font-size: 78px; }
+@keyframes mp-hero-float {
+  0%, 100% { transform: translateY(-50%); }
+  50% { transform: translateY(calc(-50% - 8px)); }
+}
+.mp-hero__content { position: relative; z-index: 1; }
+.mp-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--md-tint);
+  color: var(--brand);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.mp-hero__eyebrow .md__icon { font-size: 1rem; }
+.mp-hero h1 {
+  margin: 0 0 8px;
+  font-family: "Sora", "Manrope", sans-serif;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  letter-spacing: -0.03em;
+  color: var(--md-ink);
+  line-height: 1.2;
+}
+.mp-hero__sub {
+  margin: 0 0 20px;
+  max-width: 62ch;
+  color: var(--md-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.mp-hero__actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+@media (max-width: 720px) {
+  .mp-hero { padding: 22px; }
+  .mp-hero__watermark { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mp-hero__watermark { animation: none; }
+}
+
 /* --------------------------------------------------------------- header --- */
 .mp-head {
   display: flex;

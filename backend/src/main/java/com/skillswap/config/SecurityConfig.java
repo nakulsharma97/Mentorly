@@ -69,7 +69,10 @@ public class SecurityConfig {
                                                                 new AntPathRequestMatcher("/actuator/**"),
                                                                 new AntPathRequestMatcher("/swagger-ui/**"),
                                                                 new AntPathRequestMatcher("/v3/api-docs/**"),
-                                                                new AntPathRequestMatcher("/ws/**")))
+                                                                new AntPathRequestMatcher("/ws/**"),
+                                                                new AntPathRequestMatcher("/api/v1/chat/**"),
+																new AntPathRequestMatcher("/api/v1/payments/**"),
+																new AntPathRequestMatcher("/api/v1/wallet/**")))
                                 .headers(headers -> headers
                                                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                                                                 "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:"))
@@ -137,7 +140,7 @@ public class SecurityConfig {
 
         @Bean
         public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder(12);
+                return new BCryptPasswordEncoder(10);
         }
 
         @Bean

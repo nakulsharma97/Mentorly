@@ -314,6 +314,43 @@
 .dash-empty-btn-secondary{ background: rgba(15,118,110,0.1); color: #0f766e; }
 .dash-empty-btn-tertiary { background: rgba(124,58,237,0.1); color: #7c3aed; }
 
+/* ── Referral Card ── */
+.ld-referral-card {
+  background: linear-gradient(135deg, rgba(15,118,110,0.04), rgba(20,184,166,0.06));
+  border: 1px solid rgba(15,118,110,0.15);
+}
+.ld-referral-body {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.ld-referral-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ld-referral-stat__value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--brand, #0f766e);
+  line-height: 1;
+}
+.ld-referral-stat__label {
+  font-size: 0.78rem;
+  color: var(--muted, #64748b);
+}
+.ld-referral-summary {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand, #0f766e);
+}
+.ld-referral-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
 @keyframes dash-icon-pop {
   from { transform: scale(0.6); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }

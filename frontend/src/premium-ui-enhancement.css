@@ -1,0 +1,1181 @@
+/* ============================================================
+   SKILL SWAPPER — Premium UI Enhancement Suite
+   
+   This file globally enhances every page with consistent
+   premium styling, animations, dark mode fixes, and polish.
+   
+   It does NOT change any layout, routing, or backend integration.
+   It ONLY enhances visual appearance while preserving functionality.
+   ============================================================ */
+
+/* ── 1. GLOBAL VARIABLE CONSOLIDATION ── */
+:root {
+  /* Extended brand palette */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
+
+  /* Neutral palette */
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e2e8f0;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+
+  /* Semantic colors */
+  --success-light: #dcfce7;
+  --success: #16a34a;
+  --success-dark: #15803d;
+  --warning-light: #fef3c7;
+  --warning: #f59e0b;
+  --warning-dark: #d97706;
+  --error-light: #fef2f2;
+  --error: #ef4444;
+  --error-dark: #dc2626;
+  --info-light: #e0f2fe;
+  --info: #0ea5e9;
+  --info-dark: #0284c7;
+
+  /* Premium shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 20px 25px rgba(15, 23, 42, 0.10), 0 8px 10px rgba(15, 23, 42, 0.04);
+  --shadow-2xl: 0 25px 50px rgba(15, 23, 42, 0.14);
+  --shadow-card: 0 12px 32px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 24px 48px rgba(15, 23, 42, 0.10);
+
+  /* Premium border radius system */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* Typography scale — using existing Manrope/Sora fonts */
+  --font-sans: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-display: 'Sora', 'Manrope', sans-serif;
+  
+  /* Transition durations */
+  --transition-fast: 150ms;
+  --transition-base: 200ms;
+  --transition-slow: 300ms;
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+[data-theme="dark"] {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.4), 0 8px 10px rgba(0, 0, 0, 0.2);
+  --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.3);
+  --shadow-elevated: 0 24px 48px rgba(0, 0, 0, 0.4);
+}
+
+/* ── 2. GLOBAL TYPOGRAPHY IMPROVEMENTS ── */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── 3. CARD SYSTEM — Subtle Premium Enhancements ── */
+
+/* Only target the generic dashboard-like cards, NOT specific card variants that have their own styling */
+.premium-card,
+.dash-section,
+.dashboard-card:not(.auth-card):not(.toast-card) {
+  transition: transform var(--transition-slow) ease, 
+              box-shadow var(--transition-slow) ease;
+}
+
+.premium-card:hover,
+.dashboard-card:not(.auth-card):not(.toast-card):not(.mentor-teaching-hero):hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ── 4. BUTTON SYSTEM — Premium Button States ── */
+
+/* Consistent base button styling */
+button {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base) ease;
+  user-select: none;
+}
+
+/* Click ripple effect for brand/primary buttons */
+.md-btn--brand::after,
+.btn-primary::after,
+button[type="submit"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.15);
+  opacity: 0;
+  transition: opacity var(--transition-fast) ease;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.md-btn--brand:active::after,
+.btn-primary:active::after,
+button[type="submit"]:active::after {
+  opacity: 1;
+}
+
+/* Disabled state consistency */
+button:disabled,
+button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] button:disabled,
+[data-theme="dark"] button[disabled] {
+  opacity: 0.4;
+}
+
+/* Primary buttons — gradient enhancement */
+.btn-primary,
+.md-btn--brand,
+.site-navbar-cta {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--brand-600), var(--brand-700));
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.25);
+}
+
+.btn-primary:hover,
+.md-btn--brand:hover,
+.site-navbar-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 118, 110, 0.35);
+}
+
+.btn-primary:active,
+.md-btn--brand:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.2);
+}
+
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .md-btn--brand {
+  background: linear-gradient(135deg, var(--brand-400), var(--brand-500));
+  color: #0f172a;
+  box-shadow: 0 4px 14px rgba(45, 212, 191, 0.2);
+}
+
+[data-theme="dark"] .btn-primary:hover,
+[data-theme="dark"] .md-btn--brand:hover {
+  box-shadow: 0 6px 20px rgba(45, 212, 191, 0.3);
+}
+
+/* Secondary/outline buttons */
+.btn-secondary,
+.md-btn--outline,
+button.secondary {
+  background: transparent;
+  border: 1.5px solid var(--card-border, var(--line));
+  color: var(--text);
+}
+
+.btn-secondary:hover,
+.md-btn--outline:hover,
+button.secondary:hover {
+  background: var(--hover-bg);
+  border-color: var(--brand-400);
+  color: var(--brand-700);
+}
+
+[data-theme="dark"] .btn-secondary:hover,
+[data-theme="dark"] .md-btn--outline:hover {
+  border-color: var(--brand-300);
+  color: var(--brand-300);
+}
+
+/* Danger buttons */
+.btn-danger,
+.danger-btn,
+button[class*="danger"] {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--error-dark, #dc2626);
+}
+
+.btn-danger:hover,
+.danger-btn:hover,
+button[class*="danger"]:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ── 5. TABLE SYSTEM — Premium Tables ── */
+
+/* Target tables that don't already have their own styling */
+table:not(.admin-table):not(.wallet-table):not(.mp-table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+table:not(.admin-table):not(.wallet-table):not(.mp-table) thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-container-low, var(--bg));
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid var(--card-border, var(--line));
+  white-space: nowrap;
+}
+
+table:not(.admin-table):not(.wallet-table):not(.mp-table) tbody tr {
+  transition: background var(--transition-fast) ease;
+}
+
+table:not(.admin-table):not(.wallet-table):not(.mp-table) tbody tr:hover {
+  background: rgba(15, 118, 110, 0.04);
+}
+
+[data-theme="dark"] table:not(.admin-table):not(.wallet-table):not(.mp-table) tbody tr:hover {
+  background: rgba(45, 212, 191, 0.04);
+}
+
+table:not(.admin-table):not(.wallet-table):not(.mp-table) tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--card-border, var(--line));
+  color: var(--text);
+  vertical-align: middle;
+}
+
+table:not(.admin-table):not(.wallet-table):not(.mp-table) tbody tr:last-child td {
+  border-bottom: none;
+}
+
+[data-theme="dark"] table:not(.admin-table):not(.wallet-table):not(.mp-table) thead th {
+  background: var(--surface-container-low, #1e293b);
+}
+
+/* ── 6. BADGE & CHIP SYSTEM ── */
+
+/* Status pills & badges — targeted, not broad */
+.status-pill,
+.dash-status-chip,
+.session-reminder-chip,
+.mp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Dark mode for existing badges */
+[data-theme="dark"] .badge-success,
+[data-theme="dark"] [class*="badge-success"] {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+[data-theme="dark"] .badge-warning,
+[data-theme="dark"] [class*="badge-warning"] {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.2);
+}
+
+[data-theme="dark"] .badge-error,
+[data-theme="dark"] [class*="badge-error"] {
+  background: rgba(248, 113, 113, 0.12);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+[data-theme="dark"] .badge-info,
+[data-theme="dark"] [class*="badge-info"] {
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.2);
+}
+
+/* ── 7. PROGRESS BAR ENHANCEMENTS ── */
+
+/* Only enhance generic progress bars, not custom ones */
+.md-progress-fill,
+.dash-progress-fill,
+.onboarding-stepper-progress {
+  background: linear-gradient(90deg, var(--brand-600), var(--brand-400));
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] .md-progress-track,
+[data-theme="dark"] .dash-progress-track,
+[data-theme="dark"] .onboarding-stepper-track {
+  background: #334155;
+}
+
+/* ── 8. PAGE TRANSITIONS & ANIMATIONS ── */
+
+/* Fade-in animation for staggered children */
+.premium-fade-in {
+  opacity: 0;
+  animation: premium-fade-in 0.5s ease forwards;
+}
+
+.premium-fade-in:nth-child(1) { animation-delay: 0.05s; }
+.premium-fade-in:nth-child(2) { animation-delay: 0.1s; }
+.premium-fade-in:nth-child(3) { animation-delay: 0.15s; }
+.premium-fade-in:nth-child(4) { animation-delay: 0.2s; }
+.premium-fade-in:nth-child(5) { animation-delay: 0.25s; }
+.premium-fade-in:nth-child(6) { animation-delay: 0.3s; }
+
+@keyframes premium-fade-in {
+  to { opacity: 1; }
+}
+
+/* Scale entrance for cards */
+.premium-scale-in {
+  transform: scale(0.95);
+  opacity: 0;
+  animation: premium-scale-in 0.4s var(--transition-spring) forwards;
+}
+
+@keyframes premium-scale-in {
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── 9. DARK MODE — Comprehensive Fixes ── */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Fix offline banner in dark mode */
+[data-theme="dark"] .offline-banner {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.2), rgba(180, 35, 24, 0.1));
+  border-color: rgba(248, 113, 113, 0.2);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .offline-banner .material-symbols-outlined {
+  color: #f87171;
+}
+
+[data-theme="dark"] .offline-banner strong {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .offline-banner p {
+  color: rgba(252, 165, 165, 0.8);
+}
+
+/* Fix session reminder banners in dark mode */
+[data-theme="dark"] .session-reminder-banner {
+  background: linear-gradient(90deg, rgba(14, 116, 144, 0.15), rgba(15, 118, 110, 0.08));
+  border-color: rgba(14, 116, 144, 0.3);
+}
+
+[data-theme="dark"] .session-reminder-soon {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(59, 130, 246, 0.06));
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="dark"] .session-reminder-urgent {
+  background: linear-gradient(90deg, rgba(194, 65, 12, 0.15), rgba(217, 119, 6, 0.08));
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+/* Fix toast cards in dark mode */
+[data-theme="dark"] .toast-card {
+  background: var(--panel, #2d2d2d);
+  border-color: var(--card-border, #404040);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .toast-title {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .toast-message {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .toast-action {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #505050);
+  color: var(--brand-300, #5eead4);
+}
+
+[data-theme="dark"] .toast-action-ghost {
+  background: transparent;
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .toast-close {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .toast-close:hover {
+  background: var(--hover-bg, #363636);
+}
+
+/* ── Landing Page / AuthPage Dark Mode ── */
+[data-theme="dark"] .landing-shell {
+  --landing-bg: #0b1a16;
+  --landing-ink: #e0e8e4;
+  --landing-muted: #8a9d95;
+  --landing-line: rgba(255, 255, 255, 0.08);
+  --landing-card: rgba(30, 45, 40, 0.85);
+  --landing-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(45, 212, 191, 0.08), transparent 34%),
+    radial-gradient(circle at 86% 8%, rgba(14, 165, 233, 0.06), transparent 30%),
+    linear-gradient(180deg, #0b1a16 0%, #0f201c 48%, #0d1d18 100%);
+}
+
+[data-theme="dark"] .landing-nav {
+  background: rgba(15, 25, 22, 0.92);
+  border-color: rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .landing-nav-center {
+  background: rgba(30, 50, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .landing-nav-link {
+  color: rgba(180, 200, 190, 0.85);
+}
+
+[data-theme="dark"] .landing-nav-link:hover,
+[data-theme="dark"] .landing-nav-link.is-active {
+  color: #5eead4;
+}
+
+[data-theme="dark"] .landing-nav-link:hover {
+  background: rgba(94, 234, 212, 0.08);
+}
+
+[data-theme="dark"] .landing-nav-link.is-active {
+  background: rgba(94, 234, 212, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.15);
+}
+
+[data-theme="dark"] .landing-button-ghost {
+  color: rgba(200, 220, 210, 0.9);
+  background: rgba(30, 50, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .landing-hero h1 {
+  color: #e0e8e4;
+}
+
+[data-theme="dark"] .landing-metrics div {
+  background: rgba(30, 50, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .landing-metrics dt {
+  color: #e0e8e4;
+}
+
+[data-theme="dark"] .landing-product-card {
+  background: rgba(20, 35, 30, 0.75);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .landing-product-header strong {
+  color: #e0e8e4;
+}
+
+[data-theme="dark"] .landing-session-panel,
+[data-theme="dark"] .landing-hero-badge,
+[data-theme="dark"] .landing-hero-mini-card {
+  background: rgba(20, 35, 30, 0.88);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(18px);
+}
+
+[data-theme="dark"] .landing-session-panel p {
+  color: #8a9d95;
+}
+
+[data-theme="dark"] .landing-logo-row {
+  background: rgba(30, 50, 45, 0.4);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .landing-logo-row span {
+  color: #8a9d95;
+  background: rgba(30, 50, 45, 0.5);
+}
+
+[data-theme="dark"] .landing-feature-band {
+  background: linear-gradient(180deg, rgba(20, 40, 35, 0.5), rgba(15, 30, 25, 0.7));
+}
+
+[data-theme="dark"] .landing-feature-card,
+[data-theme="dark"] .landing-step,
+[data-theme="dark"] .landing-outcome-panel,
+[data-theme="dark"] .landing-mentor-card {
+  background: rgba(30, 50, 45, 0.7);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .landing-feature-card h3,
+[data-theme="dark"] .landing-step h3,
+[data-theme="dark"] .landing-mentor-body h3 {
+  color: #e0e8e4;
+}
+
+[data-theme="dark"] .landing-feature-card .material-symbols-outlined {
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.12);
+}
+
+[data-theme="dark"] .landing-section-heading h2,
+[data-theme="dark"] .landing-outcome-copy h2 {
+  color: #e0e8e4;
+}
+
+[data-theme="dark"] .landing-check-list p {
+  color: #c0d5cc;
+  background: rgba(30, 55, 48, 0.7);
+}
+
+[data-theme="dark"] .landing-check-list .material-symbols-outlined {
+  color: #5eead4;
+}
+
+[data-theme="dark"] .landing-footer {
+  border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .landing-footer nav a {
+  color: #8a9d95;
+  background: rgba(30, 50, 45, 0.5);
+}
+
+[data-theme="dark"] .landing-footer nav a:hover {
+  color: #e0e8e4;
+  background: rgba(30, 50, 45, 0.7);
+}
+
+[data-theme="dark"] .landing-step > span {
+  color: rgba(94, 234, 212, 0.4);
+}
+
+[data-theme="dark"] .landing-text-button {
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.1);
+}
+
+[data-theme="dark"] .landing-text-button:hover {
+  background: rgba(94, 234, 212, 0.18);
+}
+
+[data-theme="dark"] .landing-mentor-image {
+  background: linear-gradient(145deg, #1a2f28, #152a22);
+}
+
+[data-theme="dark"] .landing-mentor-image > span:not(.landing-presence) {
+  color: #5eead4;
+}
+
+[data-theme="dark"] .landing-mentor-meta span {
+  background: rgba(30, 50, 45, 0.6);
+}
+
+[data-theme="dark"] .landing-hero-photo-shell {
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.1), rgba(14, 165, 233, 0.08));
+}
+
+[data-theme="dark"] .landing-presence {
+  color: #c0d5cc;
+  background: rgba(20, 35, 30, 0.85);
+}
+
+[data-theme="dark"] .landing-presence.is-live {
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.15);
+}
+
+[data-theme="dark"] .landing-hero-badge .material-symbols-outlined {
+  color: #5eead4;
+}
+
+/* ── AdminOperationsPage Dark Mode ── */
+[data-theme="dark"] .admin-page {}
+
+[data-theme="dark"] .admin-stat {
+  background: var(--card-bg, #2d2d2d);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .admin-stat span {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .admin-stat strong {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-panel {
+  background: var(--card-bg, #2d2d2d);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .admin-field {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-table th,
+[data-theme="dark"] .admin-table td {
+  border-bottom-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .admin-table th {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .admin-table p {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .admin-card {
+  background: var(--card-bg, #2d2d2d);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .admin-card p {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .admin-verification-card {
+  background: var(--hover-bg, #363636);
+}
+
+[data-theme="dark"] .admin-verification-meta strong {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-action-cancel {
+  background: var(--card-bg, #2d2d2d);
+  border-color: var(--card-border, #404040);
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-reject-form label {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-reject-form input {
+  background: var(--input-bg, #3d3d3d);
+  border-color: var(--input-border, #505050);
+  color: var(--input-text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-reject-error {
+  color: #f87171;
+}
+
+[data-theme="dark"] .admin-field select,
+[data-theme="dark"] .admin-table select {
+  background: var(--input-bg, #3d3d3d);
+  border-color: var(--input-border, #505050);
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .admin-field select option,
+[data-theme="dark"] .admin-table select option {
+  background: #2d2d2d;
+  color: #e0e0e0;
+}
+
+/* ── MentorProfilePage Additional Dark Mode Fixes ── */
+[data-theme="dark"] .mentor-stats-card,
+[data-theme="dark"] .mentor-availability-card,
+[data-theme="dark"] .mentor-details-card {
+  background: var(--card-bg, #2d2d2d);
+  border-color: var(--card-border, #404040);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .mentor-metric-tile {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .mentor-metric-tile strong {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-metric-tile p {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-metric-tile span {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-related-item {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .mentor-related-avatar {
+  background: var(--card-bg, #2d2d2d);
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-related-content strong {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-related-content span {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-related-meta {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-empty-state {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .mentor-empty-title {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-empty-text {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-secondary-btn {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #404040);
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-secondary-btn:hover {
+  background: var(--card-bg, #2d2d2d);
+}
+
+[data-theme="dark"] .mentor-skill-chip-compact {
+  background: rgba(94, 234, 212, 0.08);
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.15);
+}
+
+[data-theme="dark"] .mentor-details-block {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-details-list {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-availability-item {
+  background: var(--hover-bg, #363636);
+  border-color: var(--card-border, #404040);
+}
+
+[data-theme="dark"] .mentor-availability-item strong {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .mentor-availability-item span {
+  color: var(--muted, #a0a0a0);
+}
+
+[data-theme="dark"] .mentor-details-card strong {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .star-rating-display .star.empty {
+  color: #555;
+}
+
+/* ── PremiumFooter data-theme support ── */
+[data-theme="dark"] .footer-content {
+  background: linear-gradient(135deg, #082a22 0%, #0e3f32 50%, #06231a 100%);
+}
+
+[data-theme="dark"] .footer-bottom {
+  background: linear-gradient(180deg, rgba(8, 42, 34, 0.5), rgba(8, 42, 34, 0.4));
+}
+
+/* ── Dashboard Hero Dark Mode Improvements ── */
+[data-theme="dark"] .dash-status-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .dash-status-confirmed {
+  background: rgba(94, 234, 212, 0.12);
+  color: #5eead4;
+}
+
+[data-theme="dark"] .dash-status-completed {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .dash-status-rejected {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+[data-theme="dark"] .dash-status-waiting {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .dash-skill-pill {
+  background: rgba(94, 234, 212, 0.1);
+  color: #5eead4;
+  border-color: rgba(94, 234, 212, 0.2);
+}
+
+[data-theme="dark"] .dash-skill-pill-count {
+  background: rgba(94, 234, 212, 0.2);
+}
+
+[data-theme="dark"] .dash-verify-banner {
+  background: rgba(217, 119, 6, 0.08);
+}
+
+[data-theme="dark"] .dash-verify-banner-text h4 {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .dash-verify-banner-btn {
+  color: #fbbf24;
+  background: rgba(217, 119, 6, 0.1);
+}
+
+[data-theme="dark"] .dash-metric-trend.up {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.1);
+}
+
+[data-theme="dark"] .dash-metric-trend.down {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] .dash-metric-trend.flat {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+/* ── Success & Error Banner Theme Variables ── */
+:root {
+  --success-bg: #f0fdf4;
+  --success-border: #86efac;
+  --success-text: #166534;
+  --error-bg: #fff1f2;
+  --error-border: #fecaca;
+  --error-text: #b91c1c;
+}
+
+[data-theme="dark"] {
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --success-border: rgba(34, 197, 94, 0.3);
+  --success-text: #4ade80;
+  --error-bg: rgba(239, 68, 68, 0.12);
+  --error-border: rgba(239, 68, 68, 0.3);
+  --error-text: #f87171;
+}
+
+/* Fix text contrast in dark mode */
+[data-theme="dark"] .text-muted,
+[data-theme="dark"] .muted,
+[data-theme="dark"] .text-secondary,
+[data-theme="dark"] .text-gray,
+[data-theme="dark"] .header-subtitle,
+[data-theme="dark"] .dash-metric-label {
+  color: var(--muted, #a0a0a0) !important;
+}
+
+/* Fix border visibility in dark mode */
+[data-theme="dark"] .dashboard-card,
+[data-theme="dark"] .dash-section,
+[data-theme="dark"] .session-card,
+[data-theme="dark"] .mentor-card,
+[data-theme="dark"] .card-border {
+  border-color: var(--card-border, #404040) !important;
+}
+
+/* Fix cards blending into background */
+[data-theme="dark"] .card,
+[data-theme="dark"] .dashboard-card,
+[data-theme="dark"] .mentor-result-card,
+[data-theme="dark"] .dash-metric-card,
+[data-theme="dark"] .dash-booking-card,
+[data-theme="dark"] .dash-session-card {
+  background: var(--card-bg, #2d2d2d) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Fix button contrast in dark mode */
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .md-btn--outline {
+  background: var(--hover-bg, #363636);
+  color: var(--text, #e0e0e0);
+  border-color: var(--card-border, #505050);
+}
+
+[data-theme="dark"] .btn-secondary:hover,
+[data-theme="dark"] .md-btn--outline:hover {
+  background: rgba(94, 234, 212, 0.12);
+  border-color: var(--brand-300);
+  color: var(--brand-300);
+}
+
+/* Fix icon visibility in dark mode */
+[data-theme="dark"] .material-symbols-outlined {
+  color: var(--text, #e0e0e0);
+}
+
+[data-theme="dark"] .material-symbols-outlined.text-primary,
+[data-theme="dark"] .material-symbols-outlined[style*="color: #0f766e"] {
+  color: var(--brand-300) !important;
+}
+
+/* Fix Links in dark mode */
+[data-theme="dark"] a {
+  color: var(--brand-300);
+}
+
+[data-theme="dark"] a:hover {
+  color: var(--brand-200);
+}
+
+/* Fix auth modal in dark mode */
+[data-theme="dark"] .auth-modal-card {
+  background: 
+    radial-gradient(circle at 85% -10%, rgba(45, 212, 191, 0.15), transparent 40%),
+    radial-gradient(circle at -10% 120%, rgba(56, 189, 248, 0.12), transparent 36%),
+    linear-gradient(160deg, rgba(15, 23, 42, 0.98), rgba(20, 30, 45, 0.95));
+}
+
+/* ── 10. SCROLLBAR STYLING ── */
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 118, 110, 0.15);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 118, 110, 0.25);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(45, 212, 191, 0.15);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(45, 212, 191, 0.25);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* ── 11. ACCESSIBILITY ENHANCEMENTS ── */
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+  outline: 2.5px solid var(--brand-600);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] :focus-visible {
+  outline-color: var(--brand-300);
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(15, 118, 110, 0.15);
+  color: var(--text);
+}
+
+[data-theme="dark"] ::selection {
+  background: rgba(45, 212, 191, 0.2);
+}
+
+/* ── 12. DASHBOARD SPECIFIC ENHANCEMENTS ── */
+
+/* Metric card top accent — works with existing dash-metric-card styling */
+.dash-metric-value {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* Stats card grid spacing */
+.dash-stats,
+.md-stats,
+.ld-stats {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* Section styling improvements */
+.dash-section {
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-card);
+  margin-bottom: 24px;
+}
+
+.dash-section-header {
+  padding: 20px 24px;
+}
+
+.dash-section-body {
+  padding: 20px 24px;
+}
+
+/* ── 13. RESPONSIVE IMPROVEMENTS ── */
+
+@media (max-width: 640px) {
+  .dash-metric-grid,
+  .dash-stats,
+  .md-stats,
+  .ld-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+
+  .dash-metric-card {
+    padding: 16px 14px;
+  }
+
+  .dash-metric-value {
+    font-size: 1.4rem;
+  }
+
+  .dash-section {
+    border-radius: var(--radius-xl);
+  }
+
+  .dash-section-header,
+  .dash-section-body {
+    padding: 14px 16px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .dash-stats,
+  .md-stats,
+  .ld-stats {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* ── 14. PRINT OPTIMIZATION ── */
+
+@media print {
+  .site-navbar,
+  .navbar,
+  .mobile-bottom-nav,
+  .toast-center,
+  .premium-footer,
+  .footer,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .route-transition {
+    padding-top: 0 !important;
+  }
+}
+
+/* ── 15. REDUCED MOTION ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

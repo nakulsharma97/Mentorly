@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface DirectConversationRepository extends JpaRepository<DirectConversation, Long> {
@@ -12,4 +13,8 @@ public interface DirectConversationRepository extends JpaRepository<DirectConver
             "(c.participantOne = :user1 and c.participantTwo = :user2) or " +
             "(c.participantOne = :user2 and c.participantTwo = :user1)")
     Optional<DirectConversation> findBetweenUsers(@Param("user1") User user1, @Param("user2") User user2);
+
+    List<DirectConversation> findByParticipantOneOrderByUpdatedAtDesc(User participantOne);
+
+    List<DirectConversation> findByParticipantTwoOrderByUpdatedAtDesc(User participantTwo);
 }

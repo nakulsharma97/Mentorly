@@ -4,6 +4,7 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import { EmptyState } from "../modules/common/dashboard/SectionCard";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -532,59 +533,55 @@ export default function MentorReviewsPage({ profile, notify }) {
   return (
     <main className="md md-page">
       <div className="md-shell md-animate">
-        <header className="mp-head">
-          <div>
-            <h1 className="mp-head__title">Reviews &amp; Ratings</h1>
-            <p className="mp-head__sub">
-              Track your teaching reputation, monitor learner satisfaction, and
-              improve your mentoring quality.
-            </p>
-          </div>
-          <div className="mp-head__actions">
+        <MentorPageHero
+          eyebrow="Reputation"
+          icon="reviews"
+          title="Reviews & Ratings"
+          sub="Track your teaching reputation, monitor learner satisfaction, and improve your mentoring quality."
+        >
+          <button
+            className="md-btn md-btn--outline md-btn--sm"
+            type="button"
+            onClick={refreshReviews}
+            disabled={refreshing}
+          >
+            <Icon name="refresh" /> {refreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <button
+            className="md-btn md-btn--outline md-btn--sm"
+            type="button"
+            onClick={() =>
+              document
+                .querySelector(".mp-toolbar")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
+          >
+            <Icon name="filter_alt" /> Filter
+          </button>
+          <div className="mp-export-group">
             <button
-              className="md-btn md-btn--outline md-btn--sm"
+              className="md-btn md-btn--brand md-btn--sm"
               type="button"
-              onClick={refreshReviews}
-              disabled={refreshing}
+              onClick={() => setExportMenuOpen((open) => !open)}
             >
-              <Icon name="refresh" /> {refreshing ? "Refreshing..." : "Refresh"}
+              <Icon name="download" /> Export Reviews
             </button>
-            <button
-              className="md-btn md-btn--outline md-btn--sm"
-              type="button"
-              onClick={() =>
-                document
-                  .querySelector(".mp-toolbar")
-                  ?.scrollIntoView({ behavior: "smooth" })
-              }
-            >
-              <Icon name="filter_alt" /> Filter
-            </button>
-            <div className="mp-export-group">
-              <button
-                className="md-btn md-btn--brand md-btn--sm"
-                type="button"
-                onClick={() => setExportMenuOpen((open) => !open)}
-              >
-                <Icon name="download" /> Export Reviews
-              </button>
-              {exportMenuOpen && (
-                <div className="mp-dropdown-menu">
-                  {EXPORT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      className="mp-dropdown-item"
-                      type="button"
-                      onClick={() => handleExport(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {exportMenuOpen && (
+              <div className="mp-dropdown-menu">
+                {EXPORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className="mp-dropdown-item"
+                    type="button"
+                    onClick={() => handleExport(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </header>
+        </MentorPageHero>
 
         <section
           className="md-stats md-animate"
