@@ -914,7 +914,7 @@ export default function MentorReviewsPage({ profile, notify }) {
       </div>
 
       {selectedReview && (
-        <div className="mp-overlay" onClick={() => setSelectedReview(null)}>
+        <div className="mp-overlay" onClick={() => setSelectedReview(null)} role="presentation">
           <div
             className="mp-drawer"
             onClick={(event) => event.stopPropagation()}

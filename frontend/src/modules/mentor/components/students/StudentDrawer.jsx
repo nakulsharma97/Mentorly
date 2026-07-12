@@ -43,7 +43,7 @@ export default function StudentDrawer({ student, onClose, onReport }) {
   const completed = student.bookings.filter((b) => b.status === "COMPLETED");
 
   return (
-    <div className="mp-overlay" onMouseDown={onClose}>
+    <div className="mp-overlay" onMouseDown={onClose} role="presentation">
       <aside
         className="mp-drawer"
         onMouseDown={(e) => e.stopPropagation()}

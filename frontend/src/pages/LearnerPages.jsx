@@ -430,7 +430,7 @@ function MentorCard({ mentor, saved, onSaveToggle }) {
                 }
                 style={
                   index < Math.round(mentor.averageRating)
-                    ? { fontVariationSettings: '\"FILL\" 1' }
+                    ? { fontVariationSettings: '"FILL" 1' }
                     : undefined
                 }
               />

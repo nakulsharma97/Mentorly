@@ -1,6 +1,6 @@
 const splitLines = (text) =>
   String(text || "")
-    .split(/\r?\n|\|\-|\*|;|\t/)
+    .split(/\r?\n|\||\*|;|\t/)
     .map((line) => line.trim())
     .filter(Boolean);
 

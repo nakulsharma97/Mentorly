@@ -854,7 +854,7 @@ export default function MentorCalendarPage({ profile, notify }) {
       </div>
 
       {selectedEvent && (
-        <div className="mp-overlay" onMouseDown={() => setSelectedEvent(null)}>
+        <div className="mp-overlay" onMouseDown={() => setSelectedEvent(null)} role="presentation">
           <aside
             className="mp-drawer"
             onMouseDown={(e) => e.stopPropagation()}

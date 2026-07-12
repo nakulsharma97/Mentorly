@@ -1309,7 +1309,7 @@ export default function App() {
               setOauthError("");
               try {
                 console.info("[auth] onLoggedIn authResponse", authResponse);
-              } catch (_) {}
+              } catch (_) { /* ignore */ }
               const nextToken = persistAuthSession(authResponse);
               try {
                 console.info(
@@ -1318,7 +1318,7 @@ export default function App() {
                   "cookies",
                   typeof document !== "undefined" ? document.cookie : null,
                 );
-              } catch (_) {}
+              } catch (_) { /* ignore */ }
               if (!nextToken) {
                 notify({
                   type: "error",

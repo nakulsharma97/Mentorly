@@ -350,13 +350,7 @@ export default function RoleGuide() {
             profile settings.
           </p>
           <button
-            onClick={() =>
-              navigate(
-                profile?.role === "MENTOR"
-                  ? "/mentor/dashboard"
-                  : "/learner/dashboard",
-              )
-            }
+            onClick={() => navigate("/learner/dashboard")}
             className="inline-block px-8 py-4 rounded-xl bg-gradient-to-r from-primary to-primary-container text-on-primary font-bold hover:opacity-90 transition-opacity shadow-lg hover:shadow-xl"
           >
             Go to Dashboard →

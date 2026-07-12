@@ -70,6 +70,125 @@ export default function AdminAnalyticsPage({ notify }) {
     loadDashboard(m);
   };
 
+  // ── These must be defined before any conditional returns (rules of hooks) ──
+  const csvRows = useMemo(() => {
+    const h = dashboard?.health || {};
+    const rows = [
+      ['Admin Dashboard Export', new Date().toISOString().slice(0, 10)],
+      [],
+      ['Platform Health Metrics'],
+      ['Metric', 'Value'],
+      ['Total Users', String(h.totalUsers)],
+      ['Total Mentors', String(h.totalMentors)],
+      ['Total Learners', String(h.totalLearners)],
+      ['Active Users (7d)', String(h.activeUsers7d)],
+      ['Joined Today', String(h.joinedToday)],
+      ['Joined This Week', String(h.joinedThisWeek)],
+      ['Total Bookings', String(h.totalBookings)],
+      ['Completed Sessions', String(h.completedSessions)],
+      ['Completion Rate (%)', String(h.completionRate)],
+      ['Mentor Ratio (%)', String(h.mentorRatio)],
+      ['Platform Fees', String(h.platformFees)],
+      ['Total Released Amount', String(h.totalReleasedAmount)],
+      [],
+      ['Monthly Trends'],
+      ['Month', 'Signups', 'Revenue', 'Completed Sessions'],
+    ];
+    const months = Math.max((dashboard?.signupTrend || []).length, (dashboard?.revenueTrend || []).length, (dashboard?.sessionTrend || []).length);
+    const signupTrend = dashboard?.signupTrend || [];
+    const revenueTrend = dashboard?.revenueTrend || [];
+    const sessionTrend = dashboard?.sessionTrend || [];
+    for (let i = 0; i < months; i++) {
+      rows.push([
+        signupTrend[i]?.label || revenueTrend[i]?.label || sessionTrend[i]?.label || '',
+        String(signupTrend[i]?.value || 0),
+        String(revenueTrend[i]?.value || 0),
+        String(sessionTrend[i]?.value || 0),
+      ]);
+    }
+    return rows;
+  }, [dashboard]);
+
+  const handleExportCsv = useCallback(() => {
+    setExporting((prev) => ({ ...prev, csv: true }));
+    try {
+      downloadCsv(csvRows, `admin-dashboard-${new Date().toISOString().slice(0, 10)}.csv`);
+      notify?.({ type: 'success', title: 'CSV ready', message: 'Dashboard data downloaded as CSV.' });
+    } catch {
+      notify?.({ type: 'error', title: 'Export failed', message: 'Could not generate CSV.' });
+    } finally {
+      setExporting((prev) => ({ ...prev, csv: false }));
+    }
+  }, [csvRows, notify]);
+
+  const handleExportPdf = useCallback(() => {
+    setExporting((prev) => ({ ...prev, pdf: true }));
+    try {
+      const h = dashboard?.health || {};
+      const doc = new jsPDF({ orientation: 'portrait' });
+      doc.setFontSize(18);
+      doc.text('Admin Dashboard', 14, 16);
+      doc.setFontSize(9);
+      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 24);
+
+      // Health metrics table
+      const healthBody = [
+        ['Total Users', String(h.totalUsers)],
+        ['Total Mentors', String(h.totalMentors)],
+        ['Total Learners', String(h.totalLearners)],
+        ['Active Users (7d)', String(h.activeUsers7d)],
+        ['Joined Today', String(h.joinedToday)],
+        ['Joined This Week', String(h.joinedThisWeek)],
+        ['Total Bookings', String(h.totalBookings)],
+        ['Completed Sessions', String(h.completedSessions)],
+        ['Completion Rate', `${h.completionRate || 0}%`],
+        ['Platform Fees', `\u20B9${Number(h.platformFees || 0).toFixed(2)}`],
+        ['Total Released', `\u20B9${Number(h.totalReleasedAmount || 0).toFixed(2)}`],
+      ];
+
+      doc.autoTable({
+        startY: 30,
+        head: [['Platform Health Metrics', 'Value']],
+        body: healthBody,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [15, 118, 110] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+      });
+
+      // Monthly trends table
+      const months = Math.max((dashboard?.signupTrend || []).length, (dashboard?.revenueTrend || []).length, (dashboard?.sessionTrend || []).length);
+      const signupTrend = dashboard?.signupTrend || [];
+      const revenueTrend = dashboard?.revenueTrend || [];
+      const sessionTrend = dashboard?.sessionTrend || [];
+      const trendBody = [];
+      for (let i = 0; i < months; i++) {
+        trendBody.push([
+          signupTrend[i]?.label || revenueTrend[i]?.label || sessionTrend[i]?.label || '',
+          String(Math.round(signupTrend[i]?.value || 0)),
+          `\u20B9${Number(revenueTrend[i]?.value || 0).toFixed(2)}`,
+          String(Math.round(sessionTrend[i]?.value || 0)),
+        ]);
+      }
+
+      const lastTableY = doc.lastAutoTable?.finalY || 40;
+      doc.autoTable({
+        startY: lastTableY + 14,
+        head: [['Month', 'Signups', 'Revenue', 'Completed Sessions']],
+        body: trendBody,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [15, 118, 110] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+      });
+
+      doc.save(`admin-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`);
+      notify?.({ type: 'success', title: 'PDF ready', message: 'Dashboard report downloaded as PDF.' });
+    } catch {
+      notify?.({ type: 'error', title: 'Export failed', message: 'Could not generate PDF.' });
+    } finally {
+      setExporting((prev) => ({ ...prev, pdf: false }));
+    }
+  }, [dashboard, notify]);
+
   // Loading state
   if (loading) {
     return (
@@ -114,42 +233,7 @@ export default function AdminAnalyticsPage({ notify }) {
   const prevMonthSignups = signupTrend.length > 1 ? signupTrend[signupTrend.length - 2]?.value || 0 : 0;
   const signupDelta = prevMonthSignups > 0 ? Math.round(((lastMonthSignups - prevMonthSignups) / prevMonthSignups) * 100) : 0;
 
-  // ── Export helpers ──
 
-  const csvRows = useMemo(() => {
-    const h = health || {};
-    const rows = [
-      ['Admin Dashboard Export', new Date().toISOString().slice(0, 10)],
-      [],
-      ['Platform Health Metrics'],
-      ['Metric', 'Value'],
-      ['Total Users', String(h.totalUsers)],
-      ['Total Mentors', String(h.totalMentors)],
-      ['Total Learners', String(h.totalLearners)],
-      ['Active Users (7d)', String(h.activeUsers7d)],
-      ['Joined Today', String(h.joinedToday)],
-      ['Joined This Week', String(h.joinedThisWeek)],
-      ['Total Bookings', String(h.totalBookings)],
-      ['Completed Sessions', String(h.completedSessions)],
-      ['Completion Rate (%)', String(h.completionRate)],
-      ['Mentor Ratio (%)', String(h.mentorRatio)],
-      ['Platform Fees', String(h.platformFees)],
-      ['Total Released Amount', String(h.totalReleasedAmount)],
-      [],
-      ['Monthly Trends'],
-      ['Month', 'Signups', 'Revenue', 'Completed Sessions'],
-    ];
-    const months = Math.max(signupTrend.length, revenueTrend.length, sessionTrend.length);
-    for (let i = 0; i < months; i++) {
-      rows.push([
-        signupTrend[i]?.label || revenueTrend[i]?.label || sessionTrend[i]?.label || '',
-        String(signupTrend[i]?.value || 0),
-        String(revenueTrend[i]?.value || 0),
-        String(sessionTrend[i]?.value || 0),
-      ]);
-    }
-    return rows;
-  }, [health, signupTrend, revenueTrend, sessionTrend]);
 
   const downloadCsv = (rows, fileName) => {
     const csv = rows
@@ -164,82 +248,7 @@ export default function AdminAnalyticsPage({ notify }) {
     URL.revokeObjectURL(url);
   };
 
-  const handleExportCsv = useCallback(() => {
-    setExporting((prev) => ({ ...prev, csv: true }));
-    try {
-      downloadCsv(csvRows, `admin-dashboard-${new Date().toISOString().slice(0, 10)}.csv`);
-      notify?.({ type: 'success', title: 'CSV ready', message: 'Dashboard data downloaded as CSV.' });
-    } catch {
-      notify?.({ type: 'error', title: 'Export failed', message: 'Could not generate CSV.' });
-    } finally {
-      setExporting((prev) => ({ ...prev, csv: false }));
-    }
-  }, [csvRows, notify]);
 
-  const handleExportPdf = useCallback(() => {
-    setExporting((prev) => ({ ...prev, pdf: true }));
-    try {
-      const h = health || {};
-      const doc = new jsPDF({ orientation: 'portrait' });
-      doc.setFontSize(18);
-      doc.text('Admin Dashboard', 14, 16);
-      doc.setFontSize(9);
-      doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 24);
-
-      // Health metrics table
-      const healthBody = [
-        ['Total Users', String(h.totalUsers)],
-        ['Total Mentors', String(h.totalMentors)],
-        ['Total Learners', String(h.totalLearners)],
-        ['Active Users (7d)', String(h.activeUsers7d)],
-        ['Joined Today', String(h.joinedToday)],
-        ['Joined This Week', String(h.joinedThisWeek)],
-        ['Total Bookings', String(h.totalBookings)],
-        ['Completed Sessions', String(h.completedSessions)],
-        ['Completion Rate', `${h.completionRate || 0}%`],
-        ['Platform Fees', `₹${Number(h.platformFees || 0).toFixed(2)}`],
-        ['Total Released', `₹${Number(h.totalReleasedAmount || 0).toFixed(2)}`],
-      ];
-
-      doc.autoTable({
-        startY: 30,
-        head: [['Platform Health Metrics', 'Value']],
-        body: healthBody,
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 118, 110] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-      });
-
-      // Monthly trends table
-      const months = Math.max(signupTrend.length, revenueTrend.length, sessionTrend.length);
-      const trendBody = [];
-      for (let i = 0; i < months; i++) {
-        trendBody.push([
-          signupTrend[i]?.label || revenueTrend[i]?.label || sessionTrend[i]?.label || '',
-          String(Math.round(signupTrend[i]?.value || 0)),
-          `₹${Number(revenueTrend[i]?.value || 0).toFixed(2)}`,
-          String(Math.round(sessionTrend[i]?.value || 0)),
-        ]);
-      }
-
-      const lastTableY = doc.lastAutoTable?.finalY || 40;
-      doc.autoTable({
-        startY: lastTableY + 14,
-        head: [['Month', 'Signups', 'Revenue', 'Completed Sessions']],
-        body: trendBody,
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [15, 118, 110] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-      });
-
-      doc.save(`admin-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`);
-      notify?.({ type: 'success', title: 'PDF ready', message: 'Dashboard report downloaded as PDF.' });
-    } catch {
-      notify?.({ type: 'error', title: 'Export failed', message: 'Could not generate PDF.' });
-    } finally {
-      setExporting((prev) => ({ ...prev, pdf: false }));
-    }
-  }, [health, signupTrend, revenueTrend, sessionTrend, notify]);
 
   return (
     <section className="admin-page">
