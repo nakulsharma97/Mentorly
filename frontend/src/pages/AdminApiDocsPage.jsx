@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import Icon from '../modules/common/dashboard/Icon';
 import './AdminOperationsPage.css';
 
 const ENDPOINTS = [

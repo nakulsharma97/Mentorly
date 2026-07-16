@@ -15,7 +15,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -30,28 +30,28 @@ class AvailabilityControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserAvailabilitySlotRepository slotRepository;
 
-    @MockBean
+    @MockitoBean
     private com.skillswap.booking.BookingRepository bookingRepository;
 
-    @MockBean
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @MockBean
+    @MockitoBean
     private EndpointRateLimitFilter endpointRateLimitFilter;
 
-    @MockBean
+    @MockitoBean
     private RequestTraceFilter requestTraceFilter;
 
-    @MockBean
+    @MockitoBean
     private UserDetailsService userDetailsService;
 
-    @MockBean
+    @MockitoBean
     private com.skillswap.auth.OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
-    @MockBean
+    @MockitoBean
     private com.skillswap.auth.OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
 
     @Test

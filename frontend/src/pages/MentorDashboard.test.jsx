@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
 import MentorDashboard from "./MentorDashboard";
@@ -15,31 +15,31 @@ function renderMentorDashboard() {
 }
 
 describe("MentorDashboard", () => {
-  it("renders mentor name from profile prop", async () => {
+  it("renders mentor name with greeting", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Welcome back/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
     });
 
-    // The heading contains "Welcome back, Mentor" split across elements
-    const heading = screen.getByRole('heading', { name: /Welcome back/i });
-    expect(heading.textContent).toContain('Mentor');
+    const heading = screen.getByText(/Good Morning/i);
+    expect(heading.textContent).toContain("Mentor");
   });
 
   it("renders pending requests section", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Pending Requests/i)).toBeInTheDocument();
+      expect(screen.getByText(/Session Requests/i)).toBeInTheDocument();
     });
   });
 
-  it("renders total sessions stat", async () => {
+  it("renders upcoming sessions stat", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("Total Sessions")).toBeInTheDocument();
+      const sessions = screen.getAllByText("Upcoming Sessions");
+      expect(sessions.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -47,7 +47,9 @@ describe("MentorDashboard", () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("Average Rating")).toBeInTheDocument();
+      // Average Rating appears in both hero floating stats and analytics
+      const ratings = screen.getAllByText("Average Rating");
+      expect(ratings.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -60,7 +62,7 @@ describe("MentorDashboard", () => {
 
     expect(screen.getByText("SKILLSWAP")).toBeInTheDocument();
     expect(
-      screen.getByText(/Invite Learners, Earn Credits/i),
+      screen.getByText(/Friends Referred/i),
     ).toBeInTheDocument();
   });
 
@@ -77,6 +79,31 @@ describe("MentorDashboard", () => {
       expect(
         screen.getByText(/Welcome to Your Mentor Dashboard/i),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("renders the today's schedule section", async () => {
+    renderMentorDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Today's Schedule/i)).toBeInTheDocument();
+    });
+  });
+
+  it("renders quick action cards", async () => {
+    renderMentorDashboard();
+
+    await waitFor(() => {
+      const sessions = screen.getAllByText("Create Session");
+      expect(sessions.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it("renders mentor progress section", async () => {
+    renderMentorDashboard();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Mentor Progress/i)).toBeInTheDocument();
     });
   });
 });

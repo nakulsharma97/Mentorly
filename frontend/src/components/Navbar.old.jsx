@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "../utils/i18n";
 import { NavLink, useLocation } from "react-router-dom";
-import { UIBadge } from "./ui/Primitives";
 import { useOptionalTheme } from "../context/ThemeContext";
 import OptimizedImage from "./OptimizedImage";
 
@@ -14,7 +13,6 @@ export default function Navbar({
   authMode,
   onSelectAuthMode,
   language,
-  onLanguageChange,
   unreadNotifications = 0,
 }) {
   const [menuOpen, setMenuOpen] = useState(false);

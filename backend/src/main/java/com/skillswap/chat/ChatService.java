@@ -12,6 +12,7 @@ import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,8 +28,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ChatService {
 
     private final ChatMessageRepository chatMessageRepository;
@@ -68,11 +71,13 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ChatMessageView createMessage(User currentUser, Long bookingId, String content) {
         Booking booking = getBookingIfParticipant(currentUser, bookingId);
         return toDto(saveMessage(currentUser, booking, content));
     }
 
+    @Transactional
     public ChatMessageView createMessage(String userEmail, Long bookingId, String content) {
         User sender = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -80,6 +85,7 @@ public class ChatService {
         return toDto(saveMessage(sender, booking, content));
     }
 
+    @Transactional(readOnly = true)
     public void ensureParticipant(String userEmail, Long bookingId) {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -272,6 +278,8 @@ public class ChatService {
         Optional<DirectConversation> existing = directConversationRepository.findBetweenUsers(currentUser, target);
         if (existing.isPresent()) {
             DirectConversation dc = existing.get();
+            int unreadCount = (int) directMessageRepository
+                    .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(dc.getId(), currentUser.getEmail());
             return new DirectConversationResponse(
                     dc.getId(),
                     target.getId(),
@@ -284,7 +292,7 @@ public class ChatService {
                     computePresenceText(target),
                     "",
                     dc.getCreatedAt(),
-                    0);
+                    unreadCount);
         }
 
         // Create new direct conversation
@@ -338,6 +346,7 @@ public class ChatService {
      * Lightweight check — validates the user is a participant in a direct conversation
      * without fetching any messages. Throws on failure, returns true on success.
      */
+    @Transactional(readOnly = true)
     public boolean isParticipantInConversation(String userEmail, Long conversationId) {
         DirectConversation conversation = directConversationRepository.findById(conversationId)
                 .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
@@ -356,11 +365,20 @@ public class ChatService {
     public DirectMessageView sendDirectMessage(String senderEmail, Long conversationId, String content) {
         User sender = userRepository.findByEmail(senderEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        return sendDirectMessage(sender, conversationId, content);
+        return doSendDirectMessage(sender, conversationId, content);
     }
 
     @Transactional
     public DirectMessageView sendDirectMessage(User currentUser, Long conversationId, String content) {
+        return doSendDirectMessage(currentUser, conversationId, content);
+    }
+
+    /**
+     * Core send logic extracted to avoid self-invocation @Transactional bypass.
+     * Both public {@code sendDirectMessage} overloads invoke this private method
+     * within their own proxy-driven transaction boundaries.
+     */
+    private DirectMessageView doSendDirectMessage(User currentUser, Long conversationId, String content) {
         DirectConversation conversation = directConversationRepository.findById(conversationId)
                 .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
 
@@ -417,6 +435,8 @@ public class ChatService {
                             : dc.getParticipantOne();
                     DirectMessage lastMsg = directMessageRepository
                             .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
+                    int unreadCount = (int) directMessageRepository
+                            .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(dc.getId(), currentUser.getEmail());
                     return new DirectConversationResponse(
                             dc.getId(),
                             participant.getId(),
@@ -429,7 +449,7 @@ public class ChatService {
                             computePresenceText(participant),
                             lastMsg == null ? "No messages yet" : lastMsg.getContent(),
                             lastMsg == null ? dc.getCreatedAt() : lastMsg.getCreatedAt(),
-                            0);
+                            unreadCount);
                 })
                 .collect(Collectors.toList());
     }
@@ -493,24 +513,33 @@ public class ChatService {
     }
 
     public DirectConversationDetail getDirectConversation(User currentUser, Long conversationId) {
-        DirectConversation conversation = directConversationRepository.findById(conversationId)
-                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+        log.info("[getDirectConversation] conversationId={}, currentUserId={}", conversationId, currentUser.getId());
 
-        boolean isParticipant = conversation.getParticipantOne().getId().equals(currentUser.getId())
-                || conversation.getParticipantTwo().getId().equals(currentUser.getId());
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> {
+                    log.warn("[getDirectConversation] Conversation not found by ID: {}", conversationId);
+                    return new IllegalArgumentException("Conversation not found for ID: " + conversationId);
+                });
+
+        Long p1Id = conversation.getParticipantOne().getId();
+        Long p2Id = conversation.getParticipantTwo().getId();
+        log.debug("[getDirectConversation] Found conversation: participantOneId={}, participantTwoId={}", p1Id, p2Id);
+
+        boolean isParticipant = p1Id.equals(currentUser.getId()) || p2Id.equals(currentUser.getId());
         if (!isParticipant) {
-            throw new IllegalArgumentException("Access denied");
+            log.warn("[getDirectConversation] Access denied: user {} is not a participant in conversation {}", currentUser.getId(), conversationId);
+            throw new IllegalArgumentException("Access denied for conversation: " + conversationId);
         }
 
-        User participant = conversation.getParticipantOne().getId().equals(currentUser.getId())
-                ? conversation.getParticipantTwo()
-                : conversation.getParticipantOne();
+        User participant = p1Id.equals(currentUser.getId()) ? conversation.getParticipantTwo() : conversation.getParticipantOne();
+        log.info("[getDirectConversation] Participant resolved: id={}, name={}", participant.getId(), participant.getFullName());
 
         List<DirectMessageView> messages = directMessageRepository
                 .findByConversationIdOrderByCreatedAtAsc(conversationId)
                 .stream()
                 .map(this::toDirectMessageView)
                 .collect(Collectors.toList());
+        log.debug("[getDirectConversation] Loaded {} messages for conversation {}", messages.size(), conversationId);
 
         return new DirectConversationDetail(
                 conversation.getId(),

@@ -9,13 +9,7 @@ import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
 
 const VIEW_TABS = ["day", "week", "month", "agenda"];
-const STATUS_ORDER = {
-  CONFIRMED: 0,
-  ACCEPTED: 1,
-  PENDING: 2,
-  COMPLETED: 3,
-  CANCELLED: 4,
-};
+
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function toDate(value) {
@@ -85,7 +79,7 @@ function createCalendarDays(viewDate) {
   return days;
 }
 
-export default function MentorCalendarPage({ profile, notify }) {
+export default function MentorCalendarPage({ notify }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

@@ -17,9 +17,20 @@ async function apiPost(path, body, cfg) { const r = await client.post(path, body
 async function apiPut(path, cfg) { const r = await client.put(path, cfg); return unwrap(r.data); }
 
 function fmtTime(value) {
+  if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) {
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) {
+    return "Yesterday";
+  }
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function fmtDay(value) {
@@ -33,14 +44,15 @@ function fmtDay(value) {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "2-digit" });
 }
 
-function groupMessages(msgs) {
+function groupMessages(msgs, currentUserId) {
   const days = [];
   let cd = null, cr = null;
   msgs.forEach((m) => {
     const dl = fmtDay(m.createdAt);
     if (!cd || cd.label !== dl) { cd = { label: dl, runs: [] }; days.push(cd); cr = null; }
-    const sk = String(m.senderRole || "").toUpperCase();
-    if (!cr || cr.sk !== sk) { cr = { sk, msgs: [] }; cd.runs.push(cr); }
+    const mine = String(m.senderId) === String(currentUserId);
+    const rk = mine ? "me" : `peer-${m.senderId ?? "?"}`;
+    if (!cr || cr.rk !== rk) { cr = { rk, mine, msgs: [] }; cd.runs.push(cr); }
     cr.msgs.push(m);
   });
   return days;
@@ -49,25 +61,6 @@ function groupMessages(msgs) {
 function initials(val) {
   return String(val || "?")
     .split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-}
-
-/* ───────────── Normalize conversations ───────────── */
-
-function normalizeBookingConv(c) {
-  return {
-    id: `booking-${c.bookingId}`,
-    kind: "booking",
-    bookingId: c.bookingId,
-    participantName: c.participantName || "Mentor",
-    participantAvatarUrl: c.participantProfileImageUrl || c.participantAvatarUrl,
-    participantOnline: Boolean(c.participantOnline),
-    participantPresenceText: c.participantPresenceText || "Offline",
-    participantId: c.participantId,
-    sessionTitle: c.sessionTitle || "",
-    lastMessagePreview: c.lastMessagePreview || "",
-    lastMessageTime: c.lastMessageAt || "",
-    unreadCount: Number(c.unreadCount || 0),
-  };
 }
 
 function normalizeDirectConv(c) {
@@ -81,6 +74,7 @@ function normalizeDirectConv(c) {
     participantOnline: Boolean(c.participantOnline),
     participantPresenceText: c.participantPresenceText || "Offline",
     participantId: c.participantId,
+    participantEmail: c.participantEmail || "",
     sessionTitle: "",
     lastMessagePreview: c.lastMessagePreview || "",
     lastMessageTime: c.lastMessageAt || "",
@@ -98,7 +92,7 @@ export default function LearnerMessagesPage({ profile }) {
 
   const [refreshKey, setRefreshKey] = useState(0);
   const [selId, setSelId] = useState(null);
-  const [selKind, setSelKind] = useState(null); // "booking" | "direct"
+  const [, setSelKind] = useState(null);
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const [filterMode, setFilterMode] = useState("all");
@@ -114,6 +108,15 @@ export default function LearnerMessagesPage({ profile }) {
   const [typingUsers, setTypingUsers] = useState({});
   const [wsState, setWsState] = useState("idle");
   const [fetchingDirectConv, setFetchingDirectConv] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [mentorSearch, setMentorSearch] = useState("");
+  const [mentors, setMentors] = useState([]);
+  const [mentorsLoading, setMentorsLoading] = useState(false);
+  const [selectedMentor, setSelectedMentor] = useState(null);
+  const [creatingConv, setCreatingConv] = useState(false);
+  const [createError, setCreateError] = useState(null);
+
   const threadRef = useRef(null);
   const wsRef = useRef(null);
   const stopReconnectRef = useRef(false);
@@ -123,6 +126,7 @@ export default function LearnerMessagesPage({ profile }) {
   const isMountedRef = useRef(false);
 
   const currentUserEmail = String(profile?.email || "").toLowerCase();
+  const currentUserId = profile?.id;
   const apiBase = import.meta.env.VITE_API_BASE_URL || "";
   const wsBase = useMemo(() => {
     if (apiBase) return apiBase.replace(/^http/, "ws");
@@ -159,7 +163,6 @@ export default function LearnerMessagesPage({ profile }) {
     socket.onopen = () => {
       if (!isMountedRef.current) return;
       setWsState("connected");
-      // Send READ to mark messages as read and notify the other user in real-time
       wsRef.current.send(
         kind === "direct"
           ? JSON.stringify({ type: "READ", conversationId: Number(convId) })
@@ -239,53 +242,11 @@ export default function LearnerMessagesPage({ profile }) {
       Object.values(typingSeenTimeoutsRef.current).forEach((t) => clearTimeout(t));
       typingSeenTimeoutsRef.current = {};
     };
-  }, [clearReconnectTimer, closeSocket]);  // ── fetch a single direct conversation by ID (for URL-based navigation) ──
-  const fetchDirectConversation = useCallback(async (convId) => {
-    if (!convId) return;
-    setFetchingDirectConv(true);
-    try {
-      const detail = await apiGet(`/api/v1/chat/direct/${convId}`).catch(() => null);
-      if (!detail) return;
-      // Convert to our normalized format and prepend to conversations
-      const normalized = normalizeDirectConv({
-        conversationId: detail.conversationId,
-        participantId: detail.participantId,
-        participantName: detail.participantName,
-        participantRole: detail.participantRole,
-        participantSkills: detail.participantSkills,
-        participantProfileImageUrl: detail.participantProfileImageUrl,
-        participantVerified: detail.participantVerified,
-        participantOnline: detail.participantOnline,
-        participantPresenceText: detail.participantPresenceText,
-        lastMessagePreview: "",
-        lastMessageAt: null,
-        unreadCount: 0,
-      });
-      // Add to directConvs so it appears in allConvs for selConv lookup
-      setDirectConvs((prev) => {
-        const exists = prev.some((c) => c.conversationId === detail.conversationId);
-        return exists ? prev : [normalized, ...prev];
-      });
-      // Set conversation directly
-      setSelId(normalized.id);
-      setSelKind(normalized.kind);
-      setMobileView("thread");
-      // Also load messages directly from the detail
-      if (detail.messages) {
-        setThreadData(detail.messages);
-      }
-    } catch (e) {
-      // Conversation fetch failed — show empty state
-      console.debug("Could not fetch direct conversation:", e);
-    } finally {
-      setFetchingDirectConv(false);
-    }
-  }, []);
+  }, [clearReconnectTimer, closeSocket]);
 
   // ── fetch both conversation types ──
   useEffect(() => {
     let active = true;
-    setLoading(true);
     setError(null);
     Promise.all([
       apiGet("/api/v1/chat/conversations").catch(() => []),
@@ -308,24 +269,88 @@ export default function LearnerMessagesPage({ profile }) {
   // ── merge both types into a unified list ──
   const allConvs = useMemo(() => {
     const list = [
-      ...bookingConvs.map(normalizeBookingConv),
+      ...bookingConvs.map((c) => ({
+        id: `booking-${c.bookingId}`,
+        kind: "booking",
+        conversationId: c.bookingId,
+        bookingId: c.bookingId,
+        participantName: c.participantName || "Mentor",
+        participantAvatarUrl: c.participantProfileImageUrl || c.participantAvatarUrl,
+        participantOnline: Boolean(c.participantOnline),
+        participantPresenceText: c.participantPresenceText || "Offline",
+        participantId: c.participantId,
+        participantEmail: c.participantEmail || "",
+        sessionTitle: c.sessionTitle || "",
+        lastMessagePreview: c.lastMessagePreview || "",
+        lastMessageTime: c.lastMessageAt || "",
+        unreadCount: Number(c.unreadCount || 0),
+      })),
       ...directConvs.map(normalizeDirectConv),
     ];
     list.sort((a, b) => new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0));
     return list;
   }, [bookingConvs, directConvs]);
 
-  // ── derive current selection (must be after allConvs) ──
+  // ── derive current selection ──
   const selConv = useMemo(() => {
     if (!selId) return null;
     return allConvs.find((c) => c.id === selId) || null;
   }, [selId, allConvs]);
 
+  // ── fetch a single direct conversation by ID (for URL-based navigation) ──
+  const fetchDirectConversationById = useCallback(async (convId) => {
+    if (!convId) return null;
+    setFetchingDirectConv(true);
+    setFetchError(null);
+    try {
+      const detail = await apiGet(`/api/v1/chat/direct/${convId}`);
+      if (!detail) return null;
+
+      const normalized = normalizeDirectConv({
+        conversationId: detail.conversationId,
+        participantId: detail.participantId,
+        participantName: detail.participantName,
+        participantRole: detail.participantRole,
+        participantSkills: detail.participantSkills,
+        participantProfileImageUrl: detail.participantProfileImageUrl,
+        participantVerified: detail.participantVerified,
+        participantOnline: detail.participantOnline,
+        participantPresenceText: detail.participantPresenceText,
+        lastMessagePreview: "",
+        lastMessageAt: null,
+        unreadCount: 0,
+      });
+
+      setDirectConvs((prev) => {
+        const exists = prev.some((c) => c.conversationId === detail.conversationId);
+        return exists ? prev : [normalized, ...prev];
+      });
+
+      setSelId(normalized.id);
+      setSelKind(normalized.kind);
+      setMobileView("thread");
+
+      if (detail.messages) {
+        setThreadData(detail.messages);
+      }
+
+      return normalized;
+    } catch (e) {
+      const status = e?.response?.status;
+      const errMsg = e?.response?.data?.message || e?.message || "Unknown error";
+      console.error("[Messages] Failed to fetch conversation:", convId, "Status:", status, "Error:", errMsg, e);
+      setFetchError(`Mentor unavailable. Could not load this conversation. (${status || "network error"}: ${errMsg})`);
+      return null;
+    } finally {
+      setFetchingDirectConv(false);
+    }
+  }, []);
+
   // ── auto-select: URL param > nav state > first conv ──
   useEffect(() => {
-    if (selId) return;
-    
-    // Priority 1: URL param (most reliable, survives refresh)
+    console.log("[Messages] auto-select effect: selId=%s urlConv=%s convs=%d", selId, urlConversationId, allConvs.length);
+
+    // Priority 1: URL param — always process regardless of existing selection
     if (urlConversationId) {
       const parsedId = Number(urlConversationId);
       if (!Number.isNaN(parsedId)) {
@@ -333,43 +358,62 @@ export default function LearnerMessagesPage({ profile }) {
           (c) => c.kind === "direct" && c.conversationId === parsedId
         );
         if (found) {
+          console.log("[Messages] Found conversation in list, selecting:", found.id);
           setSelId(found.id);
           setSelKind(found.kind);
           setMobileView("thread");
           return;
         }
-        // Conversation not loaded yet — check if we need to fetch it directly
-        fetchDirectConversation(parsedId);
+        // Conversation not loaded yet — fetch directly
+        if (!fetchingDirectConv) {
+          console.log("[Messages] Conversation not in list, fetching by ID:", parsedId);
+          fetchDirectConversationById(parsedId);
+        }
         return;
       }
     }
-    
-    // Priority 2: location state (legacy support)
+
+    // Don't override existing selId for lower priority cases
+    if (selId) {
+      console.log("[Messages] selId already set, skipping lower priority cases");
+      return;
+    }
+
+    // Priority 2: location state
     if (navState.directConversationId) {
       const found = allConvs.find(
         (c) => c.kind === "direct" && c.conversationId === navState.directConversationId
       );
       if (found) {
+        console.log("[Messages] Selecting from nav state:", found.id);
         setSelId(found.id);
         setSelKind(found.kind);
         setMobileView("thread");
         return;
       }
     }
-    
+
     // Priority 3: first conversation
     if (allConvs.length) {
+      console.log("[Messages] Auto-selecting first conversation:", allConvs[0].id);
       setSelId(allConvs[0].id);
       setSelKind(allConvs[0].kind);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allConvs.length, urlConversationId, navState.directConversationId]);
 
+  // ── search & filter conversations ──
   const filteredConvs = useMemo(() => {
     let list = allConvs;
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((c) => c.participantName?.toLowerCase().includes(q));
+      list = list.filter((c) => {
+        const name = (c.participantName || "").toLowerCase();
+        const email = (c.participantEmail || "").toLowerCase();
+        const preview = (c.lastMessagePreview || "").toLowerCase();
+        const title = (c.sessionTitle || "").toLowerCase();
+        return name.includes(q) || email.includes(q) || preview.includes(q) || title.includes(q);
+      });
     }
     if (filterMode === "unread") list = list.filter((c) => c.unreadCount > 0);
     return list;
@@ -388,6 +432,8 @@ export default function LearnerMessagesPage({ profile }) {
     setThreadData([]);
     stopReconnectRef.current = false;
 
+    const convId = selConv.kind === "direct" ? selConv.conversationId : selConv.bookingId;
+
     const loadThread = async () => {
       if (selConv.kind === "booking") {
         await apiPut(`/api/v1/chat/booking/${selConv.bookingId}/read`).catch(() => null);
@@ -405,7 +451,6 @@ export default function LearnerMessagesPage({ profile }) {
     loadThread();
 
     // Connect WebSocket for real-time
-    const convId = selConv.kind === "direct" ? selConv.conversationId : selConv.bookingId;
     connectWebSocket(convId, selConv.kind);
 
     return () => {
@@ -419,11 +464,14 @@ export default function LearnerMessagesPage({ profile }) {
   }, [selId, refreshKey]);
 
   const allMessages = useMemo(() => {
-    const opt = pending.filter((p) => p.bookingId === selId);
+    const opt = pending.filter((p) => {
+      if (selConv?.kind === "direct") return p.conversationId === selConv?.conversationId;
+      return p.bookingId === selConv?.bookingId;
+    });
     return [...(threadData || []), ...opt];
-  }, [threadData, pending, selId]);
+  }, [threadData, pending, selConv]);
 
-  const messageDays = useMemo(() => groupMessages(allMessages), [allMessages]);
+  const messageDays = useMemo(() => groupMessages(allMessages, currentUserId), [allMessages, currentUserId]);
 
   const isTyping = Boolean(selConv && typingUsers[String(
     selConv.kind === "direct" ? selConv.conversationId : selConv.bookingId
@@ -451,8 +499,18 @@ export default function LearnerMessagesPage({ profile }) {
     e.preventDefault();
     const content = draft.trim();
     if (!selConv || !content || sending) return;
-    const tid = `p-${selId}-${allMessages.length}`;
-    setPending((l) => [...l, { id: tid, bookingId: selId, content, senderRole: "LEARNER", createdAt: new Date().toISOString(), pending: true }]);
+    const tid = `p-${selId}-${Date.now()}`;
+    setPending((l) => [...l, {
+      id: tid,
+      content,
+      senderId: currentUserId,
+      senderEmail: currentUserEmail,
+      senderRole: "LEARNER",
+      createdAt: new Date().toISOString(),
+      pending: true,
+      conversationId: selConv.conversationId,
+      bookingId: selConv.bookingId,
+    }]);
     setDraft("");
     setSending(true);
     setTimeout(() => scrollDown(), 50);
@@ -464,8 +522,11 @@ export default function LearnerMessagesPage({ profile }) {
       }
       setPending((l) => l.filter((p) => p.id !== tid));
       setRefreshKey((k) => k + 1);
-    } catch { setPending((l) => l.map((p) => (p.id === tid ? { ...p, failed: true, pending: false } : p))); }
-    finally { setSending(false); }
+    } catch {
+      setPending((l) => l.map((p) => (p.id === tid ? { ...p, failed: true, pending: false } : p)));
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleKey(e) {
@@ -489,6 +550,201 @@ export default function LearnerMessagesPage({ profile }) {
     if (conv.kind === "direct") {
       navigate(`/learner/messages/${conv.conversationId}`, { replace: true });
     }
+  }
+
+  // ── New Chat: mentor search ──
+  useEffect(() => {
+    if (!showNewChat) return;
+    let active = true;
+    setMentorsLoading(true);
+    const q = mentorSearch.trim();
+    apiGet("/api/v1/search/mentors", { params: q ? { q, size: 20 } : { size: 20 } })
+      .then((results) => {
+        if (!active) return;
+        setMentors(results || []);
+        setMentorsLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setMentors([]);
+        setMentorsLoading(false);
+      });
+    return () => { active = false; };
+  }, [showNewChat, mentorSearch]);
+
+  async function handleStartConversation() {
+    if (!selectedMentor) {
+      console.warn("[NewChat] No mentor selected");
+      setCreateError("Please select a mentor to start a conversation.");
+      return;
+    }
+    const mentorId = selectedMentor.mentorId || selectedMentor.id;
+    console.log("[NewChat] Starting conversation with mentor ID:", mentorId, selectedMentor);
+    setCreatingConv(true);
+    setCreateError(null);
+    try {
+      const res = await apiPost(`/api/v1/chat/direct/${mentorId}`);
+      console.log("[NewChat] API response:", res);
+      if (res?.conversationId) {
+        const newConvId = res.conversationId;
+        console.log("[NewChat] Success! conversationId:", newConvId);
+        setShowNewChat(false);
+        setSelectedMentor(null);
+        setMentorSearch("");
+        // Reset selId so the navigation effect can pick up the new URL param
+        setSelId(null);
+        setSelKind(null);
+        // Clear any cached thread data from previous conversation
+        setThreadData([]);
+        // Force refresh conversation list
+        setRefreshKey((k) => k + 1);
+        console.log("[NewChat] Navigating to /learner/messages/" + newConvId);
+        // Navigate to the new conversation
+        navigate(`/learner/messages/${newConvId}`, { replace: true });
+      } else {
+        console.error("[NewChat] No conversationId in response:", JSON.stringify(res));
+        setCreateError("Unable to start conversation. No conversation ID returned.");
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      const errBody = err?.response?.data;
+      const msg = errBody?.message || errBody?.data?.message || errBody?.data?.error || err?.message || "Unable to start conversation.";
+      console.error("[NewChat] API error. Status:", status, "Body:", JSON.stringify(errBody), "Message:", err?.message);
+      setCreateError(msg);
+    } finally {
+      setCreatingConv(false);
+    }
+  }
+
+  // ── Retry loading page ──
+  function handleRetry() {
+    setError(null);
+    setFetchError(null);
+    setRefreshKey((k) => k + 1);
+  }
+
+  // ── New Chat Modal renderer ──
+  function renderNewChatModal() {
+    if (!showNewChat) return null;
+    return (
+      <div className="ms-modal-overlay" onClick={() => {
+        setShowNewChat(false);
+        setSelectedMentor(null);
+        setMentorSearch("");
+        setCreateError(null);
+      }}>
+        <div className="ms-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="ms-modal__header">
+            <h3><Icon name="add_comment" /> New Conversation</h3>
+            <button
+              type="button"
+              className="ms-modal__close"
+              onClick={() => {
+                setShowNewChat(false);
+                setSelectedMentor(null);
+                setMentorSearch("");
+                setCreateError(null);
+              }}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+          <div className="ms-modal__body">
+            <label className="ms-modal__search">
+              <Icon name="search" />
+              <input
+                value={mentorSearch}
+                onChange={(e) => setMentorSearch(e.target.value)}
+                placeholder="Search mentors by name or skill…"
+                autoFocus
+              />
+              {mentorSearch && (
+                <button type="button" className="ms-modal__search-clear" onClick={() => setMentorSearch("")}>
+                  <Icon name="close" />
+                </button>
+              )}
+            </label>
+
+            {createError && (
+              <div className="ms-modal__error">
+                <Icon name="error" /> {createError}
+              </div>
+            )}
+
+            <div className="ms-modal__mentors">
+              {mentorsLoading ? (
+                <div className="ms-modal__loading">
+                  <span className="ms-spinner" aria-hidden="true" />
+                  <p>Loading mentors…</p>
+                </div>
+              ) : mentors.length > 0 ? (
+                mentors.map((mentor) => {
+                  const mentorId = mentor.mentorId || mentor.id;
+                  const mentorName = mentor.mentorName || mentor.fullName || "Mentor";
+                  const mentorSkills = mentor.skills || [];
+                  const isSelected = selectedMentor && (selectedMentor.mentorId || selectedMentor.id) === mentorId;
+                  return (
+                    <button
+                      key={mentorId}
+                      type="button"
+                      className={`ms-modal__mentor${isSelected ? " is-selected" : ""}`}
+                      onClick={() => setSelectedMentor(mentor)}
+                    >
+                      <div className="ms-modal__mentor-av">
+                        {mentor.profileImageUrl ? (
+                          <img src={mentor.profileImageUrl} alt={mentorName} />
+                        ) : (
+                          <span>{initials(mentorName)}</span>
+                        )}
+                      </div>
+                      <div className="ms-modal__mentor-info">
+                        <strong>{mentorName}</strong>
+                        <span>{mentor.mentorRole || "Mentor"}</span>
+                        {(Array.isArray(mentorSkills) ? mentorSkills : String(mentorSkills || '').split(',').map(s => s.trim()).filter(Boolean)).slice(0, 3).length > 0 && (
+                          <div className="ms-modal__mentor-skills">
+                            {(Array.isArray(mentorSkills) ? mentorSkills : String(mentorSkills || '').split(',').map(s => s.trim()).filter(Boolean)).slice(0, 3).map((s) => (
+                              <span key={s} className="ms-mini-chip">{typeof s === "string" ? s : s.name || s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {isSelected && <Icon name="check_circle" className="ms-modal__check" />}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="ms-modal__empty">
+                  <Icon name="search_off" />
+                  <p>{mentorSearch ? `No mentors match "${mentorSearch}"` : "No mentors available"}</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="ms-modal__footer">
+            <button
+              type="button"
+              className="ms-btn ms-btn--outline"
+              onClick={() => {
+                setShowNewChat(false);
+                setSelectedMentor(null);
+                setMentorSearch("");
+                setCreateError(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="ms-btn ms-btn--primary"
+              disabled={!selectedMentor || creatingConv}
+              onClick={handleStartConversation}
+            >
+              {creatingConv ? "Starting…" : "Start Conversation"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   /* ── Loading ── */
@@ -515,7 +771,7 @@ export default function LearnerMessagesPage({ profile }) {
           <span className="ms-error__icon"><Icon name="error" /></span>
           <h3>Messages could not be loaded</h3>
           <p>{error}</p>
-          <button type="button" className="ms-btn ms-btn--primary" onClick={() => setRefreshKey((k) => k + 1)}>
+          <button type="button" className="ms-btn ms-btn--primary" onClick={handleRetry}>
             <Icon name="refresh" /> Retry
           </button>
         </div>
@@ -523,7 +779,7 @@ export default function LearnerMessagesPage({ profile }) {
     );
   }
 
-  /* ── Empty state (only if no URL param and no conversations) ── */
+  /* ── Empty state ── */
   if (!allConvs.length && !urlConversationId && !fetchingDirectConv) {
     return (
       <div className="ms-shell">
@@ -536,14 +792,17 @@ export default function LearnerMessagesPage({ profile }) {
             Choose a mentor and send your first message to get started.
           </p>
           <div className="ms-empty__actions">
-            <Link to="/learner/mentors" className="ms-btn ms-btn--primary">
+            <button type="button" className="ms-btn ms-btn--primary" onClick={() => setShowNewChat(true)}>
+              <Icon name="add_comment" /> New Chat
+            </button>
+            <Link to="/learner/mentors" className="ms-btn ms-btn--outline">
               <Icon name="person_search" /> Browse Mentors
-            </Link>
-            <Link to="/learner/skills" className="ms-btn ms-btn--outline">
-              <Icon name="auto_stories" /> Explore Skills
             </Link>
           </div>
         </div>
+
+        {/* New Chat Modal (empty state) */}
+        {renderNewChatModal()}
       </div>
     );
   }
@@ -557,10 +816,22 @@ export default function LearnerMessagesPage({ profile }) {
             <div className="ms-list__top">
               <h2 className="ms-list__title">Messages</h2>
               {totalUnread > 0 && <span className="ms-badge">{totalUnread}</span>}
+              <button
+                type="button"
+                className="ms-btn ms-btn--primary ms-btn--sm ms-new-chat-btn"
+                onClick={() => setShowNewChat(true)}
+                title="New Chat"
+              >
+                <Icon name="add_comment" /> New
+              </button>
             </div>
             <label className="ms-search">
               <Icon name="search" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations…" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search conversations by name, email, or message…"
+              />
               {search && <button type="button" className="ms-search__clr" onClick={() => setSearch("")}><Icon name="close" /></button>}
             </label>
             <div className="ms-list__pills">
@@ -573,7 +844,15 @@ export default function LearnerMessagesPage({ profile }) {
             </div>
           </div>
           <div className="ms-list__items">
-            {filteredConvs.length > 0 ? filteredConvs.map((c) => (
+            {fetchError ? (
+              <div className="ms-list__empty">
+                <Icon name="error_outline" />
+                <p>{fetchError}</p>
+                <button type="button" className="ms-btn ms-btn--outline ms-btn--sm" onClick={handleRetry}>
+                  <Icon name="refresh" /> Retry
+                </button>
+              </div>
+            ) : filteredConvs.length > 0 ? filteredConvs.map((c) => (
               <button key={c.id} type="button" className={`ms-conv${selId === c.id ? " is-active" : ""}${c.unreadCount ? " has-unread" : ""}`} onClick={() => selectConv(c)}>
                 <div className="ms-conv__av-wrap">
                   {c.participantAvatarUrl ? <img className="ms-conv__av" src={c.participantAvatarUrl} alt={c.participantName} /> : <span className="ms-conv__av ms-conv__av--fallback">{initials(c.participantName)}</span>}
@@ -585,7 +864,7 @@ export default function LearnerMessagesPage({ profile }) {
                     <span className="ms-conv__time">{c.lastMessageTime ? fmtTime(c.lastMessageTime) : ""}</span>
                   </div>
                   <div className="ms-conv__bottom">
-                    <span className="ms-conv__preview">{c.lastMessagePreview || (c.kind === "direct" ? "Direct conversation" : c.sessionTitle) || "No messages yet"}</span>
+                    <span className="ms-conv__preview">{c.lastMessagePreview || (c.kind === "direct" ? "No messages yet" : c.sessionTitle) || "No messages yet"}</span>
                     {c.unreadCount > 0 && <span className="ms-conv__unread">{c.unreadCount}</span>}
                   </div>
                   {c.kind !== "direct" && c.sessionTitle && <span className="ms-conv__topic">{c.sessionTitle}</span>}
@@ -594,7 +873,12 @@ export default function LearnerMessagesPage({ profile }) {
             )) : (
               <div className="ms-list__empty">
                 <Icon name="search_off" />
-                <p>{search ? `No conversations match "${search}"` : "No unread conversations"}</p>
+                <p>{search ? `No conversations match "${search}"` : "No conversations yet"}</p>
+                {search && (
+                  <button type="button" className="ms-btn ms-btn--outline ms-btn--sm" onClick={() => setSearch("")}>
+                    Clear search
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -602,7 +886,21 @@ export default function LearnerMessagesPage({ profile }) {
 
         {/* ═══ CENTER: Chat Thread ═══ */}
         <main className="ms-chat">
-          {selConv ? (
+          {fetchError && !selConv ? (
+            <div className="ms-chat__placeholder">
+              <Icon name="error_outline" />
+              <h3>Could not open conversation</h3>
+              <p>{fetchError}</p>
+              <button type="button" className="ms-btn ms-btn--outline ms-btn--sm" onClick={handleRetry}>
+                <Icon name="refresh" /> Retry
+              </button>
+            </div>
+          ) : fetchingDirectConv ? (
+            <div className="ms-chat__placeholder">
+              <span className="ms-spinner" aria-hidden="true" />
+              <h3>Loading conversation…</h3>
+            </div>
+          ) : selConv ? (
             <>
               {/* Header */}
               <div className="ms-chat__hdr">
@@ -616,6 +914,7 @@ export default function LearnerMessagesPage({ profile }) {
                 <div className="ms-chat__hdr-info">
                   <strong>{selConv.participantName}</strong>
                   <span>
+                    {selConv.kind !== "direct" && selConv.sessionTitle ? ` ${selConv.sessionTitle} · ` : ""}
                     {wsState === "reconnecting" ? "Reconnecting…" :
                      wsState === "closed" ? "Connection lost" :
                      selConv.participantOnline ? "Online now" :
@@ -633,43 +932,43 @@ export default function LearnerMessagesPage({ profile }) {
 
               {/* Thread */}
               <div className="ms-chat__thread" ref={threadRef} onScroll={onThreadScroll}>
-                {messageDays.length > 0 ? messageDays.map((day) => (
+                {threadLoading ? (
+                  <div className="ms-chat__loading">
+                    <span className="ms-spinner" aria-hidden="true" />
+                    <p>Loading messages…</p>
+                  </div>
+                ) : messageDays.length > 0 ? messageDays.map((day) => (
                   <div key={day.label} className="ms-chat__day">
                     <div className="ms-chat__divider"><span>{day.label}</span></div>
-                    {day.runs.map((run, ri) => {
-                      const fromMe = run.sk === "LEARNER";
-                      return (
-                        <div key={ri} className={`ms-chat__run${fromMe ? " is-me" : ""}`}>
-                          {!fromMe && (
-                            <span className="ms-chat__run-av">
-                              {selConv.participantAvatarUrl ? <img src={selConv.participantAvatarUrl} alt="" /> : initials(selConv.participantName)}
-                            </span>
-                          )}
-                          <div className="ms-chat__stack">
-                            {run.msgs.map((m, mi) => (
-                              <div key={m.id || mi} className={`ms-msg${fromMe ? " is-me" : ""}${m.pending ? " is-pending" : ""}${m.failed ? " is-failed" : ""}`}>
-                                <p>{m.content}</p>
-                                {mi === run.msgs.length - 1 && (
-                                  <span className="ms-msg__meta">
-                                    {m.failed ? <span className="ms-msg__fail"><Icon name="error" /> Not sent</span> : (
-                                      <>{fmtTime(m.createdAt)}{fromMe && <Icon name={m.pending ? "schedule" : "done_all"} />}</>
-                                    )}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
+                    {day.runs.map((run, ri) => (
+                      <div key={ri} className={`ms-chat__run${run.mine ? " is-me" : ""}`}>
+                        {!run.mine && (
+                          <span className="ms-chat__run-av">
+                            {selConv.participantAvatarUrl ? <img src={selConv.participantAvatarUrl} alt="" /> : initials(selConv.participantName)}
+                          </span>
+                        )}
+                        <div className="ms-chat__stack">
+                          {run.msgs.map((m, mi) => (
+                            <div key={m.id || mi} className={`ms-msg${run.mine ? " is-me" : ""}${m.pending ? " is-pending" : ""}${m.failed ? " is-failed" : ""}`}>
+                              <p>{m.content}</p>
+                              {mi === run.msgs.length - 1 && (
+                                <span className="ms-msg__meta">
+                                  {m.failed ? <span className="ms-msg__fail"><Icon name="error" /> Not sent</span> : (
+                                    <>{fmtTime(m.createdAt)}{run.mine && <Icon name={m.pending ? "schedule" : "done_all"} />}</>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 )) : (
-                  !threadLoading && (
-                    <div className="ms-chat__empty-state">
-                      <Icon name="chat" />
-                      <p>Say hello to start the conversation 👋</p>
-                    </div>
-                  )
+                  <div className="ms-chat__empty-state">
+                    <Icon name="chat" />
+                    <p>Say hello to start the conversation 👋</p>
+                  </div>
                 )}
                 {isTyping && (
                   <div className="ms-chat__run">
@@ -693,6 +992,7 @@ export default function LearnerMessagesPage({ profile }) {
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={handleKey}
                     placeholder="Write a message…"
+                    autoFocus
                   />
                 </div>
                 <button type="button" className="ms-icon-btn" title="Emoji"><Icon name="mood" /></button>
@@ -741,6 +1041,10 @@ export default function LearnerMessagesPage({ profile }) {
           </aside>
         )}
       </div>
+
+      {/* ═══ New Chat Modal ═══ */}
+      {renderNewChatModal()}
     </div>
   );
+
 }

@@ -51,34 +51,39 @@ public class SecurityConfig {
         @Value("${app.cors.allow-credentials:true}")
         private boolean allowCredentials;
 
+        @SuppressWarnings({"deprecation", "removal"})
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 return http
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(csrf -> csrf
-                                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                                                .ignoringRequestMatchers(
-                                                                new AntPathRequestMatcher("/api/v1/auth/login", "POST"),
-                                                                new AntPathRequestMatcher("/api/v1/auth/signup",
-                                                                                "POST"),
-                                                                new AntPathRequestMatcher("/api/v1/auth/refresh",
-                                                                                "POST"),
-                                                                new AntPathRequestMatcher("/oauth2/**"),
-                                                                new AntPathRequestMatcher("/login/oauth2/**"),
-                                                                new AntPathRequestMatcher("/api/v1/health"),
-                                                                new AntPathRequestMatcher("/actuator/**"),
-                                                                new AntPathRequestMatcher("/swagger-ui/**"),
-                                                                new AntPathRequestMatcher("/v3/api-docs/**"),
-                                                                new AntPathRequestMatcher("/ws/**"),
-                                                                new AntPathRequestMatcher("/api/v1/chat/**"),
+                                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()).ignoringRequestMatchers(
+																new AntPathRequestMatcher("/api/v1/auth/login", "POST"),
+																new AntPathRequestMatcher("/api/v1/auth/signup",
+																                "POST"),
+																new AntPathRequestMatcher("/api/v1/auth/refresh",
+																                "POST"),
+																new AntPathRequestMatcher("/api/v1/auth/logout",
+																                "POST"),
+																new AntPathRequestMatcher("/oauth2/**"),
+																new AntPathRequestMatcher("/login/oauth2/**"),
+																new AntPathRequestMatcher("/api/v1/health"),
+																new AntPathRequestMatcher("/actuator/**"),
+																new AntPathRequestMatcher("/swagger-ui/**"),
+																new AntPathRequestMatcher("/v3/api-docs/**"),
+																new AntPathRequestMatcher("/ws/**"),
+																new AntPathRequestMatcher("/api/v1/chat/**"),
 																new AntPathRequestMatcher("/api/v1/payments/**"),
-																new AntPathRequestMatcher("/api/v1/wallet/**")))
+																new AntPathRequestMatcher("/api/v1/wallet/**"),
+																new AntPathRequestMatcher("/api/v1/users/me/ping", "POST"),
+																new AntPathRequestMatcher("/api/v1/sessions/**"),
+																new AntPathRequestMatcher("/api/v1/availability/**")))
                                 .headers(headers -> headers
                                                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                                                                 "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:"))
                                                 .frameOptions(frame -> frame.deny())
-                                                .xssProtection(xss -> xss.and())
-                                                .contentTypeOptions(content -> content.and())
+                                                .xssProtection(xss -> {})
+                                                .contentTypeOptions(content -> {})
                                                 .httpStrictTransportSecurity(hsts -> hsts
                                                                 .includeSubDomains(true)
                                                                 .preload(true)
@@ -109,10 +114,9 @@ public class SecurityConfig {
                                                                 "/swagger-resources/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
-                                .exceptionHandling(ex -> ex
-                                                .defaultAuthenticationEntryPointFor(
-                                                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-                                                                new AntPathRequestMatcher("/api/**")))
+                                .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
+																new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+																new AntPathRequestMatcher("/api/**")))
                                 .oauth2Login(oauth2 -> oauth2
                                                 .successHandler(oAuth2LoginSuccessHandler)
                                                 .failureHandler(oAuth2LoginFailureHandler))

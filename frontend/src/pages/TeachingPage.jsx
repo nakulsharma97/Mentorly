@@ -531,29 +531,6 @@ export default function TeachingPage({ notify }) {
       });
     }
   };
-
-  const toggleAvailability = async (slot) => {
-    try {
-      const response = await client.patch(
-        `/api/v1/availability/my-slots/${slot.id}`,
-        {
-          ...slot,
-          active: !slot.active,
-        },
-      );
-      const updated = response?.data?.data;
-      setAvailabilitySlots((prev) =>
-        prev.map((item) => (item.id === updated.id ? updated : item)),
-      );
-    } catch (error) {
-      notify?.({
-        type: "error",
-        title: "Update failed",
-        message: getApiErrorMessage(error, "Could not update availability."),
-      });
-    }
-  };
-
   const removeAvailability = async (slotId) => {
     try {
       await client.delete(`/api/v1/availability/my-slots/${slotId}`);
@@ -571,8 +548,6 @@ export default function TeachingPage({ notify }) {
       });
     }
   };
-
-  const sectionTitle = "Manage Sessions";
 
   const availabilityByDay = useMemo(() => {
     const slotMap = new Map();

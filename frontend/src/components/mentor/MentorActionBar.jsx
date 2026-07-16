@@ -7,8 +7,6 @@ export default function MentorActionBar({
   onBookFirstSlot,
   onMessageMentor,
   onViewAvailability,
-  onAddFavorite,
-  favoriteAdded,
   onRequireLogin,
 }) {
   const handleBook = () => {

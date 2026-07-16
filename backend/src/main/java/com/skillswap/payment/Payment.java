@@ -46,16 +46,20 @@ public class Payment {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Builder.Default
     @Column(nullable = false)
     private String currency = "INR";
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     @Column(nullable = false)
     private PaymentStatus status = PaymentStatus.INITIATED;
 
+    @Builder.Default
     @Column(nullable = false)
     private String gateway = "razorpay";
 
+    @Builder.Default
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 

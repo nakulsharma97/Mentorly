@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -770,7 +770,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
             </div>
             <div className="ld-progress-chart">
               <div className="ld-chart-bars">
-                {series.monthly.slice(-6).map((m, i) => {
+                {series.monthly.slice(-6).map((m) => {
                   const maxVal = Math.max(...series.monthly.map((x) => x.value), 1);
                   const h = Math.max((m.value / maxVal) * 120, m.value > 0 ? 8 : 0);
                   return (

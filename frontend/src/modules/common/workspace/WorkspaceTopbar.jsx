@@ -20,7 +20,6 @@ export default function WorkspaceTopbar({
   onOpenMobileNav,
   pageMeta = {},
   crumbRoot = "Workspace",
-  notificationsTo = "#",
   profileMenu = [],
   onUnreadCountChange,
 }) {
@@ -28,7 +27,9 @@ export default function WorkspaceTopbar({
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const menuRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const segment = location.pathname.split("/").filter(Boolean)[1] || "dashboard";
   const meta = pageMeta[segment] || { title: "Dashboard", search: "Search..." };
@@ -43,6 +44,42 @@ export default function WorkspaceTopbar({
   }, []);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+
+  // Global keyboard shortcut: press / to focus search
+  useEffect(() => {
+    const onKey = (event) => {
+      if (
+        event.key === "/" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handleSearchChange = (event) => {
+    setSearchValue(event.target.value);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === "Enter" && searchValue.trim()) {
+      event.preventDefault();
+      const q = encodeURIComponent(searchValue.trim());
+      // Navigate to the messages page with the search query
+      if (location.pathname.startsWith("/mentor")) {
+        navigate(`/mentor/messages?q=${q}`);
+      } else if (location.pathname.startsWith("/learner")) {
+        navigate(`/learner/messages?q=${q}`);
+      }
+      searchInputRef.current?.blur();
+    }
+  };
 
   return (
     <header className="ws-top">
@@ -75,7 +112,16 @@ export default function WorkspaceTopbar({
 
       <label className="ws-top__search" htmlFor="ws-search">
         <Icon name="search" />
-        <input id="ws-search" type="search" placeholder={meta.search} aria-label="Search" />
+        <input
+          ref={searchInputRef}
+          id="ws-search"
+          type="search"
+          value={searchValue}
+          onChange={handleSearchChange}
+          onKeyDown={handleSearchKeyDown}
+          placeholder={meta.search}
+          aria-label="Search"
+        />
         <kbd className="ws-top__kbd">/</kbd>
       </label>
 

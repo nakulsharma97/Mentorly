@@ -51,6 +51,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                 :keyword IS NULL OR :keyword = ''
                                 OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
                                      AGAINST (:keyword IN BOOLEAN MODE)
+                                OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.company) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :keyword, '%'))
                           )
                           AND (
                                 :minPrice IS NULL

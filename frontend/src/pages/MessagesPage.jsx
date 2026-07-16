@@ -142,6 +142,13 @@ export default function MessagesPage({ profile, notify }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [mentorSearch, setMentorSearch] = useState("");
+  const [mentors, setMentors] = useState([]);
+  const [mentorsLoading, setMentorsLoading] = useState(false);
+  const [selectedMentor, setSelectedMentor] = useState(null);
+  const [creatingConv, setCreatingConv] = useState(false);
+  const [createError, setCreateError] = useState(null);
 
   const wsRef = useRef(null);
   const isMountedRef = useRef(false);
@@ -523,6 +530,66 @@ export default function MessagesPage({ profile, notify }) {
     selConv,
   ]);
 
+  // ── New Chat: mentor search ──
+  useEffect(() => {
+    if (!showNewChat) return;
+    let active = true;
+    setMentorsLoading(true);
+    const q = mentorSearch.trim();
+    client.get("/api/v1/search/mentors", { params: q ? { q, size: 20 } : { size: 20 } })
+      .then((res) => {
+        if (!active) return;
+        setMentors(res?.data?.data || []);
+        setMentorsLoading(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setMentors([]);
+        setMentorsLoading(false);
+      });
+    return () => { active = false; };
+  }, [showNewChat, mentorSearch]);
+
+  const handleStartConversation = async () => {
+    if (!selectedMentor) {
+      setCreateError("Please select a mentor to start a conversation.");
+      return;
+    }
+    const mentorId = selectedMentor.mentorId || selectedMentor.id;
+    setCreatingConv(true);
+    setCreateError(null);
+    try {
+      const response = await client.post(`/api/v1/chat/direct/${mentorId}`);
+      const data = response?.data?.data;
+      if (data?.conversationId) {
+        const newConvId = data.conversationId;
+        setDirectConvs((prev) => {
+          const exists = prev.some((c) => c.conversationId === newConvId);
+          return exists ? prev : [data, ...prev];
+        });
+        setShowNewChat(false);
+        setSelectedMentor(null);
+        setMentorSearch("");
+        setSelectedConvId(`direct-${newConvId}`);
+        setSelKind("direct");
+        notify?.({
+          type: "success",
+          title: "Conversation started",
+          message: `You can now message with ${data.participantName}.`,
+        });
+      } else {
+        setCreateError("Unable to start conversation. No conversation ID returned.");
+      }
+    } catch (err) {
+      /* status unused */
+      const errBody = err?.response?.data;
+      const msg = errBody?.message || errBody?.data?.message || errBody?.data?.error || err?.message || "Unable to start conversation.";
+      setCreateError(msg);
+    } finally {
+      setCreatingConv(false);
+    }
+  };
+
   // UI-only: focus the search box with Cmd/Ctrl+K.
   useEffect(() => {
     const onKey = (event) => {
@@ -692,10 +759,10 @@ export default function MessagesPage({ profile, notify }) {
             <button
               type="button"
               className="msg-btn msg-btn-outline msg-btn-sm"
-              onClick={focusSearch}
+              onClick={() => setShowNewChat(true)}
             >
               <span className="material-symbols-outlined">edit_square</span>
-              New
+              New Chat
             </button>
           </div>
         </header>
@@ -1329,6 +1396,128 @@ export default function MessagesPage({ profile, notify }) {
           </aside>
         </div>
       </div>
+
+      {/* ═══ New Chat Modal ═══ */}
+      {showNewChat && (
+        <div className="msg-modal-overlay" onClick={() => {
+          setShowNewChat(false);
+          setSelectedMentor(null);
+          setMentorSearch("");
+          setCreateError(null);
+        }}>
+          <div className="msg-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="msg-modal__header">
+              <h3><span className="material-symbols-outlined">add_comment</span> New Conversation</h3>
+              <button
+                type="button"
+                className="msg-modal__close"
+                onClick={() => {
+                  setShowNewChat(false);
+                  setSelectedMentor(null);
+                  setMentorSearch("");
+                  setCreateError(null);
+                }}
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="msg-modal__body">
+              <label className="msg-modal__search">
+                <span className="material-symbols-outlined">search</span>
+                <input
+                  value={mentorSearch}
+                  onChange={(e) => setMentorSearch(e.target.value)}
+                  placeholder="Search mentors by name or skill…"
+                  data-auto-focus
+                />
+                {mentorSearch && (
+                  <button type="button" className="msg-modal__search-clear" onClick={() => setMentorSearch("")}>
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                )}
+              </label>
+
+              {createError && (
+                <div className="msg-modal__error">
+                  <span className="material-symbols-outlined">error</span>
+                  <span>{createError}</span>
+                </div>
+              )}
+
+              <div className="msg-modal__mentors">
+                {mentorsLoading ? (
+                  <div className="msg-modal__loading">
+                    <span className="msg-spinner" aria-hidden="true" />
+                    <p>Loading mentors…</p>
+                  </div>
+                ) : mentors.length > 0 ? (
+                  mentors.map((mentor) => {
+                    const mentorId = mentor.mentorId || mentor.id;
+                    const mentorName = mentor.mentorName || mentor.fullName || "Mentor";
+                    const mentorSkills = mentor.skills || [];
+                    const isSelected = selectedMentor && (selectedMentor.mentorId || selectedMentor.id) === mentorId;
+                    return (
+                      <button
+                        key={mentorId}
+                        type="button"
+                        className={`msg-modal__mentor${isSelected ? " is-selected" : ""}`}
+                        onClick={() => setSelectedMentor(mentor)}
+                      >
+                        <div className="msg-modal__mentor-av">
+                          {mentor.profileImageUrl ? (
+                            <img src={mentor.profileImageUrl} alt={mentorName} />
+                          ) : (
+                            <span>{initialsOf(mentorName)}</span>
+                          )}
+                        </div>
+                        <div className="msg-modal__mentor-info">
+                          <strong>{mentorName}</strong>
+                          {mentor.mentorRole && <span>{mentor.mentorRole}</span>}
+                          {(Array.isArray(mentorSkills) ? mentorSkills : String(mentorSkills || '').split(',').map(s => s.trim()).filter(Boolean)).slice(0, 3).length > 0 && (
+                            <div className="msg-modal__mentor-skills">
+                              {(Array.isArray(mentorSkills) ? mentorSkills : String(mentorSkills || '').split(',').map(s => s.trim()).filter(Boolean)).slice(0, 3).map((s) => (
+                                <span key={s} className="msg-mini-chip">{typeof s === "string" ? s : s.name || s}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {isSelected && <span className="material-symbols-outlined msg-modal__check">check_circle</span>}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="msg-modal__empty">
+                    <span className="material-symbols-outlined">search_off</span>
+                    <p>{mentorSearch ? `No mentors match "${mentorSearch}"` : "No mentors available"}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="msg-modal__footer">
+              <button
+                type="button"
+                className="msg-btn msg-btn-outline"
+                onClick={() => {
+                  setShowNewChat(false);
+                  setSelectedMentor(null);
+                  setMentorSearch("");
+                  setCreateError(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="msg-btn msg-btn-primary"
+                disabled={!selectedMentor || creatingConv}
+                onClick={handleStartConversation}
+              >
+                {creatingConv ? "Starting…" : "Start Conversation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

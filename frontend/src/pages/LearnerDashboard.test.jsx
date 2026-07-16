@@ -1,5 +1,4 @@
-import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import LearnerDashboard from './LearnerDashboard';
@@ -59,8 +58,6 @@ describe('LearnerDashboard', () => {
       expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
     });
 
-    const user = userEvent.setup();
-    // The "Open Roadmap" link exists in the Learning Roadmap section
     const roadmapLink = screen.getByRole('link', { name: /Open Roadmap/i });
     expect(roadmapLink).toBeInTheDocument();
   });

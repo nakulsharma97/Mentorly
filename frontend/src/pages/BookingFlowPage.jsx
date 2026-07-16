@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import client from '../api/client';
 
 const formatDateTime = (value) => {
@@ -90,8 +89,8 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccessMessage, setBookingSuccessMessage] = useState('');
   const [bookingError, setBookingError] = useState('');
-  const [createdBookingId, setCreatedBookingId] = useState(null);
-  const [createdPayment, setCreatedPayment] = useState(null);
+  const [, setCreatedBookingId] = useState(null);
+  const [, setCreatedPayment] = useState(null);
   const razorpayLoadedRef = useRef(false);
 
   const mentorSkills = useMemo(() => parseSkills(session?.mentor?.skills), [session?.mentor?.skills]);
@@ -176,8 +175,8 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
     try {
       // Step 1: Create the booking
       const bookingResponse = await client.post('/api/v1/bookings', { sessionId: session.id });
-      const booking = bookingResponse?.data?.data;
-      const bookingId = booking?.id;
+      const newBooking = bookingResponse?.data?.data;
+      const bookingId = newBooking?.id;
 
       if (!bookingId) {
         throw new Error('Booking creation failed - no booking ID returned');
@@ -228,7 +227,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   /**
    * Initiate Razorpay checkout modal.
    */
-  const initiateRazorpayCheckout = async (payment, booking) => {
+  const initiateRazorpayCheckout = async (payment) => {
     try {
       await loadRazorpayScript();
       razorpayLoadedRef.current = true;

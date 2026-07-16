@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
 import './AdminOperationsPage.css';
@@ -90,7 +90,7 @@ export default function AuditLogPage({ notify }) {
         ) : logs.length === 0 ? (
           <div className="admin-empty-state"><Icon name="history" /><p>No audit log entries found.</p></div>
         ) : (
-          logs.map((log, idx) => {
+          logs.map((log) => {
             const { icon, color } = getActionMeta(log.action);
             return (
               <div key={log.id} className="admin-msg" style={{

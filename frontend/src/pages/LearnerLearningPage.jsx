@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -28,11 +28,6 @@ function unwrapResponse(payload) {
 
 async function apiGet(path, config) {
   const response = await client.get(path, config);
-  return unwrapResponse(response.data);
-}
-
-async function apiPost(path, body, config) {
-  const response = await client.post(path, body, config);
   return unwrapResponse(response.data);
 }
 
@@ -95,13 +90,9 @@ function formatTime(value) {
   }).format(date);
 }
 
-function formatDateTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "TBD";
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit",
-  }).format(date);
-}
+
+
+
 
 function formatDuration(startTime, endTime) {
   const start = new Date(startTime);
@@ -256,25 +247,7 @@ function ProgressRing({ value, size = 80, stroke = 6 }) {
    Mini Stat Cards
    ========================================================================== */
 
-const STAT_ICONS = {
-  "Learning Paths": "route",
-  "Courses Enrolled": "menu_book",
-  "Hours Completed": "schedule",
-  "Current Streak": "local_fire_department",
-  Certificates: "workspace_premium",
-  "Completed Sessions": "task_alt",
-  Bookmarks: "bookmark",
-};
 
-const STAT_COLORS = {
-  "Learning Paths": { bg: "rgba(15,118,110,0.1)", icon: "#0f766e" },
-  "Courses Enrolled": { bg: "rgba(59,130,246,0.1)", icon: "#3b82f6" },
-  "Hours Completed": { bg: "rgba(5,150,105,0.1)", icon: "#059669" },
-  "Current Streak": { bg: "rgba(245,158,11,0.1)", icon: "#f59e0b" },
-  Certificates: { bg: "rgba(124,58,237,0.1)", icon: "#7c3aed" },
-  "Completed Sessions": { bg: "rgba(16,185,129,0.1)", icon: "#10b981" },
-  Bookmarks: { bg: "rgba(239,68,68,0.1)", icon: "#ef4444" },
-};
 
 /* ==========================================================================
    Main Component

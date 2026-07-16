@@ -275,7 +275,6 @@ function NotificationEmpty({ icon, title, desc }) {
    ────────────────────────────────────────────────────────────────────────── */
 
 export default function NotificationCenter({
-  profile,
   unreadNotifications: externalUnreadCount,
   onUnreadCountChange,
   fullPage = false,

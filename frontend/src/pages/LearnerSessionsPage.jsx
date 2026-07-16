@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
-import StatsCard from "../modules/common/dashboard/StatsCard";
 import "./LearnerPages.css";
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -584,7 +583,7 @@ export default function LearnerSessionsPage() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
   const [mentorFilter, setMentorFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, ] = useState("");
   const [viewMode, setViewMode] = useState("list"); // "list" | "grid"
   const [refreshKey, setRefreshKey] = useState(0);
 

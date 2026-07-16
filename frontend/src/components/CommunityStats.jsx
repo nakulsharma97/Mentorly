@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import client, { API_BASE_URL } from "../api/client";
+import client from "../api/client";
 import { motion } from "framer-motion";
 import "./CommunityStats.css";
 
@@ -59,7 +59,7 @@ export default function CommunityStats() {
     client
       .get("/api/v1/public/community-stats")
       .then((r) => {
-        setStats((prev) => ({ ...r.data, activeUsers: r.data.activeUsers }));
+        setStats(() => ({ ...r.data, activeUsers: r.data.activeUsers }));
       })
       .catch(() => {});
   }, 60000);

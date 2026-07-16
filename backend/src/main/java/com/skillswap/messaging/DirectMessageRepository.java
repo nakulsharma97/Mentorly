@@ -13,6 +13,8 @@ public interface DirectMessageRepository extends JpaRepository<DirectMessage, Lo
 
     Optional<DirectMessage> findTopByConversationIdOrderByCreatedAtDesc(Long conversationId);
 
+    long countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(Long conversationId, String senderEmail);
+
     @Modifying
     @Query("""
             update DirectMessage m

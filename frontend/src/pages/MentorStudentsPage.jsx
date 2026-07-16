@@ -7,10 +7,7 @@ import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import Icon from "../modules/common/dashboard/Icon";
 import StudentDrawer from "../modules/mentor/components/students/StudentDrawer";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
-import {
-  initials,
-  formatMoney,
-} from "../modules/common/dashboard/dashboardUtils";
+import { initials } from "../modules/common/dashboard/dashboardUtils";
 import "../modules/mentor/mentor-pages.css";
 
 const ACTIVE_STATUSES = ["PENDING", "ACCEPTED", "CONFIRMED", "IN_PROGRESS"];

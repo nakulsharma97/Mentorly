@@ -22,7 +22,7 @@ export default function AdminAnalyticsPage({ notify }) {
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
   const [referralAnalytics, setReferralAnalytics] = useState(null);
-  const [referralLoading, setReferralLoading] = useState(false);
+  const [, setReferralLoading] = useState(false);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState({ csv: false, pdf: false });
   const [months, setMonths] = useState(6);

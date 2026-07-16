@@ -202,7 +202,6 @@ function useLearnerLearningData(refreshKey = 0) {
       roadmaps,
       bookings,
       certifications,
-      mentors,
       savedMentors,
       savedSkills,
       profile,
@@ -231,35 +230,9 @@ function useLearnerLearningData(refreshKey = 0) {
   }, [refreshKey]);
 }
 
-function useMentorSearchData(query, refreshKey = 0) {
-  const debouncedQuery = useDebouncedValue(query);
-  return useResource(async () => {
-    const [mentorResults, savedMentors] = await Promise.all([
-      apiGet("/api/v1/search/mentors", {
-        params: debouncedQuery ? { q: debouncedQuery } : undefined,
-      }),
-      apiGet("/api/v1/watchlist/mentors").catch(() => []),
-    ]);
 
-    return { mentors: mentorResults || [], savedMentors: savedMentors || [] };
-  }, [debouncedQuery, refreshKey]);
-}
 
-function useSkillData(refreshKey = 0) {
-  return useResource(async () => {
-    const [skills, mentors, savedSkills] = await Promise.all([
-      apiGet("/api/v1/skills"),
-      apiGet("/api/v1/users/mentors").catch(() => []),
-      apiGet("/api/v1/watchlist/skills").catch(() => []),
-    ]);
 
-    return {
-      skills: skills || [],
-      mentors: mentors || [],
-      savedSkills: savedSkills || [],
-    };
-  }, [refreshKey]);
-}
 
 function useNotificationsData(refreshKey = 0) {
   return useResource(async () => {
@@ -279,30 +252,6 @@ function useMessagesData(refreshKey = 0) {
   }, [refreshKey]);
 }
 
-function useSearchableMentors(mentors, savedMentors) {
-  return useMemo(() => {
-    const savedMentorIds = new Set(
-      (savedMentors || [])
-        .map((item) => item?.mentor?.id ?? item?.mentorId ?? item?.id)
-        .filter((value) => value !== undefined && value !== null),
-    );
-
-    const liveMentors = (mentors || []).map((mentor) => ({
-      id: mentor.id,
-      fullName: mentor.fullName,
-      skills: splitSkills(mentor.skills),
-      profileImageUrl: mentor.profileImageUrl,
-      averageRating: Number(mentor.averageRating || 0),
-      totalReviews: Number(mentor.totalReviews || 0),
-      lastActiveAt: mentor.lastActiveAt,
-      liveNow: Boolean(mentor.liveNow),
-      mentorVerified: Boolean(mentor.mentorVerified),
-    }));
-
-    return { liveMentors, savedMentorIds };
-  }, [mentors, savedMentors]);
-}
-
 function PageHeader({ title, subtitle, actions }) {
   return (
     <div className="lp-header md-animate">
@@ -315,18 +264,7 @@ function PageHeader({ title, subtitle, actions }) {
   );
 }
 
-function Toolbar({ children }) {
-  return <div className="lp-toolbar md-animate">{children}</div>;
-}
 
-function SearchField({ value, onChange, placeholder, width = "100%" }) {
-  return (
-    <label className="lp-search" style={{ width }}>
-      <Icon name="search" />
-      <input value={value} onChange={onChange} placeholder={placeholder} />
-    </label>
-  );
-}
 
 function ProgressBar({ value, label }) {
   const next = clamp(Number(value || 0), 0, 100);
@@ -366,172 +304,6 @@ function ErrorBlock({ title, error, onRetry }) {
   );
 }
 
-function MentorCard({ mentor, saved, onSaveToggle }) {
-  const skills = mentor.skills || [];
-  return (
-    <article className="lp-mentor-card md-animate">
-      <div className="lp-card__top">
-        <div className="lp-avatar-wrap">
-          {mentor.profileImageUrl ? (
-            <img
-              className="lp-avatar"
-              src={mentor.profileImageUrl}
-              alt={mentor.fullName}
-            />
-          ) : (
-            <div className="lp-avatar lp-avatar--fallback">
-              {initials(mentor.fullName)}
-            </div>
-          )}
-          {mentor.liveNow ? (
-            <span className="lp-presence is-online" />
-          ) : (
-            <span className="lp-presence" />
-          )}
-        </div>
-        <button
-          type="button"
-          className={`lp-save-btn${saved ? " is-saved" : ""}`}
-          onClick={() => onSaveToggle(mentor.id)}
-          aria-label={saved ? "Remove saved mentor" : "Save mentor"}
-        >
-          <Icon name={saved ? "bookmark" : "bookmark_border"} />
-        </button>
-      </div>
-
-      <div className="lp-card__body">
-        <div className="lp-name-row">
-          <h3>{mentor.fullName}</h3>
-          {mentor.mentorVerified ? (
-            <span className="md-badge md-badge--info">
-              <Icon name="verified" /> Verified
-            </span>
-          ) : null}
-        </div>
-
-        <p className="lp-role">{mentor.liveNow ? "Active mentor" : "Mentor"}</p>
-        <p className="lp-company">
-          {mentor.lastActiveAt
-            ? `Last active ${formatDateTime(mentor.lastActiveAt)}`
-            : "Activity not available"}
-        </p>
-
-        <div className="lp-rating">
-          <span className="lp-rating__value">
-            {mentor.averageRating.toFixed(1)}
-          </span>
-          <span className="lp-rating__stars">
-            {Array.from({ length: 5 }, (_, index) => (
-              <Icon
-                key={index}
-                name="star"
-                className={
-                  index < Math.round(mentor.averageRating) ? "is-on" : "is-off"
-                }
-                style={
-                  index < Math.round(mentor.averageRating)
-                    ? { fontVariationSettings: '"FILL" 1' }
-                    : undefined
-                }
-              />
-            ))}
-          </span>
-          <span className="lp-rating__reviews">
-            ({mentor.totalReviews} reviews)
-          </span>
-        </div>
-
-        <div className="lp-chip-list">
-          {skills.length ? (
-            skills.slice(0, 4).map((skill) => (
-              <span key={skill} className="lp-mini-chip">
-                {skill}
-              </span>
-            ))
-          ) : (
-            <span className="lp-mini-chip">No skills listed</span>
-          )}
-        </div>
-
-        <div className="lp-meta-grid">
-          <div>
-            <span>Status</span>
-            <strong>{mentor.liveNow ? "Live now" : "Offline"}</strong>
-          </div>
-          <div>
-            <span>Reviews</span>
-            <strong>{mentor.totalReviews}</strong>
-          </div>
-          <div>
-            <span>Rating</span>
-            <strong>{mentor.averageRating.toFixed(1)}</strong>
-          </div>
-          <div>
-            <span>Saved</span>
-            <strong>{saved ? "Yes" : "No"}</strong>
-          </div>
-        </div>
-
-        <div className="lp-actions-inline">
-          <Link
-            to="/learner/sessions"
-            className="md-btn md-btn--brand md-btn--sm"
-          >
-            Book Session
-          </Link>
-          <Link
-            to={`/mentors/${mentor.id}`}
-            className="md-btn md-btn--outline md-btn--sm"
-          >
-            View Profile
-          </Link>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function SkillCard({ skill, mentorsCount, saved, onToggle }) {
-  return (
-    <article className="lp-skill-card md-animate">
-      <div
-        className="lp-skill-icon"
-        style={{
-          background: "linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)",
-        }}
-      >
-        <Icon name="auto_stories" />
-      </div>
-      <div className="lp-card__body" style={{ padding: 0 }}>
-        <div className="lp-name-row">
-          <h3>{skill.name}</h3>
-          <button
-            type="button"
-            className={`lp-save-btn${saved ? " is-saved" : ""}`}
-            onClick={onToggle}
-            aria-label={saved ? "Remove skill from watchlist" : "Save skill"}
-          >
-            <Icon name={saved ? "bookmark" : "bookmark_border"} />
-          </button>
-        </div>
-        <p className="lp-company">{skill.category || "General"}</p>
-        <div
-          className="lp-meta-grid"
-          style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
-        >
-          <div>
-            <span>Mentors</span>
-            <strong>{mentorsCount}</strong>
-          </div>
-          <div>
-            <span>Watchlist</span>
-            <strong>{saved ? "Saved" : "Open"}</strong>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
 
 function SessionCard({ booking }) {
   const session = booking?.session || {};
@@ -616,57 +388,11 @@ function CertificateCard({ certificate }) {
           </div>
           <div>
             <dt>Certificate ID</dt>
-            <dd>{certificate.code}</dd>
+            <dd>{certificate.certificateId}</dd>
           </div>
         </dl>
-        <div className="lp-course-meta">
-          <button type="button" className="md-btn md-btn--outline md-btn--sm">
-            View
-          </button>
-          <button type="button" className="md-btn md-btn--brand md-btn--sm">
-            Download PDF
-          </button>
-        </div>
       </div>
     </article>
-  );
-}
-
-function NotificationRow({ item, onToggle }) {
-  return (
-    <div className="lp-notification-row md-row">
-      <div className="md-row__date">
-        <Icon
-          name={
-            item.type === "CHAT_MESSAGE"
-              ? "chat"
-              : item.type === "BOOKING_CREATED"
-                ? "event_available"
-                : "notifications"
-          }
-        />
-      </div>
-      <div className="md-row__main">
-        <p className="md-row__title">{item.title}</p>
-        <p className="md-row__meta">
-          <span className="md-badge md-badge--info">{item.type}</span>
-          <span>{formatDateTime(item.createdAt)}</span>
-        </p>
-        <p className="md-row__meta">{item.message}</p>
-      </div>
-      <div className="md-row__actions">
-        <span className="lp-notification-time">
-          {item.read ? "Read" : "Unread"}
-        </span>
-        <button
-          type="button"
-          className="md-btn md-btn--outline md-btn--sm"
-          onClick={onToggle}
-        >
-          {item.read ? "Mark Unread" : "Mark Read"}
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -1391,7 +1117,6 @@ function LearningSummary({ data, onRefresh }) {
     roadmaps,
     bookings,
     certifications,
-    mentors,
     savedMentors,
     savedSkills,
     profile,

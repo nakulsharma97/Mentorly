@@ -151,6 +151,22 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         broadcastToRoom(conversationId, payload);
     }
 
+    /**
+     * Broadcast a message to all participants in a conversation room.
+     * Used by the REST controller to push messages sent via HTTP
+     * to all connected WebSocket sessions in real-time.
+     */
+    public void broadcastMessage(Long conversationId, ChatService.DirectMessageView message) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "type", "TEXT",
+                    "message", message));
+            broadcastToRoom(conversationId, payload);
+        } catch (IOException e) {
+            log.warn("[broadcastMessage] Failed to broadcast message to conversation {}: {}", conversationId, e.getMessage());
+        }
+    }
+
     private void broadcastToRoom(Long conversationId, String payload) throws IOException {
         Set<WebSocketSession> room = conversationRooms.getOrDefault(conversationId, Set.of());
         for (WebSocketSession member : room) {

@@ -11,9 +11,7 @@ function toTitle(str) {
   return String(str).replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
-}
+
 
 function initials(val) {
   return String(val || "?")

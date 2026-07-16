@@ -46,20 +46,7 @@ const formatCurrency = (amount, currency = "CREDITS") => {
     style: "currency",
     currency,
   }).format(value);
-};
-
-const formatDateTime = (value) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
+};;
 
 const formatDate = (value) => {
   const date = new Date(value);

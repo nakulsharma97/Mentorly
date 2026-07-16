@@ -298,7 +298,7 @@ export default function AdminOperationsPage({ notify }) {
   const handleRefund = async (paymentId) => {
     setRefundingId(paymentId);
     try {
-      const res = await client.post(`/api/v1/admin/payments/${paymentId}/refund`, { reason: 'Admin-initiated refund' });
+      await client.post(`/api/v1/admin/payments/${paymentId}/refund`, { reason: 'Admin-initiated refund' });
       notify?.({ type: 'success', title: 'Payment refunded', message: `Payment #${paymentId} has been refunded.` });
       loadPayments();
     } catch (err) {

@@ -10,12 +10,17 @@ export function filterConversationsBySearch(
   }
 
   return conversations.filter((item) => {
+    const conv = item?.conversation || item || {};
     const haystack = [
       item?.title,
       item?.subtitle,
       item?.role,
-      item?.conversation?.participantName,
-      item?.conversation?.sessionTitle,
+      conv.participantName,
+      conv.sessionTitle,
+      conv.participantEmail,
+      conv.lastMessagePreview,
+      item?.participantName,
+      item?.lastMessagePreview,
     ]
       .filter(Boolean)
       .join(" ")

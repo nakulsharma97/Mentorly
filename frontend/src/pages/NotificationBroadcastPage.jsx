@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import client from '../api/client';
-import Icon from '../modules/common/dashboard/Icon';
+
 import './AdminOperationsPage.css';
 
 export default function NotificationBroadcastPage({ notify }) {

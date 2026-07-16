@@ -12,18 +12,6 @@ const client = axios.create({
   },
 });
 
-const AUTH_STORAGE_KEYS = [
-  "token",
-  "refreshToken",
-  "user",
-  "profile",
-  "currentUser",
-  "mentorProfile",
-  "learnerProfile",
-  "auth_cache",
-  "auth_session",
-];
-
 let activeAuthToken = null;
 
 function readCookie(name) {
@@ -67,8 +55,24 @@ function clearBrowserAuthCookies() {
   if (typeof document === "undefined") {
     return;
   }
-  ["access_token", "refresh_token"].forEach((name) => {
+  // HttpOnly cookies set by the server can't always be reliably cleared from JavaScript
+  // because document.cookie may not overwrite cookies with the HttpOnly flag in some
+  // browsers. We try multiple variants to maximize the chance, but the server-side
+  // Set-Cookie in the logout response is the authoritative clearing mechanism.
+  const cookieNames = ["access_token", "refresh_token", "accessToken", "refreshToken"];
+  const domain = window.location.hostname;
+  cookieNames.forEach((name) => {
+    // Non-secure, SameSite=Lax (dev environment)
     document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`;
+    // Secure, SameSite=None (production environment)
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=None; Secure`;
+    // No SameSite (fallback)
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    // With explicit domain (for subdomain-scoped cookies)
+    if (domain && domain !== "localhost") {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}; SameSite=Lax`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${domain}; SameSite=None; Secure`;
+    }
   });
 }
 
@@ -370,21 +374,36 @@ client.interceptors.response.use(
       !String(config.url || "").includes("/api/v1/auth/signup")
     ) {
       try {
-        clearAuthSessionState();
-        await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
+        const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
           withCredentials: true,
           headers: { "Content-Type": "application/json" },
         });
+
+        // Extract and persist the new token from the refresh response body.
+        // Without this, the retried request would still have the old expired token
+        // in config.headers.Authorization (set by the request interceptor), causing
+        // another 401 and an infinite retry loop.
+        const refreshData = resolveAuthResponsePayload(refreshResponse?.data);
+        const newToken = refreshData?.token || refreshData?.accessToken || refreshData?.jwt || null;
+        if (newToken) {
+          setAuthToken(newToken);
+        }
+
+        // Remove the expired Authorization header from the retry config so the
+        // request interceptor picks up the newly stored token.
+        const retryHeaders = { ...(config.headers || {}) };
+        delete retryHeaders.Authorization;
+
         const retryConfig = {
           ...config,
           __isRetry: true,
-          headers: {
-            ...(config.headers || {}),
-          },
+          headers: retryHeaders,
         };
         return client(retryConfig);
-      } catch {
-        return Promise.reject(error);
+      } catch (refreshError) {
+        // Refresh failed — clear all auth state so the user sees the login screen.
+        clearAuthSessionState();
+        return Promise.reject(refreshError);
       }
     }
 

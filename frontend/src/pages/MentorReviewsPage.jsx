@@ -31,14 +31,8 @@ const DATE_RANGE_OPTIONS = [
   { value: "custom", label: "Custom range" },
 ];
 
-const SORT_OPTIONS = [
-  { value: "newest", label: "Newest first" },
-  { value: "oldest", label: "Oldest first" },
-  { value: "highest", label: "Highest rating" },
-  { value: "lowest", label: "Lowest rating" },
-  { value: "mostHelpful", label: "Most helpful" },
-  { value: "leastHelpful", label: "Least helpful" },
-];
+
+
 
 const EXPORT_OPTIONS = [
   { value: "csv", label: "Export as CSV" },
@@ -46,16 +40,9 @@ const EXPORT_OPTIONS = [
   { value: "pdf", label: "Export as PDF" },
 ];
 
-const REVIEW_COLUMNS = [
-  { key: "learnerName", label: "Student Name" },
-  { key: "sessionTitle", label: "Session Name" },
-  { key: "rating", label: "Rating" },
-  { key: "comment", label: "Review" },
-  { key: "recommendationLabel", label: "Recommendation" },
-  { key: "skillName", label: "Skill" },
-  { key: "createdAt", label: "Date" },
-  { key: "replyText", label: "Mentor Reply" },
-];
+
+
+
 
 function formatDate(value) {
   if (!value) return "—";
@@ -72,7 +59,7 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-export default function MentorReviewsPage({ profile, notify }) {
+export default function MentorReviewsPage({ notify }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -86,7 +73,7 @@ export default function MentorReviewsPage({ profile, notify }) {
     distribution: {},
   });
   const [reviewPage, setReviewPage] = useState(0);
-  const [reviewSize, setReviewSize] = useState(10);
+  const [reviewSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
   const [selectedReview, setSelectedReview] = useState(null);
   const [replyDraft, setReplyDraft] = useState("");
@@ -94,9 +81,8 @@ export default function MentorReviewsPage({ profile, notify }) {
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState(null);
-  const [customRange, setCustomRange] = useState({ from: "", to: "" });
-  const filterButtonRef = useRef(null);
-  const exportButtonRef = useRef(null);
+  const [customRange] = useState({ from: "", to: "" });
+
 
   useEffect(() => {
     document.title = "Reviews & Ratings | SkillSwap Mentor";
@@ -316,7 +302,7 @@ export default function MentorReviewsPage({ profile, notify }) {
     return Array.from(sessions).sort();
   }, [reviews]);
 
-  const recommendationRateText = `${summary.recommendationRate.toFixed(0)}%`;
+
 
   const ratingBreakdown = useMemo(() => {
     const list = [5, 4, 3, 2, 1];
@@ -431,24 +417,7 @@ export default function MentorReviewsPage({ profile, notify }) {
     doc.save(`mentor-reviews-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
-  const handleReport = async (review) => {
-    try {
-      await client.post(`/api/v1/reviews/${review.id}/report`, {
-        reason: "inappropriate",
-      });
-      notify?.({
-        type: "success",
-        title: "Review reported",
-        message: "Thank you. Our team will review this feedback.",
-      });
-    } catch (err) {
-      notify?.({
-        type: "error",
-        title: "Report failed",
-        message: err?.response?.data?.message || "Please try again.",
-      });
-    }
-  };
+
 
   const fetchExportReviews = async () => {
     const params = {
@@ -493,11 +462,7 @@ export default function MentorReviewsPage({ profile, notify }) {
     }
   };
 
-  const clearFilters = () => {
-    setFilters(INITIAL_FILTERS);
-    setCustomRange({ from: "", to: "" });
-    setReviewPage(0);
-  };
+
 
   const stats = [
     {

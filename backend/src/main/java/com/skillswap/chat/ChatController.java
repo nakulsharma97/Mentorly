@@ -14,6 +14,7 @@ import java.util.List;
 public class ChatController {
 
     private final ChatService chatService;
+    private final DirectChatWebSocketHandler webSocketHandler;
 
     @GetMapping("/conversations")
     public ApiResponse<List<ChatService.ConversationDto>> listConversations(
@@ -84,8 +85,10 @@ public class ChatController {
             @AuthenticationPrincipal User user,
             @PathVariable Long conversationId,
             @RequestBody SendMessageRequest request) {
-        return new ApiResponse<>("Message sent",
-                chatService.sendDirectMessage(user, conversationId, request.content()));
+        ChatService.DirectMessageView saved = chatService.sendDirectMessage(user, conversationId, request.content());
+        // Broadcast to all connected WebSocket sessions in real-time
+        webSocketHandler.broadcastMessage(conversationId, saved);
+        return new ApiResponse<>("Message sent", saved);
     }
 
     public record SendMessageRequest(String content) {
