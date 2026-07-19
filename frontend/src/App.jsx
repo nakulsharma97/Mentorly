@@ -141,7 +141,7 @@ export default function App() {
       });
     });
     return unsubscribe;
-  }, [notify]);
+  }, []);
 
   useEffect(() => {
     const stopRouteTiming = createPerformanceReporter("route.transition", {
@@ -183,6 +183,21 @@ export default function App() {
       window.removeEventListener("load", registerServiceWorker);
     };
   }, []);
+
+  const notify = useCallback((toast) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const normalizedToast = {
+      id,
+      duration: toast?.persistent ? 12000 : 4200,
+      persistent: false,
+      ...toast,
+    };
+    setToasts((prev) => [...prev, normalizedToast]);
+  }, []);
+
+  const dismissToast = (id) => {
+    setToasts((prev) => prev.filter((item) => item.id !== id));
+  };
 
   const resetProfileState = useCallback(() => {
     setProfile(null);
@@ -324,21 +339,6 @@ export default function App() {
     };
   }, [syncCurrentUser]);
 
-  const notify = useCallback((toast) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const normalizedToast = {
-      id,
-      duration: toast?.persistent ? 12000 : 4200,
-      persistent: false,
-      ...toast,
-    };
-    setToasts((prev) => [...prev, normalizedToast]);
-  }, []);
-
-  const dismissToast = (id) => {
-    setToasts((prev) => prev.filter((item) => item.id !== id));
-  };
-
   useEffect(() => {
     if (!isLoggedIn) {
       setUnreadNotifications(0);
@@ -420,7 +420,7 @@ export default function App() {
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("online", onOnline);
     };
-  }, [notify]);
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) {
