@@ -1,6 +1,7 @@
 package com.skillswap.booking;
 
 import com.skillswap.certification.CertificationService;
+import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
@@ -31,6 +32,7 @@ public class BookingLifecycleService {
     private final PaymentRepository paymentRepository;
     private final CertificationService certificationService;
     private final SessionWaitlistRepository sessionWaitlistRepository;
+    private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
 
     @Transactional
@@ -106,9 +108,25 @@ public class BookingLifecycleService {
         booking.setBookingStatus(BookingStatus.CANCELLED);
         Booking saved = bookingRepository.save(booking);
         notifyWaitlist(saved);
+
+        // Send in-app notification to the affected party
+        String title = sessionTitle(saved);
+        User mentor = saved.getSession().getMentor();
+        User learner = saved.getLearner();
+
+        // Notify the other party: if mentor cancelled, notify learner; if learner cancelled, notify mentor
+        boolean cancelledByMentor = currentUser != null && currentUser.getId().equals(mentor.getId());
+        Long notifyUserId = cancelledByMentor ? learner.getId() : mentor.getId();
+        String notifyMessage = cancelledByMentor
+                ? "Your session \"" + title + "\" was cancelled by " + mentor.getFullName()
+                : learner.getFullName() + " cancelled the session \"" + title + "\"";
+
+        notificationService.notifyUser(notifyUserId, "BOOKING_CANCELLED",
+                "Session Cancelled", notifyMessage, saved.getId());
+
         sendEmail(saved, "Booking cancelled",
                 "Your booking for %s has been cancelled. If payment was confirmed, a refund process has been started."
-                        .formatted(sessionTitle(saved)));
+                        .formatted(title));
         return saved;
     }
 

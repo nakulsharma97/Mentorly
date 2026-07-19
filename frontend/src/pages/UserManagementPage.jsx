@@ -10,11 +10,16 @@ const formatDate = (value) => {
   return new Intl.DateTimeFormat(undefined, { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
 };
 
+const PAGE_SIZE = 25;
+
 export default function UserManagementPage({ notify }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [selectedUser, setSelectedUser] = useState(null);
   const [walletData, setWalletData] = useState(null);
   const [walletLoading, setWalletLoading] = useState(false);
@@ -30,15 +35,27 @@ export default function UserManagementPage({ notify }) {
       const params = new URLSearchParams();
       if (roleFilter) params.set('role', roleFilter);
       if (search.trim()) params.set('q', search.trim());
+      params.set('page', String(page));
+      params.set('size', String(PAGE_SIZE));
+      params.set('sort', 'createdAt,desc');
       const res = await client.get(`/api/v1/admin/users?${params}`);
-      setUsers(res?.data?.data || []);
+      const data = res?.data?.data;
+      if (data?.content) {
+        setUsers(data.content);
+        setTotalPages(data.totalPages || 0);
+        setTotalElements(data.totalElements || 0);
+      } else {
+        // Fallback if backend doesn't send paginated response
+        setUsers(Array.isArray(data) ? data : []);
+      }
     } catch {
       notify?.({ type: 'error', title: 'Users unavailable', message: 'Could not load users.' });
     } finally {
       setLoading(false);
     }
-  }, [notify, roleFilter, search]);
+  }, [notify, roleFilter, search, page]);
 
+  useEffect(() => { setPage(0); }, [roleFilter, search]);
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
   const toggleEnabled = async (userId, currentlyEnabled) => {
@@ -258,6 +275,42 @@ export default function UserManagementPage({ notify }) {
                 </button>
               ))}
             </>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="ap-pagination" style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
+              <span className="ap-pagination__info" style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                {totalElements} total · Page {page + 1} of {totalPages}
+              </span>
+              <div className="ap-pagination__buttons" style={{ display: 'flex', gap: 4 }}>
+                <button type="button" className="admin-action-btn admin-action-cancel"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                  <Icon name="chevron_left" />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+                  const p = start + i;
+                  if (p >= totalPages) return null;
+                  return (
+                    <button key={p} type="button"
+                      className={`ap-pagination__page ${page === p ? 'ap-pagination__page--active' : ''}`}
+                      onClick={() => setPage(p)}
+                      style={{ padding: '4px 8px', fontSize: '0.78rem' }}>
+                      {p + 1}
+                    </button>
+                  );
+                })}
+                <button type="button" className="admin-action-btn admin-action-cancel"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                  <Icon name="chevron_right" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

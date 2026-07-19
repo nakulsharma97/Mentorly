@@ -35,13 +35,13 @@ public class WalletService {
 
     @Transactional
     public WalletLedgerEntry addEntryForUser(Long userId, WalletEntryRequest request) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdWithLock(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         BigDecimal currentBalance = balance(user).balance();
         BigDecimal signedAmount = switch (request.type()) {
             case CREDIT, EARNING, REFUND -> request.amount().abs();
-            case DEBIT, WITHDRAWAL -> request.amount().abs().negate();
+            case DEBIT, WITHDRAWAL -> request.amount().signum() >= 0 ? request.amount().negate() : request.amount();
         };
         BigDecimal nextBalance = currentBalance.add(signedAmount);
 

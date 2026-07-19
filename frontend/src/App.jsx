@@ -19,6 +19,8 @@ const MentorDashboard = lazy(() => import("./pages/MentorDashboard"));
 const MentorStudentsPage = lazy(() => import("./pages/MentorStudentsPage"));
 const MentorCalendarPage = lazy(() => import("./pages/MentorCalendarPage"));
 const MentorReviewsPage = lazy(() => import("./pages/MentorReviewsPage"));
+const MentorNotificationsPage = lazy(() => import("./pages/MentorNotificationsPage"));
+const MentorSettingsPage = lazy(() => import("./pages/MentorSettingsPage"));
 const RoleGuide = lazy(() => import("./pages/RoleGuide"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
@@ -38,10 +40,12 @@ const AdminAnalyticsPage = lazy(() => import("./pages/AdminAnalyticsPage"));
 const NotificationBroadcastPage = lazy(() => import("./pages/NotificationBroadcastPage"));
 const SystemSettingsPage = lazy(() => import("./pages/SystemSettingsPage"));
 const AuditLogPage = lazy(() => import("./pages/AuditLogPage"));
+const AdminPaymentsPage = lazy(() => import("./pages/AdminPaymentsPage"));
 const ContentModerationPage = lazy(() => import("./pages/ContentModerationPage"));
 const PlatformHealthPage = lazy(() => import("./pages/PlatformHealthPage"));
 const AdminApiDocsPage = lazy(() => import("./pages/AdminApiDocsPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
 // Premium learner workspace pages (rendered inside LearnerLayout)
 const LearnerMentorsPage = lazy(() => import("./pages/LearnerMentorsPage"));
 const LearnerSkillsPage = lazy(() => import("./pages/LearnerSkillsPage"));
@@ -72,6 +76,7 @@ import client, {
   clearAuthSessionState,
   extractJwtUserId,
   getActiveAuthToken,
+  onMaintenanceMode,
   persistAuthSession,
 } from "./api/client";
 import {
@@ -109,6 +114,7 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [profileChecked, setProfileChecked] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [toasts, setToasts] = useState([]);
   const location = useLocation();
   const navigate = useNavigate();
@@ -123,6 +129,19 @@ export default function App() {
   useEffect(() => {
     initGlobalMonitoring();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onMaintenanceMode(() => {
+      setMaintenanceMode(true);
+      notify({
+        type: "warning",
+        title: "Under maintenance",
+        message: "The platform is currently in maintenance mode. Only admins can access the system.",
+        persistent: true,
+      });
+    });
+    return unsubscribe;
+  }, [notify]);
 
   useEffect(() => {
     const stopRouteTiming = createPerformanceReporter("route.transition", {
@@ -593,14 +612,42 @@ export default function App() {
           />
         ) : null}
 
-        <div
-          key={routeTransitionKey}
-          id="route-content"
-          style={{ padding: 0, margin: 0 }}
-          tabIndex={-1}
-          role="main"
-          aria-label="Primary content"
-        >
+        {/* Maintenance mode banner — shown to all non-admin users */}
+        {maintenanceMode && profile?.role !== "ADMIN" && (
+          <Suspense fallback={<LazyLoadingFallback label="" />}>
+            <MaintenancePage isAdmin={false} />
+          </Suspense>
+        )}
+
+        {/* Maintainance mode warning for admins — shown as a banner above content */}
+        {maintenanceMode && profile?.role === "ADMIN" && (
+          <div style={{
+            background: "linear-gradient(135deg, #f59e0b, #d97706)",
+            color: "#fff",
+            padding: "10px 20px",
+            textAlign: "center",
+            fontWeight: 700,
+            fontSize: "0.9rem",
+            fontFamily: "'Inter', sans-serif",
+          }}>
+            🔧 Maintenance mode is active — only administrators can access the platform.
+            Go to{' '}
+            <a href="/admin/settings" style={{ color: "#fff", textDecoration: "underline", fontWeight: 800 }}>
+              Settings
+            </a>
+            {' '}to disable it.
+          </div>
+        )}
+
+        {maintenanceMode && profile?.role !== "ADMIN" ? null : (
+          <div
+            key={routeTransitionKey}
+            id="route-content"
+            style={{ padding: 0, margin: 0 }}
+            tabIndex={-1}
+            role="main"
+            aria-label="Primary content"
+          >
           <Routes>
             {!isLoggedIn ? (
               <>
@@ -754,6 +801,7 @@ export default function App() {
                         language={language}
                         onLanguageChange={handleLanguageChange}
                         unreadNotifications={unreadNotifications}
+                        onUnreadCountChange={setUnreadNotifications}
                       />
                     </RoleGuard>
                   }
@@ -940,6 +988,7 @@ export default function App() {
                         language={language}
                         onLanguageChange={handleLanguageChange}
                         unreadNotifications={unreadNotifications}
+                        onUnreadCountChange={setUnreadNotifications}
                       />
                     </RoleGuard>
                   }
@@ -1050,6 +1099,29 @@ export default function App() {
                       <RouteErrorBoundary key="mentor-professional-profile">
                         <Suspense fallback={routeFallback}>
                           <ProfessionalProfilePage
+                            profile={profile}
+                            notify={notify}
+                          />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="notifications"
+                    element={
+                      <RouteErrorBoundary key="mentor-notifications">
+                        <Suspense fallback={routeFallback}>
+                          <MentorNotificationsPage />
+                        </Suspense>
+                      </RouteErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="settings"
+                    element={
+                      <RouteErrorBoundary key="mentor-settings">
+                        <Suspense fallback={routeFallback}>
+                          <MentorSettingsPage
                             profile={profile}
                             notify={notify}
                           />
@@ -1170,6 +1242,7 @@ export default function App() {
                             profile={profile}
                             onLogout={handleLogout}
                             unreadNotifications={unreadNotifications}
+                            onUnreadCountChange={setUnreadNotifications}
                           />
                         </Suspense>
                       </RoleGuard>
@@ -1266,7 +1339,7 @@ export default function App() {
                   <Route path="payments" element={
                     <RouteErrorBoundary key="admin-payments">
                       <Suspense fallback={routeFallback}>
-                        <AdminOperationsPage notify={notify} />
+                        <AdminPaymentsPage notify={notify} />
                       </Suspense>
                     </RouteErrorBoundary>
                   } />
@@ -1292,6 +1365,7 @@ export default function App() {
             )}
           </Routes>
         </div>
+        )}
 
         {/* Render Authentication Modal globally when trigged */}
         {!isLoggedIn && authMode && (

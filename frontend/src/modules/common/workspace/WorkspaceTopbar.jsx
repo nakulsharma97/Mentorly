@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../../context/ThemeContext";
-import Icon from "../dashboard/Icon";
+import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
 import NotificationCenter from "../../../components/NotificationCenter";
 
@@ -34,6 +34,7 @@ export default function WorkspaceTopbar({
   const segment = location.pathname.split("/").filter(Boolean)[1] || "dashboard";
   const meta = pageMeta[segment] || { title: "Dashboard", search: "Search..." };
   const fullName = profile?.fullName || "User";
+  const notificationsPath = `/${crumbRoot.toLowerCase()}/notifications`;
 
   useEffect(() => {
     const onClick = (e) => {
@@ -90,7 +91,7 @@ export default function WorkspaceTopbar({
           onClick={onOpenMobileNav}
           aria-label="Open navigation"
         >
-          <Icon name="menu" />
+          <SsIcon name="menu" size={22} />
         </button>
         <button
           type="button"
@@ -98,12 +99,12 @@ export default function WorkspaceTopbar({
           onClick={onToggleSidebar}
           aria-label="Toggle sidebar"
         >
-          <Icon name="menu_open" />
+          <SsIcon name="chevron-left" size={22} />
         </button>
         <div className="ws-top__titles">
           <nav className="ws-top__crumb" aria-label="Breadcrumb">
             <span>{crumbRoot}</span>
-            <Icon name="chevron_right" />
+            <SsIcon name="chevron-right" size={16} />
             <span className="ws-top__crumb-current">{meta.title}</span>
           </nav>
           <h1 className="ws-top__title">{meta.title}</h1>
@@ -111,7 +112,7 @@ export default function WorkspaceTopbar({
       </div>
 
       <label className="ws-top__search" htmlFor="ws-search">
-        <Icon name="search" />
+        <SsIcon name="search" size={20} />
         <input
           ref={searchInputRef}
           id="ws-search"
@@ -127,13 +128,13 @@ export default function WorkspaceTopbar({
 
       <div className="ws-top__right">
         <NotificationCenter
-          profile={profile}
           unreadNotifications={unreadNotifications}
           onUnreadCountChange={onUnreadCountChange}
+          notificationsPath={notificationsPath}
         />
 
         <button type="button" className="ws-top__icon-btn" onClick={toggle} aria-label="Toggle theme">
-          <Icon name={isDark ? "light_mode" : "dark_mode"} />
+          <SsIcon name={isDark ? "sun" : "moon"} size={22} />
         </button>
 
         <div className="ws-top__profile" ref={menuRef}>
@@ -157,7 +158,7 @@ export default function WorkspaceTopbar({
                 <i className="ws-top__dot" /> Online
               </span>
             </span>
-            <Icon name="expand_more" className="ws-top__chevron" />
+            <SsIcon name="chevron-down" size={20} className="ws-top__chevron" />
           </button>
 
           {menuOpen && (
@@ -172,7 +173,7 @@ export default function WorkspaceTopbar({
                     className="ws-top__menu-item"
                     role="menuitem"
                   >
-                    <Icon name={item.icon} /> {item.label}
+                    <SsIcon name={item.icon} size={20} /> {item.label}
                   </Link>
                 ),
               )}
@@ -183,7 +184,7 @@ export default function WorkspaceTopbar({
                 onClick={onLogout}
                 role="menuitem"
               >
-                <Icon name="logout" /> Logout
+                <SsIcon name="logout" size={20} /> Logout
               </button>
             </div>
           )}

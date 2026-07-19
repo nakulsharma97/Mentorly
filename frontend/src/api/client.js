@@ -4,6 +4,26 @@ import { reportError, reportPerformance } from "../utils/monitoring";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
+// ── Maintenance Mode Event System ──
+const MAINTENANCE_EVENT = "skillswap:maintenance-mode";
+
+/**
+ * Subscribe to maintenance mode activation events.
+ * Returns an unsubscribe function.
+ */
+export function onMaintenanceMode(callback) {
+  const handler = () => callback();
+  window.addEventListener(MAINTENANCE_EVENT, handler);
+  return () => window.removeEventListener(MAINTENANCE_EVENT, handler);
+}
+
+/**
+ * Programmatically trigger maintenance mode (used when filter blocks a request).
+ */
+function triggerMaintenanceMode() {
+  window.dispatchEvent(new CustomEvent(MAINTENANCE_EVENT));
+}
+
 const client = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -405,6 +425,12 @@ client.interceptors.response.use(
         clearAuthSessionState();
         return Promise.reject(refreshError);
       }
+    }
+
+    // Detect maintenance mode (503 from MaintenanceModeFilter)
+    if (status === 503 && error?.response?.data?.data?.code === "MAINTENANCE_MODE") {
+      triggerMaintenanceMode();
+      return Promise.reject(error);
     }
 
     if (method !== "GET") {

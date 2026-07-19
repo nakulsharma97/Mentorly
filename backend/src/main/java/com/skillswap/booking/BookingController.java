@@ -70,7 +70,8 @@ public class BookingController {
         @GetMapping
         public ApiResponse<List<Booking>> list(@AuthenticationPrincipal User currentUser) {
                 if (currentUser.getRole() == UserRole.ADMIN) {
-                        return new ApiResponse<>("Bookings fetched", bookingRepository.findAll());
+                        return new ApiResponse<>("Bookings fetched",
+                                        bookingRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
                 }
                 if (currentUser.getRole() == UserRole.MENTOR) {
                         return new ApiResponse<>("Bookings fetched",
@@ -120,7 +121,7 @@ public class BookingController {
                         }
                 }
 
-                var session = sessionRepository.findById(req.sessionId())
+                var session = sessionRepository.findByIdWithLock(req.sessionId())
                                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
                 boolean alreadyBooked = bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
@@ -137,7 +138,7 @@ public class BookingController {
                         throw new IllegalArgumentException("You already have a booking for this session");
                 }
 
-                long activeBookingCount = bookingRepository.countBySessionIdAndBookingStatusIn(
+                long activeBookingCount = bookingRepository.countActiveBySessionIdWithLock(
                                 session.getId(),
                                 List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
                                                 BookingStatus.ACCEPTED,

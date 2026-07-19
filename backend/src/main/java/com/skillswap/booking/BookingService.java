@@ -117,11 +117,8 @@ public class BookingService {
             throw new UnauthorizedException("You can only approve learners for your own sessions");
         }
 
-        List<Booking> bookings = bookingRepository.findAll().stream()
-                .filter(b -> bookingIds.contains(b.getId()) &&
-                        b.getSession().getId().equals(sessionId) &&
-                        b.getBookingStatus() == BookingStatus.PENDING)
-                .collect(Collectors.toList());
+        List<Booking> bookings = bookingRepository.findByIdsAndSessionIdAndStatus(
+                bookingIds, sessionId, BookingStatus.PENDING);
 
         bookings.forEach(b -> {
             b.setApprovedByAdmin(true);
@@ -154,11 +151,8 @@ public class BookingService {
             throw new UnauthorizedException("You can only reject learners for your own sessions");
         }
 
-        List<Booking> bookings = bookingRepository.findAll().stream()
-                .filter(b -> bookingIds.contains(b.getId()) &&
-                        b.getSession().getId().equals(sessionId) &&
-                        b.getBookingStatus() == BookingStatus.PENDING)
-                .collect(Collectors.toList());
+        List<Booking> bookings = bookingRepository.findByIdsAndSessionIdAndStatus(
+                bookingIds, sessionId, BookingStatus.PENDING);
 
         bookings.forEach(b -> {
             b.setBookingStatus(BookingStatus.REJECTED);
@@ -216,10 +210,7 @@ public class BookingService {
             throw new UnauthorizedException("You can only view bookings for your own sessions");
         }
 
-        List<Booking> bookings = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession().getId().equals(sessionId) &&
-                        b.getApprovedByAdmin() != null && b.getApprovedByAdmin())
-                .collect(Collectors.toList());
+        List<Booking> bookings = bookingRepository.findBySessionIdAndApprovedByAdminTrue(sessionId);
 
         return bookings.stream().map(this::mapToResponse).collect(Collectors.toList());
     }

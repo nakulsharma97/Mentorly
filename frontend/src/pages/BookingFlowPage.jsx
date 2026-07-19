@@ -205,13 +205,18 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
 
             // Step 3: Initiate Razorpay checkout if the gateway response has order details
             if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
-              await initiateRazorpayCheckout(payment, booking);
+              await initiateRazorpayCheckout(payment);
             }
           }
         } catch (paymentError) {
           const errDetail = paymentError?.response?.data?.data?.message || paymentError?.response?.data?.data?.error || paymentError?.response?.data?.message || paymentError?.message || 'Payment order creation failed';
           console.error('[Payment] Order creation failed:', paymentError?.response?.status, paymentError?.response?.data, paymentError?.message);
-          setBookingError(errDetail);
+          // Distinguish timeout errors (payment may have succeeded on gateway)
+          if (paymentError?.message?.includes('timeout') || paymentError?.code === 'ECONNABORTED') {
+            setBookingError('Payment is taking longer than expected. Your payment may have already been processed — please check your payment status before retrying.');
+          } else {
+            setBookingError(errDetail);
+          }
         }
       }
     } catch (error) {
@@ -219,6 +224,72 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       setBookingError(backendError);
       // Stay on step 2 if booking creation failed
       setStep(2);
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  /**
+   * Check the status of the last payment attempt to avoid double charges.
+   */
+  const checkPaymentStatus = async () => {
+    if (!createdPayment?.id && !createdBookingId) return;
+    setBookingLoading(true);
+    setBookingError('');
+    try {
+      // Query the backend for the payment status by booking or payment ID
+      const paymentId = createdPayment?.id;
+      const resp = paymentId
+        ? await client.get(`/api/v1/payments/${paymentId}`)
+        : await client.get(`/api/v1/bookings/${createdBookingId}`);
+      const result = resp?.data?.data;
+      // When querying via booking endpoint, payment is nested under result.payment
+      const payStatus = paymentId ? result?.status : result?.payment?.status;
+      if (payStatus === 'ESCROWED' || payStatus === 'COMPLETED' || result?.paymentStatus === 'COMPLETED') {
+        setBookingSuccessMessage(
+          `Payment already confirmed! Your session with ${session?.mentor?.fullName || 'your mentor'} is all set.`,
+        );
+      } else if (payStatus === 'INITIATED' || payStatus === 'PENDING') {
+        setBookingError('Payment is still being processed. You can retry or wait a moment and check again.');
+      } else if (payStatus === 'FAILED' || result?.paymentStatus === 'FAILED') {
+        setBookingError('Payment failed on the gateway. You can safely retry the payment below.');
+      } else {
+        setBookingError('No payment found for this booking. You can safely retry.');
+      }
+    } catch (checkError) {
+      setBookingError('Could not check payment status. You can retry or contact support.');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  /**
+   * Retry payment - creates a new payment intent for the existing booking.
+   */
+  const handleRetryPayment = async () => {
+    if (!createdBookingId) return;
+    setBookingLoading(true);
+    setBookingError('');
+    try {
+      const priceAmount = Number(session?.priceAmount || 0);
+      const idempotencyKey = `retry_${createdBookingId}_${Date.now()}`;
+      const paymentResponse = await client.post('/api/v1/payments/intent', {
+        bookingId: createdBookingId,
+        amount: priceAmount,
+        gateway: 'razorpay',
+      }, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+      });
+      const payment = paymentResponse?.data?.data;
+      if (payment) {
+        setCreatedPayment(payment);
+        if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
+          await initiateRazorpayCheckout(payment);
+        }
+      }
+    } catch (retryError) {
+      const msg = retryError?.response?.data?.data?.message || retryError?.response?.data?.message || 'Retry failed. Please contact support.';
+      setBookingError(msg);
     } finally {
       setBookingLoading(false);
     }
@@ -507,17 +578,63 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
             </div>
           ) : (
             <div style={{ border: '1px solid var(--error-border, #fecaca)', borderRadius: 14, background: 'var(--error-bg, #fff1f2)', padding: 16 }}>
-              <p style={{ color: 'var(--error)', marginTop: 0 }}>{bookingError || 'Booking failed.'}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep(2);
-                  setBookingError('');
-                }}
-                style={{ border: '1px solid var(--line)', background: 'var(--card-bg, #fff)', padding: '10px 14px', borderRadius: 10 }}
-              >
-                Try again
-              </button>
+              <p style={{ color: 'var(--error)', marginTop: 0, marginBottom: 6 }}>{bookingError || 'Booking failed. Please try again.'}</p>
+
+              {/* Payment retry actions row */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={checkPaymentStatus}
+                  disabled={bookingLoading}
+                  style={{
+                    border: '1px solid var(--line)',
+                    background: 'var(--card-bg, #fff)',
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                  }}
+                >
+                  ✓ Check Payment Status
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRetryPayment}
+                  disabled={bookingLoading}
+                  style={{
+                    background: 'var(--accent)',
+                    color: 'var(--button-text, #fff)',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                  }}
+                >
+                  ⟳ Retry Payment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(2);
+                    setBookingError('');
+                  }}
+                  style={{
+                    border: '1px solid var(--line)',
+                    background: 'var(--card-bg, #fff)',
+                    padding: '8px 14px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                  }}
+                >
+                  ← Go Back
+                </button>
+              </div>
+
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 12, marginBottom: 0 }}>
+                Tip: Use "Check Payment Status" first to avoid duplicate charges. If the payment already went through, you won't need to retry.
+              </p>
             </div>
           )}
         </div>

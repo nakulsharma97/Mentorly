@@ -40,6 +40,7 @@ public class SecurityConfig {
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final EndpointRateLimitFilter endpointRateLimitFilter;
         private final RequestTraceFilter requestTraceFilter;
+        private final MaintenanceModeFilter maintenanceModeFilter;
         private final CsrfCookieFilter csrfCookieFilter;
         private final UserDetailsService userDetailsService;
         private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -126,6 +127,7 @@ public class SecurityConfig {
                                 .addFilterAfter(csrfCookieFilter,
                                                 org.springframework.security.web.csrf.CsrfFilter.class)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(maintenanceModeFilter, JwtAuthenticationFilter.class)
                                 .build();
         }
 

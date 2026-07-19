@@ -23,8 +23,13 @@ public class NotificationController {
     public ApiResponse<Page<AppNotification>> list(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
         PageRequest pr = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (unreadOnly) {
+            return new ApiResponse<>("Unread notifications fetched",
+                    notificationRepository.findByUserIdAndReadFalseOrderByCreatedAtDesc(user.getId(), pr));
+        }
         return new ApiResponse<>("Notifications fetched",
                 notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pr));
     }

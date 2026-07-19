@@ -274,10 +274,8 @@ public class LiveSessionService {
      */
     public List<LiveSessionResponse> getUpcomingSessions(Long mentorId) {
         OffsetDateTime now = OffsetDateTime.now();
-        List<SkillSession> sessions = sessionRepository.findAll().stream()
-                .filter(s -> s.getMentor().getId().equals(mentorId) &&
-                        s.getStartTime().isAfter(now))
-                .collect(Collectors.toList());
+        List<SkillSession> sessions = sessionRepository
+                .findByMentorIdAndStartTimeAfterOrderByStartTimeAsc(mentorId, now);
         return sessions.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -306,21 +304,10 @@ public class LiveSessionService {
     }
 
     private LiveSessionResponse mapToResponse(SkillSession session) {
-        long approvedCount = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession().getId().equals(session.getId()) &&
-                        b.getApprovedByAdmin() != null && b.getApprovedByAdmin())
-                .count();
-
-        long rejectedCount = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession().getId().equals(session.getId()) &&
-                        b.getBookingStatus() == BookingStatus.REJECTED)
-                .count();
-
-        long pendingCount = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession().getId().equals(session.getId()) &&
-                        b.getBookingStatus() == BookingStatus.PENDING &&
-                        (b.getApprovedByAdmin() == null || !b.getApprovedByAdmin()))
-                .count();
+        long approvedCount = bookingRepository.countBySessionIdAndApprovedByAdminTrue(session.getId());
+        long rejectedCount = bookingRepository.countBySessionIdAndBookingStatus(session.getId(), BookingStatus.REJECTED);
+        long pendingCount = bookingRepository.countPendingNotApprovedBySessionId(
+                session.getId(), BookingStatus.PENDING);
 
         return LiveSessionResponse.builder()
                 .id(session.getId())

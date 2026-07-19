@@ -1,13 +1,6 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import client from "../api/client";
-import Icon from "../modules/common/dashboard/Icon";
 import "./NotificationCenter.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -29,14 +22,15 @@ function unwrap(payload) {
 function relativeTime(dateStr) {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();
-  if (diff < 0) return "just now";
+  if (diff < 0) return "Just now";
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return "Just now";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
   if (days < 7) return `${days}d ago`;
   const weeks = Math.floor(days / 7);
   if (weeks < 4) return `${weeks}w ago`;
@@ -45,227 +39,120 @@ function relativeTime(dateStr) {
   return `${Math.floor(months / 12)}y ago`;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   Type → icon / colour / human label maps
-   ────────────────────────────────────────────────────────────────────────── */
-
-const TYPE_ICON = {
-  BOOKING_CREATED: "event",
-  BOOKING_CONFIRMED: "event_available",
-  BOOKING_CANCELLED: "event_busy",
-  BOOKING_REMINDER: "alarm",
-  BOOKING_STATUS: "event",
-  MESSAGE: "chat",
-  PAYMENT: "payments",
-  PAYOUT: "account_balance_wallet",
-  REFUND: "currency_exchange",
-  REVIEW: "star",
-  NEW_REVIEW: "star",
-  CERTIFICATION: "workspace_premium",
-  CERTIFICATION_EARNED: "workspace_premium",
-  BADGE: "verified",
-  ACHIEVEMENT: "emoji_events",
-  SECURITY: "security",
-  VERIFICATION: "verified_user",
-  VERIFIED: "verified_user",
-  ANNOUNCEMENT: "campaign",
-  ADMIN: "admin_panel_settings",
-  WAITLIST: "notifications",
-  SESSION_REMINDER: "notifications_active",
-  SYSTEM: "info",
-  MENTION: "alternate_email",
-  WARNING: "warning",
-  REPORT: "flag",
-  DISPUTE: "gavel",
-  ROLE_SWITCHED: "swap_horiz",
-  NEW_SESSION: "video_call",
-  WAITLIST_PROMOTION: "notifications",
-};
-
-const TYPE_LABEL = {
-  BOOKING_CREATED: "Booking",
-  BOOKING_CONFIRMED: "Confirmed",
-  BOOKING_CANCELLED: "Cancelled",
-  BOOKING_REMINDER: "Reminder",
-  BOOKING_STATUS: "Booking",
-  MESSAGE: "Message",
-  PAYMENT: "Payment",
-  PAYOUT: "Payout",
-  REFUND: "Refund",
-  REVIEW: "Review",
-  NEW_REVIEW: "Review",
-  CERTIFICATION: "Certificate",
-  CERTIFICATION_EARNED: "Certificate",
-  BADGE: "Badge",
-  ACHIEVEMENT: "Achievement",
-  SECURITY: "Security",
-  VERIFICATION: "Verification",
-  VERIFIED: "Verified",
-  ANNOUNCEMENT: "Announcement",
-  ADMIN: "Admin",
-  WAITLIST: "Waitlist",
-  SESSION_REMINDER: "Reminder",
-  SYSTEM: "System",
-  MENTION: "Mention",
-  WARNING: "Warning",
-  REPORT: "Report",
-  DISPUTE: "Dispute",
-  ROLE_SWITCHED: "Role",
-  NEW_SESSION: "Session",
-  WAITLIST_PROMOTION: "Promotion",
-};
-
-function typeIcon(type) {
-  return TYPE_ICON[type] || "notifications";
-}
-
-function typeLabel(type) {
-  return TYPE_LABEL[type] || (type ? type.replace(/_/g, " ") : "Update");
-}
-
-function typeColor(type) {
-  if (!type) return "var(--nc-info)";
-  if (type.startsWith("BOOKING") || type === "NEW_SESSION") return "var(--nc-accent)";
-  if (type.startsWith("PAY") || type === "REFUND" || type === "PAYOUT") return "var(--nc-payment)";
-  if (type.startsWith("REVIEW") || type === "RATING") return "var(--nc-review)";
-  if (type === "MESSAGE" || type === "MENTION") return "var(--nc-message)";
-  if (type.includes("CERTIFICATION") || type === "BADGE" || type === "ACHIEVEMENT") return "var(--nc-cert)";
-  if (type === "SECURITY" || type === "WARNING") return "var(--nc-danger)";
-  if (type === "VERIFICATION" || type === "VERIFIED") return "var(--nc-verified)";
-  if (type === "ANNOUNCEMENT" || type === "ADMIN") return "var(--nc-announce)";
-  return "var(--nc-info)";
+function getInitials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Tabs
+   Notification Card
    ────────────────────────────────────────────────────────────────────────── */
 
-const TABS = [
-  { key: "all", label: "All", icon: "notifications" },
-  { key: "unread", label: "Unread", icon: "mark_chat_unread" },
-  { key: "mentions", label: "Mentions", icon: "alternate_email" },
-  { key: "system", label: "System", icon: "info" },
-  { key: "payments", label: "Payments", icon: "payments" },
-  { key: "sessions", label: "Sessions", icon: "event" },
-  { key: "messages", label: "Messages", icon: "chat" },
-];
-
-function tabFilter(type, tab) {
-  if (tab === "all") return true;
-  if (tab === "unread") return true;
-  if (tab === "mentions") return type === "MENTION";
-  if (tab === "system") return ["SYSTEM", "ANNOUNCEMENT", "ADMIN", "SECURITY", "VERIFICATION", "VERIFIED"].includes(type);
-  if (tab === "payments") return type === "PAYMENT" || type === "PAYOUT" || type === "REFUND";
-  if (tab === "sessions") return type?.startsWith("BOOKING") || type === "SESSION_REMINDER" || type === "WAITLIST" || type === "NEW_SESSION";
-  if (tab === "messages") return type === "MESSAGE";
-  return true;
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
-   NotificationCard
-   ────────────────────────────────────────────────────────────────────────── */
-
-function NotificationCard({
-  notification,
-  onMarkRead,
-  onDelete,
-}) {
-  const isUnread = !notification.read;
-  const icon = typeIcon(notification.type);
-  const color = typeColor(notification.type);
-
+function NotificationCard({ notification, onMarkRead }) {
   const handleClick = () => {
-    if (!notification.read) {
-      onMarkRead(notification.id);
-    }
+    onMarkRead(notification.id);
   };
 
-  const handleDelete = (e) => {
-    e.stopPropagation();
-    onDelete(notification.id);
-  };
+  const userName = notification.user?.fullName || notification.user?.name || "";
+  const avatarUrl = notification.user?.profileImageUrl || "";
 
   return (
     <div
-      className={`nc-card${isUnread ? " nc-card--unread" : ""}`}
+      className="notif-card"
       onClick={handleClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") handleClick();
+      }}
     >
-      <div className="nc-card__indicator" style={{ backgroundColor: isUnread ? color : "transparent" }} />
-      <div className="nc-card__icon" style={{ color }}>
-        <Icon name={icon} />
-      </div>
-      <div className="nc-card__body">
-        <div className="nc-card__head">
-          <span className="nc-card__title">{notification.title}</span>
-          <span className="nc-card__time">{relativeTime(notification.createdAt)}</span>
-        </div>
-        <p className="nc-card__message">{notification.message}</p>
-        <div className="nc-card__meta">
-          {isUnread && <span className="nc-card__unread-dot" style={{ backgroundColor: color }} />}
-          <span className="nc-card__type-badge" style={{ backgroundColor: `${color}18`, color }}>
-            {typeLabel(notification.type)}
-          </span>
-        </div>
-      </div>
-      <div className="nc-card__actions">
-        {!notification.read && (
-          <button
-            type="button"
-            className="nc-card__action-btn"
-            onClick={(e) => { e.stopPropagation(); onMarkRead(notification.id); }}
-            aria-label="Mark as read"
-            title="Mark as read"
-          >
-            <Icon name="done" />
-          </button>
+      {/* Unread indicator dot */}
+      <span className="notif-card__dot" />
+
+      {/* Avatar */}
+      <div className="notif-card__avatar">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={userName} className="notif-card__avatar-img" />
+        ) : (
+          <span className="notif-card__avatar-initials">{getInitials(userName || notification.title)}</span>
         )}
-        <button
-          type="button"
-          className="nc-card__action-btn nc-card__action-btn--delete"
-          onClick={handleDelete}
-          aria-label="Delete notification"
-          title="Delete"
-        >
-          <Icon name="close" />
-        </button>
+      </div>
+
+      {/* Content */}
+      <div className="notif-card__content">
+        <div className="notif-card__header">
+          <span className="notif-card__title">{notification.title}</span>
+          <span className="notif-card__time">{relativeTime(notification.createdAt)}</span>
+        </div>
+        <p className="notif-card__desc">{notification.message}</p>
       </div>
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Skeleton loader
+   Skeleton
    ────────────────────────────────────────────────────────────────────────── */
 
 function NotificationSkeleton() {
   return (
-    <div className="nc-skeleton">
-      <div className="nc-skeleton__indicator" />
-      <div className="nc-skeleton__icon nc-skeleton__pulse" />
-      <div className="nc-skeleton__body">
-        <div className="nc-skeleton__line nc-skeleton__line--60 nc-skeleton__pulse" />
-        <div className="nc-skeleton__line nc-skeleton__line--90 nc-skeleton__pulse" />
-        <div className="nc-skeleton__line nc-skeleton__line--40 nc-skeleton__pulse" />
+    <div className="notif-skeleton">
+      <span className="notif-skeleton__dot" />
+      <div className="notif-skeleton__avatar" />
+      <div className="notif-skeleton__body">
+        <div className="notif-skeleton__line notif-skeleton__line--60" />
+        <div className="notif-skeleton__line notif-skeleton__line--90" />
       </div>
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Empty state
+   Empty State
    ────────────────────────────────────────────────────────────────────────── */
 
-function NotificationEmpty({ icon, title, desc }) {
+function NotificationEmpty() {
   return (
-    <div className="nc-empty">
-      <div className="nc-empty__icon">
-        <Icon name={icon} />
+    <div className="notif-empty">
+      <div className="notif-empty__icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
       </div>
-      <h3 className="nc-empty__title">{title}</h3>
-      {desc && <p className="nc-empty__desc">{desc}</p>}
+      <h3 className="notif-empty__title">You're all caught up!</h3>
+      <p className="notif-empty__desc">
+        No new notifications. We'll notify you when something important happens.
+      </p>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Error State
+   ────────────────────────────────────────────────────────────────────────── */
+
+function NotificationError({ message, onRetry }) {
+  return (
+    <div className="notif-error">
+      <div className="notif-error__icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <h3 className="notif-error__title">Could not load notifications</h3>
+      <p className="notif-error__desc">{message}</p>
+      <button type="button" className="notif-error__retry" onClick={onRetry}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+        </svg>
+        Retry
+      </button>
     </div>
   );
 }
@@ -279,52 +166,47 @@ export default function NotificationCenter({
   onUnreadCountChange,
   fullPage = false,
   onClose,
+  notificationsPath = "/learner/notifications",
 }) {
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
-  const scrollRef = useRef(null);
-  const sentinelRef = useRef(null);
-  const searchRef = useRef(null);
+  const panelRef = useRef(null);
 
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("all");
   const [unreadCount, setUnreadCount] = useState(externalUnreadCount || 0);
-  const [searchQuery, setSearchQuery] = useState("");
   const [fetchedOnce, setFetchedOnce] = useState(false);
 
   /* ────────────────────────────────────────────────────── Data fetching ── */
 
-  const fetchNotifications = useCallback(async (pageNum = 0, append = false) => {
-    if (pageNum === 0) setLoading(true);
-    else setLoadingMore(true);
-    setError(null);
+  const fetchNotifications = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
-      const params = { page: pageNum, size: 20 };
-      const response = await client.get("/api/v1/notifications", { params });
+      const response = await client.get("/api/v1/notifications", {
+        params: { page: 0, size: 50, unreadOnly: true },
+      });
       const result = unwrap(response.data);
       const items = result?.content || result || [];
-
-      if (append) {
-        setNotifications((prev) => [...prev, ...items]);
-      } else {
-        setNotifications(items);
-      }
-
-      setHasMore(items.length === 20);
-      setPage(pageNum);
-      if (pageNum === 0) setFetchedOnce(true);
+      setNotifications(items);
+      setFetchedOnce(true);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Failed to load notifications");
+      if (!silent) {
+        const errorMsg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Something went wrong while fetching notifications.";
+        setError(errorMsg);
+      }
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -335,29 +217,28 @@ export default function NotificationCenter({
       setUnreadCount(count);
       if (onUnreadCountChange) onUnreadCountChange(count);
     } catch {
-      // ignore
+      // silently fail for background polling
     }
   }, [onUnreadCountChange]);
 
   /* ──────────────────────────────────────────────────────────── Effects ── */
 
-  // Open dropdown triggers initial fetch (only on first open, then skip)
+  // Open triggers fetch (only on first open)
   useEffect(() => {
     if ((isOpen || fullPage) && !fetchedOnce) {
-      fetchNotifications(0);
+      fetchNotifications();
       fetchUnreadCount();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, fullPage]);
 
-  // Re-fetch when explicitly told to via externalUnreadCount changing (polling from App)
+  // Background refresh when external count changes
   useEffect(() => {
     if (fetchedOnce && (isOpen || fullPage)) {
-      // Background refresh when we detect external count changed
-      fetchNotifications(0);
+      fetchNotifications();
       fetchUnreadCount();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalUnreadCount]);
 
   // Sync external unread count
@@ -371,115 +252,49 @@ export default function NotificationCenter({
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
-        setSearchQuery("");
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [fullPage]);
 
-  // Infinite scroll via IntersectionObserver (dropdown mode)
+  // 15s polling while the panel is open (silent background refresh)
   useEffect(() => {
-    if (!sentinelRef.current || !hasMore || loading || loadingMore || fullPage) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          fetchNotifications(page + 1, true);
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadingMore, page, fetchNotifications, fullPage]);
+    if (!isOpen && !fullPage) return;
 
-  // Scroll-based load more (full page mode)
-  useEffect(() => {
-    if (!fullPage || !scrollRef.current || !hasMore || loading || loadingMore) return;
-    const el = scrollRef.current;
-    const handler = () => {
-      if (el.scrollHeight - el.scrollTop - el.clientHeight < 300 && hasMore && !loadingMore) {
-        fetchNotifications(page + 1, true);
-      }
+    const poll = () => {
+      fetchNotifications(true);
+      fetchUnreadCount();
     };
-    el.addEventListener("scroll", handler);
-    return () => el.removeEventListener("scroll", handler);
-  }, [fullPage, hasMore, loading, loadingMore, page, fetchNotifications]);
+
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, [isOpen, fullPage, fetchNotifications, fetchUnreadCount]);
 
   /* ──────────────────────────────────────────────────────────── Actions ── */
 
-  const handleMarkRead = useCallback(async (id) => {
-    try {
-      await client.patch(`/api/v1/notifications/${id}/read`);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-      fetchUnreadCount();
-    } catch {
-      // ignore
-    }
-  }, [fetchUnreadCount]);
-
-  const handleMarkAllRead = useCallback(async () => {
-    try {
-      await client.patch("/api/v1/notifications/read-all");
-      // Set all existing items as read in local state (no need for allRead flag)
-      // because setNotifications sets read: true on every item.
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setUnreadCount(0);
-      if (onUnreadCountChange) onUnreadCountChange(0);
-    } catch {
-      // ignore
-    }
-  }, [onUnreadCountChange]);
-
-  const handleDelete = useCallback(async (id) => {
-    try {
-      await client.delete(`/api/v1/notifications/${id}`);
+  const handleMarkRead = useCallback(
+    async (id) => {
+      // Optimistically remove notification from the list
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-      fetchUnreadCount();
-    } catch {
-      // ignore
-    }
-  }, [fetchUnreadCount]);
+
+      // Functional update avoids stale closure for the count
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      try {
+        await client.patch(`/api/v1/notifications/${id}/read`);
+      } catch {
+        // On failure, silently refetch to restore consistency — never show error UI
+        fetchNotifications(true);
+        fetchUnreadCount();
+      }
+    },
+    [fetchNotifications, fetchUnreadCount],
+  );
 
   const toggleOpen = () => {
     setIsOpen((v) => !v);
   };
-
-  /* ──────────────────────────────────────────────────────── Filtering ── */
-
-  const filtered = useMemo(() => {
-    let list = notifications;
-
-    // Tab filter
-    if (activeTab !== "all" && activeTab !== "unread") {
-      list = list.filter((n) => tabFilter(n.type, activeTab));
-    }
-
-    // Unread filter
-    if (activeTab === "unread") {
-      list = list.filter((n) => !n.read);
-    }
-
-    // Text search (across title + message + type)
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (n) =>
-          (n.title || "").toLowerCase().includes(q) ||
-          (n.message || "").toLowerCase().includes(q) ||
-          typeLabel(n.type).toLowerCase().includes(q),
-      );
-    }
-
-    // Sort: unread first, then by time
-    return [...list].sort((a, b) => {
-      if (a.read !== b.read) return a.read ? 1 : -1;
-      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-    });
-  }, [notifications, activeTab, searchQuery]);
 
   /* ──────────────────────────────────────────────────────── Render ── */
 
@@ -487,170 +302,62 @@ export default function NotificationCenter({
   const bellButton = (
     <button
       type="button"
-      className={`nc-bell${isOpen ? " nc-bell--open" : ""}`}
+      className={`notif-bell${isOpen ? " notif-bell--open" : ""}`}
       onClick={toggleOpen}
       aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
     >
-      <Icon name="notifications" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
       {unreadCount > 0 && (
-        <span className="nc-bell__badge">
+        <span className="notif-bell__badge">
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}
     </button>
   );
 
-  // ── Panel content ──
+  // ── Panel ──
   const renderPanel = () => {
-    const tabCounts = {};
-    TABS.forEach((t) => {
-      if (t.key === "all") tabCounts.all = notifications.length;
-      else if (t.key === "unread") tabCounts.unread = unreadCount;
-      else tabCounts[t.key] = notifications.filter((n) => tabFilter(n.type, t.key)).length;
-    });
-
     return (
-      <div className={`nc-panel${fullPage ? " nc-panel--full" : ""}`}>
+      <div className={`notif-panel${fullPage ? " notif-panel--full" : ""}`}>
         {/* Header */}
-        <div className="nc-panel__header">
-          <div className="nc-panel__header-left">
-            <h2 className="nc-panel__title">Notifications</h2>
-            {unreadCount > 0 && (
-              <span className="nc-panel__unread-count">{unreadCount} new</span>
-            )}
-          </div>
-          <div className="nc-panel__header-actions">
-            {unreadCount > 0 && (
-              <button
-                type="button"
-                className="nc-panel__action-btn"
-                onClick={handleMarkAllRead}
-                title="Mark all as read"
-              >
-                <Icon name="done_all" />
-                <span>Mark all read</span>
-              </button>
-            )}
-            {fullPage ? (
-              <Link to="/learner/settings" className="nc-panel__action-btn">
-                <Icon name="settings" />
-                <span>Settings</span>
-              </Link>
-            ) : (
-              <button
-                type="button"
-                className="nc-panel__action-btn"
-                onClick={() => navigate("/learner/notifications")}
-                title="View all"
-              >
-                <Icon name="open_in_new" />
-                <span>View all</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="nc-panel__search">
-          <Icon name="search" />
-          <input
-            ref={searchRef}
-            type="text"
-            className="nc-search-input"
-            placeholder="Search notifications..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            aria-label="Search notifications"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="nc-search-clear"
-              onClick={() => setSearchQuery("")}
-              aria-label="Clear search"
-            >
-              <Icon name="close" />
-            </button>
-          )}
-        </div>
-
-        {/* Tabs */}
-        <div className="nc-panel__tabs">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              className={`nc-tab${activeTab === tab.key ? " nc-tab--active" : ""}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              <Icon name={tab.icon} />
-              <span>{tab.label}</span>
-              {tabCounts[tab.key] > 0 && (
-                <span className="nc-tab__count">{tabCounts[tab.key]}</span>
-              )}
-            </button>
-          ))}
+        <div className="notif-panel__header">
+          <h2 className="notif-panel__title">Notifications</h2>
+          <button
+            type="button"
+            className="notif-panel__view-all"
+            onClick={() => {
+              setIsOpen(false);
+              navigate(notificationsPath);
+            }}
+          >
+            View All
+          </button>
         </div>
 
         {/* List */}
-        <div className={`nc-panel__list${fullPage ? " nc-panel__list--full" : ""}`} ref={scrollRef}>
+        <div className="notif-panel__list" ref={panelRef}>
           {loading ? (
-            <div className="nc-panel__skeletons">
+            <div className="notif-panel__skeletons">
               {[1, 2, 3, 4, 5].map((k) => (
                 <NotificationSkeleton key={k} />
               ))}
             </div>
           ) : error ? (
-            <NotificationEmpty
-              icon="error"
-              title="Could not load notifications"
-              desc={error}
-            />
-          ) : filtered.length === 0 ? (
-            <NotificationEmpty
-              icon={searchQuery ? "search_off" : activeTab === "unread" ? "mark_chat_unread" : "notifications_off"}
-              title={
-                searchQuery
-                  ? "No matching notifications"
-                  : activeTab === "unread"
-                    ? "No unread notifications"
-                    : "You're all caught up 🎉"
-              }
-              desc={
-                searchQuery
-                  ? `No notifications match "${searchQuery}".`
-                  : activeTab === "unread"
-                    ? "You've read everything. Check back later for updates."
-                    : "We'll notify you whenever something important happens."
-              }
-            />
+            <NotificationError message={error} onRetry={fetchNotifications} />
+          ) : notifications.length === 0 ? (
+            <NotificationEmpty />
           ) : (
             <>
-              {filtered.map((notification) => (
+              {notifications.map((notification) => (
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
                   onMarkRead={handleMarkRead}
-                  onDelete={handleDelete}
                 />
               ))}
-              {loadingMore && (
-                <div className="nc-panel__skeletons">
-                  {[1, 2].map((k) => (
-                    <NotificationSkeleton key={`more-${k}`} />
-                  ))}
-                </div>
-              )}
-              {hasMore && !fullPage && (
-                <div ref={sentinelRef} className="nc-sentinel" />
-              )}
-              {!hasMore && filtered.length > 0 && (
-                <div className="nc-panel__end">
-                  <span className="nc-panel__end-line" />
-                  <span className="nc-panel__end-text">All caught up</span>
-                  <span className="nc-panel__end-line" />
-                </div>
-              )}
             </>
           )}
         </div>
@@ -661,17 +368,20 @@ export default function NotificationCenter({
   // ── Full page mode ──
   if (fullPage) {
     return (
-      <div className="nc-full-page">
-        <div className="nc-full-page__header">
-          <h1 className="nc-full-page__title">Notifications</h1>
+      <div className="notif-full-page">
+        <div className="notif-full-page__header">
+          <h1 className="notif-full-page__title">Notifications</h1>
           {onClose && (
             <button
               type="button"
-              className="nc-full-page__close"
+              className="notif-full-page__close"
               onClick={onClose}
               aria-label="Close notifications"
             >
-              <Icon name="arrow_back" />
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
             </button>
           )}
         </div>
@@ -682,11 +392,11 @@ export default function NotificationCenter({
 
   // ── Dropdown mode ──
   return (
-    <div className="nc-wrapper" ref={dropdownRef}>
+    <div className="notif-wrapper" ref={dropdownRef}>
       {bellButton}
       {isOpen && (
-        <div className="nc-dropdown">
-          <div className="nc-dropdown__arrow" />
+        <div className="notif-dropdown">
+          <div className="notif-dropdown__arrow" />
           {renderPanel()}
         </div>
       )}

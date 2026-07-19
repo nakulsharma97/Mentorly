@@ -1,8 +1,5 @@
 package com.skillswap.auth;
 
-import com.skillswap.auth.AuthDtos.LoginRequest;
-import com.skillswap.auth.AuthDtos.RefreshTokenRequest;
-import com.skillswap.auth.AuthDtos.SignupRequest;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
@@ -20,11 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Date;
 import java.util.Optional;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 
-import static com.skillswap.auth.AuthDtos.LoginRequest;
-import static com.skillswap.auth.AuthDtos.RefreshTokenRequest;
-import static com.skillswap.auth.AuthDtos.SignupRequest;
+import static com.skillswap.auth.AuthDtos.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -80,7 +74,7 @@ class AuthServiceTest {
         when(claims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 600000));
         when(jwtService.extractAllClaims("refresh-token")).thenReturn(claims);
 
-        var response = authService.signup(request);
+        var response = authService.signup(request, "unknown");
 
         assertEquals("access-token", response.token());
         assertEquals("refresh-token", response.refreshToken());
@@ -107,7 +101,7 @@ class AuthServiceTest {
         when(claims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 600000));
         when(jwtService.extractAllClaims("new-refresh")).thenReturn(claims);
 
-        var response = authService.login(new LoginRequest("mentor@example.com", "pw"));
+        var response = authService.login(new LoginRequest("mentor@example.com", "pw"), "unknown");
 
         assertEquals("new-access", response.token());
         assertEquals("new-refresh", response.refreshToken());

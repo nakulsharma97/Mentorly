@@ -182,7 +182,7 @@ public class PaymentService {
      */
     public List<Payment> getPaymentHistory(User currentUser) {
         if (currentUser.getRole() == UserRole.ADMIN) {
-            return paymentRepository.findAll();
+            return paymentRepository.findByFilters(null, null, null, org.springframework.data.domain.PageRequest.of(0, 1000)).getContent();
         }
         return paymentRepository.findByLearnerIdOrMentorId(currentUser.getId(), currentUser.getId());
     }
@@ -209,7 +209,7 @@ public class PaymentService {
 
     // --- Private helpers ---
 
-    private PaymentGateway resolveGateway(String gatewaySlug) {
+    public PaymentGateway resolveGateway(String gatewaySlug) {
         return gateways.stream()
                 .filter(g -> g.getGatewaySlug().equalsIgnoreCase(gatewaySlug))
                 .findFirst()

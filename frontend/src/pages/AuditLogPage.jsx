@@ -43,23 +43,39 @@ const getActionMeta = (action) => {
   return { icon: 'history', color: '#64748b' };
 };
 
+const AUDIT_PAGE_SIZE = 50;
+
 export default function AuditLogPage({ notify }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (actionFilter.trim()) params.set('action', actionFilter.trim());
+      params.set('page', String(page));
+      params.set('size', String(AUDIT_PAGE_SIZE));
+      params.set('sort', 'createdAt,desc');
       const res = await client.get(`/api/v1/admin/audit-log?${params}`);
-      setLogs(res?.data?.data || []);
+      const data = res?.data?.data;
+      if (data?.content) {
+        setLogs(data.content);
+        setTotalPages(data.totalPages || 0);
+        setTotalElements(data.totalElements || 0);
+      } else {
+        setLogs(Array.isArray(data) ? data : []);
+      }
     } catch {
       notify?.({ type: 'error', title: 'Audit log unavailable', message: 'Could not load audit log.' });
     } finally { setLoading(false); }
-  }, [notify, actionFilter]);
+  }, [notify, actionFilter, page]);
 
+  useEffect(() => { setPage(0); }, [actionFilter]);
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
   return (
@@ -83,6 +99,30 @@ export default function AuditLogPage({ notify }) {
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
+
+      {/* Pagination info */}
+      {totalPages > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, fontSize: '0.82rem', color: 'var(--admin-muted)' }}>
+          <span>{totalElements} total entries</span>
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              <button type="button" className="admin-action-btn admin-action-cancel"
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                <Icon name="chevron_left" />
+              </button>
+              <span>Page {page + 1} of {totalPages}</span>
+              <button type="button" className="admin-action-btn admin-action-cancel"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                <Icon name="chevron_right" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="admin-list" style={{ gap: 6 }}>
         {loading ? (

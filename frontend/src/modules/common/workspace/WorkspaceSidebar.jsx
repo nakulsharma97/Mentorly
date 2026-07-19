@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom";
-import Icon from "../dashboard/Icon";
+import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
 
 /**
- * Role-agnostic collapsible sidebar.
+ * SkillSwap Sidebar — uses Lucide icons via SsIcon.
  * @param brand         { title, subtitle }
  * @param groups        [{ label, links: [{ to, label, icon, end }] }]
  * @param secondaryLinks[{ to, label, icon }]
@@ -19,6 +19,7 @@ export default function WorkspaceSidebar({
   onCloseMobile,
 }) {
   const fullName = String(profile?.fullName || brand?.title || "User").trim();
+  const isRoleMentor = brand?.title === "SkillSwap";
 
   const renderLink = (item, secondary = false) => (
     <NavLink
@@ -32,7 +33,7 @@ export default function WorkspaceSidebar({
       title={collapsed ? item.label : undefined}
     >
       <span className="ws-sb__link-rail" />
-      <Icon name={item.icon} className="ws-sb__link-icon" />
+      <SsIcon name={item.icon} size={20} className="ws-sb__link-icon" />
       <span className="ws-sb__link-label">{item.label}</span>
     </NavLink>
   );
@@ -48,14 +49,16 @@ export default function WorkspaceSidebar({
         className={`ws-sb${collapsed ? " is-collapsed" : ""}${mobileOpen ? " is-mobile-open" : ""}`}
       >
         <div className="ws-sb__brand">
-          <div className="ws-sb__logo">SS</div>
+          <div className="ws-sb__logo" aria-label="SkillSwap">
+            <SsIcon name="zap" size={22} strokeWidth={2.5} />
+          </div>
           <div className="ws-sb__brand-copy">
             <p className="ws-sb__brand-title">{brand?.title || "SkillSwap"}</p>
             <p className="ws-sb__brand-sub">{brand?.subtitle}</p>
           </div>
         </div>
 
-        <nav className="ws-sb__nav" aria-label={`${brand?.title || ""} navigation`}>
+        <nav className="ws-sb__nav" aria-label="Workspace sections">
           {groups.map((group) => (
             <div key={group.label}>
               {group.label && <p className="ws-sb__group-label">{group.label}</p>}
@@ -74,7 +77,7 @@ export default function WorkspaceSidebar({
           )}
           <button type="button" className="ws-sb__logout" onClick={onLogout} title="Logout">
             <span className="ws-sb__link-rail" />
-            <Icon name="logout" className="ws-sb__link-icon" />
+            <SsIcon name="logout" size={20} className="ws-sb__link-icon" />
             <span className="ws-sb__link-label">Logout</span>
           </button>
 

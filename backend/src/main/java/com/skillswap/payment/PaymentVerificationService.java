@@ -91,10 +91,27 @@ public class PaymentVerificationService {
         return payment;
     }
 
+    /**
+     * Fetch the current status of a payment from its gateway adapter.
+     * Used for status polling / retry when a previous callback may have timed out.
+     */
+    @Transactional
+    public String fetchFromGateway(Payment payment) {
+        try {
+            // Resolve the gateway adapter and fetch status
+            PaymentGateway gateway = paymentService.resolveGateway(payment.getGateway());
+            if (payment.getPaymentId() != null) {
+                String gatewayStatus = gateway.fetchPaymentStatus(payment.getPaymentId());
+                log.info("Gateway status check: paymentId={}, gatewayStatus={}", payment.getId(), gatewayStatus);
+                return gatewayStatus;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch gateway status for paymentId={}: {}", payment.getId(), e.getMessage());
+        }
+        return null;
+    }
+
     private void notifyPaymentSuccess(Payment payment) {
-        // Find booking via payment (we need the booking repository lookup)
-        // Since Payment now has direct fields, we can't navigate payment -> booking
-        // The notification is handled by the controller/service that initiated the verification
         log.debug("Payment succeeded: id={}, orderId={}", payment.getId(), payment.getOrderId());
     }
 }

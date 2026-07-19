@@ -11,5 +11,7 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
 
     Page<AppNotification> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    Page<AppNotification> findByUserIdAndReadFalseOrderByCreatedAtDesc(Long userId, Pageable pageable);
+
     long countByUserIdAndReadFalse(Long userId);
 }

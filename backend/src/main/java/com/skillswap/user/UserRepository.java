@@ -1,5 +1,9 @@
 package com.skillswap.user;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
@@ -10,15 +14,26 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT u FROM User u WHERE u.id = :userId")
+        Optional<User> findByIdWithLock(@Param("userId") Long userId);
+
         Optional<User> findByEmail(String email);
 
         Optional<User> findByReferralCodeIgnoreCase(String referralCode);
+
+        Optional<User> findByPasswordResetToken(String passwordResetToken);
 
         boolean existsByEmail(String email);
 
         boolean existsByReferralCodeIgnoreCase(String referralCode);
 
         long countByReferredByUserId(Long referredByUserId);
+
+        long countByRole(UserRole role);
+
+        long countByReferralCodeIsNotNull();
 
         List<User> findByRole(UserRole role);
 
@@ -31,6 +46,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         OffsetDateTime cutoff);
 
         long countByLastActiveAtAfter(OffsetDateTime cutoff);
+
+        long countByCreatedAtAfter(OffsetDateTime cutoff);
+
+        // ── Admin pagination queries ──
+        @Query("SELECT u FROM User u WHERE "
+                + "(:role IS NULL OR u.role = :role) "
+                + "AND (:q IS NULL OR :q = '' "
+                + "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')) "
+                + "OR LOWER(u.email) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')))")
+        Page<User> findByFilters(@Param("role") UserRole role,
+                                 @Param("q") String q,
+                                 Pageable pageable);
 
         /**
          * Backend-driven mentor search with keyword matching, price / rating /

@@ -43,12 +43,13 @@ const PROFILE_MENU = [
   { to: "/learner/certificates", label: "Certificates", icon: "workspace_premium" },
 ];
 
-export default function LearnerLayout({ profile, onLogout, unreadNotifications }) {
+export default function LearnerLayout({ profile, onLogout, unreadNotifications, onUnreadCountChange }) {
   return (
     <WorkspaceLayout
       profile={profile}
       onLogout={onLogout}
       unreadNotifications={unreadNotifications}
+      onUnreadCountChange={onUnreadCountChange}
       brand={BRAND}
       groups={GROUPS}
       secondaryLinks={SECONDARY}

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
-import SectionCard from "../modules/common/dashboard/SectionCard";
+import SsIcon from "../components/ui/SsIcon";
+import { SsStatCard } from "../components/ui/SsCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
+import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
 import "./WalletPage.css";
 
@@ -46,7 +48,7 @@ const formatCurrency = (amount, currency = "CREDITS") => {
     style: "currency",
     currency,
   }).format(value);
-};;
+};
 
 const formatDate = (value) => {
   const date = new Date(value);
@@ -123,6 +125,10 @@ export default function WalletPage({ profile, notify }) {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawMethod, setWithdrawMethod] = useState("bank");
   const [withdrawProcessing, setWithdrawProcessing] = useState(false);
+  const [payoutPage, setPayoutPage] = useState(0);
+  const [payoutSearch, setPayoutSearch] = useState("");
+  const [payoutDateRange, setPayoutDateRange] = useState("all");
+  const PAYOUT_PAGE_SIZE = 8;
 
   useEffect(() => {
     let mounted = true;
@@ -230,9 +236,30 @@ export default function WalletPage({ profile, notify }) {
   }, [ledger, search, typeFilter, dateRange]);
 
   const recentTransactions = filteredLedger.slice(0, 12);
-  const payoutEntries = ledger
-    .filter((entry) => entry.type === "WITHDRAWAL" || entry.type === "DEBIT")
-    .slice(0, 5);
+
+  // Payout-specific filtered list with pagination
+  const allPayoutEntries = useMemo(() => {
+    const query = payoutSearch.trim().toLowerCase();
+    return ledger.filter((entry) => {
+      if (entry.type !== "WITHDRAWAL" && entry.type !== "DEBIT") return false;
+      if (payoutDateRange !== "all") {
+        const cutoff = Date.now() - Number(payoutDateRange) * 24 * 60 * 60 * 1000;
+        const createdAt = new Date(entry.createdAt).getTime();
+        if (Number.isNaN(createdAt) || createdAt < cutoff) return false;
+      }
+      if (!query) return true;
+      return [entry.description, entry.type, entry.referenceType]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(query));
+    });
+  }, [ledger, payoutSearch, payoutDateRange]);
+
+  const payoutTotalPages = Math.max(1, Math.ceil(allPayoutEntries.length / PAYOUT_PAGE_SIZE));
+  const safePayoutPage = Math.min(payoutPage, payoutTotalPages - 1);
+  const paginatedPayouts = allPayoutEntries.slice(
+    safePayoutPage * PAYOUT_PAGE_SIZE,
+    (safePayoutPage + 1) * PAYOUT_PAGE_SIZE,
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -325,63 +352,63 @@ export default function WalletPage({ profile, notify }) {
   };
 
   const pageTitle =
-    profile?.role === "MENTOR" ? "Earnings dashboard" : "Payments dashboard";
+    profile?.role === "MENTOR" ? "Earnings" : "Payments";
 
   return (
-    <main className="wallet-page wallet-dashboard md-page">
-      <section className="wallet-hero md-hero">
-        <div className="md-hero__body">
-          <p className="md-hero__eyebrow">{pageTitle}</p>
-          <h1 className="md-hero__title">Premium wallet insights</h1>
-          <p className="md-hero__sub">
-            Monitor your earnings, payouts, and payouts pipeline with a modern
-            financial dashboard built on live wallet data.
+    <main className="ss-page">
+      {/* Unified Hero Section — light theme, consistent with all mentor pages */}
+      <section className="ss-hero">
+        <div className="ss-hero__content">
+          <div className="ss-hero__badge">
+            <SsIcon name="wallet" size={14} />
+            {pageTitle} dashboard
+          </div>
+          <h1 className="ss-hero__title">
+            {profile?.role === "MENTOR" ? "Earnings & Wallet" : "Payments & Credits"}
+          </h1>
+          <p className="ss-hero__desc">
+            Track your earnings, withdrawals, and balance history with a modern financial dashboard.
           </p>
-          <div className="md-hero__actions">
+          <div className="ss-hero__actions">
             <button
-              className="md-btn md-btn--primary"
+              className="ss-btn ss-btn--primary"
               type="button"
               onClick={handleRefresh}
               disabled={refreshing}
             >
-              <Icon name="refresh" />
+              <SsIcon name="refresh" size={18} />
               {refreshing ? "Refreshing…" : "Refresh data"}
             </button>
             <button
-              className="md-btn md-btn--ghost"
+              className="ss-btn ss-btn--secondary"
               type="button"
               onClick={handleExport}
               disabled={exporting}
             >
-              <Icon name="download" />
+              <SsIcon name="download" size={18} />
               {exporting ? "Exporting…" : "Export ledger"}
             </button>
           </div>
+
+          {/* Quick Balance Cards in Hero */}
+          <div className="ss-hero__quick-stats" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Available Balance</p>
+              <p className="ss-hero__qs-value" style={{ fontSize: "1.25rem" }}>
+                {loading ? "..." : formatCurrency(balance?.balance, balance?.currency)}
+              </p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Total Payouts</p>
+              <p className="ss-hero__qs-value" style={{ fontSize: "1.25rem" }}>
+                {loading ? "..." : formatCurrency(metrics.payouts, balance?.currency)}
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="md-hero__aside">
-          <div className="md-hero-glass">
-            <p className="md-hero-glass__label">Available balance</p>
-            <p className="md-hero-glass__value">
-              {loading
-                ? "Loading…"
-                : formatCurrency(balance?.balance, balance?.currency)}
-            </p>
-            <p className="md-hero-glass__desc">
-              Funds available to withdraw or reinvest.
-            </p>
-          </div>
-          <div className="md-hero-glass">
-            <p className="md-hero-glass__label">Recent payout activity</p>
-            <p className="md-hero-glass__value">
-              {loading
-                ? "Loading…"
-                : formatCurrency(metrics.payouts, balance?.currency)}
-            </p>
-            <p className="md-hero-glass__desc">
-              Total payouts recorded in your wallet history.
-            </p>
-          </div>
+        <div className="ss-hero__illustration">
+          <SsIcon name="wallet" size={160} />
         </div>
       </section>
 
@@ -650,32 +677,91 @@ export default function WalletPage({ profile, notify }) {
             </div>
           </div>
 
+          {/* ── Payout search & filters ── */}
+          <div className="wallet-panel__head" style={{ marginTop: 16 }}>
+            <div className="wallet-panel__actions">
+              <div className="wallet-search">
+                <Icon name="search" />
+                <input
+                  type="search"
+                  placeholder="Search payout entries..."
+                  value={payoutSearch}
+                  onChange={(e) => { setPayoutSearch(e.target.value); setPayoutPage(0); }}
+                />
+              </div>
+              <select
+                className="wallet-filter"
+                value={payoutDateRange}
+                onChange={(e) => { setPayoutDateRange(e.target.value); setPayoutPage(0); }}
+              >
+                {DATE_RANGES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className="wallet-payout-list">
             <div className="wallet-payout-list__head">
-              <span>Recent payout entries</span>
-              <span>{payoutEntries.length} shown</span>
+              <span>Payout entries</span>
+              <span>{allPayoutEntries.length} total</span>
             </div>
-            {payoutEntries.length === 0 ? (
+            {allPayoutEntries.length === 0 ? (
               <p className="wallet-empty-state">
-                No payout entries exist yet. Complete sessions to generate
-                wallet payouts.
+                {payoutSearch || payoutDateRange !== "all"
+                  ? "No payout entries match your search. Try adjusting the filters."
+                  : "No payout entries exist yet. Complete sessions to generate wallet payouts."}
               </p>
             ) : (
-              payoutEntries.map((entry) => (
-                <div className="wallet-payout-row" key={entry.id}>
-                  <div>
-                    <strong>
-                      {formatCurrency(entry.amount, entry.currency)}
-                    </strong>
-                    <span>{formatDate(entry.createdAt)}</span>
+              <>
+                {paginatedPayouts.map((entry) => (
+                  <div className="wallet-payout-row" key={entry.id}>
+                    <div>
+                      <strong>
+                        {formatCurrency(entry.amount, entry.currency)}
+                      </strong>
+                      <span>{formatDate(entry.createdAt)}</span>
+                    </div>
+                    <span
+                      className={`wallet-pill wallet-pill--${TYPE_STYLES[entry.type] || "neutral"}`}
+                    >
+                      {TYPE_LABELS[entry.type] || entry.type}
+                    </span>
                   </div>
-                  <span
-                    className={`wallet-pill wallet-pill--${TYPE_STYLES[entry.type] || "neutral"}`}
-                  >
-                    {TYPE_LABELS[entry.type] || entry.type}
-                  </span>
-                </div>
-              ))
+                ))}
+                {/* ── Pagination bar ── */}
+                {allPayoutEntries.length > PAYOUT_PAGE_SIZE && (
+                  <div className="mp-pagination" style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 12,
+                    padding: "12px 0",
+                    borderTop: "1px solid var(--ss-border, #e5e7eb)",
+                    marginTop: 8,
+                  }}>
+                    <button
+                      className="md-btn md-btn--outline md-btn--sm"
+                      type="button"
+                      disabled={safePayoutPage <= 0}
+                      onClick={() => setPayoutPage((p) => Math.max(0, p - 1))}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontSize: "0.82rem", color: "var(--ss-text-secondary, #6b7280)" }}>
+                      Page {safePayoutPage + 1} of {payoutTotalPages}
+                    </span>
+                    <button
+                      className="md-btn md-btn--outline md-btn--sm"
+                      type="button"
+                      disabled={safePayoutPage >= payoutTotalPages - 1}
+                      onClick={() => setPayoutPage((p) => Math.min(payoutTotalPages - 1, p + 1))}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

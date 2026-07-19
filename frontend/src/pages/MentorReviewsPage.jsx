@@ -331,21 +331,37 @@ export default function MentorReviewsPage({ notify }) {
   const submitReply = async (event) => {
     event.preventDefault();
     if (!selectedReview?.id) return;
+    const trimmedReply = replyDraft.trim();
+
+    // ── Optimistic update: update UI immediately ──
     setReplying(true);
+    const previousReviews = [...reviews];
+    const previousSelected = { ...selectedReview };
+
+    setReviews((prev) =>
+      prev.map((r) =>
+        r.id === selectedReview.id ? { ...r, replyText: trimmedReply } : r,
+      ),
+    );
+    setSelectedReview((prev) =>
+      prev ? { ...prev, replyText: trimmedReply } : prev,
+    );
+
     try {
       await client.post(`/api/v1/reviews/${selectedReview.id}/reply`, {
-        replyText: replyDraft.trim(),
+        replyText: trimmedReply,
       });
       notify?.({
         type: "success",
         title: "Reply saved",
         message: "Your response is now visible to the learner.",
       });
-      await loadReviews();
-      setSelectedReview((prev) =>
-        prev ? { ...prev, replyText: replyDraft.trim() } : prev,
-      );
+      // Background sync with backend (non-blocking)
+      loadReviews().catch(() => null);
     } catch (err) {
+      // Roll back optimistic update on failure
+      setReviews(previousReviews);
+      setSelectedReview(previousSelected);
       notify?.({
         type: "error",
         title: "Reply failed",

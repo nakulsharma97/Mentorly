@@ -1,5 +1,6 @@
 package com.skillswap.admin;
 
+import com.skillswap.common.AdminUtils;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.AuditLog;
 import com.skillswap.common.AuditLogRepository;
@@ -35,14 +36,22 @@ import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SessionStatus;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
+import com.skillswap.review.MentorReview;
+import com.skillswap.review.MentorReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -73,19 +82,18 @@ public class AdminController {
     private final AdminSettingRepository adminSettingRepository;
     private final AdminNotifPreferenceRepository adminNotifPreferenceRepository;
     private final ReferralRewardRepository referralRewardRepository;
+    private final MentorReviewRepository mentorReviewRepository;
 
     @GetMapping("/summary")
     public ApiResponse<AdminSummary> summary(@AuthenticationPrincipal User currentUser) {
         ensureAdmin(currentUser);
 
         long totalUsers = userRepository.count();
-        long learners = userRepository.findByRole(UserRole.LEARNER).size();
-        long mentors = userRepository.findByRole(UserRole.MENTOR).size();
-        long admins = userRepository.findByRole(UserRole.ADMIN).size();
-        long openReports = reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.OPEN).size();
-        long pendingMentorVerifications = mentorVerificationRepository
-                .findByStatusOrderByCreatedAtAsc(MentorVerificationRequestStatus.PENDING)
-                .size();
+        long learners = userRepository.countByRole(UserRole.LEARNER);
+        long mentors = userRepository.countByRole(UserRole.MENTOR);
+        long admins = userRepository.countByRole(UserRole.ADMIN);
+        long openReports = reportRepository.countByStatus(ReportStatus.OPEN);
+        long pendingMentorVerifications = mentorVerificationRepository.countByStatus(MentorVerificationRequestStatus.PENDING);
 
         return new ApiResponse<>("Admin summary fetched",
                 new AdminSummary(totalUsers, learners, mentors, admins, openReports, pendingMentorVerifications));
@@ -103,7 +111,7 @@ public class AdminController {
     public ApiResponse<UserReport> updateReport(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
-            @RequestBody ReportDecisionRequest request) {
+            @Valid @RequestBody ReportDecisionRequest request) {
         ensureAdmin(currentUser);
 
         UserReport report = reportRepository.findById(id)
@@ -198,7 +206,7 @@ public class AdminController {
     public ApiResponse<User> updateAdminSubRole(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
-            @RequestBody AdminSubRoleRequest request) {
+            @Valid @RequestBody AdminSubRoleRequest request) {
         ensureAdmin(currentUser);
 
         User user = userRepository.findById(id)
@@ -255,13 +263,10 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, String>> updateReportSchedule(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody Map<String, String> body) {
+            @Valid @RequestBody AdminReportScheduleRequest request) {
         ensureAdmin(currentUser);
 
-        String frequency = body.getOrDefault("frequency", "none");
-        if (!List.of("none", "weekly", "monthly").contains(frequency)) {
-            throw new IllegalArgumentException("Frequency must be one of: none, weekly, monthly");
-        }
+        String frequency = request.frequency();
 
         AdminSetting setting = adminSettingRepository.findBySettingKey("report_schedule_frequency")
                 .orElseGet(() -> {
@@ -292,7 +297,7 @@ public class AdminController {
 
         // Booking conversations
         if (type == null || "booking".equalsIgnoreCase(type)) {
-            List<Booking> bookings = bookingRepository.findAll();
+            List<Booking> bookings = bookingRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 500)).getContent();
             for (Booking b : bookings) {
                 if (b.getSession() == null) continue;
                 ChatMessage lastMsg = chatMessageRepository.findTopByBookingIdOrderByCreatedAtDesc(b.getId());
@@ -315,7 +320,7 @@ public class AdminController {
 
         // Direct conversations
         if (type == null || "direct".equalsIgnoreCase(type)) {
-            List<DirectConversation> directs = directConversationRepository.findAll();
+            List<DirectConversation> directs = directConversationRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 500)).getContent();
             for (DirectConversation dc : directs) {
                 DirectMessage lastMsg = directMessageRepository
                         .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
@@ -391,11 +396,12 @@ public class AdminController {
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String gateway,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            Pageable pageable) {
         ensureAdmin(currentUser);
 
-        List<Payment> allPayments = paymentRepository.findAll();
-
+        // Compute aggregates from all payments with a single query
+        List<Object[]> aggregates = paymentRepository.computeAggregates();
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal totalEscrowed = BigDecimal.ZERO;
         BigDecimal totalRefunded = BigDecimal.ZERO;
@@ -404,13 +410,15 @@ public class AdminController {
         long refundedCount = 0;
         long failedCount = 0;
 
-        for (Payment p : allPayments) {
-            BigDecimal amt = p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO;
-            switch (p.getStatus()) {
-                case ESCROWED: totalEscrowed = totalEscrowed.add(amt); escrowedCount++; break;
-                case RELEASED: totalReleased = totalReleased.add(amt); totalRevenue = totalRevenue.add(amt); break;
-                case REFUNDED: totalRefunded = totalRefunded.add(amt); refundedCount++; break;
-                case FAILED: failedCount++; break;
+        for (Object[] row : aggregates) {
+            PaymentStatus aggStatus = (PaymentStatus) row[0];
+            BigDecimal aggAmount = row[1] != null ? (BigDecimal) row[1] : BigDecimal.ZERO;
+            long aggCount = ((Number) row[2]).longValue();
+            switch (aggStatus) {
+                case ESCROWED: totalEscrowed = totalEscrowed.add(aggAmount); escrowedCount = aggCount; break;
+                case RELEASED: totalReleased = totalReleased.add(aggAmount); totalRevenue = totalRevenue.add(aggAmount); break;
+                case REFUNDED: totalRefunded = totalRefunded.add(aggAmount); refundedCount = aggCount; break;
+                case FAILED: failedCount = aggCount; break;
                 default: break;
             }
         }
@@ -418,21 +426,23 @@ public class AdminController {
         BigDecimal platformFees = totalReleased.multiply(BigDecimal.valueOf(0.10))
                 .setScale(2, java.math.RoundingMode.HALF_UP);
 
-        List<AdminPaymentDto> filteredPayments = allPayments.stream()
-                .filter(p -> status == null || status.isBlank() || p.getStatus().name().equalsIgnoreCase(status))
-                .filter(p -> gateway == null || gateway.isBlank() || p.getGateway().equalsIgnoreCase(gateway))
-                .filter(p -> {
-                    if (q == null || q.isBlank()) return true;
-                    String lowered = q.toLowerCase();
-                    return String.valueOf(p.getId()).contains(lowered)
-                            || p.getOrderId().toLowerCase().contains(lowered)
-                            || (p.getPaymentId() != null && p.getPaymentId().toLowerCase().contains(lowered))
-                            || p.getGateway().toLowerCase().contains(lowered)
-                            || p.getStatus().name().toLowerCase().contains(lowered);
-                })
+        // Paginated payment list from DB - batch-fetch user names (N+1 → 2 queries)
+        Page<Payment> paymentPage = paymentRepository.findByFilters(status, gateway, q, pageable);
+        List<Long> userIdsToFetch = new ArrayList<>();
+        for (Payment p : paymentPage.getContent()) {
+            userIdsToFetch.add(p.getLearnerId());
+            userIdsToFetch.add(p.getMentorId());
+        }
+        Map<Long, String> userNameMap = new HashMap<>();
+        if (!userIdsToFetch.isEmpty()) {
+            userRepository.findAllById(userIdsToFetch).forEach(
+                    u -> userNameMap.put(u.getId(), u.getFullName()));
+        }
+
+        List<AdminPaymentDto> filteredPayments = paymentPage.getContent().stream()
                 .map(p -> {
-                    String learnerName = userRepository.findById(p.getLearnerId()).map(User::getFullName).orElse("Unknown");
-                    String mentorName = userRepository.findById(p.getMentorId()).map(User::getFullName).orElse("Unknown");
+                    String learnerName = userNameMap.getOrDefault(p.getLearnerId(), "Unknown");
+                    String mentorName = userNameMap.getOrDefault(p.getMentorId(), "Unknown");
                     return new AdminPaymentDto(p.getId(), p.getOrderId(), p.getPaymentId(),
                             p.getLearnerId(), learnerName, p.getMentorId(), mentorName, p.getSessionId(),
                             p.getAmount(), p.getCurrency(), p.getStatus().name(), p.getGateway(), p.getCreatedAt());
@@ -442,7 +452,8 @@ public class AdminController {
 
         AdminPaymentDashboardDto dashboard = new AdminPaymentDashboardDto(
                 totalRevenue, totalEscrowed, totalRefunded, platformFees,
-                escrowedCount, refundedCount, failedCount, filteredPayments);
+                escrowedCount, refundedCount, failedCount, filteredPayments,
+                (int) paymentPage.getTotalElements(), paymentPage.getTotalPages());
 
         return new ApiResponse<>("Payments fetched", dashboard);
     }
@@ -478,47 +489,87 @@ public class AdminController {
         return new ApiResponse<>("Payment refunded by admin", saved);
     }
 
+    @PostMapping("/payments/{paymentId}/release")
+    @Transactional
+    public ApiResponse<Payment> releasePayment(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long paymentId) {
+        ensureAdmin(currentUser);
+
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.ESCROWED) {
+            throw new IllegalArgumentException("Only escrowed payments can be released. Current status: " + payment.getStatus());
+        }
+
+        BigDecimal grossAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+        BigDecimal platformFee = grossAmount.multiply(BigDecimal.valueOf(0.10))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal netToMentor = grossAmount.subtract(platformFee);
+
+        // Create wallet entry for mentor (net payout after platform fee)
+        walletService.addEntryForUser(payment.getMentorId(), new WalletService.WalletEntryRequest(
+                com.skillswap.wallet.WalletTransactionType.EARNING,
+                netToMentor, payment.getCurrency(),
+                "Session payout for payment #" + payment.getId()
+                        + " (" + netToMentor + " after " + platformFee + " platform fee)",
+                "PAYMENT", payment.getId()));
+
+        // Platform fee is tracked implicitly via the admin payment dashboard
+        // (computed as 10% of total released amount). No separate wallet entry needed.
+
+        // Send in-app notification (plus email if mentor's preferences allow it)
+        notificationService.notifyUser(
+                payment.getMentorId(),
+                "PAYOUT_RELEASED",
+                "Payout released",
+                "A payout has been released to your wallet.\n\n"
+                        + "• Gross amount: " + grossAmount + "\n"
+                        + "• Platform fee (10%): " + platformFee + "\n"
+                        + "• Net amount credited: " + netToMentor + "\n\n"
+                        + "You can withdraw the funds from your wallet dashboard.",
+                payment.getId());
+
+        payment.setStatus(PaymentStatus.RELEASED);
+        Payment saved = paymentRepository.save(payment);
+
+        saveAuditLog(currentUser, "RELEASE_PAYMENT", "Payment", paymentId,
+                "Released " + grossAmount + " to mentor #" + payment.getMentorId()
+                        + " (net: " + netToMentor + ", fee: " + platformFee + ")");
+        return new ApiResponse<>("Payment released to mentor", saved);
+    }
+
     // ════════════════════════════════════════════════
     //  Admin — Users
     // ════════════════════════════════════════════════
 
     @GetMapping("/users")
-    public ApiResponse<List<AdminUserDto>> listUsers(
+    public ApiResponse<Page<AdminUserDto>> listUsers(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String q,
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size) {
+            Pageable pageable) {
         ensureAdmin(currentUser);
 
-        List<User> allUsers = userRepository.findAll();
-        List<AdminUserDto> dtos = allUsers.stream()
-                .filter(u -> role == null || role.isBlank() || u.getRole().name().equalsIgnoreCase(role))
-                .filter(u -> {
-                    if (q == null || q.isBlank()) return true;
-                    String lowered = q.toLowerCase();
-                    return u.getFullName().toLowerCase().contains(lowered)
-                            || u.getEmail().toLowerCase().contains(lowered)
-                            || u.getRole().name().toLowerCase().contains(lowered);
-                })
-                .map(u -> {
-                    BigDecimal walletBalance = walletService.balance(u).balance();
-                    return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole().name(),
-                            u.isMentorVerified(), u.isEnabled(), u.getSkills(), u.getCreatedAt(),
-                            u.getLastActiveAt(), walletBalance, u.getAdminSubRole());
-                })
-                .sorted(Comparator.comparing(AdminUserDto::createdAt).reversed())
-                .skip((long) page * size).limit(size)
-                .collect(Collectors.toList());
+        UserRole roleFilter = (role != null && !role.isBlank()) ? UserRole.valueOf(role.toUpperCase()) : null;
+        Page<User> userPage = userRepository.findByFilters(roleFilter, q, pageable);
 
-        return new ApiResponse<>("Users fetched", dtos);
+        Page<AdminUserDto> dtoPage = userPage.map(u -> {
+            BigDecimal walletBalance = walletService.balance(u).balance();
+            return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole().name(),
+                    u.isMentorVerified(), u.isEnabled(), u.getSkills(), u.getCreatedAt(),
+                    u.getLastActiveAt(), walletBalance, u.getAdminSubRole());
+        });
+
+        return new ApiResponse<>("Users fetched", dtoPage);
     }
 
     @PatchMapping("/users/{id}/role")
     public ApiResponse<User> updateUserRole(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
-            @RequestBody AdminRoleUpdateRequest request) {
+            @Valid @RequestBody AdminRoleUpdateRequest request) {
         ensureAdmin(currentUser);
 
         if (currentUser.getId().equals(id)) {
@@ -558,44 +609,37 @@ public class AdminController {
     // ════════════════════════════════════════════════
 
     @GetMapping("/sessions")
-    public ApiResponse<List<AdminSessionDto>> listSessions(
+    public ApiResponse<Page<AdminSessionDto>> listSessions(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            Pageable pageable) {
         ensureAdmin(currentUser);
 
-        List<SkillSession> allSessions = sessionRepository.findAll();
-        List<AdminSessionDto> dtos = allSessions.stream()
-                .filter(s -> status == null || status.isBlank() || s.getStatus().name().equalsIgnoreCase(status))
-                .filter(s -> {
-                    if (q == null || q.isBlank()) return true;
-                    String lowered = q.toLowerCase();
-                    return s.getTitle().toLowerCase().contains(lowered)
-                            || (s.getMentor() != null && s.getMentor().getFullName().toLowerCase().contains(lowered));
-                })
-                .map(s -> {
-                    long participantCount = bookingRepository
-                            .countBySessionIdAndBookingStatusIn(s.getId(),
-                                    List.of(BookingStatus.ACCEPTED, BookingStatus.CONFIRMED,
-                                            BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED));
-                    return new AdminSessionDto(s.getId(), s.getTitle(),
-                            s.getMentor() != null ? s.getMentor().getId() : null,
-                            s.getMentor() != null ? s.getMentor().getFullName() : "Unknown",
-                            s.getPriceAmount(), s.getStatus().name(), s.getSessionType(),
-                            s.getStartTime(), s.getEndTime(), s.getMaxParticipants(),
-                            (int) participantCount, s.getCreatedAt());
-                })
-                .sorted(Comparator.comparing(AdminSessionDto::createdAt).reversed())
-                .collect(Collectors.toList());
+        SessionStatus statusFilter = (status != null && !status.isBlank()) ? SessionStatus.valueOf(status.toUpperCase()) : null;
+        Page<SkillSession> sessionPage = sessionRepository.findByFilters(statusFilter, q, pageable);
 
-        return new ApiResponse<>("Sessions fetched", dtos);
+        Page<AdminSessionDto> dtoPage = sessionPage.map(s -> {
+            long participantCount = bookingRepository
+                    .countBySessionIdAndBookingStatusIn(s.getId(),
+                            List.of(BookingStatus.ACCEPTED, BookingStatus.CONFIRMED,
+                                    BookingStatus.IN_PROGRESS, BookingStatus.COMPLETED));
+            return new AdminSessionDto(s.getId(), s.getTitle(),
+                    s.getMentor() != null ? s.getMentor().getId() : null,
+                    s.getMentor() != null ? s.getMentor().getFullName() : "Unknown",
+                    s.getPriceAmount(), s.getStatus().name(), s.getSessionType(),
+                    s.getStartTime(), s.getEndTime(), s.getMaxParticipants(),
+                    (int) participantCount, s.getCreatedAt());
+        });
+
+        return new ApiResponse<>("Sessions fetched", dtoPage);
     }
 
     @PatchMapping("/sessions/{id}/status")
     public ApiResponse<SkillSession> updateSessionStatus(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
-            @RequestBody AdminSessionStatusRequest request) {
+            @Valid @RequestBody AdminSessionStatusRequest request) {
         ensureAdmin(currentUser);
 
         SkillSession session = sessionRepository.findById(id)
@@ -618,7 +662,7 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, Object>> broadcastNotification(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody AdminBroadcastRequest request) {
+            @Valid @RequestBody AdminBroadcastRequest request) {
         ensureAdmin(currentUser);
 
         if (request.title() == null || request.title().isBlank()) {
@@ -634,7 +678,7 @@ public class AdminController {
             UserRole role = UserRole.valueOf(targetRole.toUpperCase());
             targets = userRepository.findByRole(role);
         } else {
-            targets = userRepository.findAll();
+            targets = userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 5000)).getContent();
         }
 
         List<Long> enabledUserIds = targets.stream()
@@ -657,29 +701,29 @@ public class AdminController {
     // ════════════════════════════════════════════════
 
     @GetMapping("/audit-log")
-    public ApiResponse<List<AdminAuditLogDto>> getAuditLog(
+    public ApiResponse<Page<AdminAuditLogDto>> getAuditLog(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String action,
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size) {
+            Pageable pageable) {
         ensureAdmin(currentUser);
 
-        List<AuditLog> logs;
+        Page<AuditLog> logPage;
         if (action != null && !action.isBlank()) {
-            logs = auditLogRepository.findByActionContainingIgnoreCaseOrderByCreatedAtDesc(
-                    action, PageRequest.of(page, Math.min(size, 100)));
+            List<AuditLog> logs = auditLogRepository.findByActionContainingIgnoreCaseOrderByCreatedAtDesc(
+                    action, PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100)));
+            // Wrap in a Page for consistent API response
+            long total = auditLogRepository.countByActionContainingIgnoreCase(action);
+            logPage = new PageImpl<>(logs, pageable, total);
         } else {
-            logs = auditLogRepository.findAll(PageRequest.of(page, Math.min(size, 100),
-                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")))
-                    .getContent();
+            logPage = auditLogRepository.findAll(PageRequest.of(pageable.getPageNumber(),
+                    Math.min(pageable.getPageSize(), 100),
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
         }
 
-        List<AdminAuditLogDto> dtos = logs.stream()
-                .map(l -> new AdminAuditLogDto(l.getId(), l.getAdminId(), l.getAdminEmail(),
-                        l.getAction(), l.getEntityType(), l.getEntityId(), l.getDetails(), l.getCreatedAt()))
-                .collect(Collectors.toList());
+        Page<AdminAuditLogDto> dtoPage = logPage.map(l -> new AdminAuditLogDto(l.getId(), l.getAdminId(), l.getAdminEmail(),
+                l.getAction(), l.getEntityType(), l.getEntityId(), l.getDetails(), l.getCreatedAt()));
 
-        return new ApiResponse<>("Audit log fetched", dtos);
+        return new ApiResponse<>("Audit log fetched", dtoPage);
     }
 
     // ════════════════════════════════════════════════
@@ -699,7 +743,7 @@ public class AdminController {
     public ApiResponse<UserReport> moderateContent(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
-            @RequestBody AdminModerationRequest request) {
+            @Valid @RequestBody AdminModerationRequest request) {
         ensureAdmin(currentUser);
 
         UserReport report = reportRepository.findById(id)
@@ -743,8 +787,13 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, String>> updateSettings(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody Map<String, String> settings) {
+            @Valid @RequestBody AdminSettingsDto request) {
         ensureAdmin(currentUser);
+
+        Map<String, String> settings = request.settings();
+        if (settings == null || settings.isEmpty()) {
+            throw new IllegalArgumentException("At least one setting is required");
+        }
 
         for (Map.Entry<String, String> entry : settings.entrySet()) {
             if (entry.getValue() == null) continue;
@@ -781,30 +830,7 @@ public class AdminController {
             monthList.add(now.minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0));
         }
 
-        List<User> allUsers = userRepository.findAll();
-        List<MonthlyBucket> signupTrend = buildMonthlyCountBuckets(monthList, allUsers.stream()
-                .map(User::getCreatedAt).collect(Collectors.toList()));
-
-        List<Payment> allPayments = paymentRepository.findAll();
-        List<Payment> releasedPayments = allPayments.stream()
-                .filter(p -> p.getStatus() == PaymentStatus.RELEASED)
-                .collect(Collectors.toList());
-        List<MonthlyBucket> revenueTrend = buildMonthlySumBuckets(monthList, releasedPayments.stream()
-                .map(p -> new DatedAmount(p.getCreatedAt(),
-                        p.getAmount() != null ? p.getAmount().doubleValue() : 0.0))
-                .collect(Collectors.toList()));
-
-        List<Booking> allBookings = bookingRepository.findAll();
-        List<Booking> completedBookings = allBookings.stream()
-                .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED)
-                .collect(Collectors.toList());
-        List<OffsetDateTime> completedDates = completedBookings.stream()
-                .map(b -> b.getSession() != null && b.getSession().getStartTime() != null
-                        ? b.getSession().getStartTime() : b.getCreatedAt())
-                .collect(Collectors.toList());
-        List<MonthlyBucket> sessionTrend = buildMonthlyCountBuckets(monthList, completedDates);
-
-        // Platform health
+        // Use aggregate queries instead of loading entire tables into memory
         long totalUsers = userRepository.count();
         long totalMentors = userRepository.findByRole(UserRole.MENTOR).size();
         long totalLearners = userRepository.findByRole(UserRole.LEARNER).size();
@@ -813,18 +839,38 @@ public class AdminController {
         double completionRate = totalBookings == 0 ? 0 : Math.round((completedSessionCount * 100.0 / totalBookings) * 10.0) / 10.0;
 
         OffsetDateTime weekAgo = now.minusDays(7);
-        long activeUsers7d = allUsers.stream()
-                .filter(u -> u.getLastActiveAt() != null && u.getLastActiveAt().isAfter(weekAgo)).count();
-
-        double mentorRatio = totalUsers == 0 ? 0 : Math.round((totalMentors * 100.0 / totalUsers) * 10.0) / 10.0;
-
         OffsetDateTime todayStart = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
         OffsetDateTime weekStart = now.minusDays(7).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        long joinedToday = allUsers.stream().filter(u -> u.getCreatedAt().isAfter(todayStart)).count();
-        long joinedThisWeek = allUsers.stream().filter(u -> u.getCreatedAt().isAfter(weekStart)).count();
 
-        double totalReleasedAmount = releasedPayments.stream()
-                .mapToDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0).sum();
+        long activeUsers7d = userRepository.countByLastActiveAtAfter(weekAgo);
+        long joinedToday = userRepository.countByCreatedAtAfter(todayStart);
+        long joinedThisWeek = userRepository.countByCreatedAtAfter(weekStart);
+        double mentorRatio = totalUsers == 0 ? 0 : Math.round((totalMentors * 100.0 / totalUsers) * 10.0) / 10.0;
+
+        // Monthly trends via aggregate queries (batched)
+        List<Object[]> signupCountsPerMonth = paymentRepository.computeMonthlySignupTrend(monthList.get(0));
+        List<Object[]> revenuePerMonth = paymentRepository.computeMonthlyRevenueTrend(monthList.get(0));
+        List<Object[]> completedBookingsPerMonth = paymentRepository.computeMonthlySessionTrend(monthList.get(0));
+
+        Map<Integer, Long> signupMonthMap = new HashMap<>();
+        for (Object[] row : signupCountsPerMonth) {
+            signupMonthMap.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
+        }
+        List<MonthlyBucket> signupTrend = buildMonthlyCountBucketsFromMap(monthList, signupMonthMap);
+
+        Map<Integer, Double> revenueMonthMap = new HashMap<>();
+        for (Object[] row : revenuePerMonth) {
+            revenueMonthMap.put(((Number) row[0]).intValue(), ((Number) row[1]).doubleValue());
+        }
+        List<MonthlyBucket> revenueTrend = buildMonthlySumBucketsFromMap(monthList, revenueMonthMap);
+        double totalReleasedAmount = revenueMonthMap.values().stream().mapToDouble(Double::doubleValue).sum();
+
+        Map<Integer, Long> sessionMonthMap = new HashMap<>();
+        for (Object[] row : completedBookingsPerMonth) {
+            sessionMonthMap.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
+        }
+        List<MonthlyBucket> sessionTrend = buildMonthlyCountBucketsFromMap(monthList, sessionMonthMap);
+
         double platformFees = Math.round(totalReleasedAmount * 0.10 * 100.0) / 100.0;
 
         AdminDashboardDto dashboard = new AdminDashboardDto(signupTrend, revenueTrend, sessionTrend,
@@ -852,9 +898,7 @@ public class AdminController {
         long totalCreditsEarned = totalReferrals * 50L;
 
         // Users who have a referral code
-        long usersWithReferralCode = userRepository.findAll().stream()
-                .filter(u -> u.getReferralCode() != null)
-                .count();
+        long usersWithReferralCode = userRepository.countByReferralCodeIsNotNull();
 
         double avgPerReferrer = totalReferrers > 0
                 ? Math.round((double) totalReferrals / totalReferrers * 10.0) / 10.0
@@ -994,7 +1038,7 @@ public class AdminController {
 
         long totalUsers = userRepository.count();
         long totalBookings = bookingRepository.count();
-        long pendingReports = reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.OPEN).size();
+        long pendingReports = reportRepository.countByStatus(ReportStatus.OPEN);
 
         List<AuditLog> firstLogs = auditLogRepository.findAll(
                 PageRequest.of(0, 1, org.springframework.data.domain.Sort.by(
@@ -1025,9 +1069,7 @@ public class AdminController {
         SkillSession session = sessionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
-        List<Booking> bookings = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession() != null && b.getSession().getId().equals(id))
-                .collect(Collectors.toList());
+        List<Booking> bookings = bookingRepository.findBySessionId(id);
 
         long totalRevenue = bookings.stream()
                 .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED)
@@ -1035,7 +1077,17 @@ public class AdminController {
                         ? b.getPayment().getAmount().longValue() : 0L)
                 .sum();
 
-        double avgRating = 0.0;
+        // Compute average rating from reviews linked to this session's bookings
+        double avgRating = bookings.stream()
+                .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED)
+                .flatMap(b -> {
+                    var reviewOpt = mentorReviewRepository.findByBookingId(b.getId());
+                    return reviewOpt.isPresent() ? java.util.stream.Stream.of(reviewOpt.get()) : java.util.stream.Stream.empty();
+                })
+                .mapToInt(MentorReview::getRating)
+                .average()
+                .orElse(0.0);
+
         long completedCount = bookings.stream()
                 .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED)
                 .count();
@@ -1072,7 +1124,7 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, Object>> bulkEnableUsers(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody AdminBulkUserIdsRequest request) {
+            @Valid @RequestBody AdminBulkUserIdsRequest request) {
         ensureAdmin(currentUser);
         AtomicInteger count = new AtomicInteger(0);
         for (Long id : request.ids()) {
@@ -1091,7 +1143,7 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, Object>> bulkDisableUsers(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody AdminBulkUserIdsRequest request) {
+            @Valid @RequestBody AdminBulkUserIdsRequest request) {
         ensureAdmin(currentUser);
         AtomicInteger count = new AtomicInteger(0);
         for (Long id : request.ids()) {
@@ -1110,7 +1162,7 @@ public class AdminController {
     @Transactional
     public ApiResponse<Map<String, Object>> bulkUpdateRole(
             @AuthenticationPrincipal User currentUser,
-            @RequestBody AdminBulkRoleRequest request) {
+            @Valid @RequestBody AdminBulkRoleRequest request) {
         ensureAdmin(currentUser);
         AtomicInteger count = new AtomicInteger(0);
         UserRole targetRole = UserRole.valueOf(request.role().toUpperCase());
@@ -1128,21 +1180,28 @@ public class AdminController {
     }
 
     private static void ensureAdmin(User currentUser, AdminSubRole... requiredSubRole) {
-        if (currentUser == null || currentUser.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only admins can access this area");
-        }
-        if (requiredSubRole.length > 0 && requiredSubRole[0] != null
-                && currentUser.getAdminSubRole() != null
-                && currentUser.getAdminSubRole() != requiredSubRole[0]
-                && currentUser.getAdminSubRole() != AdminSubRole.SUPER_ADMIN) {
-            throw new IllegalArgumentException("Insufficient permissions: " + requiredSubRole[0]
-                    + " role required, but user has " + currentUser.getAdminSubRole());
-        }
+        AdminUtils.ensureAdmin(currentUser, requiredSubRole);
     }
 
     // ════════════════════════════════════════════════
     //  Helper methods
     // ════════════════════════════════════════════════
+
+    private List<MonthlyBucket> buildMonthlyCountBucketsFromMap(List<OffsetDateTime> months, Map<Integer, Long> monthMap) {
+        return months.stream().map(m -> {
+            int key = m.getYear() * 100 + m.getMonthValue();
+            return new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
+                    monthMap.getOrDefault(key, 0L));
+        }).collect(Collectors.toList());
+    }
+
+    private List<MonthlyBucket> buildMonthlySumBucketsFromMap(List<OffsetDateTime> months, Map<Integer, Double> monthMap) {
+        return months.stream().map(m -> {
+            int key = m.getYear() * 100 + m.getMonthValue();
+            return new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
+                    Math.round(monthMap.getOrDefault(key, 0.0) * 100.0) / 100.0);
+        }).collect(Collectors.toList());
+    }
 
     private List<MonthlyBucket> buildMonthlyCountBuckets(List<OffsetDateTime> months, List<OffsetDateTime> dates) {
         Map<String, Long> counts = new java.util.LinkedHashMap<>();
@@ -1190,9 +1249,11 @@ public class AdminController {
 
     public record AdminSummary(long totalUsers, long learners, long mentors, long admins,
             long openReports, long pendingMentorVerifications) {}
-    public record ReportDecisionRequest(ReportStatus status) {}
+    public record ReportDecisionRequest(@NotNull ReportStatus status) {}
     public record UserEnabledRequest(boolean enabled) {}
-    public record AdminSubRoleRequest(AdminSubRole adminSubRole) {}
+    public record AdminSubRoleRequest(@NotNull AdminSubRole adminSubRole) {}
+    public record AdminSettingsDto(java.util.Map<String, String> settings) {}
+    public record AdminReportScheduleRequest(@NotBlank @jakarta.validation.constraints.Pattern(regexp = "^(none|weekly|monthly)$", message = "Frequency must be none, weekly, or monthly") String frequency) {}
 
     // Conversation DTOs
     public record AdminConversationDto(String id, String kind, Long referenceId, String participantName,
@@ -1204,7 +1265,8 @@ public class AdminController {
     // Payment DTOs
     public record AdminPaymentDashboardDto(BigDecimal totalRevenue, BigDecimal totalEscrowed,
             BigDecimal totalRefunded, BigDecimal platformFees, long escrowedCount, long refundedCount,
-            long failedCount, List<AdminPaymentDto> payments) {}
+            long failedCount, List<AdminPaymentDto> payments,
+            int totalElements, int totalPages) {}
     public record AdminPaymentDto(Long id, String orderId, String paymentId, Long learnerId, String learnerName,
             Long mentorId, String mentorName, Long sessionId, BigDecimal amount, String currency,
             String status, String gateway, OffsetDateTime createdAt) {}
@@ -1214,7 +1276,7 @@ public class AdminController {
     public record AdminUserDto(Long id, String email, String fullName, String role, boolean mentorVerified,
             boolean enabled, String skills, OffsetDateTime createdAt, OffsetDateTime lastActiveAt,
             BigDecimal walletBalance, AdminSubRole adminSubRole) {}
-    public record AdminRoleUpdateRequest(UserRole role) {}
+    public record AdminRoleUpdateRequest(@NotNull UserRole role) {}
     public record AdminUserWalletDto(Long userId, String userName, BigDecimal balance,
             String currency, List<WalletLedgerEntry> history) {}
 
@@ -1222,17 +1284,17 @@ public class AdminController {
     public record AdminSessionDto(Long id, String title, Long mentorId, String mentorName, BigDecimal priceAmount,
             String status, String sessionType, OffsetDateTime startTime, OffsetDateTime endTime,
             Integer maxParticipants, int participantCount, OffsetDateTime createdAt) {}
-    public record AdminSessionStatusRequest(SessionStatus status) {}
+    public record AdminSessionStatusRequest(@NotNull SessionStatus status) {}
 
     // Notification DTOs
-    public record AdminBroadcastRequest(String title, String message, String targetRole) {}
+    public record AdminBroadcastRequest(@NotBlank String title, @NotBlank String message, String targetRole) {}
 
     // Audit Log DTOs
     public record AdminAuditLogDto(Long id, Long adminId, String adminEmail, String action,
             String entityType, Long entityId, String details, OffsetDateTime createdAt) {}
 
     // Moderation DTOs
-    public record AdminModerationRequest(ReportStatus status, String note) {}
+    public record AdminModerationRequest(@NotNull ReportStatus status, String note) {}
 
     // Health DTOs
     public record AdminHealthDto(String status, String uptime, String memoryUsage, double memoryUsagePercent,
@@ -1244,8 +1306,8 @@ public class AdminController {
             long completedCount, long cancelledCount, List<MonthlyBucket> bookingTrend) {}
 
     // Bulk Action DTOs
-    public record AdminBulkUserIdsRequest(List<Long> ids) {}
-    public record AdminBulkRoleRequest(List<Long> ids, String role) {}
+    public record AdminBulkUserIdsRequest(@jakarta.validation.constraints.NotEmpty List<Long> ids) {}
+    public record AdminBulkRoleRequest(@jakarta.validation.constraints.NotEmpty List<Long> ids, @NotBlank String role) {}
 
     // Referral Analytics DTOs
     public record AdminReferralAnalyticsDto(

@@ -23,16 +23,20 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ApiResponse<AuthSessionResponse> signup(@Valid @RequestBody SignupRequest request,
-            HttpServletResponse response) {
-        AuthResponse authResponse = authService.signup(request);
+            HttpServletResponse response,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
+        String clientIp = resolveClientIp(xForwardedFor, request);
+        AuthResponse authResponse = authService.signup(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Signup successful", sanitize(authResponse));
     }
 
     @PostMapping("/login")
     public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request,
-            HttpServletResponse response) {
-        AuthResponse authResponse = authService.login(request);
+            HttpServletResponse response,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
+        String clientIp = resolveClientIp(xForwardedFor, request);
+        AuthResponse authResponse = authService.login(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Login successful", sanitize(authResponse));
     }
@@ -64,6 +68,20 @@ public class AuthController {
         return new ApiResponse<>("Logged out", logoutResponse);
     }
 
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
+            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
+        String clientIp = resolveClientIp(xForwardedFor, request);
+        authService.forgotPassword(request, clientIp);
+        return new ApiResponse<>("If this email is registered, a reset link has been sent.", null);
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return new ApiResponse<>("Password has been reset successfully.", null);
+    }
+
     @PostMapping("/logout-all")
     public ApiResponse<LogoutAllResponse> logoutAll(@AuthenticationPrincipal User currentUser,
             HttpServletResponse response) {
@@ -74,6 +92,15 @@ public class AuthController {
     private AuthSessionResponse sanitize(AuthResponse authResponse) {
         return new AuthSessionResponse(authResponse.email(), authResponse.role(), authResponse.token(),
                 authResponse.refreshToken());
+    }
+
+    private static String resolveClientIp(String xForwardedFor, Object requestContext) {
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            // X-Forwarded-For can be comma-separated; take the first (client) IP
+            int comma = xForwardedFor.indexOf(',');
+            return comma > 0 ? xForwardedFor.substring(0, comma).trim() : xForwardedFor.trim();
+        }
+        return "unknown";
     }
 
     private String resolveAccessToken(String accessTokenCookie, String authorizationHeader) {

@@ -5,6 +5,8 @@ import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +26,8 @@ import static com.skillswap.auth.AuthDtos.*;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     @Lazy
@@ -32,10 +36,23 @@ public class AuthService {
     private final RefreshTokenSessionRepository refreshTokenSessionRepository;
     private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final MeterRegistry meterRegistry;
+    private final LoginAttemptRepository loginAttemptRepository;
 
     @Transactional
-    public AuthResponse signup(SignupRequest req) {
+    public AuthResponse signup(SignupRequest req, String clientIp) {
         String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+
+        // Rate-limit signups per IP to prevent mass account creation
+        if (clientIp != null && !clientIp.isBlank()) {
+            OffsetDateTime windowStart = OffsetDateTime.now().minusMinutes(60);
+            long recentSignups = loginAttemptRepository
+                    .countByIpAddressAndLastAttemptAtAfter(clientIp, windowStart);
+            if (recentSignups > 10) {
+                log.warn("Signup rate limit: ip={}, signups={} in 60min", clientIp, recentSignups);
+                incrementCounter("auth.signup.failed", "reason", "rate_limited");
+                throw new IllegalArgumentException("Too many accounts created from this IP. Please try again later.");
+            }
+        }
 
         if (userRepository.existsByEmail(normalizedEmail)) {
             incrementCounter("auth.signup.failed", "reason", "duplicate_email");
@@ -71,12 +88,56 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest req) {
+    public AuthResponse login(LoginRequest req, String clientIp) {
         String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalizedEmail, req.password()));
+
+        // Brute-force protection: check IP-based rate limit with exponential backoff
+        if (clientIp != null && !clientIp.isBlank()) {
+            OffsetDateTime windowStart = OffsetDateTime.now().minusMinutes(15);
+            long recentAttempts = loginAttemptRepository
+                    .countByIpAddressAndLastAttemptAtAfter(clientIp, windowStart);
+
+            // Adaptive throttling: as failed attempts increase, tolerance decreases
+            // 1-5 attempts: 5 allowed | 6-10: 4 allowed | 11-20: 3 allowed | 21+: 2 allowed
+            int maxAllowed = 5 - (int) Math.floor(recentAttempts / 5.0);
+            maxAllowed = Math.max(maxAllowed, 2);           // Never allow fewer than 2
+
+            if (recentAttempts > maxAllowed) {
+                log.warn("Brute-force block: ip={}, attempts={} in 15min", clientIp, recentAttempts);
+                incrementCounter("auth.login.failed", "reason", "rate_limited");
+                throw new IllegalArgumentException("Too many login attempts. Please try again later.");
+            }
+
+            var existingAttempt = loginAttemptRepository.findByIpAddress(clientIp);
+            if (existingAttempt.isPresent() && existingAttempt.get().getBlockedUntil() != null
+                    && OffsetDateTime.now().isBefore(existingAttempt.get().getBlockedUntil())) {
+                long remainingSeconds = java.time.Duration.between(
+                        OffsetDateTime.now(), existingAttempt.get().getBlockedUntil()).getSeconds();
+                log.warn("IP blocked: ip={}, remainingSeconds={}", clientIp, remainingSeconds);
+                incrementCounter("auth.login.failed", "reason", "ip_blocked");
+                throw new IllegalArgumentException(
+                        "Too many failed attempts. Try again in " + remainingSeconds + " seconds.");
+            }
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(normalizedEmail, req.password()));
+        } catch (Exception ex) {
+            // Record failed attempt
+            if (clientIp != null && !clientIp.isBlank()) {
+                recordFailedAttempt(clientIp, normalizedEmail);
+            }
+            throw ex;
+        }
+
         User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+                .orElseThrow(() -> {
+                    if (clientIp != null && !clientIp.isBlank()) {
+                        recordFailedAttempt(clientIp, normalizedEmail);
+                    }
+                    return new IllegalArgumentException("Invalid credentials");
+                });
 
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
@@ -263,6 +324,152 @@ public class AuthService {
 
         int atIndex = email.indexOf('@');
         return atIndex > 0 ? email.substring(0, atIndex) : email;
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest req, String clientIp) {
+        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+
+        // Rate-limit forgot-password requests per IP to prevent email enumeration
+        if (clientIp != null && !clientIp.isBlank()) {
+            OffsetDateTime windowStart = OffsetDateTime.now().minusMinutes(15);
+            long recentAttempts = loginAttemptRepository
+                    .countByIpAddressAndLastAttemptAtAfter(clientIp, windowStart);
+
+            // Allow max 5 forgot-password requests per 15 min per IP
+            if (recentAttempts > 5) {
+                log.warn("Forgot-password rate limit: ip={}, attempts={} in 15min", clientIp, recentAttempts);
+                incrementCounter("auth.forgot_password.failed", "reason", "rate_limited");
+                throw new IllegalArgumentException("Too many password reset requests. Please try again later.");
+            }
+
+            // Check if IP is blocked
+            var existingAttempt = loginAttemptRepository.findByIpAddress(clientIp);
+            if (existingAttempt.isPresent() && existingAttempt.get().getBlockedUntil() != null
+                    && OffsetDateTime.now().isBefore(existingAttempt.get().getBlockedUntil())) {
+                long remainingSeconds = java.time.Duration.between(
+                        OffsetDateTime.now(), existingAttempt.get().getBlockedUntil()).getSeconds();
+                log.warn("IP blocked from forgot-password: ip={}, remainingSeconds={}", clientIp, remainingSeconds);
+                incrementCounter("auth.forgot_password.failed", "reason", "ip_blocked");
+                throw new IllegalArgumentException(
+                        "Too many requests. Try again in " + remainingSeconds + " seconds.");
+            }
+        }
+
+        // Record attempt regardless of whether email exists (prevents enumeration)
+        // IMPORTANT: this must happen BEFORE any early return so the record is always persisted
+        if (clientIp != null && !clientIp.isBlank()) {
+            recordForgotPasswordAttempt(clientIp, normalizedEmail);
+        }
+
+        var existingUser = userRepository.findByEmail(normalizedEmail);
+        if (existingUser.isEmpty()) {
+            // Don't reveal whether email is registered — same message either way
+            // Return without throwing so transaction commits and attempt is persisted
+            log.info("Forgot-password requested for non-existent email={}", normalizedEmail);
+            incrementCounter("auth.forgot_password.user_not_found");
+            return;
+        }
+
+        User user = existingUser.get();
+        String resetToken = UUID.randomUUID().toString().replace("-", "").toUpperCase(Locale.ROOT);
+        user.setPasswordResetToken(resetToken);
+        user.setPasswordResetTokenExpiry(OffsetDateTime.now().plusHours(1));
+        userRepository.save(user);
+
+        log.info("Password reset token generated for email={} tokenPrefix={}", normalizedEmail,
+                resetToken.substring(0, 6));
+        incrementCounter("auth.forgot_password.success");
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest req) {
+        if (req.newPassword() == null || req.newPassword().length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters");
+        }
+
+        User user = userRepository.findByPasswordResetToken(req.token())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired reset token"));
+
+        if (user.getPasswordResetTokenExpiry() == null
+                || OffsetDateTime.now().isAfter(user.getPasswordResetTokenExpiry())) {
+            throw new IllegalArgumentException("Reset token has expired. Please request a new one.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiry(null);
+        userRepository.save(user);
+
+        incrementCounter("auth.reset_password.success");
+        log.info("Password reset successful for userId={}", user.getId());
+    }
+
+    private void recordFailedAttempt(String clientIp, String email) {
+        try {
+            var attempt = loginAttemptRepository.findByIpAddress(clientIp)
+                    .orElseGet(() -> {
+                        LoginAttempt a = new LoginAttempt();
+                        a.setIpAddress(clientIp);
+                        return a;
+                    });
+            attempt.setAttemptCount(attempt.getAttemptCount() + 1);
+            attempt.setLastAttemptAt(OffsetDateTime.now());
+            attempt.setEmail(email);
+            attempt.setExpiresAt(OffsetDateTime.now().plusHours(24));
+
+            // Exponential backoff: block after 10, 20, 50, 100... attempts
+            int count = attempt.getAttemptCount();
+            if (count >= 100) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(24));
+            } else if (count >= 50) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(4));
+            } else if (count >= 20) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(30));
+            } else if (count >= 10) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(5));
+            } else {
+                attempt.setBlockedUntil(null);
+            }
+
+            loginAttemptRepository.save(attempt);
+        } catch (Exception ignored) {
+            // Non-critical — rate limiting is best-effort
+        }
+    }
+
+    private void recordForgotPasswordAttempt(String clientIp, String email) {
+        try {
+            var attempt = loginAttemptRepository.findByIpAddress(clientIp)
+                    .orElseGet(() -> {
+                        LoginAttempt a = new LoginAttempt();
+                        a.setIpAddress(clientIp);
+                        return a;
+                    });
+            attempt.setAttemptCount(attempt.getAttemptCount() + 1);
+            attempt.setLastAttemptAt(OffsetDateTime.now());
+            attempt.setEmail(email);
+            attempt.setExpiresAt(OffsetDateTime.now().plusHours(24));
+
+            // Rate-limit: block after 6, 12, 25, 50... attempts (lower threshold than login since
+            // forgot-password is a sensitive enumration target)
+            int count = attempt.getAttemptCount();
+            if (count >= 50) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(24));
+            } else if (count >= 25) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(4));
+            } else if (count >= 12) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(30));
+            } else if (count >= 6) {
+                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(5));
+            } else {
+                attempt.setBlockedUntil(null);
+            }
+
+            loginAttemptRepository.save(attempt);
+        } catch (Exception ignored) {
+            // Non-critical — rate limiting is best-effort
+        }
     }
 
     private String toCleanString(Object value) {

@@ -29,6 +29,13 @@ function buildMonthBuckets() {
   return months;
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
 function computeStreak(daySet) {
   if (!daySet.size) return 0;
   const days = [...daySet].sort().reverse();
@@ -371,10 +378,14 @@ export default function LearnerDashboard({ profile, onLogout }) {
             Learner Dashboard
           </span>
           <h1 className="ld-hero__title">
-            Welcome back, {firstName}
+            {getGreeting()}, {firstName}
           </h1>
           <p className="ld-hero__sub">
-            Track your progress, join upcoming sessions, and continue learning. You have {stats.completedSessions} completed sessions and a {streak}-day streak.
+            Track your progress, join upcoming sessions, and continue learning.
+            {stats.completedSessions > 0 || streak > 0
+              ? ` You have ${stats.completedSessions} completed session${stats.completedSessions !== 1 ? 's' : ''}${streak > 0 ? ` and a ${streak}-day streak` : ''}.`
+              : ` Start by booking your first session with a mentor.`
+            }
           </p>
           <div className="ld-hero__actions">
             {nextSession?.session?.meetingLink && (

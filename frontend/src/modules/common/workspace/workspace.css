@@ -1,6 +1,10 @@
 /* ============================================================================
-   Shared workspace shell — fixed sidebar (ws-sb) + fixed topbar (ws-top).
-   Role-agnostic: used by both the Mentor and Learner dashboards.
+   SkillSwap Shared Workspace — Design System v1.0
+   ============================================================================
+
+   Rebuilt on the unified SkillSwap design tokens (--ss-*). All surfaces
+   (sidebar, topbar, content) now reference the same color, spacing and
+   radius variables defined in design-system.css.
 
    App-shell architecture: `.ws-shell` is a flex row locked to 100vh with
    `overflow: hidden`. The sidebar and topbar are non-scrolling flex items;
@@ -14,16 +18,13 @@
     --sb-width:260px;
     --sb-rail:80px;
 
-    /* App-shell: exactly one viewport tall, nothing here scrolls — only
-       .ws-main-content does. This also sidesteps the `position: sticky`
-       failure caused by `overflow-x: hidden` on <html>/<body>. */
     height:100vh;
     display:flex;
     overflow:hidden;
     overflow:clip;
 
     width:100%;
-    background:var(--bg);
+    background:var(--ss-bg, var(--bg));
 }
 .ws-shell.is-collapsed .ws-sb { width: var(--sb-rail); }
 

@@ -160,7 +160,7 @@ export default function CommunityStats() {
                 {c.emoji}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ color: "var(--landing-muted)", fontWeight: 900 }}>
+                <div style={{ color: "var(--lp-muted)", fontWeight: 900 }}>
                   {c.label}
                 </div>
                 <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>

@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 const MentorSearchCard = memo(
   function MentorSearchCard({
     result,
+    isSaved = false,
+    onSaveToggle,
     onBookNearestSession,
     onFindSimilar,
   }) {
@@ -24,15 +26,28 @@ const MentorSearchCard = memo(
     };
 
     return (
-      <article className="mentor-result-card">
+      <article className={"mentor-result-card" + (isSaved ? " is-saved" : "")}>
         <div className="mentor-result-card-head">
           <div>
             <p className="mentor-result-label">Mentor</p>
             <h4>{result.mentorName}</h4>
           </div>
-          <div className="mentor-result-score">
-            <strong>{result.score}</strong>
-            <span>score</span>
+          <div className="mentor-result-card__actions-row">
+            {onSaveToggle && (
+              <button
+                type="button"
+                className={"mentor-result-card__save-btn" + (isSaved ? " is-saved" : "")}
+                onClick={(e) => { e.stopPropagation(); onSaveToggle(result.mentorId); }}
+                aria-label={isSaved ? "Remove from saved" : "Save mentor"}
+                title={isSaved ? "Saved" : "Save mentor"}
+              >
+                <span className="material-symbols-outlined">{isSaved ? "bookmark" : "bookmark_border"}</span>
+              </button>
+            )}
+            <div className="mentor-result-score">
+              <strong>{result.score}</strong>
+              <span>score</span>
+            </div>
           </div>
         </div>
 
@@ -59,7 +74,7 @@ const MentorSearchCard = memo(
           <a
             className="meeting-link"
             onClick={handleVisitProfile}
-            href={`/mentors/${result.mentorId}`}
+            href={"/mentors/" + result.mentorId}
           >
             Open public profile
           </a>
@@ -77,10 +92,11 @@ const MentorSearchCard = memo(
     );
   },
   (prevProps, nextProps) => {
-    // Custom comparison: return true if props are equal (no re-render)
     return (
       prevProps.result?.mentorId === nextProps.result?.mentorId &&
       prevProps.result?.score === nextProps.result?.score &&
+      prevProps.isSaved === nextProps.isSaved &&
+      prevProps.onSaveToggle === nextProps.onSaveToggle &&
       prevProps.onBookNearestSession === nextProps.onBookNearestSession &&
       prevProps.onFindSimilar === nextProps.onFindSimilar
     );

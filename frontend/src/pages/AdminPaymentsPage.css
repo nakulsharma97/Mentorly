@@ -1,0 +1,651 @@
+/* ═══════════════════════════════════════════════════
+   Admin Payments Page — Dedicated Payment Management
+   ═══════════════════════════════════════════════════ */
+
+/* ── Filters ── */
+.ap-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ap-filters select {
+  border: 1px solid var(--admin-input-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+  font-size: 0.85rem;
+}
+
+.ap-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: var(--admin-input-bg);
+  flex: 1;
+  min-width: 200px;
+  max-width: 360px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ap-search:focus-within {
+  border-color: var(--admin-brand);
+  box-shadow: 0 0 0 3px var(--admin-brand-soft);
+}
+
+.ap-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--admin-input-text);
+}
+
+.ap-search input::placeholder {
+  color: var(--admin-empty);
+}
+
+.ap-search .material-symbols-outlined {
+  color: var(--admin-empty);
+  font-size: 1.2rem;
+}
+
+/* ── Bulk action bar ── */
+.ap-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: var(--admin-brand-light);
+  border: 1px solid var(--admin-brand-soft);
+  animation: ap-slide-in 0.25s ease-out;
+}
+
+.ap-bulk-bar__count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--admin-text);
+}
+
+.ap-bulk-bar__actions {
+  display: flex;
+  gap: 8px;
+}
+
+@keyframes ap-slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Export bar ── */
+.ap-export-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.ap-export-bar__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ap-export-bar__label .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.ap-export-bar__count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--admin-empty);
+}
+
+/* ── Table ── */
+.ap-table th,
+.ap-table td {
+  white-space: nowrap;
+  vertical-align: middle !important;
+}
+
+.ap-table input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--admin-brand);
+  cursor: pointer;
+}
+
+.ap-row--selected {
+  background: var(--admin-brand-light) !important;
+}
+
+.ap-cell-id {
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.ap-cell-mono {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 0.78rem;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ap-cell-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ap-cell-date {
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.ap-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+/* ── Action buttons ── */
+.ap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ap-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ap-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ap-btn .material-symbols-outlined {
+  font-size: 1rem;
+}
+
+.ap-btn--payout {
+  background: #059669;
+  border-color: #047857;
+  color: #fff;
+}
+
+.ap-btn--payout:hover:not(:disabled) {
+  background: #047857;
+}
+
+.ap-btn--receipt {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+.ap-btn--receipt:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #cbd5e1;
+}
+
+/* ── Pagination ── */
+.ap-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 4px;
+  flex-wrap: wrap;
+}
+
+.ap-pagination__info {
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.ap-pagination__buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ap-pagination__page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-panel-bg);
+  color: var(--admin-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0 6px;
+}
+
+.ap-pagination__page:hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-border-strong);
+}
+
+.ap-pagination__page--active {
+  background: var(--admin-brand);
+  border-color: var(--admin-brand);
+  color: #fff;
+}
+
+/* ── Loading ── */
+.ap-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 20px;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.ap-loading-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--admin-border);
+  border-top-color: var(--admin-brand);
+  border-radius: 50%;
+  animation: ap-spin 0.7s linear infinite;
+}
+
+@keyframes ap-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Payout Modal ── */
+.ap-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: ap-fade-in 0.2s ease-out;
+}
+
+.ap-modal {
+  width: min(480px, 100%);
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  animation: ap-scale-in 0.2s ease-out;
+}
+
+.ap-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.ap-modal__head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-text);
+}
+
+.ap-modal__head .material-symbols-outlined {
+  color: var(--admin-brand);
+}
+
+.ap-modal__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ap-modal__close:hover {
+  background: var(--admin-hover);
+}
+
+.ap-modal__close:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.ap-modal__body {
+  padding: 18px 22px;
+}
+
+.ap-modal__detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 0.88rem;
+}
+
+.ap-modal__detail span {
+  color: var(--admin-muted);
+}
+
+.ap-modal__detail strong {
+  color: var(--admin-text);
+}
+
+.ap-modal__divider {
+  height: 1px;
+  background: var(--admin-divider);
+  margin: 12px 0;
+}
+
+.ap-modal__label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+  margin-bottom: 6px;
+}
+
+.ap-modal__input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ap-modal__input {
+  flex: 1;
+  border: 1px solid var(--admin-input-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ap-modal__input:focus {
+  border-color: var(--admin-brand);
+  box-shadow: 0 0 0 3px var(--admin-brand-soft);
+}
+
+.ap-modal__max {
+  white-space: nowrap !important;
+  font-size: 0.78rem !important;
+}
+
+.ap-modal__breakdown {
+  margin-top: 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ap-modal__breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+
+.ap-modal__breakdown-row span {
+  color: var(--admin-muted);
+}
+
+.ap-modal__breakdown-row + .ap-modal__breakdown-row {
+  border-top: 1px solid var(--admin-divider);
+}
+
+.ap-modal__breakdown-row--total {
+  background: var(--admin-brand-light);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.ap-modal__breakdown-row--total span {
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.ap-modal__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--admin-border);
+}
+
+@keyframes ap-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ap-scale-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════
+   Payment Charts Section
+   ═══════════════════════════════════════════════════ */
+
+.ap-charts-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1.1fr;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.ap-charts-grid .md-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: var(--admin-panel-bg);
+  padding: 18px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: box-shadow 0.25s ease;
+}
+
+.ap-charts-grid .md-card:hover {
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+}
+
+.ap-charts-grid .md-chart {
+  margin-top: 6px;
+}
+
+/* ── Donut Chart ── */
+.ap-donut {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.ap-donut svg {
+  flex-shrink: 0;
+}
+
+.ap-donut__legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.ap-donut__legend-item {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+}
+
+.ap-donut__legend-item strong {
+  color: var(--admin-text);
+  font-weight: 800;
+}
+
+.ap-donut__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.ap-donut__swatch--released {
+  background: #059669;
+}
+
+.ap-donut__swatch--escrowed {
+  background: #2563eb;
+}
+
+/* ── Gateway Chart ── */
+.ap-gateway-chart__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.ap-gateway-chart__row {
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.ap-gateway-chart__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.ap-gateway-chart__name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  text-transform: capitalize;
+}
+
+.ap-gateway-chart__pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+}
+
+.ap-gateway-chart__bar-track {
+  height: 22px;
+  background: var(--admin-hover);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ap-gateway-chart__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0d9488, #2dd4bf);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
+  min-width: 20px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ap-gateway-chart__bar-count {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.ap-gateway-chart__rev {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive Charts ── */
+@media (max-width: 1020px) {
+  .ap-charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ap-donut {
+    justify-content: center;
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .ap-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ap-search {
+    max-width: none;
+  }
+  .ap-actions {
+    flex-direction: column;
+  }
+  .ap-modal {
+    width: calc(100% - 20px);
+  }
+}

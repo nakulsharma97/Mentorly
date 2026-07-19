@@ -198,30 +198,23 @@ function parseMilestones(value) {
 
 function useLearnerLearningData(refreshKey = 0) {
   return useResource(async () => {
-    const [
-      roadmaps,
-      bookings,
-      certifications,
-      savedMentors,
-      savedSkills,
-      profile,
-      referral,
-    ] = await Promise.all([
-      apiGet("/api/v1/roadmaps"),
-      apiGet("/api/v1/bookings"),
-      apiGet("/api/v1/certifications/me"),
-      apiGet("/api/v1/users/mentors").catch(() => []),
-      apiGet("/api/v1/watchlist/mentors").catch(() => []),
-      apiGet("/api/v1/watchlist/skills").catch(() => []),
-      apiGet("/api/v1/users/me"),
-      apiGet("/api/v1/users/me/referral").catch(() => null),
-    ]);
+    const [roadmaps, bookings, certifications, mentors, savedMentors, savedSkills, profile, referral] =
+      await Promise.all([
+        apiGet("/api/v1/roadmaps"),
+        apiGet("/api/v1/bookings"),
+        apiGet("/api/v1/certifications/me"),
+        apiGet("/api/v1/users/mentors").catch(() => []),
+        apiGet("/api/v1/watchlist/mentors").catch(() => []),
+        apiGet("/api/v1/watchlist/skills").catch(() => []),
+        apiGet("/api/v1/users/me"),
+        apiGet("/api/v1/users/me/referral").catch(() => null),
+      ]);
 
     return {
       roadmaps: roadmaps || [],
       bookings: bookings || [],
       certifications: certifications || [],
-      mentors: mentors || [],
+      mentors,
       savedMentors: savedMentors || [],
       savedSkills: savedSkills || [],
       profile,
@@ -301,6 +294,21 @@ function ErrorBlock({ title, error, onRetry }) {
       actionLabel={onRetry ? "Retry" : undefined}
       onAction={onRetry}
     />
+  );
+}
+
+
+function NotificationRow({ item, onToggle }) {
+  return (
+    <div className="md-notif-row" onClick={onToggle} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { onToggle(); } }} role="button" tabIndex={0}>
+      <div className="md-notif-icon">
+        <span className="material-symbols-outlined">notifications</span>
+      </div>
+      <div className="md-notif-body">
+        <p className="md-notif-title">{item.title || "Notification"}</p>
+        {item.message && <p className="md-notif-message">{item.message}</p>}
+      </div>
+    </div>
   );
 }
 

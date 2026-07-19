@@ -29,7 +29,7 @@ const GROUPS = [
 
 const SECONDARY = [
   { to: "/mentor/professional-profile", label: "Profile", icon: "person" },
-  { to: "/mentor/professional-profile", label: "Settings", icon: "settings" },
+  { to: "/mentor/settings", label: "Settings", icon: "settings" },
 ];
 
 const PAGE_META = {
@@ -44,11 +44,12 @@ const PAGE_META = {
   wallet: { title: "Earnings", search: "Search transactions..." },
   reviews: { title: "Reviews", search: "Search reviews..." },
   "professional-profile": { title: "Profile", search: "Search..." },
+  settings: { title: "Settings", search: "Search notification preferences..." },
 };
 
 const PROFILE_MENU = [
   { to: "/mentor/professional-profile", label: "Profile", icon: "person" },
-  { to: "/mentor/professional-profile", label: "Settings", icon: "settings" },
+  { to: "/mentor/settings", label: "Settings", icon: "settings" },
   { to: "/mentor/wallet", label: "Earnings", icon: "payments" },
 ];
 
@@ -56,12 +57,14 @@ export default function MentorLayout({
   profile,
   onLogout,
   unreadNotifications,
+  onUnreadCountChange,
 }) {
   return (
     <WorkspaceLayout
       profile={profile}
       onLogout={onLogout}
       unreadNotifications={unreadNotifications}
+      onUnreadCountChange={onUnreadCountChange}
       brand={BRAND}
       groups={GROUPS}
       secondaryLinks={SECONDARY}

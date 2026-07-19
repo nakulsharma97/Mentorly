@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -177,6 +177,11 @@ function computeStreak(bookings) {
   return streak;
 }
 
+async function apiPatch(path, body) {
+  const response = await client.patch(path, body);
+  return unwrapResponse(response.data);
+}
+
 function useLearnerLearningData(refreshKey = 0) {
   return useResource(async () => {
     const [roadmaps, bookings, certifications, savedSkills, profile] = await Promise.all([
@@ -258,6 +263,19 @@ export default function LearnerLearningPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { loading, data, error } = useLearnerLearningData(refreshKey);
 
+  // Editable progress state for save-progress feature
+  const [editProgressPct, setEditProgressPct] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState(null);
+  const saveMsgTimerRef = useRef(null);
+
+  // Cleanup stale timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current);
+    };
+  }, []);
+
   const roadmaps = data?.roadmaps || [];
   const bookings = data?.bookings || [];
   const certifications = data?.certifications || [];
@@ -280,6 +298,58 @@ export default function LearnerLearningPage() {
   );
   const activeRoadmap = useMemo(() => currentCourses[0] || roadmaps[0] || null, [currentCourses, roadmaps]);
   const milestones = useMemo(() => (activeRoadmap ? parseMilestones(activeRoadmap.milestones || "") : []), [activeRoadmap]);
+  const displayedProgress = editProgressPct !== null ? editProgressPct : (activeRoadmap?.progressPercent || 0);
+
+  // ── Save progress handler ──
+  const handleSaveProgress = async () => {
+    if (!activeRoadmap || saving) return;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      await apiPatch(`/api/v1/roadmaps/${activeRoadmap.id}`, {
+        progressPercent: displayedProgress,
+        milestones: activeRoadmap.milestones,
+      });
+      setSaveMsg({ type: "success", text: "Progress saved!" });
+      setEditProgressPct(null);
+      if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current);
+      saveMsgTimerRef.current = setTimeout(() => { setRefreshKey((k) => k + 1); setSaveMsg(null); }, 1500);
+    } catch (err) {
+      setSaveMsg({ type: "error", text: getErrorMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Milestone toggle handler ──
+  const handleMilestoneToggle = async (index) => {
+    if (!activeRoadmap) return;
+    const total = milestones.length;
+    if (total === 0) return;
+    // Toggle this milestone: compute new progress percent
+    const wasDone = index / total < Number(activeRoadmap.progressPercent || 0) / 100;
+    const newPct = wasDone
+      ? Math.max(0, Math.round(((index) / total) * 100))
+      : Math.round(((index + 1) / total) * 100);
+    const clamped = clamp(newPct, 0, 100);
+    setEditProgressPct(clamped);
+    // Auto-save on toggle
+    setSaving(true);
+    try {
+      await apiPatch(`/api/v1/roadmaps/${activeRoadmap.id}`, {
+        progressPercent: clamped,
+        milestones: activeRoadmap.milestones,
+      });
+      setSaveMsg({ type: "success", text: "Milestone updated!" });
+      setEditProgressPct(null);
+      if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current);
+      saveMsgTimerRef.current = setTimeout(() => { setRefreshKey((k) => k + 1); setSaveMsg(null); }, 1000);
+    } catch (err) {
+      setSaveMsg({ type: "error", text: getErrorMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const achievements = useMemo(() => {
     const items = [];
@@ -622,12 +692,58 @@ export default function LearnerLearningPage() {
                   <Icon name="route" /> Open Roadmap
                 </Link>
               </div>
+              {/* Progress slider + Save button */}
+              <div className="ll-roadmap-card__progress-edit" style={{ padding: "8px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={displayedProgress}
+                    onChange={(e) => setEditProgressPct(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: "var(--ss-primary, #0f766e)" }}
+                    aria-label="Adjust progress"
+                  />
+                  <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: 36, textAlign: "right" }}>
+                    {displayedProgress}%
+                  </span>
+                  <button
+                    type="button"
+                    className="ll-btn ll-btn--primary ll-btn--sm"
+                    onClick={handleSaveProgress}
+                    disabled={saving || editProgressPct === null}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    <Icon name={saving ? "hourglass_top" : "save"} />
+                    {saving ? "Saving…" : "Save Progress"}
+                  </button>
+                </div>
+                {saveMsg && (
+                  <p style={{
+                    fontSize: "0.78rem",
+                    margin: "4px 0 0",
+                    color: saveMsg.type === "success" ? "var(--ss-success, #16a34a)" : "var(--ss-danger, #ef4444)",
+                  }}>
+                    {saveMsg.text}
+                  </p>
+                )}
+              </div>
               <div className="ll-roadmap-card__timeline">
                 {milestones.slice(0, 6).map((step, index) => {
-                  const done = index / milestones.length < Number(activeRoadmap.progressPercent || 0) / 100;
-                  const current = !done && (index === 0 || (index - 1) / milestones.length < Number(activeRoadmap.progressPercent || 0) / 100);
+                  const done = index < milestones.length * displayedProgress / 100;
+                  const current = !done && (index === 0 || (index - 1) < milestones.length * displayedProgress / 100);
                   return (
-                    <div key={step.id} className={`ll-timeline__item${done ? " is-done" : ""}${current ? " is-current" : ""}`}>
+                    <div
+                      key={step.id}
+                      className={`ll-timeline__item${done ? " is-done" : ""}${current ? " is-current" : ""}`}
+                      onClick={() => handleMilestoneToggle(index)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleMilestoneToggle(index); }}
+                      role="button"
+                      tabIndex={0}
+                      title={done ? "Mark as incomplete" : "Mark as complete"}
+                      style={{ cursor: "pointer" }}
+                    >
                       <span className="ll-timeline__dot">
                         {done ? <Icon name="check" /> : current ? <Icon name="radio_button_checked" /> : <Icon name="radio_button_unchecked" />}
                       </span>

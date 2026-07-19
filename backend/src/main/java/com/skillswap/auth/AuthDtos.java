@@ -35,4 +35,13 @@ public class AuthDtos {
 
         public record LogoutResponse(int revokedSessions) {
         }
+
+        public record ForgotPasswordRequest(
+                        @Email String email) {
+        }
+
+        public record ResetPasswordRequest(
+                        @NotBlank String token,
+                        @NotBlank String newPassword) {
+        }
 }

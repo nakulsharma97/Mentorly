@@ -36,6 +36,14 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_BACKEND_URL: ${{ secrets.PLAYWRIGHT_BACKEND_URL || 'http://localhost:8080' }}
+
       - name: Upload frontend dist artifact
         uses: actions/upload-artifact@v4
         with:

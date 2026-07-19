@@ -105,6 +105,12 @@ public class User implements UserDetails {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @Column(name = "password_reset_token")
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_token_expiry")
+    private OffsetDateTime passwordResetTokenExpiry;
+
     @Column(name = "last_active_at", nullable = false)
     private OffsetDateTime lastActiveAt = OffsetDateTime.now();
 

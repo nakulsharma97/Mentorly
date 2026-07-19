@@ -1,6 +1,8 @@
 package com.skillswap.verification;
 
+import com.skillswap.common.AdminUtils;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.user.AdminSubRole;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
@@ -101,10 +103,8 @@ public class MentorVerificationController {
         return normalized;
     }
 
-    private static void ensureAdmin(User currentUser) {
-        if (currentUser.getRole() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Only admins can review mentor verification requests");
-        }
+    private static void ensureAdmin(User currentUser, AdminSubRole... requiredSubRole) {
+        AdminUtils.ensureAdmin(currentUser, requiredSubRole);
     }
 
     public record SubmitMentorVerificationRequest(String documentUrl, String documentType) {

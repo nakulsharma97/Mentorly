@@ -11,11 +11,16 @@ const formatDate = (v) => {
 };
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'CANCELLED', 'COMPLETED'];
 
+const PAGE_SIZE = 20;
+
 export default function SessionManagementPage({ notify }) {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [updatingId, setUpdatingId] = useState(null);
   // Detail drawer
   const [drawerSession, setDrawerSession] = useState(null);
@@ -28,13 +33,24 @@ export default function SessionManagementPage({ notify }) {
       const params = new URLSearchParams();
       if (statusFilter) params.set('status', statusFilter);
       if (search.trim()) params.set('q', search.trim());
+      params.set('page', String(page));
+      params.set('size', String(PAGE_SIZE));
+      params.set('sort', 'createdAt,desc');
       const res = await client.get(`/api/v1/admin/sessions?${params}`);
-      setSessions(res?.data?.data || []);
+      const data = res?.data?.data;
+      if (data?.content) {
+        setSessions(data.content);
+        setTotalPages(data.totalPages || 0);
+        setTotalElements(data.totalElements || 0);
+      } else {
+        setSessions(Array.isArray(data) ? data : []);
+      }
     } catch {
       notify?.({ type: 'error', title: 'Sessions unavailable', message: 'Could not load sessions.' });
     } finally { setLoading(false); }
-  }, [notify, statusFilter, search]);
+  }, [notify, statusFilter, search, page]);
 
+  useEffect(() => { setPage(0); }, [statusFilter, search]);
   useEffect(() => { loadSessions(); }, [loadSessions]);
 
   const cancelSession = async (sessionId) => {
@@ -131,6 +147,41 @@ export default function SessionManagementPage({ notify }) {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="ap-pagination" style={{ padding: '12px 16px', borderTop: '1px solid var(--admin-border)' }}>
+              <span className="ap-pagination__info" style={{ fontSize: '0.78rem', color: 'var(--admin-muted)' }}>
+                {totalElements} total · Page {page + 1} of {totalPages}
+              </span>
+              <div className="ap-pagination__buttons" style={{ display: 'flex', gap: 4 }}>
+                <button type="button" className="admin-action-btn admin-action-cancel"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                  <Icon name="chevron_left" />
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+                  const p = start + i;
+                  if (p >= totalPages) return null;
+                  return (
+                    <button key={p} type="button"
+                      className={`ap-pagination__page ${page === p ? 'ap-pagination__page--active' : ''}`}
+                      onClick={() => setPage(p)}
+                      style={{ padding: '4px 8px', fontSize: '0.78rem' }}>
+                      {p + 1}
+                    </button>
+                  );
+                })}
+                <button type="button" className="admin-action-btn admin-action-cancel"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+                  <Icon name="chevron_right" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Detail drawer */}

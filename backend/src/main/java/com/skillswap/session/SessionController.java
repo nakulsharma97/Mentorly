@@ -35,7 +35,8 @@ public class SessionController {
             throw new IllegalArgumentException("Authentication required");
         }
         if (currentUser.getRole() == UserRole.ADMIN) {
-            return new ApiResponse<>("Sessions fetched", sessionRepository.findAll());
+            return new ApiResponse<>("Sessions fetched",
+                    sessionRepository.findByFilters(null, null, org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
         }
         if (currentUser.getRole() == UserRole.MENTOR) {
             return new ApiResponse<>("Sessions fetched", sessionRepository.findByMentorId(currentUser.getId()));
@@ -80,7 +81,8 @@ public class SessionController {
 
         String sessionText = (String.valueOf(saved.getTitle()) + " " + String.valueOf(saved.getSessionType()))
                 .toLowerCase(Locale.ROOT);
-        skillWatchlistRepository.findAll().forEach(item -> {
+        // Use bounded paginated fetch to avoid loading all rows
+        skillWatchlistRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 2000)).forEach(item -> {
             if (sessionText.contains(item.getSkillName().toLowerCase(Locale.ROOT))) {
                 subscriberIds.add(item.getLearner().getId());
             }

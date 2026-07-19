@@ -74,6 +74,40 @@ public class PaymentController {
     }
 
     /**
+     * Poll the gateway for the current status of a payment.
+     * Useful for retrying after a timeout or network error.
+     */
+    @GetMapping("/{id}/status")
+    public ApiResponse<Payment> getPaymentStatus(@AuthenticationPrincipal User currentUser,
+            @PathVariable @NotNull @Min(1) Long id) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+
+        // Only the learner or admin can poll
+        boolean isLearner = payment.getLearnerId().equals(currentUser.getId());
+        boolean isAdmin = currentUser.getRole().name().equals("ADMIN");
+        if (!isLearner && !isAdmin) {
+            throw new IllegalArgumentException("Not authorized to check this payment");
+        }
+
+        // If the payment is stuck in INITIATED, try fetching from the gateway
+        if (payment.getStatus() == PaymentStatus.INITIATED && payment.getPaymentId() != null) {
+            try {
+                String gatewayStatus = paymentVerificationService.fetchFromGateway(payment);
+                if ("captured".equalsIgnoreCase(gatewayStatus) || "completed".equalsIgnoreCase(gatewayStatus)) {
+                    // Complete the verification
+                    payment = paymentVerificationService.verifyPayment(
+                            payment.getId(), payment.getPaymentId(), payment.getSignature(), Map.of());
+                }
+            } catch (Exception e) {
+                // Gateway unreachable — return current stored status
+            }
+        }
+
+        return new ApiResponse<>("Payment status fetched", payment);
+    }
+
+    /**
      * Process a refund for a payment.
      */
     @PostMapping("/{id}/refund")

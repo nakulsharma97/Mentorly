@@ -121,6 +121,12 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
 
         String type = node.path("type").asText("TEXT").toUpperCase();
 
+        if ("PING".equals(type)) {
+            String pongPayload = objectMapper.writeValueAsString(Map.of("type", "PONG"));
+            session.sendMessage(new TextMessage(pongPayload));
+            return;
+        }
+
         if ("READ".equals(type)) {
             chatService.markAllAsRead(bookingId, userEmail);
             String readAckPayload = objectMapper.writeValueAsString(Map.of(

@@ -4,10 +4,10 @@ import com.skillswap.review.LearnerReview;
 import com.skillswap.review.LearnerReviewRepository;
 import com.skillswap.review.MentorReview;
 import com.skillswap.review.MentorReviewRepository;
-import com.skillswap.user.UserRepository;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,15 +20,15 @@ import java.util.stream.Collectors;
 public class TestimonialsService {
     private final MentorReviewRepository mentorReviewRepository;
     private final LearnerReviewRepository learnerReviewRepository;
-    private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
 
     public List<ReviewDto> latestApprovedReviews(int limit) {
-        // Note: review tables do not yet have an approval flag in the entities.
-        // We will treat existing reviews as approved by default.
+        // Fetch recent reviews with JOIN FETCH to avoid N+1 on relationships
+        int fetchSize = limit * 3; // Buffer to get enough after cross-type merge
         List<ReviewDto> items = new ArrayList<>();
 
-        List<MentorReview> mentorReviews = mentorReviewRepository.findAll();
+        List<MentorReview> mentorReviews = mentorReviewRepository
+                .findAllWithRelations(PageRequest.of(0, fetchSize));
         for (MentorReview r : mentorReviews) {
             var reviewer = r.getLearner();
             var skill = r.getBooking() != null && r.getBooking().getSession() != null
@@ -36,7 +36,6 @@ public class TestimonialsService {
                     : null;
             long completed = 0;
             if (reviewer != null) {
-                // if reviewer is learner, count completed bookings where they were learner
                 completed = bookingRepository.countByLearnerIdAndBookingStatus(reviewer.getId(),
                         BookingStatus.COMPLETED);
             }
@@ -52,7 +51,8 @@ public class TestimonialsService {
                     r.getComment()));
         }
 
-        List<LearnerReview> learnerReviews = learnerReviewRepository.findAll();
+        List<LearnerReview> learnerReviews = learnerReviewRepository
+                .findAllWithRelations(PageRequest.of(0, fetchSize));
         for (LearnerReview r : learnerReviews) {
             var reviewer = r.getMentor();
             var skill = r.getBooking() != null && r.getBooking().getSession() != null
@@ -60,7 +60,6 @@ public class TestimonialsService {
                     : null;
             long completed = 0;
             if (reviewer != null) {
-                // if reviewer is mentor, count completed bookings where they were mentor
                 completed = bookingRepository.countBySessionMentorIdAndBookingStatus(reviewer.getId(),
                         BookingStatus.COMPLETED);
             }

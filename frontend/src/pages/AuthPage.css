@@ -941,6 +941,20 @@
   color: #0b6b5a;
 }
 
+/* ── Skeleton Loading ── */
+.skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(12, 30, 26, 0.06) 25%, rgba(12, 30, 26, 0.12) 50%, rgba(12, 30, 26, 0.06) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* ── Scroll Reveal ── */
 .landing-reveal {
   opacity: 0;
@@ -1553,6 +1567,175 @@
   .landing-feature-band {
     padding: clamp(20px, 4vw, 28px) clamp(16px, 3vw, 24px);
   }
+}
+
+/* ── Forgot Password (Auth Modal) ── */
+.auth-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
+
+.auth-forgot-link {
+  background: none;
+  border: none;
+  color: var(--notif-accent, #0f766e);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 2px;
+  transition: opacity 0.2s;
+}
+
+.auth-forgot-link:hover {
+  opacity: 0.75;
+  text-decoration: underline;
+}
+
+.auth-forgot-section {
+  border-top: 1px solid var(--notif-border, #e9ecf0);
+  padding-top: 16px;
+  margin-top: 4px;
+}
+
+.auth-forgot-header h3 {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.auth-forgot-header p {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  color: var(--notif-muted, #6b7280);
+}
+
+.auth-forgot-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--notif-border, #e9ecf0);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.auth-forgot-input:focus {
+  outline: none;
+  border-color: var(--notif-accent, #0f766e);
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.1);
+}
+
+.auth-forgot-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.auth-forgot-cancel-btn,
+.auth-forgot-submit-btn {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--notif-border, #e9ecf0);
+}
+
+.auth-forgot-cancel-btn {
+  background: var(--notif-surface, #f8f9fc);
+  color: var(--notif-text, #0d1117);
+}
+
+.auth-forgot-cancel-btn:hover {
+  background: var(--notif-border, #e9ecf0);
+}
+
+.auth-forgot-submit-btn {
+  background: var(--notif-accent, #0f766e);
+  color: #fff;
+  border-color: var(--notif-accent, #0f766e);
+}
+
+.auth-forgot-submit-btn:hover {
+  opacity: 0.9;
+}
+
+.auth-forgot-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-forgot-success {
+  text-align: center;
+  padding: 12px 0;
+}
+
+.auth-forgot-success .material-symbols-outlined {
+  font-size: 32px;
+  color: #059669;
+}
+
+.auth-forgot-success p {
+  margin: 8px 0 12px;
+  font-size: 0.82rem;
+  color: var(--notif-muted, #6b7280);
+}
+
+.auth-forgot-back-btn {
+  background: none;
+  border: none;
+  color: var(--notif-accent, #0f766e);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.auth-forgot-back-btn:hover {
+  text-decoration: underline;
+}
+
+/* ── Mentor search card save button ── */
+.mentor-result-card__actions-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mentor-result-card__save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--notif-border, #e9ecf0);
+  border-radius: 8px;
+  background: var(--notif-surface, #f8f9fc);
+  color: var(--notif-muted, #6b7280);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mentor-result-card__save-btn:hover {
+  border-color: var(--notif-accent, #0f766e);
+  color: var(--notif-accent, #0f766e);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.mentor-result-card__save-btn.is-saved {
+  border-color: var(--notif-accent, #0f766e);
+  color: var(--notif-accent, #0f766e);
+  background: rgba(15, 118, 110, 0.1);
+}
+
+.mentor-result-card__save-btn .material-symbols-outlined {
+  font-size: 18px;
 }
 
 @media (prefers-reduced-motion: reduce) {

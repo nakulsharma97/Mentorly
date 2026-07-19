@@ -1,6 +1,8 @@
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
+import SsIcon from "../components/ui/SsIcon";
+import { SsStatCard, SsBadge, SsEmpty, SsActivityItem, SsSectionHeader, SsCard, SsProgress } from "../components/ui/SsCard";
 import "./MentorDashboard.css";
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -61,6 +63,13 @@ function formatTime(dateLike) {
   });
 }
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
 function getTodayString() {
   return new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
 }
@@ -75,7 +84,7 @@ function isToday(dateLike) {
 
 /* ──────────────────── SVG sub-components ─────────────────── */
 
-function MiniChart({ data = [], color = "var(--md-primary)", height = 28 }) {
+function MiniChart({ data = [], color = "var(--ss-primary)", height = 28 }) {
   if (data.length < 2) return <div style={{ height }} />;
   const values = data.map((d) => d.value ?? 0);
   const max = Math.max(...values, 1);
@@ -98,7 +107,7 @@ function MiniChart({ data = [], color = "var(--md-primary)", height = 28 }) {
           cx={i * w + w / 2}
           cy={height - (v / max) * height}
           r={2.5}
-          fill="var(--md-card)"
+          fill="var(--ss-card)"
           stroke={color}
           strokeWidth={1.5}
         />
@@ -107,20 +116,7 @@ function MiniChart({ data = [], color = "var(--md-primary)", height = 28 }) {
   );
 }
 
-/* ───────────────────── Status chips ───────────────────── */
-
-function StatusChip({ status }) {
-  const s = (status || "").toUpperCase();
-  let label = s;
-  let cls = "";
-  if (s === "CONFIRMED" || s === "ACCEPTED") { label = "Confirmed"; cls = "mdash2-status--confirmed"; }
-  else if (s === "PENDING") { label = "Pending"; cls = "mdash2-status--pending"; }
-  else if (s === "COMPLETED") { label = "Completed"; cls = "mdash2-status--completed"; }
-  else if (s === "CANCELLED" || s === "CANCELED" || s === "REJECTED") { label = "Cancelled"; cls = "mdash2-status--cancelled"; }
-  else cls = "mdash2-status--pending";
-
-  return <span className={`mdash2-timeline-item__status ${cls}`}>{label}</span>;
-}
+/* StatusChip removed — use <SsBadge status={...} /> directly in JSX */
 
 /* ─────────────────── main component ─────────────────────── */
 
@@ -205,10 +201,14 @@ export default function MentorDashboard({ profile }) {
       const completedBookings = allBookings.filter(
         (b) => statusOf(b) === "COMPLETED",
       );
-      const totalEarnings = completedBookings.reduce(
+      const PLATFORM_FEE_PCT = 0.10; // 10% platform fee
+      const totalEarningsGross = completedBookings.reduce(
         (sum, b) => sum + Number(b?.payment?.amount || 0),
         0,
       );
+      const totalEarnings = Math.round(totalEarningsGross * (1 - PLATFORM_FEE_PCT) * 100) / 100;
+      const monthlyEarningsGross = Number(currentMonth.toFixed(2));
+      const monthlyEarnings = Math.round(monthlyEarningsGross * (1 - PLATFORM_FEE_PCT) * 100) / 100;
       const averageRating =
         allReviews.length > 0
           ? Number(
@@ -343,8 +343,8 @@ export default function MentorDashboard({ profile }) {
       setStats({
         totalStudents: learnerMap.size,
         totalSessions: allSessions.length,
-        monthlyEarnings: Number(currentMonth.toFixed(2)),
-        totalEarnings: Number(totalEarnings.toFixed(2)),
+        monthlyEarnings: monthlyEarnings,
+        totalEarnings: totalEarnings,
         averageRating,
         totalReviews: allReviews.length,
         completedSessions: completedBookings.length,
@@ -453,6 +453,11 @@ export default function MentorDashboard({ profile }) {
     : 100;
   const nextTierReferralsNeeded = nextTier ? nextTier.referrals - totalReferrals : 0;
 
+  // ── Find the booking for a given session ID (for Cancel action) ──
+  const findBookingForSession = useCallback((sessionId) => {
+    return bookings.find((b) => b?.session?.id === sessionId || b?.sessionId === sessionId);
+  }, [bookings]);
+
   // ── Today's sessions for timeline ──
   const todaySessions = useMemo(() => {
     return upcomingSessions.filter((s) => isToday(s?.startTime));
@@ -546,16 +551,16 @@ export default function MentorDashboard({ profile }) {
   /* ──── loading state ──── */
   if (loading) {
     return (
-      <div className="mdash2-shell">
-        <div className="mdash2-skeleton__hero" />
-        <div className="mdash2-skeleton__grid">
+      <div className="ss-page">
+        <div className="ss-skeleton ss-skeleton--hero" />
+        <div className="ss-stats-grid">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="mdash2-skeleton__card" />
+            <div key={i} className="ss-skeleton ss-skeleton--card" />
           ))}
         </div>
-        <div className="mdash2-skeleton__row">
-          <div className="mdash2-skeleton__section" />
-          <div className="mdash2-skeleton__section" />
+        <div className="ss-grid-2">
+          <div className="ss-skeleton ss-skeleton--card" style={{ height: 280 }} />
+          <div className="ss-skeleton ss-skeleton--card" style={{ height: 280 }} />
         </div>
       </div>
     );
@@ -564,23 +569,23 @@ export default function MentorDashboard({ profile }) {
   /* ──── empty state ──── */
   if (!loading && sessions.length === 0 && bookings.length === 0 && reviews.length === 0) {
     return (
-      <div className="mdash2-shell">
-        <div className="mdash2-empty">
-          <div className="mdash2-empty__icon">
-            <span className="md__icon">school</span>
+      <div className="ss-page">
+        <div className="ss-empty">
+          <div className="ss-empty__icon">
+            <SsIcon name="sparkles" size={36} />
           </div>
-          <h2 className="mdash2-empty__title">Welcome to Your Mentor Dashboard</h2>
-          <p className="mdash2-empty__desc">
+          <h3 className="ss-empty__title">Welcome to Your Mentor Dashboard</h3>
+          <p className="ss-empty__desc">
             Start by creating your first session. Once learners start booking, you'll see your
             analytics, reviews, and student activity here.
           </p>
-          <div className="mdash2-empty__actions">
-            <Link to="/mentor/teach" className="mdash2-btn mdash2-btn--primary">
-              <span className="md__icon">add</span>
+          <div className="ss-empty__actions">
+            <Link to="/mentor/teach" className="ss-btn ss-btn--primary">
+              <SsIcon name="plus" size={18} />
               Create Session
             </Link>
-            <Link to="/mentor/professional-profile" className="mdash2-btn mdash2-btn--outline">
-              <span className="md__icon">person</span>
+            <Link to="/mentor/professional-profile" className="ss-btn ss-btn--secondary">
+              <SsIcon name="user" size={18} />
               Complete Profile
             </Link>
           </div>
@@ -592,115 +597,67 @@ export default function MentorDashboard({ profile }) {
 
 
   return (
-    <div className="mdash2-shell">
+    <div className="ss-page">
 
-      {/* ═══════════════════ SECTION 1 – PREMIUM WELCOME HERO ═══════════════════ */}
-      <section className="mdash2-hero">
-        <div className="mdash2-hero__pattern">
-          <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="mdashGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3" />
-              </pattern>
-            </defs>
-            <rect width="400" height="400" fill="url(#mdashGrid)" />
-          </svg>
+      {/* ═══════════════════ HERO SECTION — Unified Design System ═══════════════════ */}
+      <section className="ss-hero">
+        <div className="ss-hero__content">
+          <div className="ss-hero__badge">
+            <SsIcon name="sparkles" size={14} />
+            Mentor Dashboard
+          </div>
+          <h1 className="ss-hero__title">
+            {getGreeting()}, {firstName} <span role="img" aria-label="wave">👋</span>
+          </h1>
+          <p className="ss-hero__desc">
+            Welcome back to your mentoring workspace. Here's your overview for today.
+          </p>
+
+          <div className="ss-hero__quick-stats">
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Today's Sessions</p>
+              <p className="ss-hero__qs-value">{todaySessions.length}</p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Pending Requests</p>
+              <p className="ss-hero__qs-value">{pendingBookings.length}</p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Active Students</p>
+              <p className="ss-hero__qs-value">{stats.totalStudents}</p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Monthly Earnings</p>
+              <p className="ss-hero__qs-value">{formatMoney(stats.monthlyEarnings)}</p>
+            </div>
+          </div>
+
+          <div className="ss-hero__actions">
+            <Link to="/mentor/teach" className="ss-btn ss-btn--primary">
+              <SsIcon name="plus" size={18} />
+              Create Session
+            </Link>
+            <Link to="/mentor/calendar" className="ss-btn ss-btn--secondary">
+              <SsIcon name="calendar" size={18} />
+              Manage Calendar
+            </Link>
+            <Link to="/mentor/analytics" className="ss-btn ss-btn--ghost">
+              <SsIcon name="analytics" size={18} />
+              View Analytics
+            </Link>
+            <button
+              className="ss-btn ss-btn--icon"
+              onClick={loadMentorData}
+              title="Refresh data"
+              aria-label="Refresh data"
+            >
+              <SsIcon name="refresh" size={20} />
+            </button>
+          </div>
         </div>
-        <div className="mdash2-hero__content">
-          <div className="mdash2-hero__left">
-            <h1 className="mdash2-hero__greeting">
-              Good Morning, {firstName} <span role="img" aria-label="wave">👋</span>
-            </h1>
-            <p className="mdash2-hero__subtitle">
-              Welcome back to your mentoring workspace. Here's your overview for today.
-            </p>
 
-            <div className="mdash2-hero__quick-stats">
-              <div className="mdash2-hero__qs-item">
-                <p className="mdash2-hero__qs-label">Today's Sessions</p>
-                <p className="mdash2-hero__qs-value">{todaySessions.length}</p>
-              </div>
-              <div className="mdash2-hero__qs-item">
-                <p className="mdash2-hero__qs-label">Pending Requests</p>
-                <p className="mdash2-hero__qs-value">{pendingBookings.length}</p>
-              </div>
-              <div className="mdash2-hero__qs-item">
-                <p className="mdash2-hero__qs-label">Active Students</p>
-                <p className="mdash2-hero__qs-value">{stats.totalStudents}</p>
-              </div>
-              <div className="mdash2-hero__qs-item">
-                <p className="mdash2-hero__qs-label">Monthly Earnings</p>
-                <p className="mdash2-hero__qs-value">{formatMoney(stats.monthlyEarnings)}</p>
-              </div>
-            </div>
-
-            <div className="mdash2-hero__actions">
-              <Link to="/mentor/teach" className="mdash2-btn mdash2-btn--primary">
-                <span className="md__icon">add</span>
-                Create Session
-              </Link>
-              <Link to="/mentor/calendar" className="mdash2-btn mdash2-btn--secondary">
-                <span className="md__icon">calendar_month</span>
-                Manage Calendar
-              </Link>
-              <Link to="/mentor/analytics" className="mdash2-btn mdash2-btn--outline">
-                <span className="md__icon">insights</span>
-                View Analytics
-              </Link>
-              <button
-                className="mdash2-btn mdash2-btn--ghost"
-                onClick={loadMentorData}
-                title="Refresh data"
-              >
-                <span className="md__icon">refresh</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="mdash2-hero__right">
-            <div className="mdash2-hero__illustration">
-              <div className="mdash2-hero__floating-stat">
-                <div className="mdash2-hero__fs-icon">
-                  <span className="md__icon">today</span>
-                </div>
-                <div className="mdash2-hero__fs-info">
-                  <p className="mdash2-hero__fs-label">Today's Bookings</p>
-                  <p className="mdash2-hero__fs-value">{todaySessions.length} session{todaySessions.length !== 1 ? "s" : ""}</p>
-                </div>
-                <span className="mdash2-hero__fs-trend mdash2-hero__fs-trend--up">↑ {analytics.monthGrowth}%</span>
-              </div>
-              <div className="mdash2-hero__floating-stat">
-                <div className="mdash2-hero__fs-icon">
-                  <span className="md__icon">trending_up</span>
-                </div>
-                <div className="mdash2-hero__fs-info">
-                  <p className="mdash2-hero__fs-label">Weekly Growth</p>
-                  <p className="mdash2-hero__fs-value">{analytics.monthGrowth >= 0 ? "+" : ""}{analytics.monthGrowth}%</p>
-                </div>
-                <span className="mdash2-hero__fs-trend mdash2-hero__fs-trend--up">↑ {analytics.monthGrowth}%</span>
-              </div>
-              <div className="mdash2-hero__floating-stat">
-                <div className="mdash2-hero__fs-icon">
-                  <span className="md__icon">quick_reply</span>
-                </div>
-                <div className="mdash2-hero__fs-info">
-                  <p className="mdash2-hero__fs-label">Response Rate</p>
-                  <p className="mdash2-hero__fs-value">{analytics.acceptanceRate}%</p>
-                </div>
-                <span className="mdash2-hero__fs-trend mdash2-hero__fs-trend--up">↑ {analytics.acceptanceRate}%</span>
-              </div>
-              <div className="mdash2-hero__floating-stat">
-                <div className="mdash2-hero__fs-icon">
-                  <span className="md__icon">star</span>
-                </div>
-                <div className="mdash2-hero__fs-info">
-                  <p className="mdash2-hero__fs-label">Average Rating</p>
-                  <p className="mdash2-hero__fs-value">{stats.averageRating || "—"} / 5</p>
-                </div>
-                <span className="mdash2-hero__fs-trend mdash2-hero__fs-trend--up">{stats.averageRating > 0 ? `${stats.averageRating}` : "—"}</span>
-              </div>
-            </div>
-          </div>
+        <div className="ss-hero__illustration">
+          <SsIcon name="target" size={160} />
         </div>
       </section>
 
@@ -708,54 +665,47 @@ export default function MentorDashboard({ profile }) {
       {!verificationStatus?.mentorVerified && (
         <div className="mdash2-verify">
           <div className="mdash2-verify__icon">
-            <span className="md__icon">verified_user</span>
+            <SsIcon name="shield" size={24} />
           </div>
           <div className="mdash2-verify__text">
             <strong>Verification pending</strong>
             <span>Complete mentor verification to increase trust and booking conversions.</span>
           </div>
-          <Link to="/profile-setup" className="mdash2-btn mdash2-btn--primary mdash2-btn--sm">
+          <Link to="/profile-setup" className="ss-btn ss-btn--primary ss-btn--sm">
+            <SsIcon name="edit" size={16} />
             Finish Profile
           </Link>
         </div>
       )}
 
-      {/* ═══════════════════ SECTION 2 – QUICK STATISTICS ═══════════════════ */}
+      {/* ═══════════════════ STAT CARDS — Design System ═══════════════════ */}
       <section>
-        <div className="mdash2-stats-grid">
-          <StatCard2
-            icon="groups"
-            color="#3B82F6"
-            bg="rgba(59,130,246,0.10)"
+        <div className="ss-stats-grid">
+          <SsStatCard
+            icon="users"
             value={stats.totalStudents}
             label="Active Students"
-            delta={analytics.monthGrowth}
+            trend={analytics.monthGrowth}
+            desc="Total enrolled learners"
           />
-          <StatCard2
-            icon="calendar_month"
-            color="#0F9D8A"
-            bg="rgba(15,157,138,0.10)"
+          <SsStatCard
+            icon="calendar"
             value={upcomingSessions.length}
             label="Upcoming Sessions"
-            delta={upcomingSessions.length > 0 ? "upcoming" : null}
+            desc="Scheduled mentoring sessions"
           />
-          <StatCard2
-            icon="payments"
-            color="#F59E0B"
-            bg="rgba(245,158,11,0.10)"
+          <SsStatCard
+            icon="dollar-sign"
             value={formatMoney(stats.monthlyEarnings)}
             label="Monthly Earnings"
-            delta={analytics.monthGrowth}
-            series={series.revenue}
+            trend={analytics.monthGrowth}
+            desc="Revenue this month"
           />
-          <StatCard2
+          <SsStatCard
             icon="star"
-            color="#8B5CF6"
-            bg="rgba(139,92,246,0.10)"
             value={stats.averageRating || "—"}
             label="Average Rating"
             desc={`${stats.totalReviews} reviews`}
-            series={series.rating}
           />
         </div>
       </section>
@@ -782,34 +732,41 @@ export default function MentorDashboard({ profile }) {
                         {s?.skill?.name || s?.title || "Mentoring Session"}
                       </h4>
                       <p className="mdash2-timeline-item__student">
-                        <span className="md__icon" style={{ fontSize: "0.85rem" }}>person</span>
+                        <SsIcon name="user" size={16} style={{ marginRight: 4 }} />
                         {s?.learner?.fullName || "Learner"}
                         {s?.duration && <span style={{ marginLeft: 8, opacity: 0.7 }}>· {s.duration} min</span>}
                         <span style={{ marginLeft: 8, opacity: 0.7 }}>· {formatTime(s.startTime)} – {formatTime(s.endTime)}</span>
                       </p>
                       <div className="mdash2-timeline-item__actions">
-                        <StatusChip status={s?.bookingStatus || s?.status || "CONFIRMED"} />
+                        <SsBadge status={s?.bookingStatus || s?.status || "CONFIRMED"} />
                         <a
                           href={s?.meetingLink || "#"}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mdash2-btn mdash2-btn--primary mdash2-btn--xs"
+                          className="ss-btn ss-btn--primary ss-btn--sm"
                           onClick={(e) => !s?.meetingLink && e.preventDefault()}
                         >
-                          <span className="md__icon" style={{ fontSize: "0.8rem" }}>video_call</span>
+                          <SsIcon name="video" size={14} />
                           Join
                         </a>
                         <Link
                           to="/mentor/calendar"
-                          className="mdash2-btn mdash2-btn--sm mdash2-btn--secondary"
+                          className="ss-btn ss-btn--secondary ss-btn--sm"
                           style={{ fontSize: "0.72rem", padding: "4px 10px" }}
                         >
                           Reschedule
                         </Link>
                         <button
-                          className="mdash2-btn mdash2-btn--sm mdash2-btn--danger"
+                          className="ss-btn ss-btn--danger ss-btn--sm"
                           style={{ fontSize: "0.72rem", padding: "4px 10px" }}
-                          onClick={() => handleBookingStatus(s?.id || s?.bookingId, "CANCELLED")}
+                          onClick={() => {
+                            const booking = findBookingForSession(s.id);
+                            if (booking) {
+                              handleBookingStatus(booking.id || booking.bookingId, "CANCELLED");
+                            } else {
+                              console.warn("No booking found for session", s.id);
+                            }
+                          }}
                         >
                           Cancel
                         </button>
@@ -820,9 +777,9 @@ export default function MentorDashboard({ profile }) {
               </div>
             ) : (
               <div className="mdash2-empty-inline">
-                <span className="md__icon">event_busy</span>
+                <SsIcon name="calendar-off" size={18} />
                 <p>No sessions scheduled for today</p>
-                <Link to="/mentor/teach" className="mdash2-btn mdash2-btn--primary mdash2-btn--sm">
+                <Link to="/mentor/teach" className="ss-btn ss-btn--primary ss-btn--sm">
                   + Create a Session
                 </Link>
               </div>
@@ -834,7 +791,7 @@ export default function MentorDashboard({ profile }) {
         <div className="mdash2-requests">
           <div className="mdash2-requests__header">
             <h3 className="mdash2-requests__title">
-              <span className="md__icon">pending_actions</span>
+              <SsIcon name="clock" size={18} />
               Session Requests
               {pendingBookings.length > 0 && (
                 <span className="mdash2-requests__badge">{pendingBookings.length}</span>
@@ -857,16 +814,16 @@ export default function MentorDashboard({ profile }) {
                     </p>
                     <div className="mdash2-request-card__meta">
                       <span>
-                        <span className="md__icon" style={{ fontSize: "0.75rem" }}>calendar_today</span>
+                        <SsIcon name="calendar" size={14} style={{ marginRight: 2 }} />
                         {formatDate(b?.session?.startTime || b?.createdAt)}
                       </span>
                       <span>
-                        <span className="md__icon" style={{ fontSize: "0.75rem" }}>schedule</span>
+                        <SsIcon name="clock" size={14} style={{ marginRight: 2 }} />
                         {formatTime(b?.session?.startTime || b?.createdAt)}
                       </span>
                       {b?.payment?.amount > 0 && (
                         <span>
-                          <span className="md__icon" style={{ fontSize: "0.75rem" }}>payments</span>
+                          <SsIcon name="wallet" size={14} style={{ marginRight: 2 }} />
                           {formatMoney(b.payment.amount)}
                         </span>
                       )}
@@ -874,21 +831,21 @@ export default function MentorDashboard({ profile }) {
                   </div>
                   <div className="mdash2-request-card__actions">
                     <button
-                      className="mdash2-btn mdash2-btn--success mdash2-btn--xs"
+                      className="ss-btn ss-btn--primary ss-btn--sm"
                       onClick={() => handleBookingStatus(b.id || b.bookingId, "ACCEPTED")}
                     >
                       Accept
                     </button>
                     <button
-                      className="mdash2-btn mdash2-btn--danger mdash2-btn--xs"
+                      className="ss-btn ss-btn--danger ss-btn--sm"
                       onClick={() => handleBookingStatus(b.id || b.bookingId, "CANCELLED")}
                     >
                       Decline
                     </button>
                     <Link
                       to={`/mentor/students`}
-                      className="mdash2-btn mdash2-btn--sm mdash2-btn--outline"
-                      style={{ fontSize: "0.72rem", padding: "4px 10px", color: "var(--md-text-secondary)", borderColor: "var(--md-card-border)" }}
+                      className="ss-btn ss-btn--secondary ss-btn--sm"
+                      style={{ fontSize: "0.72rem", padding: "4px 10px",                    color: "var(--ss-text-secondary)", borderColor: "var(--ss-border)" }}
                     >
                       View Profile
                     </Link>
@@ -897,7 +854,7 @@ export default function MentorDashboard({ profile }) {
               ))
             ) : (
               <div className="mdash2-empty-inline">
-                <span className="md__icon">checklist</span>
+                <SsIcon name="check-square" size={18} />
                 <p>No pending booking requests</p>
               </div>
             )}
@@ -911,7 +868,7 @@ export default function MentorDashboard({ profile }) {
         <div className="mdash2-students">
           <div className="mdash2-students__header">
             <h3 className="mdash2-students__title">
-              <span className="md__icon">groups</span>
+              <SsIcon name="users" size={18} />
               Recent Students
             </h3>
             {recentStudents.length > 0 && (
@@ -948,21 +905,21 @@ export default function MentorDashboard({ profile }) {
                       className="mdash2-icon-btn"
                       title="Message"
                     >
-                      <span className="md__icon">chat</span>
+                      <SsIcon name="message-square" size={16} />
                     </Link>
                     <Link
                       to="/mentor/students"
                       className="mdash2-icon-btn"
                       title="View Progress"
                     >
-                      <span className="md__icon">trending_up</span>
+                      <SsIcon name="trending-up" size={16} />
                     </Link>
                   </div>
                 </div>
               ))
             ) : (
               <div className="mdash2-empty-inline">
-                <span className="md__icon">group_off</span>
+                <SsIcon name="user-x" size={18} />
                 <p>No students yet. Start mentoring to build your roster.</p>
               </div>
             )}
@@ -973,7 +930,7 @@ export default function MentorDashboard({ profile }) {
         <div className="mdash2-calendar">
           <div className="mdash2-calendar__header">
             <h3 className="mdash2-calendar__title">
-              <span className="md__icon">calendar_month</span>
+              <SsIcon name="calendar" size={18} />
               Upcoming Calendar
             </h3>
             <Link to="/mentor/calendar" className="mdash2-students__link">
@@ -1003,14 +960,14 @@ export default function MentorDashboard({ profile }) {
             {/* Upcoming Events */}
             {nextEvents.length > 0 && (
               <div className="mdash2-calendar__upcoming">
-                <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--md-text-secondary)", margin: "4px 0" }}>
+                <p style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--ss-text-secondary)", margin: "4px 0" }}>
                   Upcoming Sessions
                 </p>
                 {nextEvents.map((s) => (
                   <div key={s.id} className="mdash2-calendar__event">
                     <div
                       className="mdash2-calendar__event-dot"
-                      style={{ background: isToday(s.startTime) ? "var(--md-primary)" : "var(--md-text-muted)" }}
+                      style={{ background: isToday(s.startTime) ? "var(--ss-primary)" : "var(--ss-text-muted)" }}
                     />
                     <div className="mdash2-calendar__event-info">
                       <p className="mdash2-calendar__event-title">
@@ -1023,8 +980,8 @@ export default function MentorDashboard({ profile }) {
                     <span
                       className="mdash2-calendar__event-status"
                       style={{
-                        background: isToday(s.startTime) ? "var(--md-success-light)" : "var(--md-primary-lighter)",
-                        color: isToday(s.startTime) ? "var(--md-success)" : "var(--md-primary)",
+                        background: isToday(s.startTime) ? "var(--ss-success-bg)" : "var(--ss-primary-light)",
+                        color: isToday(s.startTime) ? "var(--ss-success)" : "var(--ss-primary)",
                       }}
                     >
                       {isToday(s.startTime) ? "Today" : "Upcoming"}
@@ -1041,7 +998,7 @@ export default function MentorDashboard({ profile }) {
       <div className="mdash2-earnings">
         <div className="mdash2-earnings__header">
           <h3 className="mdash2-earnings__title">
-            <span className="md__icon">payments</span>
+            <SsIcon name="wallet" size={18} />
             Monthly Earnings
           </h3>
           <Link to="/mentor/wallet" className="mdash2-students__link">
@@ -1100,51 +1057,15 @@ export default function MentorDashboard({ profile }) {
         </div>
       </div>
 
-      {/* ═══════════════════ SECTION 7 – PERFORMANCE ANALYTICS ═══════════════════ */}
+      {/* ═══════════════════ PERFORMANCE ANALYTICS GRID ═══════════════════ */}
       <section>
-        <div className="mdash2-analytics-grid">
-          <AnalyticCard2
-            icon="star"
-            color="#F59E0B"
-            bg="rgba(245,158,11,0.10)"
-            value={stats.averageRating || "—"}
-            label="Average Rating"
-          />
-          <AnalyticCard2
-            icon="rate_review"
-            color="#8B5CF6"
-            bg="rgba(139,92,246,0.10)"
-            value={stats.totalReviews}
-            label="Total Reviews"
-          />
-          <AnalyticCard2
-            icon="check_circle"
-            color="#16A34A"
-            bg="rgba(22,163,74,0.10)"
-            value={stats.completedSessions}
-            label="Sessions Completed"
-          />
-          <AnalyticCard2
-            icon="task_alt"
-            color="#0F9D8A"
-            bg="rgba(15,157,138,0.10)"
-            value={`${analytics.completionRate}%`}
-            label="Completion Rate"
-          />
-          <AnalyticCard2
-            icon="quick_reply"
-            color="#3B82F6"
-            bg="rgba(59,130,246,0.10)"
-            value={`${analytics.acceptanceRate}%`}
-            label="Response Time"
-          />
-          <AnalyticCard2
-            icon="sentiment_satisfied"
-            color="#EC4899"
-            bg="rgba(236,72,153,0.10)"
-            value={stats.totalStudents > 0 ? `${Math.round((stats.totalReviews / stats.totalStudents) * 100)}%` : "—"}
-            label="Student Satisfaction"
-          />
+        <div className="ss-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))" }}>
+          <SsStatCard icon="star" value={stats.averageRating || "—"} label="Average Rating" desc="Overall rating" />
+          <SsStatCard icon="star" value={stats.totalReviews} label="Total Reviews" desc="All feedback received" />
+          <SsStatCard icon="check-circle" value={stats.completedSessions} label="Completed" desc="Sessions finished" />
+          <SsStatCard icon="target" value={`${analytics.completionRate}%`} label="Completion Rate" desc="% of bookings completed" />
+          <SsStatCard icon="trending-up" value={`${analytics.acceptanceRate}%`} label="Acceptance Rate" desc="% of requests accepted" />
+          <SsStatCard icon="award" value={stats.totalStudents > 0 ? `${Math.round((stats.totalReviews / stats.totalStudents) * 100)}%` : "—"} label="Satisfaction" desc="Student satisfaction rate" />
         </div>
       </section>
 
@@ -1154,7 +1075,7 @@ export default function MentorDashboard({ profile }) {
         <div className="mdash2-notifications">
           <div className="mdash2-notifications__header">
             <h3 className="mdash2-notifications__title">
-              <span className="md__icon">notifications</span>
+              <SsIcon name="bell" size={18} />
               Recent Activity
             </h3>
           </div>
@@ -1166,7 +1087,7 @@ export default function MentorDashboard({ profile }) {
                     className="mdash2-notification-item__icon"
                     style={{ background: a.iconBg, color: a.iconColor }}
                   >
-                    <span className="md__icon">{a.icon}</span>
+                    <SsIcon name={a.icon} size={18} />
                   </div>
                   <div className="mdash2-notification-item__info">
                     <p className="mdash2-notification-item__text">{a.text}</p>
@@ -1176,7 +1097,7 @@ export default function MentorDashboard({ profile }) {
               ))
             ) : (
               <div className="mdash2-empty-inline">
-                <span className="md__icon">notifications_off</span>
+                <SsIcon name="bell-off" size={18} />
                 <p>No recent activity</p>
               </div>
             )}
@@ -1186,70 +1107,62 @@ export default function MentorDashboard({ profile }) {
         {/* Quick Actions */}
         <div>
           <div className="mdash2-actions-grid">
-            <QuickAction2
-              icon="video_camera_front"
-              color="#0F9D8A"
-              bg="rgba(15,157,138,0.10)"
-              title="Create Session"
-              desc="Schedule a session"
-              to="/mentor/teach"
-            />
-            <QuickAction2
-              icon="calendar_month"
-              color="#3B82F6"
-              bg="rgba(59,130,246,0.10)"
-              title="Availability"
-              desc="Set your hours"
-              to="/mentor/calendar"
-            />
-            <QuickAction2
-              icon="groups"
-              color="#8B5CF6"
-              bg="rgba(139,92,246,0.10)"
-              title="Students"
-              desc="View your roster"
-              to="/mentor/students"
-            />
-            <QuickAction2
-              icon="chat"
-              color="#16A34A"
-              bg="rgba(22,163,74,0.10)"
-              title="Messages"
-              desc="Inbox & replies"
-              to="/mentor/messages"
-            />
-            <QuickAction2
-              icon="insights"
-              color="#F59E0B"
-              bg="rgba(245,158,11,0.10)"
-              title="Analytics"
-              desc="Deep dive metrics"
-              to="/mentor/analytics"
-            />
-            <QuickAction2
-              icon="payments"
-              color="#EC4899"
-              bg="rgba(236,72,153,0.10)"
-              title="Payments"
-              desc="Earnings & payouts"
-              to="/mentor/wallet"
-            />
-            <QuickAction2
-              icon="folder"
-              color="#F97316"
-              bg="rgba(249,115,22,0.10)"
-              title="Resources"
-              desc="Shared materials"
-              to="/mentor/teach"
-            />
-            <QuickAction2
-              icon="star_rate"
-              color="#0F9D8A"
-              bg="rgba(15,157,138,0.10)"
-              title="Reviews"
-              desc="See feedback"
-              to="/mentor/reviews"
-            />
+            <Link to="/mentor/teach" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(15,157,138,0.10)", color: "#0F9D8A" }}>
+                <SsIcon name="video" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Create Session</p>
+              <p className="mdash2-action-card__desc">Schedule a session</p>
+            </Link>
+            <Link to="/mentor/calendar" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(59,130,246,0.10)", color: "#3B82F6" }}>
+                <SsIcon name="calendar" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Availability</p>
+              <p className="mdash2-action-card__desc">Set your hours</p>
+            </Link>
+            <Link to="/mentor/students" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(139,92,246,0.10)", color: "#8B5CF6" }}>
+                <SsIcon name="users" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Students</p>
+              <p className="mdash2-action-card__desc">View your roster</p>
+            </Link>
+            <Link to="/mentor/messages" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(22,163,74,0.10)", color: "#16A34A" }}>
+                <SsIcon name="message-square" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Messages</p>
+              <p className="mdash2-action-card__desc">Inbox & replies</p>
+            </Link>
+            <Link to="/mentor/analytics" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(245,158,11,0.10)", color: "#F59E0B" }}>
+                <SsIcon name="analytics" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Analytics</p>
+              <p className="mdash2-action-card__desc">Deep dive metrics</p>
+            </Link>
+            <Link to="/mentor/wallet" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(236,72,153,0.10)", color: "#EC4899" }}>
+                <SsIcon name="wallet" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Payments</p>
+              <p className="mdash2-action-card__desc">Earnings & payouts</p>
+            </Link>
+            <Link to="/mentor/teach" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(249,115,22,0.10)", color: "#F97316" }}>
+                <SsIcon name="book-open" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Resources</p>
+              <p className="mdash2-action-card__desc">Teaching materials</p>
+            </Link>
+            <Link to="/mentor/reviews" className="mdash2-action-card">
+              <div className="mdash2-action-card__icon" style={{ background: "rgba(15,157,138,0.10)", color: "#0F9D8A" }}>
+                <SsIcon name="star" size={22} />
+              </div>
+              <p className="mdash2-action-card__title">Reviews</p>
+              <p className="mdash2-action-card__desc">See feedback</p>
+            </Link>
           </div>
         </div>
       </div>
@@ -1258,7 +1171,7 @@ export default function MentorDashboard({ profile }) {
       <div className="mdash2-progress">
         <div className="mdash2-progress__header">
           <h3 className="mdash2-progress__title">
-            <span className="md__icon">trending_up</span>
+            <SsIcon name="trending-up" size={18} />
             Mentor Progress
           </h3>
           <Link to="/profile-setup" className="mdash2-students__link">
@@ -1274,7 +1187,7 @@ export default function MentorDashboard({ profile }) {
             <div className="mdash2-progress__stat">
               <p className="mdash2-progress__stat-value">
                 {verificationStatus?.mentorVerified ? (
-                  <span style={{ color: "var(--md-success)" }}>Verified</span>
+                  <span style={{ color: "var(--ss-success)" }}>Verified</span>
                 ) : (
                   "Pending"
                 )}
@@ -1316,7 +1229,7 @@ export default function MentorDashboard({ profile }) {
         <div className="mdash2-referral">
           <div className="mdash2-referral__header">
             <h3 className="mdash2-referral__title">
-              <span className="md__icon">share</span>
+              <SsIcon name="share-2" size={18} />
               Referral Rewards
             </h3>
           </div>
@@ -1356,7 +1269,7 @@ export default function MentorDashboard({ profile }) {
             </div>
             <div className="mdash2-referral__share">
               <div className="mdash2-referral__code">
-                <span className="md__icon" style={{ fontSize: "1rem" }}>link</span>
+                <SsIcon name="link" size={18} />
                 {referral.referralCode}
               </div>
               <button
@@ -1364,18 +1277,15 @@ export default function MentorDashboard({ profile }) {
                 className={`mdash2-referral__copy-btn ${copied ? "mdash2-referral__copy-btn--copied" : ""}`}
                 onClick={handleCopyLink}
               >
-                <span className="md__icon" style={{ fontSize: "0.9rem" }}>
-                  {copied ? "check" : "content_copy"}
-                </span>
+                <SsIcon name={copied ? "check" : "copy"} size={16} />
                 {copied ? "Copied!" : "Copy Code"}
               </button>
               <button
                 type="button"
-                className="mdash2-btn mdash2-btn--primary mdash2-btn--sm"
-                style={{ background: "rgba(15,157,138,0.10)", color: "var(--md-primary)", border: "1px solid rgba(15,157,138,0.20)" }}
+                className="ss-btn ss-btn--secondary ss-btn--sm"
                 onClick={() => handleShare("whatsapp")}
               >
-                <span className="md__icon" style={{ fontSize: "0.9rem" }}>chat</span>
+                <SsIcon name="message-square" size={16} />
                 Share
               </button>
             </div>
@@ -1387,59 +1297,5 @@ export default function MentorDashboard({ profile }) {
   );
 }
 
-/* ──────────────── Sub-Components ──────────────── */
-
-function StatCard2({ icon, color, bg, value, label, desc, delta, series }) {
-  const trendUp = delta > 0;
-  const trendDown = delta < 0;
-
-  return (
-    <div className="mdash2-stat-card">
-      <div className="mdash2-stat-card__top">
-        <div className="mdash2-stat-card__icon" style={{ background: bg, color }}>
-          <span className="md__icon">{icon}</span>
-        </div>
-        {delta != null && typeof delta === "number" && (
-          <span
-            className={`mdash2-stat-card__trend ${
-              trendUp ? "mdash2-stat-card__trend--up" : trendDown ? "mdash2-stat-card__trend--down" : "mdash2-stat-card__trend--flat"
-            }`}
-          >
-            {trendUp ? "↑" : trendDown ? "↓" : "→"} {Math.abs(delta)}%
-          </span>
-        )}
-      </div>
-      <p className="mdash2-stat-card__value">{value}</p>
-      <p className="mdash2-stat-card__label">{desc || label}</p>
-      {series && series.length > 0 && (
-        <div className="mdash2-stat-card__chart">
-          <MiniChart data={series} color={color} height={24} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AnalyticCard2({ icon, color, bg, value, label }) {
-  return (
-    <div className="mdash2-analytic-card">
-      <div className="mdash2-analytic-card__icon" style={{ background: bg, color }}>
-        <span className="md__icon">{icon}</span>
-      </div>
-      <p className="mdash2-analytic-card__value">{value}</p>
-      <p className="mdash2-analytic-card__label">{label}</p>
-    </div>
-  );
-}
-
-function QuickAction2({ icon, color, bg, title, desc, to }) {
-  return (
-    <Link to={to} className="mdash2-action-card">
-      <div className="mdash2-action-card__icon" style={{ background: bg, color }}>
-        <span className="md__icon">{icon}</span>
-      </div>
-      <p className="mdash2-action-card__title">{title}</p>
-      <p className="mdash2-action-card__desc">{desc}</p>
-    </Link>
-  );
-}
+/* ──────────────── Sub-Components (Legacy) ──────────────── */
+/* StatCard2, AnalyticCard2, QuickAction2 have been replaced by SsStatCard from design system */

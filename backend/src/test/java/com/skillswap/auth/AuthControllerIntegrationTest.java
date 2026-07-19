@@ -55,7 +55,7 @@ class AuthControllerIntegrationTest {
 
   @Test
   void signupReturnsSuccessResponse() throws Exception {
-    when(authService.signup(any())).thenReturn(
+    when(authService.signup(any(), any())).thenReturn(
         new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
             UserRole.LEARNER.name()));
 

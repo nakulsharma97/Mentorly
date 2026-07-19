@@ -58,7 +58,10 @@ public class Booking {
 
     // Helper methods
     public boolean isApprovedForJoin() {
-        return approvedByAdmin != null && approvedByAdmin && paymentStatus.isCompleted();
+        if (paymentStatus == null || !paymentStatus.isCompleted()) {
+            return false;
+        }
+        return approvedByAdmin != null && approvedByAdmin;
     }
 
     public boolean hasJoined() {

@@ -28,11 +28,9 @@ public class StatsService {
         long completedSwaps = bookingRepository.countByBookingStatus(BookingStatus.COMPLETED);
 
         // compute overall average rating across mentor and learner reviews
-        double mentorAvg = mentorReviewRepository.findAll().stream()
-                .mapToDouble(r -> r.getRating() == null ? 0 : r.getRating()).sum();
+        double mentorAvg = mentorReviewRepository.sumRating();
         long mentorCount = mentorReviewRepository.count();
-        double learnerAvgSum = learnerReviewRepository.findAll().stream()
-                .mapToDouble(r -> r.getRating() == null ? 0 : r.getRating()).sum();
+        double learnerAvgSum = learnerReviewRepository.sumRating();
         long learnerCount = learnerReviewRepository.count();
         double averageRating = 0.0;
         long totalCount = mentorCount + learnerCount;

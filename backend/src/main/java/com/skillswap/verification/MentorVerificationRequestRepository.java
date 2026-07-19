@@ -8,4 +8,6 @@ public interface MentorVerificationRequestRepository extends JpaRepository<Mento
     List<MentorVerificationRequest> findByMentorIdOrderByCreatedAtDesc(Long mentorId);
 
     List<MentorVerificationRequest> findByStatusOrderByCreatedAtAsc(MentorVerificationRequestStatus status);
+
+    long countByStatus(MentorVerificationRequestStatus status);
 }

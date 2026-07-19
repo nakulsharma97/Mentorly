@@ -6,6 +6,8 @@ import { filterConversationsBySearch } from "../utils/messagesPage";
 import "./MessagesPage.css";
 
 const RECONNECT_MAX_ATTEMPTS = 5;
+const HEARTBEAT_INTERVAL = 30000; // Send PING every 30s
+const HEARTBEAT_TIMEOUT = 10000;  // Expect PONG within 10s
 
 const formatMessageTime = (value) => {
   if (!value) {
@@ -143,6 +145,7 @@ export default function MessagesPage({ profile, notify }) {
   const [activeFilter, setActiveFilter] = useState("all");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChat, setShowNewChat] = useState(false);
+  const [requestFilter, setRequestFilter] = useState("pending");
   const [mentorSearch, setMentorSearch] = useState("");
   const [mentors, setMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(false);
@@ -154,6 +157,8 @@ export default function MessagesPage({ profile, notify }) {
   const isMountedRef = useRef(false);
   const stopReconnectRef = useRef(false);
   const reconnectTimerRef = useRef(null);
+  const heartbeatIntervalRef = useRef(null);
+  const heartbeatTimeoutRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingSeenTimeoutsRef = useRef({});
   const searchInputRef = useRef(null);
@@ -177,6 +182,17 @@ export default function MessagesPage({ profile, notify }) {
         // no-op
       }
       wsRef.current = null;
+    }
+  }, []);
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (heartbeatTimeoutRef.current) {
+      clearTimeout(heartbeatTimeoutRef.current);
+      heartbeatTimeoutRef.current = null;
     }
   }, []);
 
@@ -222,13 +238,30 @@ export default function MessagesPage({ profile, notify }) {
       const socket = new WebSocket(wsUrl);
       wsRef.current = socket;
 
+      const startHeartbeat = () => {
+        stopHeartbeat();
+        // Send PING to server every 30s
+        heartbeatIntervalRef.current = setInterval(() => {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: "PING" }));
+            // If no PONG received within HEARTBEAT_TIMEOUT, assume stale and reconnect
+            if (heartbeatTimeoutRef.current) clearTimeout(heartbeatTimeoutRef.current);
+            heartbeatTimeoutRef.current = setTimeout(() => {
+              if (wsRef.current && isMountedRef.current) {
+                wsRef.current.close();
+              }
+            }, HEARTBEAT_TIMEOUT);
+          }
+        }, HEARTBEAT_INTERVAL);
+      };
+
       socket.onopen = () => {
         if (!isMountedRef.current) {
           return;
         }
         setWsState("connected");
         setWsReconnectAttempt(0);
-        // sendReadMessage moved to open handler below
+        startHeartbeat();
         if (kind === "direct") {
           sendReadMessage(convId, "direct");
         } else {
@@ -273,6 +306,15 @@ export default function MessagesPage({ profile, notify }) {
             return;
           }
 
+          if (messageType === "PONG") {
+            // Reset heartbeat timeout — backend is alive
+            if (heartbeatTimeoutRef.current) {
+              clearTimeout(heartbeatTimeoutRef.current);
+              heartbeatTimeoutRef.current = null;
+            }
+            return;
+          }
+
           if (messageType === "TYPING") {
             const typingUserEmail = String(
               incoming?.typingUserEmail || "",
@@ -304,6 +346,7 @@ export default function MessagesPage({ profile, notify }) {
       };
 
       socket.onclose = () => {
+        stopHeartbeat();
         if (!isMountedRef.current || stopReconnectRef.current) {
           return;
         }
@@ -331,6 +374,7 @@ export default function MessagesPage({ profile, notify }) {
       closeSocket,
       currentUserEmail,
       sendReadMessage,
+      stopHeartbeat,
       wsBase,
       wsReconnectAttempt,
     ],
@@ -342,6 +386,7 @@ export default function MessagesPage({ profile, notify }) {
       isMountedRef.current = false;
       stopReconnectRef.current = true;
       clearReconnectTimer();
+      stopHeartbeat();
       closeSocket();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -351,7 +396,7 @@ export default function MessagesPage({ profile, notify }) {
       });
       typingSeenTimeoutsRef.current = {};
     };
-  }, [clearReconnectTimer, closeSocket]);
+  }, [clearReconnectTimer, closeSocket, stopHeartbeat]);
 
   useEffect(() => {
     if (!profile?.id) {
@@ -718,9 +763,26 @@ export default function MessagesPage({ profile, notify }) {
       next = next.filter(
         (item) => String(item.role || "").toUpperCase() === "LEARNER",
       );
+    } else if (activeFilter === "archived") {
+      next = next.filter(
+        (item) => Number(item.unreadCount || 0) === 0 && !item.online,
+      );
     }
     return filterConversationsBySearch(next, searchTerm);
   }, [activeFilter, conversations, searchTerm]);
+
+  // Filter message requests based on selected filter
+  const filteredRequests = useMemo(() => {
+    let requests = messageRequests;
+    if (requestFilter === "pending") {
+      requests = requests.filter((r) => !r.status || r.status === "PENDING");
+    } else if (requestFilter === "accepted") {
+      requests = requests.filter((r) => r.status === "ACCEPTED");
+    } else if (requestFilter === "rejected") {
+      requests = requests.filter((r) => r.status === "DECLINED");
+    }
+    return requests;
+  }, [messageRequests, requestFilter]);
 
   const wsStatusBanner =
     wsState === "reconnecting"
@@ -842,22 +904,21 @@ export default function MessagesPage({ profile, notify }) {
                     {messageRequests.length}
                   </span>
                 )}
-              </div>
-
-              <div
-                className="msg-request-chip-row"
-                aria-label="Message request filters"
-              >
-                <button type="button" className="msg-filter-pill is-active">
-                  Pending
-                </button>
-                <button type="button" className="msg-filter-pill">
-                  Accepted
-                </button>
-                <button type="button" className="msg-filter-pill">
-                  Rejected
-                </button>
-              </div>
+              </div>                <div
+                  className="msg-request-chip-row"
+                  aria-label="Message request filters"
+                >
+                  {["pending", "accepted", "rejected"].map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`msg-filter-pill${requestFilter === f ? " is-active" : ""}`}
+                      onClick={() => setRequestFilter(f)}
+                    >
+                      {f.charAt(0).toUpperCase() + f.slice(1)}
+                    </button>
+                  ))}
+                </div>
 
               {loadingRequests ? (
                 <div className="msg-skel-list" aria-hidden="true">
@@ -871,9 +932,9 @@ export default function MessagesPage({ profile, notify }) {
                     </div>
                   ))}
                 </div>
-              ) : messageRequests.length > 0 ? (
+              ) : filteredRequests.length > 0 ? (
                 <div className="msg-request-list">
-                  {messageRequests.slice(0, 2).map((request) => {
+                  {filteredRequests.slice(0, 5).map((request) => {
                     const name =
                       request.sender?.fullName ||
                       request.sender?.email ||
@@ -1344,43 +1405,51 @@ export default function MessagesPage({ profile, notify }) {
                   </div>
                 </div>
 
+                {selConv.conversation?.sessionTitle ? (
+                  <div className="msg-detail-block">
+                    <div className="msg-detail-label">Session</div>
+                    <div className="msg-detail-value">
+                      {selConv.conversation.sessionTitle}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="msg-detail-block">
-                  <div className="msg-detail-label">Current Session</div>
+                  <div className="msg-detail-label">Status</div>
                   <div className="msg-detail-value">
-                    {selConv.conversation?.sessionTitle || selConv.subtitle ||
-                      "Active learning session"}
+                    {selConv.online ? (
+                      <span style={{ color: '#22c55e', fontWeight: 600 }}>● Online</span>
+                    ) : (
+                      <span style={{ color: '#9ca3af' }}>○ Offline · {selConv.presence}</span>
+                    )}
                   </div>
                 </div>
 
-                <div className="msg-detail-block">
-                  <div className="msg-detail-label">Upcoming Session</div>
-                  <div className="msg-detail-value">Tuesday · 6:30 PM</div>
-                </div>
-
-                <div className="msg-detail-block">
-                  <div className="msg-detail-label">Shared Files</div>
-                  <div className="msg-detail-list">
-                    <span className="msg-detail-chip">Project brief.pdf</span>
-                    <span className="msg-detail-chip">Session notes.docx</span>
+                {selConv.kind === "booking" && selConv.conversation?.bookingId ? (
+                  <div className="msg-detail-block">
+                    <div className="msg-detail-label">Booking ID</div>
+                    <div className="msg-detail-value">#{selConv.conversation.bookingId}</div>
                   </div>
-                </div>
+                ) : null}
 
                 <div className="msg-detail-block">
                   <div className="msg-detail-label">Quick Actions</div>
                   <div className="msg-detail-actions">
                     <button
                       type="button"
-                      className="msg-btn msg-btn-outline msg-btn-sm"
-                      onClick={() => notifyComingSoon("Schedule Session")}
+                      className="msg-btn msg-btn-primary msg-btn-sm"
+                      onClick={() => {
+                        document.querySelector('.msg-composer-input')?.focus();
+                      }}
                     >
-                      Schedule
+                      Reply
                     </button>
                     <button
                       type="button"
                       className="msg-btn msg-btn-outline msg-btn-sm"
-                      onClick={() => notifyComingSoon("View Profile")}
+                      onClick={() => notifyComingSoon("Schedule Session")}
                     >
-                      View Profile
+                      Schedule
                     </button>
                   </div>
                 </div>

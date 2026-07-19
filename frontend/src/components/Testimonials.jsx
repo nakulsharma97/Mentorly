@@ -142,7 +142,7 @@ export default function Testimonials({ onShareReview }) {
         <div
           style={{ display: "flex", justifyContent: "center", marginTop: 18 }}
         >
-          <button className="landing-button">View All Reviews</button>
+          <button className="landing-button landing-button-soft">View All Reviews</button>
         </div>
       )}
     </section>

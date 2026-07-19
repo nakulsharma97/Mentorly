@@ -27,11 +27,14 @@ function formatDate(date, format = "short") {
   }).format(date);
 }
 
+const USER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
 function formatTime(date) {
   if (!date) return "—";
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
+    timeZoneName: "short",
   }).format(date);
 }
 
@@ -375,6 +378,16 @@ export default function MentorCalendarPage({ notify }) {
             <div className="mp-cal-nav__label">
               {formatDate(viewDate, "long")}
             </div>
+            <span style={{
+              fontSize: "0.72rem",
+              color: "var(--ss-text-muted, #6b7280)",
+              background: "var(--ss-surface, #f3f4f6)",
+              padding: "2px 8px",
+              borderRadius: 6,
+              marginLeft: 8,
+            }}>
+              {USER_TIMEZONE}
+            </span>
             <button
               type="button"
               className="md-btn md-btn--outline md-btn--sm"
@@ -769,10 +782,9 @@ export default function MentorCalendarPage({ notify }) {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="mp-field">
+            </div>                <div className="mp-field">
               <label className="mp-label" htmlFor="slot-timezone">
-                Timezone
+                Timezone <span style={{fontSize:"0.72rem",color:"var(--ss-text-muted, #6b7280)"}}>({USER_TIMEZONE})</span>
               </label>
               <input
                 id="slot-timezone"
@@ -883,6 +895,13 @@ export default function MentorCalendarPage({ notify }) {
                   <p className="mp-kv__v">
                     {formatTime(selectedEvent.start)} –{" "}
                     {formatTime(selectedEvent.end)}
+                    <span style={{
+                      fontSize: "0.7rem",
+                      color: "var(--ss-text-muted, #6b7280)",
+                      display: "block",
+                    }}>
+                      {USER_TIMEZONE}
+                    </span>
                   </p>
                 </div>
               </div>

@@ -25,6 +25,10 @@ export default function AuthModal({
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotSubmitting, setForgotSubmitting] = useState(false);
   const titleId = "auth-modal-title";
   const emailInputRef = useRef(null);
 
@@ -296,6 +300,23 @@ export default function AuthModal({
               className="auth-inline-error"
             />
           )}
+          {mode === "login" && (
+            <div className="auth-forgot-row">
+              <button
+                type="button"
+                className="auth-forgot-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setForgotEmail(form.email);
+                  setShowForgotPassword(true);
+                  setForgotSent(false);
+                  setError("");
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
           <UIButton
             type="submit"
             className="submit-btn auth-modal-submit-btn"
@@ -308,6 +329,70 @@ export default function AuthModal({
                 : t(language, "createAccount")}
           </UIButton>
         </form>
+
+        {showForgotPassword && (
+          <div className="auth-forgot-section">
+            <div className="auth-forgot-header">
+              <h3>Reset Password</h3>
+              <p>Enter your email to receive a password reset link.</p>
+            </div>
+            {forgotSent ? (
+              <div className="auth-forgot-success">
+                <span className="material-symbols-outlined">check_circle</span>
+                <p>If this email is registered, a reset link has been sent. Check your inbox.</p>
+                <button
+                  type="button"
+                  className="auth-forgot-back-btn"
+                  onClick={() => setShowForgotPassword(false)}
+                >
+                  Back to login
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="auth-forgot-input-row">
+                  <input
+                    type="email"
+                    placeholder="Your email address"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    disabled={forgotSubmitting}
+                    className="auth-forgot-input"
+                  />
+                </div>
+                <div className="auth-forgot-actions">
+                  <button
+                    type="button"
+                    className="auth-forgot-cancel-btn"
+                    onClick={() => setShowForgotPassword(false)}
+                    disabled={forgotSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="auth-forgot-submit-btn"
+                    disabled={!forgotEmail.trim() || forgotSubmitting}
+                    onClick={async () => {
+                      setForgotSubmitting(true);
+                      setError("");
+                      try {
+                        await client.post("/api/v1/auth/forgot-password", { email: forgotEmail.trim() });
+                        setForgotSent(true);
+                      } catch (err) {
+                        setError(err?.response?.data?.message || "Failed to send reset email. Try again.");
+                      } finally {
+                        setForgotSubmitting(false);
+                      }
+                    }}
+                  >
+                    {forgotSubmitting ? "Sending..." : "Send Reset Link"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         <div className="auth-divider">
           <span>or continue with</span>

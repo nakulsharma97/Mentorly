@@ -60,12 +60,13 @@ const PROFILE_MENU = [
   { to: "/admin/settings", label: "Settings", icon: "settings" },
 ];
 
-export default function AdminLayout({ profile, onLogout, unreadNotifications }) {
+export default function AdminLayout({ profile, onLogout, unreadNotifications, onUnreadCountChange }) {
   return (
     <WorkspaceLayout
       profile={profile}
       onLogout={onLogout}
       unreadNotifications={unreadNotifications}
+      onUnreadCountChange={onUnreadCountChange}
       brand={BRAND}
       groups={GROUPS}
       secondaryLinks={SECONDARY}

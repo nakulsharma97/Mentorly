@@ -122,6 +122,12 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
 
         String type = node.path("type").asText("TEXT").toUpperCase();
 
+        if ("PING".equals(type)) {
+            String pongPayload = objectMapper.writeValueAsString(Map.of("type", "PONG"));
+            session.sendMessage(new TextMessage(pongPayload));
+            return;
+        }
+
         if ("READ".equals(type)) {
             chatService.markDirectMessagesAsRead(conversationId, userEmail);
             String readAckPayload = objectMapper.writeValueAsString(Map.of(

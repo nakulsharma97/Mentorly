@@ -127,6 +127,7 @@ export default function AnalyticsPage({ profile }) {
   const [bookings, setBookings] = useState([]);
   const [payments, setPayments] = useState([]);
   const [roadmaps, setRoadmaps] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
   const isMentor = profile?.role === "MENTOR";
@@ -152,11 +153,14 @@ export default function AnalyticsPage({ profile }) {
       setLoading(true);
       setErrorText("");
 
-      const [bookingsResult, paymentsResult, roadmapsResult] =
+      const [bookingsResult, paymentsResult, roadmapsResult, reviewsResult] =
         await Promise.allSettled([
           client.get("/api/v1/bookings"),
           client.get("/api/v1/payments"),
           client.get("/api/v1/roadmaps"),
+          isMentor
+            ? client.get("/api/v1/reviews/mentor")
+            : Promise.resolve({ data: { data: [] } }),
         ]);
 
       if (!isMounted) {
@@ -169,6 +173,7 @@ export default function AnalyticsPage({ profile }) {
       setBookings(readData(bookingsResult));
       setPayments(readData(paymentsResult));
       setRoadmaps(readData(roadmapsResult));
+      setReviews(readData(reviewsResult));
 
       if (
         bookingsResult.status === "rejected" &&
@@ -435,9 +440,17 @@ export default function AnalyticsPage({ profile }) {
       acquisitions,
       monthBuckets,
       maxMonthValue,
-      avgRating: 4.9,
+      avgRating:
+        reviews.length > 0
+          ? Number(
+              (
+                reviews.reduce((sum, r) => sum + toNumber(r.rating), 0) /
+                reviews.length
+              ).toFixed(1),
+            )
+          : null,
     };
-  }, [filtered, isMentor, roadmaps]);
+  }, [filtered, isMentor, roadmaps, reviews]);
 
   const insightCards = useMemo(() => {
     const cards = [];
@@ -644,11 +657,11 @@ export default function AnalyticsPage({ profile }) {
                 </Link>
               )}
               <Link
-                className="flex items-center space-x-3 px-4 py-3 mt-4 text-slate-500 hover:text-error transition-colors text-sm font-semibold"
+                className="flex items-center space-x-3 px-4 py-3 mt-4 text-slate-500 hover:text-emerald-700 transition-colors text-sm font-semibold"
                 to={isMentor ? "/mentor/dashboard" : "/learner/dashboard"}
               >
-                <span className="material-symbols-outlined">logout</span>
-                <span>Back to Home</span>
+                <span className="material-symbols-outlined">arrow_back</span>
+                <span>Back to Dashboard</span>
               </Link>
             </div>
           </div>
@@ -770,9 +783,13 @@ export default function AnalyticsPage({ profile }) {
                 <h3 className="text-3xl font-extrabold text-on-surface tracking-tighter">
                   {isMentor ? (
                     <>
-                      {analytics.avgRating}
+                      {loading
+                        ? "..."
+                        : analytics.avgRating != null
+                          ? `${analytics.avgRating}`
+                          : "—"}
                       <span className="text-lg text-on-surface-variant font-medium">
-                        /5.0
+                        {analytics.avgRating != null ? "/5.0" : ""}
                       </span>
                     </>
                   ) : (

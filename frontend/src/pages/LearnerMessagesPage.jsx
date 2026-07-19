@@ -103,6 +103,13 @@ export default function LearnerMessagesPage({ profile }) {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [bookingsPage, setBookingsPage] = useState(0);
+  const [directPage, setDirectPage] = useState(0);
+  const [hasMoreBookings, setHasMoreBookings] = useState(true);
+  const [hasMoreDirect, setHasMoreDirect] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const bookingConvsRef = useRef([]);
+  const directConvsRef = useRef([]);
   const [bookingConvs, setBookingConvs] = useState([]);
   const [directConvs, setDirectConvs] = useState([]);
   const [typingUsers, setTypingUsers] = useState({});
@@ -244,18 +251,39 @@ export default function LearnerMessagesPage({ profile }) {
     };
   }, [clearReconnectTimer, closeSocket]);
 
+  // ── Load conversations with pagination ──
+  function loadConversations(page, append = false) {
+    const params = { page, size: 30, sort: 'lastMessageAt,desc' };
+    return Promise.all([
+      apiGet("/api/v1/chat/conversations", { params }).catch(() => []),
+      apiGet("/api/v1/chat/direct/conversations", { params }).catch(() => []),
+    ]);
+  }
+
   // ── fetch both conversation types ──
   useEffect(() => {
     let active = true;
     setError(null);
-    Promise.all([
-      apiGet("/api/v1/chat/conversations").catch(() => []),
-      apiGet("/api/v1/chat/direct/conversations").catch(() => []),
-    ])
+    setLoading(true);
+    // Reset pagination on full refresh
+    bookingConvsRef.current = [];
+    directConvsRef.current = [];
+    setBookingsPage(0);
+    setDirectPage(0);
+    setHasMoreBookings(true);
+    setHasMoreDirect(true);
+
+    loadConversations(0)
       .then(([bookings, directs]) => {
         if (!active) return;
-        setBookingConvs(bookings || []);
-        setDirectConvs(directs || []);
+        const bookingList = Array.isArray(bookings) ? bookings : (bookings?.content || []);
+        const directList = Array.isArray(directs) ? directs : (directs?.content || []);
+        bookingConvsRef.current = bookingList;
+        directConvsRef.current = directList;
+        setBookingConvs(bookingList);
+        setDirectConvs(directList);
+        setHasMoreBookings(bookingList.length >= 30);
+        setHasMoreDirect(directList.length >= 30);
         setLoading(false);
       })
       .catch((e) => {
@@ -265,6 +293,33 @@ export default function LearnerMessagesPage({ profile }) {
       });
     return () => { active = false; };
   }, [refreshKey]);
+
+  // ── Load more conversations ──
+  async function loadMoreConversations() {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = Math.max(bookingsPage, directPage) + 1;
+      const [bookings, directs] = await loadConversations(nextPage);
+      const bookingList = Array.isArray(bookings) ? bookings : (bookings?.content || []);
+      const directList = Array.isArray(directs) ? directs : (directs?.content || []);
+
+      const allBookings = [...bookingConvsRef.current, ...bookingList];
+      const allDirects = [...directConvsRef.current, ...directList];
+      bookingConvsRef.current = allBookings;
+      directConvsRef.current = allDirects;
+      setBookingConvs(allBookings);
+      setDirectConvs(allDirects);
+      setBookingsPage(nextPage);
+      setDirectPage(nextPage);
+      setHasMoreBookings(bookingList.length >= 30);
+      setHasMoreDirect(directList.length >= 30);
+    } catch (e) {
+      console.error('Failed to load more conversations:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   // ── merge both types into a unified list ──
   const allConvs = useMemo(() => {
@@ -656,7 +711,7 @@ export default function LearnerMessagesPage({ profile }) {
                 value={mentorSearch}
                 onChange={(e) => setMentorSearch(e.target.value)}
                 placeholder="Search mentors by name or skill…"
-                autoFocus
+                ref={(el) => { if (el) el.focus(); }}
               />
               {mentorSearch && (
                 <button type="button" className="ms-modal__search-clear" onClick={() => setMentorSearch("")}>
@@ -852,25 +907,42 @@ export default function LearnerMessagesPage({ profile }) {
                   <Icon name="refresh" /> Retry
                 </button>
               </div>
-            ) : filteredConvs.length > 0 ? filteredConvs.map((c) => (
-              <button key={c.id} type="button" className={`ms-conv${selId === c.id ? " is-active" : ""}${c.unreadCount ? " has-unread" : ""}`} onClick={() => selectConv(c)}>
-                <div className="ms-conv__av-wrap">
-                  {c.participantAvatarUrl ? <img className="ms-conv__av" src={c.participantAvatarUrl} alt={c.participantName} /> : <span className="ms-conv__av ms-conv__av--fallback">{initials(c.participantName)}</span>}
-                  <span className={`ms-conv__dot${c.participantOnline ? " is-online" : ""}`} />
-                </div>
-                <div className="ms-conv__body">
-                  <div className="ms-conv__top">
-                    <strong>{c.participantName}</strong>
-                    <span className="ms-conv__time">{c.lastMessageTime ? fmtTime(c.lastMessageTime) : ""}</span>
-                  </div>
-                  <div className="ms-conv__bottom">
-                    <span className="ms-conv__preview">{c.lastMessagePreview || (c.kind === "direct" ? "No messages yet" : c.sessionTitle) || "No messages yet"}</span>
-                    {c.unreadCount > 0 && <span className="ms-conv__unread">{c.unreadCount}</span>}
-                  </div>
-                  {c.kind !== "direct" && c.sessionTitle && <span className="ms-conv__topic">{c.sessionTitle}</span>}
-                </div>
-              </button>
-            )) : (
+                ) : filteredConvs.length > 0 ? (
+                  <>
+                    {filteredConvs.map((c) => (
+                      <button key={c.id} type="button" className={`ms-conv${selId === c.id ? " is-active" : ""}${c.unreadCount ? " has-unread" : ""}`} onClick={() => selectConv(c)}>
+                        <div className="ms-conv__av-wrap">
+                          {c.participantAvatarUrl ? <img className="ms-conv__av" src={c.participantAvatarUrl} alt={c.participantName} /> : <span className="ms-conv__av ms-conv__av--fallback">{initials(c.participantName)}</span>}
+                          <span className={`ms-conv__dot${c.participantOnline ? " is-online" : ""}`} />
+                        </div>
+                        <div className="ms-conv__body">
+                          <div className="ms-conv__top">
+                            <strong>{c.participantName}</strong>
+                            <span className="ms-conv__time">{c.lastMessageTime ? fmtTime(c.lastMessageTime) : ""}</span>
+                          </div>
+                          <div className="ms-conv__bottom">
+                            <span className="ms-conv__preview">{c.lastMessagePreview || (c.kind === "direct" ? "No messages yet" : c.sessionTitle) || "No messages yet"}</span>
+                            {c.unreadCount > 0 && <span className="ms-conv__unread">{c.unreadCount}</span>}
+                          </div>
+                          {c.kind !== "direct" && c.sessionTitle && <span className="ms-conv__topic">{c.sessionTitle}</span>}
+                        </div>
+                      </button>
+                    ))}
+                    {(hasMoreBookings || hasMoreDirect) && (
+                      <div className="ms-list__load-more">
+                        <button
+                          type="button"
+                          className="ms-btn ms-btn--outline ms-btn--sm"
+                          onClick={loadMoreConversations}
+                          disabled={loadingMore}
+                        >
+                          <Icon name="expand_more" />
+                          {loadingMore ? "Loading..." : "Load More"}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
               <div className="ms-list__empty">
                 <Icon name="search_off" />
                 <p>{search ? `No conversations match "${search}"` : "No conversations yet"}</p>
@@ -992,7 +1064,7 @@ export default function LearnerMessagesPage({ profile }) {
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={handleKey}
                     placeholder="Write a message…"
-                    autoFocus
+                    ref={(el) => { if (el) el.focus(); }}
                   />
                 </div>
                 <button type="button" className="ms-icon-btn" title="Emoji"><Icon name="mood" /></button>
