@@ -59,6 +59,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   const [activeSection, setActiveSection] = useState("product");
   const [mentors, setMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const updateActiveSection = () => {
@@ -183,6 +184,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
       ? "landing-nav-link is-active"
       : "landing-nav-link";
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   const openMentor = (mentor) => {
     if (!mentor.id) {
       onSelectSignup();
@@ -210,31 +213,94 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           <a
             className={navLinkClass("product")}
             href="#product"
-            onClick={scrollToSection("product")}
+            onClick={(e) => { scrollToSection("product")(e); closeMobileMenu(); }}
           >
             Product
           </a>
           <a
             className={navLinkClass("mentors")}
             href="#mentors"
-            onClick={scrollToSection("mentors")}
+            onClick={(e) => { scrollToSection("mentors")(e); closeMobileMenu(); }}
           >
             Mentors
           </a>
           <a
             className={navLinkClass("workflow")}
             href="#workflow"
-            onClick={scrollToSection("workflow")}
+            onClick={(e) => { scrollToSection("workflow")(e); closeMobileMenu(); }}
           >
             Workflow
           </a>
           <a
             className={navLinkClass("outcomes")}
             href="#outcomes"
-            onClick={scrollToSection("outcomes")}
+            onClick={(e) => { scrollToSection("outcomes")(e); closeMobileMenu(); }}
           >
             Outcomes
           </a>
+        </div>
+
+        {/* Hamburger toggle — visible only on mobile */}
+        <button
+          className={`landing-nav-hamburger${mobileMenuOpen ? ' is-open' : ''}`}
+          type="button"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={mobileMenuOpen}
+        >
+          <span className="landing-hamburger-line" />
+          <span className="landing-hamburger-line" />
+          <span className="landing-hamburger-line" />
+        </button>
+
+        {/* Mobile dropdown menu */}
+        <div className={`landing-mobile-nav-dropdown${mobileMenuOpen ? ' is-open' : ''}`}>
+          <div className="landing-mobile-nav-links">
+            <a
+              className={navLinkClass("product")}
+              href="#product"
+              onClick={(e) => { scrollToSection("product")(e); closeMobileMenu(); }}
+            >
+              Product
+            </a>
+            <a
+              className={navLinkClass("mentors")}
+              href="#mentors"
+              onClick={(e) => { scrollToSection("mentors")(e); closeMobileMenu(); }}
+            >
+              Mentors
+            </a>
+            <a
+              className={navLinkClass("workflow")}
+              href="#workflow"
+              onClick={(e) => { scrollToSection("workflow")(e); closeMobileMenu(); }}
+            >
+              Workflow
+            </a>
+            <a
+              className={navLinkClass("outcomes")}
+              href="#outcomes"
+              onClick={(e) => { scrollToSection("outcomes")(e); closeMobileMenu(); }}
+            >
+              Outcomes
+            </a>
+          </div>
+          <div className="landing-mobile-nav-actions">
+            <button
+              className="landing-button landing-button-ghost"
+              type="button"
+              onClick={() => { onSelectLogin(); closeMobileMenu(); }}
+            >
+              Log in
+            </button>
+            <button
+              className="landing-button landing-button-dark"
+              type="button"
+              onClick={() => { onSelectSignup(); closeMobileMenu(); }}
+            >
+              Join free
+            </button>
+          </div>
         </div>
 
         <div className="landing-nav-actions">
