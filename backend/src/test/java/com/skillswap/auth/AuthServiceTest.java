@@ -18,7 +18,9 @@ import java.util.Date;
 import java.util.Optional;
 import java.time.OffsetDateTime;
 
-import static com.skillswap.auth.AuthDtos.*;
+import static com.skillswap.auth.AuthDtos.LoginRequest;
+import static com.skillswap.auth.AuthDtos.RefreshTokenRequest;
+import static com.skillswap.auth.AuthDtos.SignupRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
