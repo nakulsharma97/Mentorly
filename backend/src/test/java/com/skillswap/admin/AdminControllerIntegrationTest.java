@@ -180,12 +180,12 @@ class AdminControllerIntegrationTest {
         loginAs(adminUser);
 
         when(userRepository.count()).thenReturn(100L);
-        when(userRepository.findByRole(UserRole.LEARNER)).thenReturn(List.of(new User(), new User()));
-        when(userRepository.findByRole(UserRole.MENTOR)).thenReturn(List.of(new User()));
-        when(userRepository.findByRole(UserRole.ADMIN)).thenReturn(List.of(adminUser));
-        when(reportRepository.findByStatusOrderByCreatedAtAsc(ReportStatus.OPEN)).thenReturn(List.of(new UserReport()));
-        when(mentorVerificationRepository.findByStatusOrderByCreatedAtAsc(MentorVerificationRequestStatus.PENDING))
-                .thenReturn(List.of(new MentorVerificationRequest()));
+        when(userRepository.countByRole(UserRole.LEARNER)).thenReturn(2L);
+        when(userRepository.countByRole(UserRole.MENTOR)).thenReturn(1L);
+        when(userRepository.countByRole(UserRole.ADMIN)).thenReturn(1L);
+        when(reportRepository.countByStatus(ReportStatus.OPEN)).thenReturn(1L);
+        when(mentorVerificationRepository.countByStatus(MentorVerificationRequestStatus.PENDING))
+                .thenReturn(1L);
 
         mockMvc.perform(get("/api/v1/admin/summary")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -217,16 +217,16 @@ class AdminControllerIntegrationTest {
     void dashboard_returnsOk_withDefaultMonths() throws Exception {
         loginAs(adminUser);
 
-        when(userRepository.findAll()).thenReturn(List.of(learnerUser, mentorUser));
         when(userRepository.count()).thenReturn(2L);
-        when(userRepository.findByRole(UserRole.MENTOR)).thenReturn(List.of(mentorUser));
-        when(userRepository.findByRole(UserRole.LEARNER)).thenReturn(List.of(learnerUser));
-        when(paymentRepository.findAll()).thenReturn(List.of());
-        when(bookingRepository.findAll()).thenReturn(List.of());
+        when(userRepository.countByRole(UserRole.MENTOR)).thenReturn(1L);
+        when(userRepository.countByRole(UserRole.LEARNER)).thenReturn(1L);
         when(bookingRepository.count()).thenReturn(0L);
         when(bookingRepository.countByBookingStatus(BookingStatus.COMPLETED)).thenReturn(0L);
-        when(auditLogRepository.findAll(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+        when(userRepository.countByLastActiveAtAfter(any())).thenReturn(2L);
+        when(userRepository.countByCreatedAtAfter(any())).thenReturn(0L);
+        when(paymentRepository.computeMonthlySignupTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlyRevenueTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlySessionTrend(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/admin/dashboard")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -243,16 +243,16 @@ class AdminControllerIntegrationTest {
     void dashboard_returnsOk_withCustomMonths() throws Exception {
         loginAs(adminUser);
 
-        when(userRepository.findAll()).thenReturn(List.of());
         when(userRepository.count()).thenReturn(0L);
-        when(userRepository.findByRole(UserRole.MENTOR)).thenReturn(List.of());
-        when(userRepository.findByRole(UserRole.LEARNER)).thenReturn(List.of());
-        when(paymentRepository.findAll()).thenReturn(List.of());
-        when(bookingRepository.findAll()).thenReturn(List.of());
+        when(userRepository.countByRole(UserRole.MENTOR)).thenReturn(0L);
+        when(userRepository.countByRole(UserRole.LEARNER)).thenReturn(0L);
         when(bookingRepository.count()).thenReturn(0L);
         when(bookingRepository.countByBookingStatus(BookingStatus.COMPLETED)).thenReturn(0L);
-        when(auditLogRepository.findAll(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+        when(userRepository.countByLastActiveAtAfter(any())).thenReturn(0L);
+        when(userRepository.countByCreatedAtAfter(any())).thenReturn(0L);
+        when(paymentRepository.computeMonthlySignupTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlyRevenueTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlySessionTrend(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/admin/dashboard?months=3")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -264,16 +264,16 @@ class AdminControllerIntegrationTest {
     void dashboard_clampsMonthsToMax24() throws Exception {
         loginAs(adminUser);
 
-        when(userRepository.findAll()).thenReturn(List.of());
         when(userRepository.count()).thenReturn(0L);
-        when(userRepository.findByRole(UserRole.MENTOR)).thenReturn(List.of());
-        when(userRepository.findByRole(UserRole.LEARNER)).thenReturn(List.of());
-        when(paymentRepository.findAll()).thenReturn(List.of());
-        when(bookingRepository.findAll()).thenReturn(List.of());
+        when(userRepository.countByRole(UserRole.MENTOR)).thenReturn(0L);
+        when(userRepository.countByRole(UserRole.LEARNER)).thenReturn(0L);
         when(bookingRepository.count()).thenReturn(0L);
         when(bookingRepository.countByBookingStatus(BookingStatus.COMPLETED)).thenReturn(0L);
-        when(auditLogRepository.findAll(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of()));
+        when(userRepository.countByLastActiveAtAfter(any())).thenReturn(0L);
+        when(userRepository.countByCreatedAtAfter(any())).thenReturn(0L);
+        when(paymentRepository.computeMonthlySignupTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlyRevenueTrend(any())).thenReturn(List.of());
+        when(paymentRepository.computeMonthlySessionTrend(any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/v1/admin/dashboard?months=99")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -761,9 +761,9 @@ class AdminControllerIntegrationTest {
                 .createdAt(OffsetDateTime.now())
                 .build();
 
-        when(paymentRepository.findAll()).thenReturn(List.of(payment));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(learnerUser));
-        when(userRepository.findById(20L)).thenReturn(Optional.of(mentorUser));
+        when(paymentRepository.computeAggregates()).thenReturn(List.of());
+        when(paymentRepository.findByFilters(any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(payment)));
 
         mockMvc.perform(get("/api/v1/admin/payments")
                         .contentType(MediaType.APPLICATION_JSON))
@@ -792,9 +792,9 @@ class AdminControllerIntegrationTest {
                 .createdAt(OffsetDateTime.now())
                 .build();
 
-        when(paymentRepository.findAll()).thenReturn(List.of(payment));
-        when(userRepository.findById(10L)).thenReturn(Optional.of(learnerUser));
-        when(userRepository.findById(20L)).thenReturn(Optional.of(mentorUser));
+        when(paymentRepository.computeAggregates()).thenReturn(List.of());
+        when(paymentRepository.findByFilters(any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(payment)));
 
         mockMvc.perform(get("/api/v1/admin/payments?status=ESCROWED")
                         .contentType(MediaType.APPLICATION_JSON))

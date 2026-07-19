@@ -37,6 +37,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         List<User> findByRole(UserRole role);
 
+        Page<User> findByRole(UserRole role, Pageable pageable);
+
         List<User> findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole role);
 
         List<User> findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(UserRole role,

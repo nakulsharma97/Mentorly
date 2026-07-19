@@ -676,7 +676,15 @@ public class AdminController {
         List<User> targets;
         if (targetRole != null && !targetRole.isBlank()) {
             UserRole role = UserRole.valueOf(targetRole.toUpperCase());
-            targets = userRepository.findByRole(role);
+            // Fetch all users of the role in batches to avoid loading everything into memory
+            targets = new java.util.ArrayList<>();
+            org.springframework.data.domain.PageRequest batchReq = org.springframework.data.domain.PageRequest.of(0, 1000);
+            org.springframework.data.domain.Page<User> batch;
+            do {
+                batch = userRepository.findByRole(role, batchReq);
+                targets.addAll(batch.getContent());
+                batchReq = batchReq.next();
+            } while (batch.hasNext() && targets.size() < 10000);
         } else {
             targets = userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 5000)).getContent();
         }
@@ -832,8 +840,8 @@ public class AdminController {
 
         // Use aggregate queries instead of loading entire tables into memory
         long totalUsers = userRepository.count();
-        long totalMentors = userRepository.findByRole(UserRole.MENTOR).size();
-        long totalLearners = userRepository.findByRole(UserRole.LEARNER).size();
+        long totalMentors = userRepository.countByRole(UserRole.MENTOR);
+        long totalLearners = userRepository.countByRole(UserRole.LEARNER);
         long totalBookings = bookingRepository.count();
         long completedSessionCount = bookingRepository.countByBookingStatus(BookingStatus.COMPLETED);
         double completionRate = totalBookings == 0 ? 0 : Math.round((completedSessionCount * 100.0 / totalBookings) * 10.0) / 10.0;
@@ -890,10 +898,8 @@ public class AdminController {
             @AuthenticationPrincipal User currentUser) {
         ensureAdmin(currentUser);
 
-        List<ReferralReward> allRewards = referralRewardRepository.findAll();
         List<Long> distinctReferrerIds = referralRewardRepository.findDistinctReferrerIds();
-
-        long totalReferrals = allRewards.size();
+        long totalReferrals = referralRewardRepository.count();
         long totalReferrers = distinctReferrerIds.size();
         long totalCreditsEarned = totalReferrals * 50L;
 
@@ -918,12 +924,15 @@ public class AdminController {
             java.time.YearMonth ym = java.time.YearMonth.from(now.minusMonths(i));
             monthCounts.put(ym, new java.util.concurrent.atomic.AtomicLong(0));
         }
-        for (ReferralReward reward : allRewards) {
-            if (reward.getRewardedAt() == null) continue;
-            java.time.YearMonth ym = java.time.YearMonth.from(reward.getRewardedAt());
+        List<Object[]> monthlyRaw = referralRewardRepository.countByMonth();
+        for (Object[] row : monthlyRaw) {
+            int year = ((Number) row[0]).intValue();
+            int month = ((Number) row[1]).intValue();
+            long count = ((Number) row[2]).longValue();
+            java.time.YearMonth ym = java.time.YearMonth.of(year, month);
             java.util.concurrent.atomic.AtomicLong counter = monthCounts.get(ym);
             if (counter != null) {
-                counter.incrementAndGet();
+                counter.addAndGet(count);
             }
         }
         List<MonthlyBucket> referralTrend = new ArrayList<>();
