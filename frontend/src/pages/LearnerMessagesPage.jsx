@@ -629,7 +629,7 @@ export default function LearnerMessagesPage({ profile }) {
 
   async function handleStartConversation() {
     if (!selectedMentor) {
-      console.warn("[NewChat] No mentor selected");
+      // No mentor selected for new chat
       setCreateError("Please select a mentor to start a conversation.");
       return;
     }

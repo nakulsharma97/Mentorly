@@ -67,20 +67,7 @@ export default function AuthModal({
             };
 
       const response = await client.post(endpoint, payload);
-      console.log(
-        "[auth] response.data",
-        JSON.stringify(response.data, null, 2),
-      );
-      console.info("[auth] raw login response", response);
       const authResponse = resolveAuthResponsePayload(response.data);
-      console.info("[auth] resolved auth payload", authResponse);
-      console.info(
-        "[auth] token field",
-        authResponse?.token ??
-          authResponse?.accessToken ??
-          authResponse?.jwt ??
-          null,
-      );
       trackAnalyticsEvent(
         mode === "login" ? "auth_login_success" : "auth_signup_success",
         {

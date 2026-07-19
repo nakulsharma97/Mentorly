@@ -1381,18 +1381,7 @@ export default function App() {
             onLoggedIn={async (loggedMode, authResponse) => {
               setAuthMode(null);
               setOauthError("");
-              try {
-                console.info("[auth] onLoggedIn authResponse", authResponse);
-              } catch (_) { /* ignore */ }
               const nextToken = persistAuthSession(authResponse);
-              try {
-                console.info(
-                  "[auth] persistAuthSession returned",
-                  nextToken,
-                  "cookies",
-                  typeof document !== "undefined" ? document.cookie : null,
-                );
-              } catch (_) { /* ignore */ }
               if (!nextToken) {
                 notify({
                   type: "error",

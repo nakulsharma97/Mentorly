@@ -116,6 +116,9 @@ class AdminControllerIntegrationTest {
     private ReferralRewardRepository referralRewardRepository;
 
     @MockitoBean
+    private MentorReviewRepository mentorReviewRepository;
+
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
     @MockitoBean
     private EndpointRateLimitFilter endpointRateLimitFilter;

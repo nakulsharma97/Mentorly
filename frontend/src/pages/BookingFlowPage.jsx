@@ -210,7 +210,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
           }
         } catch (paymentError) {
           const errDetail = paymentError?.response?.data?.data?.message || paymentError?.response?.data?.data?.error || paymentError?.response?.data?.message || paymentError?.message || 'Payment order creation failed';
-          console.error('[Payment] Order creation failed:', paymentError?.response?.status, paymentError?.response?.data, paymentError?.message);
+          console.warn('[Payment] Order creation failed:', paymentError?.message);
           // Distinguish timeout errors (payment may have succeeded on gateway)
           if (paymentError?.message?.includes('timeout') || paymentError?.code === 'ECONNABORTED') {
             setBookingError('Payment is taking longer than expected. Your payment may have already been processed — please check your payment status before retrying.');
@@ -344,7 +344,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
         },
         modal: {
           ondismiss: () => {
-            console.log('Razorpay checkout dismissed by user');
+            // Razorpay modal dismissed by user
           },
           confirm_close: true,
         },
@@ -353,13 +353,11 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       const rzp = new window.Razorpay(options);
 
       rzp.on('payment.failed', (response) => {
-        console.error('Razorpay payment failed:', response.error);
         setBookingError(response.error?.description || 'Payment failed. Please try again.');
       });
 
       rzp.open();
     } catch (error) {
-      console.error('Failed to initiate Razorpay:', error);
       // Payment UI failed, but booking was already created
     }
   };

@@ -84,9 +84,9 @@ public class AdminScheduledReportService {
      */
     private String buildReportBody(String frequency) {
         long userCount = userRepository.count();
-        long adminCount = userRepository.findByRole(UserRole.ADMIN).size();
-        long mentorCount = userRepository.findByRole(UserRole.MENTOR).size();
-        long learnerCount = userRepository.findByRole(UserRole.LEARNER).size();
+        long adminCount = userRepository.countByRole(UserRole.ADMIN);
+        long mentorCount = userRepository.countByRole(UserRole.MENTOR);
+        long learnerCount = userRepository.countByRole(UserRole.LEARNER);
 
         return """
                 ========================================

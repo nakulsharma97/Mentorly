@@ -117,11 +117,7 @@ public class LiveSessionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
 
         // Verify the learner has an approved booking
-        Booking booking = bookingRepository.findAll().stream()
-                .filter(b -> b.getSession().getId().equals(sessionId) &&
-                        b.getLearner().getId().equals(learnerId) &&
-                        b.getApprovedByAdmin() != null && b.getApprovedByAdmin())
-                .findFirst()
+        Booking booking = bookingRepository.findBySessionIdAndLearnerIdAndApprovedByAdminTrue(sessionId, learnerId)
                 .orElseThrow(() -> new UnauthorizedException("You are not approved to join this session"));
 
         // Verify payment is complete

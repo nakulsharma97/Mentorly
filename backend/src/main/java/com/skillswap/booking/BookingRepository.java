@@ -56,6 +56,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
         List<Booking> findBySessionIdAndApprovedByAdminTrue(Long sessionId);
 
+        java.util.Optional<Booking> findBySessionIdAndLearnerIdAndApprovedByAdminTrue(Long sessionId, Long learnerId);
+
         long countBySessionIdAndApprovedByAdminTrue(Long sessionId);
 
         long countBySessionIdAndBookingStatus(Long sessionId, BookingStatus status);
