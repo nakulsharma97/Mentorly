@@ -89,8 +89,8 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccessMessage, setBookingSuccessMessage] = useState('');
   const [bookingError, setBookingError] = useState('');
-  const [, setCreatedBookingId] = useState(null);
-  const [, setCreatedPayment] = useState(null);
+  const [createdBookingId, setCreatedBookingId] = useState(null);
+  const [createdPayment, setCreatedPayment] = useState(null);
   const razorpayLoadedRef = useRef(false);
 
   const mentorSkills = useMemo(() => parseSkills(session?.mentor?.skills), [session?.mentor?.skills]);

@@ -77,6 +77,7 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
             // Validate the user is a participant in this conversation (lightweight check)
             chatService.isParticipantInConversation(email, conversationId);
         } catch (Exception ex) {
+            log.warn("Direct chat auth failed: conversationId={}", conversationIdRaw, ex);
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
             return;
         }
@@ -116,6 +117,7 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         try {
             node = objectMapper.readTree(message.getPayload());
         } catch (Exception ex) {
+            log.warn("Invalid direct chat message payload", ex);
             session.sendMessage(new TextMessage("{\"error\":\"Invalid message payload\"}"));
             return;
         }

@@ -1,5 +1,6 @@
 package com.skillswap.booking;
 
+import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.payment.Payment;

@@ -4,6 +4,9 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
 
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
+
 /* ==========================================================================
    Inline helpers (mirrored from LearnerPages.jsx)
    ========================================================================== */
@@ -42,11 +45,14 @@ function getErrorMessage(error) {
 
 function useResource(loader, deps = []) {
   const [state, setState] = useState({ loading: true, data: null, error: null });
+  const loaderRef = useRef(loader);
+  loaderRef.current = loader;
+  // deps is intentionally dynamic — caller controls when to re-fetch
   useEffect(() => {
     let active = true;
     setState((current) => ({ ...current, loading: true, error: null }));
     Promise.resolve()
-      .then(loader)
+      .then(() => loaderRef.current())
       .then((data) => {
         if (!active) return;
         setState({ loading: false, data, error: null });
@@ -56,6 +62,7 @@ function useResource(loader, deps = []) {
         setState({ loading: false, data: null, error: getErrorMessage(error) });
       });
     return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
   return state;
 }
@@ -191,7 +198,7 @@ function useLearnerLearningData(refreshKey = 0) {
       apiGet("/api/v1/watchlist/skills").catch(() => []),
       apiGet("/api/v1/users/me").catch(() => null),
     ]);
-    return { roadmaps: roadmaps || [], bookings: bookings || [], certifications: certifications || [], savedSkills: savedSkills || [], profile };
+    return { roadmaps: roadmaps || EMPTY_ARRAY, bookings: bookings || EMPTY_ARRAY, certifications: certifications || EMPTY_ARRAY, savedSkills: savedSkills || EMPTY_ARRAY, profile };
   }, [refreshKey]);
 }
 
@@ -276,10 +283,10 @@ export default function LearnerLearningPage() {
     };
   }, []);
 
-  const roadmaps = data?.roadmaps || [];
-  const bookings = data?.bookings || [];
-  const certifications = data?.certifications || [];
-  const savedSkills = data?.savedSkills || [];
+  const roadmaps = data?.roadmaps || EMPTY_ARRAY;
+  const bookings = data?.bookings || EMPTY_ARRAY;
+  const certifications = data?.certifications || EMPTY_ARRAY;
+  const savedSkills = data?.savedSkills || EMPTY_ARRAY;
 
   const { upcoming, completed, totalHours } = useMemo(() => buildBookingStats(bookings), [bookings]);
   const streak = useMemo(() => computeStreak(bookings), [bookings]);

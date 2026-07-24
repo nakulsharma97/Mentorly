@@ -21,8 +21,7 @@ public class WalletService {
     }
 
     public WalletBalance balance(User user) {
-        BigDecimal balance = ledgerRepository.findByUserIdOrderByCreatedAtDesc(user.getId()).stream()
-                .findFirst()
+        BigDecimal balance = ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(user.getId())
                 .map(WalletLedgerEntry::getBalanceAfter)
                 .orElse(BigDecimal.ZERO);
         return new WalletBalance(balance, "CREDITS");

@@ -5,7 +5,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/skill?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:12345}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -47,9 +47,9 @@ spring:
 
 app:
   jwt:
-    secret: VGhpc0lzQVN1cGVyU2VjcmV0SldUS2V5Rm9yRGV2ZWxvcG1lbnRBbmRUZXN0aW5nMTIzNDU2Nzg5MA==
-    expiration-ms: 86400000
-    refresh-expiration-ms: 604800000
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
   rate-limit:
     auth:
       max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:20}

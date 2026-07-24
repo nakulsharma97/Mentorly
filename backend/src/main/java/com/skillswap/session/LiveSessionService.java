@@ -3,7 +3,7 @@ package com.skillswap.session;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.booking.PaymentStatus;
+import com.skillswap.payment.PaymentStatus;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.common.exception.ResourceNotFoundException;
 import com.skillswap.common.exception.BadRequestException;

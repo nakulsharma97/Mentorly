@@ -19,7 +19,6 @@ export default function WorkspaceSidebar({
   onCloseMobile,
 }) {
   const fullName = String(profile?.fullName || brand?.title || "User").trim();
-  const isRoleMentor = brand?.title === "SkillSwap";
 
   const renderLink = (item, secondary = false) => (
     <NavLink

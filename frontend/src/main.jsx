@@ -5,10 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import { initSentry } from './sentry';
-import './styles.css';
-import './ui-polish.css';
-import './premium-ui-enhancement.css';
-import './design-system.css';
+import './styles.css';          // global styles: reset, navbar, landing, vars, utilities, dark mode
+import './design-system.css';   /* design system: --ss-* tokens, components, grids, animations */
 import './styles/forms.css';
 import './styles/responsive.css';
 

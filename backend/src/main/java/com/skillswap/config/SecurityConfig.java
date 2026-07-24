@@ -52,12 +52,21 @@ public class SecurityConfig {
         @Value("${app.cors.allow-credentials:true}")
         private boolean allowCredentials;
 
+        // Suppressed because Spring Security 6.x deprecated HttpSecurity APIs
+        // are required until the project migrates to the component-based security DSL.
         @SuppressWarnings({"deprecation", "removal"})
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 return http
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .csrf(csrf -> csrf
+                                                // CookieCsrfTokenRepository.withHttpOnlyFalse() is intentional:
+                                                // The HttpOnly=false flag allows the frontend JavaScript (Axios interceptor
+                                                // in client.js) to read the XSRF-TOKEN cookie via document.cookie and
+                                                // include it as the X-XSRF-TOKEN request header. This is the standard
+                                                // Double Submit Cookie pattern for SPAs. The HttpOnly=true alternative
+                                                // would prevent JavaScript access, requiring a separate endpoint to
+                                                // fetch the token — adding latency and complexity.
                                                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()).ignoringRequestMatchers(
 																new AntPathRequestMatcher("/api/v1/auth/login", "POST"),
 																new AntPathRequestMatcher("/api/v1/auth/signup",

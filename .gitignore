@@ -36,6 +36,11 @@ pnpm-lock.yaml
 *.swo
 *.iml
 
+# Backup / broken files (not to be committed)
+*.broken
+*.bak
+*.orig
+
 # OS files
 .DS_Store
 

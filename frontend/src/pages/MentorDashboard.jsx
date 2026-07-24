@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import { Link } from "react-router-dom";
 import client from "../api/client";
 import SsIcon from "../components/ui/SsIcon";
-import { SsStatCard, SsBadge, SsEmpty, SsActivityItem, SsSectionHeader, SsCard, SsProgress } from "../components/ui/SsCard";
+import { SsStatCard, SsBadge } from "../components/ui/SsCard";
 import "./MentorDashboard.css";
+
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
 
 /* ───────────────────────── helpers ───────────────────────── */
 
@@ -84,38 +88,6 @@ function isToday(dateLike) {
 
 /* ──────────────────── SVG sub-components ─────────────────── */
 
-function MiniChart({ data = [], color = "var(--ss-primary)", height = 28 }) {
-  if (data.length < 2) return <div style={{ height }} />;
-  const values = data.map((d) => d.value ?? 0);
-  const max = Math.max(...values, 1);
-  const w = 100 / data.length;
-  return (
-    <svg width="100%" height={height} viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
-      <polyline
-        fill="none"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        points={values
-          .map((v, i) => `${i * w + w / 2},${height - (v / max) * height}`)
-          .join(" ")}
-      />
-      {values.map((v, i) => (
-        <circle
-          key={i}
-          cx={i * w + w / 2}
-          cy={height - (v / max) * height}
-          r={2.5}
-          fill="var(--ss-card)"
-          stroke={color}
-          strokeWidth={1.5}
-        />
-      ))}
-    </svg>
-  );
-}
-
 /* StatusChip removed — use <SsBadge status={...} /> directly in JSX */
 
 /* ─────────────────── main component ─────────────────────── */
@@ -162,9 +134,10 @@ export default function MentorDashboard({ profile }) {
     completedSessions: 0,
   });
 
+  const loadMentorDataRef = useRef(null);
+
   useEffect(() => {
-    loadMentorData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadMentorDataRef.current?.();
   }, []);
 
   const loadMentorData = async () => {
@@ -184,9 +157,9 @@ export default function MentorDashboard({ profile }) {
             .catch(() => ({ data: { data: null } })),
         ]);
 
-      const allSessions = sessionsRes?.data?.data || [];
-      const allBookings = bookingsRes?.data?.data || [];
-      const allReviews = reviewsRes?.data?.data || [];
+      const allSessions = sessionsRes?.data?.data || EMPTY_ARRAY;
+      const allBookings = bookingsRes?.data?.data || EMPTY_ARRAY;
+      const allReviews = reviewsRes?.data?.data || EMPTY_ARRAY;
 
       const sortedUpcoming = allSessions
         .filter((s) => new Date(s?.startTime || 0) > new Date())
@@ -207,8 +180,7 @@ export default function MentorDashboard({ profile }) {
         0,
       );
       const totalEarnings = Math.round(totalEarningsGross * (1 - PLATFORM_FEE_PCT) * 100) / 100;
-      const monthlyEarningsGross = Number(currentMonth.toFixed(2));
-      const monthlyEarnings = Math.round(monthlyEarningsGross * (1 - PLATFORM_FEE_PCT) * 100) / 100;
+      // monthlyEarnings calculated after currentMonth is defined below
       const averageRating =
         allReviews.length > 0
           ? Number(
@@ -318,6 +290,8 @@ export default function MentorDashboard({ profile }) {
       const prevMonth = revenueBuckets[revenueBuckets.length - 2]?.value || 0;
       const currentMonth =
         revenueBuckets[revenueBuckets.length - 1]?.value || 0;
+      const monthlyEarningsGross = Number(currentMonth.toFixed(2));
+      const monthlyEarnings = Math.round(monthlyEarningsGross * (1 - PLATFORM_FEE_PCT) * 100) / 100;
       const monthGrowth =
         prevMonth > 0
           ? Math.round(((currentMonth - prevMonth) / prevMonth) * 100)
@@ -355,6 +329,8 @@ export default function MentorDashboard({ profile }) {
       setLoading(false);
     }
   };
+
+  loadMentorDataRef.current = loadMentorData;
 
   const bookingReferralLink = referral
     ? `https://skillswap.app/signup?ref=${referral.referralCode}`

@@ -6,7 +6,7 @@ const profile = { fullName: "Mentor Prime" };
 
 function renderMentorDashboard() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <MentorDashboard profile={profile} />
     </MemoryRouter>,
   );
@@ -27,7 +27,7 @@ describe("MentorDashboard Dark Mode", () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
     // Verify the dark mode attribute is present on the document
@@ -41,12 +41,12 @@ describe("MentorDashboard Dark Mode", () => {
 
     // Wait for data to load
     await waitFor(() => {
-      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
     // Verify all 11 sections render without errors in dark mode
     // Section 1 - Hero
-    expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+    expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
 
     // Section 2 - Quick Stats
     const statLabels = screen.getAllByText(/Sessions|Students|Earnings|Rating/i);
@@ -84,7 +84,7 @@ describe("MentorDashboard Dark Mode", () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
     // Find a stat card and verify it has the dark mode class
@@ -134,7 +134,7 @@ describe("MentorDashboard Dark Mode", () => {
 
     // Wait for data to load in dark mode
     await waitFor(() => {
-      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
     // Switch to light mode

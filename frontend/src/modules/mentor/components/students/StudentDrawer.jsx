@@ -14,6 +14,7 @@ const STATUS_LABEL = {
   inactive: ["mp-pill--inactive", "Inactive"],
 };
 
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- overlay backdrop */
 /** Right-hand drawer showing a full 360° view of one learner (real data). */
 export default function StudentDrawer({ student, onClose, onReport }) {
   const navigate = useNavigate();

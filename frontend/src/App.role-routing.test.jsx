@@ -22,6 +22,7 @@ vi.mock("./api/client", () => ({
   extractJwtUserId: vi.fn(() => null),
   persistAuthSession: vi.fn(() => "mock-token"),
   clearAuthSessionState: vi.fn(),
+  onMaintenanceMode: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("./pages/AuthPage", () => ({ default: () => <div>Auth Page</div> }));

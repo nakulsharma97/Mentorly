@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -7,6 +7,9 @@ import SectionCard, {
 } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import "./LearnerPages.css";
+
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
 
 function useDocumentTitle(title) {
   useEffect(() => {
@@ -61,13 +64,14 @@ function useResource(loader, deps = []) {
     data: null,
     error: null,
   });
-
+  const loaderRef = useRef(loader);
+  loaderRef.current = loader;  // deps is intentionally dynamic — caller controls when to re-fetch
   useEffect(() => {
     let active = true;
     setState((current) => ({ ...current, loading: true, error: null }));
 
     Promise.resolve()
-      .then(loader)
+      .then(() => loaderRef.current())
       .then((data) => {
         if (!active) return;
         setState({ loading: false, data, error: null });
@@ -76,12 +80,9 @@ function useResource(loader, deps = []) {
         if (!active) return;
         setState({ loading: false, data: null, error: getErrorMessage(error) });
       });
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
-
   return state;
 }
 
@@ -211,12 +212,12 @@ function useLearnerLearningData(refreshKey = 0) {
       ]);
 
     return {
-      roadmaps: roadmaps || [],
-      bookings: bookings || [],
-      certifications: certifications || [],
+      roadmaps: roadmaps || EMPTY_ARRAY,
+      bookings: bookings || EMPTY_ARRAY,
+      certifications: certifications || EMPTY_ARRAY,
       mentors,
-      savedMentors: savedMentors || [],
-      savedSkills: savedSkills || [],
+      savedMentors: savedMentors || EMPTY_ARRAY,
+      savedSkills: savedSkills || EMPTY_ARRAY,
       profile,
       referral,
     };
@@ -234,14 +235,14 @@ function useNotificationsData(refreshKey = 0) {
       apiGet("/api/v1/notifications/preferences").catch(() => null),
     ]);
 
-    return { notifications: notifications || [], preferences };
+    return { notifications: notifications || EMPTY_ARRAY, preferences };
   }, [refreshKey]);
 }
 
 function useMessagesData(refreshKey = 0) {
   return useResource(async () => {
     const conversations = await apiGet("/api/v1/chat/conversations");
-    return { conversations: conversations || [], refreshKey };
+    return { conversations: conversations || EMPTY_ARRAY, refreshKey };
   }, [refreshKey]);
 }
 
@@ -467,7 +468,7 @@ function MentorSkeletonCard() {
 // Premium mentor card
 // ─────────────────────────────────────────────────────────────────────────────
 function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
-  const skills = mentor.skills || [];
+  const skills = mentor.skills || EMPTY_ARRAY;
   const rating = Number(mentor.averageRating || rawData?.averageRating || 0);
   const reviews = Number(mentor.totalReviews || rawData?.totalReviews || 0);
   const sessions = Number(rawData?.totalCompletedSessions || 0);
@@ -580,11 +581,11 @@ export function LearnerMentorsPage() {
       }),
       apiGet('/api/v1/watchlist/mentors').catch(() => []),
     ]);
-    return { mentors: mentorResults || [], savedMentors: savedMentors || [] };
+    return { mentors: mentorResults || EMPTY_ARRAY, savedMentors: savedMentors || EMPTY_ARRAY };
   }, [debouncedQuery, sort, minRating, refreshKey]);
 
-  const rawMentors = data?.mentors || [];
-  const savedMentors = data?.savedMentors || [];
+  const rawMentors = data?.mentors || EMPTY_ARRAY;
+  const savedMentors = data?.savedMentors || EMPTY_ARRAY;
 
   // Normalise raw search results
   const liveMentors = useMemo(() => rawMentors.map((m) => ({
@@ -859,12 +860,12 @@ export function LearnerSkillsPage() {
       apiGet('/api/v1/users/mentors').catch(() => []),
       apiGet('/api/v1/watchlist/skills').catch(() => []),
     ]);
-    return { skills: skills || [], mentors: mentors || [], savedSkills: savedSkills || [] };
+    return { skills: skills || EMPTY_ARRAY, mentors: mentors || EMPTY_ARRAY, savedSkills: savedSkills || EMPTY_ARRAY };
   }, [debouncedQuery, refreshKey]);
 
-  const skills = data?.skills || [];
-  const mentors = data?.mentors || [];
-  const savedSkills = data?.savedSkills || [];
+  const skills = data?.skills || EMPTY_ARRAY;
+  const mentors = data?.mentors || EMPTY_ARRAY;
+  const savedSkills = data?.savedSkills || EMPTY_ARRAY;
 
   // Use mentorCount from API if available (enriched DTO), otherwise compute locally
   const mentorSkillCounts = useMemo(() => {
@@ -1565,7 +1566,7 @@ export function LearnerSessionsPage() {
     () => apiGet('/api/v1/bookings'),
     [refreshKey],
   );
-  const bookings = data || [];
+  const bookings = data || EMPTY_ARRAY;
 
   // ── grouping
   const grouped = useMemo(() => {
@@ -1587,7 +1588,7 @@ export function LearnerSessionsPage() {
     upcoming: grouped.upcoming,
     completed: grouped.completed,
     cancelled: grouped.cancelled,
-  }[activeTab] || [];
+  }[activeTab] || EMPTY_ARRAY;
 
   const filtered = useMemo(() => {
     if (!debouncedQ) return activeBookings;
@@ -1860,7 +1861,7 @@ export function LearnerMessagesPage() {
   const [draft, setDraft] = useState("");
 
   const conversationsState = useMessagesData(refreshKey);
-  const conversations = conversationsState.data?.conversations || [];
+  const conversations = conversationsState.data?.conversations || EMPTY_ARRAY;
 
   useEffect(() => {
     if (!selectedBookingId && conversations.length) {

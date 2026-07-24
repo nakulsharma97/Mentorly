@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- overlay backdrop */
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -6,7 +7,7 @@ import StatsCard from "../modules/common/dashboard/StatsCard";
 import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -80,30 +81,30 @@ export default function MentorReviewsPage({ notify }) {
   const [replying, setReplying] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState(null);
   const [customRange] = useState({ from: "", to: "" });
 
+  const searchTimeoutRef = useRef(null);
+  const loadReviewsRef = useRef(null);
 
   useEffect(() => {
     document.title = "Reviews & Ratings | SkillSwap Mentor";
-    loadReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadReviewsRef.current?.();
   }, []);
 
   useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
 
     const timeout = setTimeout(() => {
       if (reviewPage !== 0) {
         setReviewPage(0);
       } else {
-        loadReviews();
+        loadReviewsRef.current?.();
       }
     }, 300);
 
-    setSearchTimeout(timeout);
+    searchTimeoutRef.current = timeout;
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -120,8 +121,7 @@ export default function MentorReviewsPage({ notify }) {
   ]);
 
   useEffect(() => {
-    loadReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadReviewsRef.current?.();
   }, [reviewPage, reviewSize]);
 
   const buildReviewQueryParams = () => {
@@ -198,6 +198,8 @@ export default function MentorReviewsPage({ notify }) {
     }
   };
 
+  loadReviewsRef.current = loadReviews;
+
   const refreshReviews = async () => {
     setRefreshing(true);
     await loadReviews({ showToast: true });
@@ -212,7 +214,7 @@ export default function MentorReviewsPage({ notify }) {
   const reviewRecommendationLabel = (review) =>
     isReviewRecommended(review) ? "Recommended" : "Not recommended";
 
-  const reviewDatesMatchRange = (reviewDate, rangeKey) => {
+  const reviewDatesMatchRange = useCallback((reviewDate, rangeKey) => {
     if (!reviewDate || !rangeKey || rangeKey === "all") return true;
     const date = new Date(reviewDate);
     if (Number.isNaN(date.getTime())) return false;
@@ -229,7 +231,7 @@ export default function MentorReviewsPage({ notify }) {
     const days = Number(rangeKey);
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     return date >= cutoff;
-  };
+  }, [customRange]);
 
   const filteredReviews = useMemo(() => {
     const term = filters.search.trim().toLowerCase();
@@ -266,7 +268,7 @@ export default function MentorReviewsPage({ notify }) {
         matchesDate
       );
     });
-  }, [filters, reviews, customRange]);
+  }, [filters, reviews, reviewDatesMatchRange]);
 
   const sortedReviews = useMemo(() => {
     const list = [...filteredReviews];
@@ -404,15 +406,55 @@ export default function MentorReviewsPage({ notify }) {
     link.click();
   };
 
-  const exportXlsx = (items) => {
+  const exportXlsx = async (items) => {
     const rows = buildExportRows(items);
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Reviews");
-    XLSX.writeFile(
-      workbook,
-      `mentor-reviews-${new Date().toISOString().slice(0, 10)}.xlsx`,
-    );
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "SkillSwap";
+    workbook.created = new Date();
+
+    const worksheet = workbook.addWorksheet("Reviews", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+
+    // Define columns with headers and widths
+    const headers = Object.keys(rows[0] || {});
+    worksheet.columns = headers.map((header) => ({
+      header,
+      key: header,
+      width: Math.max(header.length + 5, 18),
+    }));
+
+    // Style the header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF2563EB" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "center" };
+    headerRow.height = 28;
+
+    // Add data rows
+    const dataRows = rows.map((row) => Object.values(row));
+    worksheet.addRows(dataRows);
+
+    // Auto-filter on header row
+    worksheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    // Generate buffer and trigger download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `mentor-reviews-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   const exportPdf = (items) => {
@@ -458,7 +500,7 @@ export default function MentorReviewsPage({ notify }) {
         return;
       }
       if (type === "csv") exportCsv(exportReviews);
-      if (type === "xlsx") exportXlsx(exportReviews);
+      if (type === "xlsx") await exportXlsx(exportReviews);
       if (type === "pdf") exportPdf(exportReviews);
       notify?.({
         type: "success",

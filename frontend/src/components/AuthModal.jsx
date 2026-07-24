@@ -31,6 +31,11 @@ export default function AuthModal({
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
   const titleId = "auth-modal-title";
   const emailInputRef = useRef(null);
+  const formRef = useRef(form);
+
+  useEffect(() => {
+    formRef.current = form;
+  }, [form]);
 
   useEffect(() => {
     setError(initialError || "");
@@ -58,11 +63,12 @@ export default function AuthModal({
     try {
       const endpoint =
         mode === "login" ? "/api/v1/auth/login" : "/api/v1/auth/signup";
+      const currentForm = formRef.current;
       const payload =
         mode === "login"
-          ? { email: form.email, password: form.password }
+          ? { email: currentForm.email, password: currentForm.password }
           : {
-              ...form,
+              ...currentForm,
               referralCode: searchParams.get("ref")?.trim() || undefined,
             };
 
@@ -71,7 +77,7 @@ export default function AuthModal({
       trackAnalyticsEvent(
         mode === "login" ? "auth_login_success" : "auth_signup_success",
         {
-          role: mode === "signup" ? form.role : undefined,
+          role: mode === "signup" ? currentForm.role : undefined,
           hasSocialProvider: false,
         },
       );

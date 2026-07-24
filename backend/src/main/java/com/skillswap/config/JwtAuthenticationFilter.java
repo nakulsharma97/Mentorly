@@ -1,9 +1,12 @@
 package com.skillswap.config;
 
-import com.skillswap.auth.AuthCookieService;
 import com.skillswap.auth.AccessTokenDenylistRepository;
+import com.skillswap.auth.AuthCookieService;
 import com.skillswap.auth.JwtService;
+import com.skillswap.user.UserRepository;
 import jakarta.servlet.FilterChain;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,12 +29,14 @@ import java.time.ZoneOffset;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private static final String HEALTH_PATH = "/api/v1/health";
 
     private final JwtService jwtService;
     private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final UserDetailsService userDetailsService;
-    private final com.skillswap.user.UserRepository userRepository;
+    private final UserRepository userRepository;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -71,13 +76,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    // update last active timestamp for the user on each authenticated request
-                    try {
-                        userRepository.findByEmail(userEmail).ifPresent(u -> {
-                            u.setLastActiveAt(OffsetDateTime.now());
-                            userRepository.save(u);
-                        });
-                    } catch (Exception ignore) {
+                    // Lightweight last-active timestamp update.
+                    // Uses a direct UPDATE query instead of loading + saving the
+                    // full User entity, which avoids SELECT overhead, entity
+                    // hydration, and cascading flushes on every request.
+                    if (userEmail != null) {
+                        try {
+                            userRepository.updateLastActiveAt(userEmail, OffsetDateTime.now());
+                        } catch (Exception ignored) {
+                            log.debug("Failed to update lastActiveAt for {}", userEmail, ignored);
+                        }
                     }
                 }
             }

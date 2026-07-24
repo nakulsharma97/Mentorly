@@ -55,7 +55,7 @@ describe("MentorReviewsPage", () => {
 
   it("renders the reviews overview and summary cards", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <MentorReviewsPage
           profile={{ id: 7, fullName: "Mentor" }}
           notify={() => {}}

@@ -35,5 +35,20 @@ export default defineConfig({
   },
   build: {
     cssMinify: false,
+    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'vendor';
+          if (id.includes('node_modules/react')) return 'react-core';
+          if (id.includes('node_modules/@sentry')) return 'sentry';
+          if (id.includes('node_modules/axios')) return 'libs';
+          if (id.includes('node_modules/exceljs')) return 'exceljs';
+          if (id.includes('node_modules/jspdf')) return 'pdf';
+          if (id.includes('node_modules/html2canvas')) return 'canvas';
+        },
+      },
+    },
   },
 });

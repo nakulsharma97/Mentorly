@@ -4,6 +4,9 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
 
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
+
 /* ───────────── helpers ───────────── */
 
 function toTitle(str) {
@@ -248,8 +251,7 @@ export default function LearnerSkillsPage() {
           apiGet("/api/v1/users/mentors").catch(() => []),
           apiGet("/api/v1/watchlist/skills").catch(() => []),
         ]);
-        if (!active) return;
-        setState({ loading: false, data: { skills: skills || [], mentors: mentors || [], savedSkills: savedSkills || [] }, error: null });
+        if (!active) return;          setState({ loading: false, data: { skills: skills || EMPTY_ARRAY, mentors: mentors || EMPTY_ARRAY, savedSkills: savedSkills || EMPTY_ARRAY }, error: null });
       } catch (err) {
         if (!active) return;
         setState({ loading: false, data: null, error: getErrorMessage(err) });
@@ -260,9 +262,9 @@ export default function LearnerSkillsPage() {
   }, [debouncedQuery, refreshKey]);
 
   const { loading, data, error } = state;
-  const skills = data?.skills || [];
-  const mentors = data?.mentors || [];
-  const savedSkills = data?.savedSkills || [];
+  const skills = data?.skills || EMPTY_ARRAY;
+  const mentors = data?.mentors || EMPTY_ARRAY;
+  const savedSkills = data?.savedSkills || EMPTY_ARRAY;
 
   // ── mentor skill counts ──
   const mentorSkillCounts = useMemo(() => {

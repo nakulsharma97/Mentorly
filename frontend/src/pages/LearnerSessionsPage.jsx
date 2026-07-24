@@ -4,6 +4,9 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
 
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
+
 /* ══════════════════════════════════════════════════════════════════════════
    Inline helpers (mirrored from LearnerPages.jsx so we stay self-contained)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -204,8 +207,7 @@ function MiniCalendar({ sessions }) {
   const firstDay = new Date(year, month, 1).getDay();
 
   const sessionDates = useMemo(() => {
-    const set = new Set();
-    (sessions || []).forEach((b) => {
+    const set = new Set();      (sessions || EMPTY_ARRAY).forEach((b) => {
       const d = dayKey(b?.session?.startTime);
       if (d) set.add(d);
     });
@@ -275,7 +277,7 @@ function PremiumSessionCard({ booking, onCancel }) {
   const isCompleted = statusKey === "COMPLETED";
   const mentorName = mentor.fullName || "Mentor";
   const sessionTitle = session.title || "Untitled session";
-  const sessionSkills = mentor.skills || [];
+  const sessionSkills = mentor.skills || EMPTY_ARRAY;
 
   return (
     <article className="ls-session-card md-animate">
@@ -588,7 +590,7 @@ export default function LearnerSessionsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { loading, data, error } = useResource(() => apiGet("/api/v1/bookings"), [refreshKey]);
-  const allBookings = data || [];
+  const allBookings = data || EMPTY_ARRAY;
 
   const grouped = useMemo(() => {
     const upcoming = [];

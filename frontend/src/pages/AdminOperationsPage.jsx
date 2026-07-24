@@ -179,18 +179,15 @@ export default function AdminOperationsPage({ notify }) {
 
   useEffect(() => {
     if (activeTab === 'conversations') loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, loadConversations]);
 
   useEffect(() => {
     if (activeTab === 'referral') loadReferralAnalytics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, loadReferralAnalytics]);
 
   useEffect(() => {
     if (activeTab === 'payments') loadPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, loadPayments]);
 
   // ── Verification actions ──
   const approveVerification = async (item) => {

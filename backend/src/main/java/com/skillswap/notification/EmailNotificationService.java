@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
@@ -28,6 +29,7 @@ public class EmailNotificationService {
     @Value("${app.email.from:no-reply@skillswap.local}")
     private String fromAddress;
 
+    @Async("emailTaskExecutor")
     public void sendBookingCreated(User mentor, User learner, SkillSession session) {
         sendNotificationEmail(
                 mentor,
@@ -39,6 +41,7 @@ public class EmailNotificationService {
                         startOf(session)));
     }
 
+    @Async("emailTaskExecutor")
     public void sendBookingAccepted(User learner, User mentor, SkillSession session) {
         sendNotificationEmail(
                 learner,
@@ -50,6 +53,7 @@ public class EmailNotificationService {
                         startOf(session)));
     }
 
+    @Async("emailTaskExecutor")
     public void sendBookingCompleted(User learner, User mentor, SkillSession session) {
         sendNotificationEmail(
                 learner,
@@ -60,6 +64,7 @@ public class EmailNotificationService {
                         titleOf(session)));
     }
 
+    @Async("emailTaskExecutor")
     public void sendBookingCancelled(User learner, SkillSession session, int refundPercent) {
         sendNotificationEmail(
                 learner,
@@ -70,6 +75,7 @@ public class EmailNotificationService {
                         refundPercent));
     }
 
+    @Async("emailTaskExecutor")
     public void sendVerificationApproved(User mentor) {
         sendNotificationEmail(
                 mentor,
@@ -77,6 +83,7 @@ public class EmailNotificationService {
                 EmailTemplates.mentorVerificationApproved(nameOf(mentor)));
     }
 
+    @Async("emailTaskExecutor")
     public void sendVerificationRejected(User mentor, String reason) {
         sendNotificationEmail(
                 mentor,
@@ -84,6 +91,7 @@ public class EmailNotificationService {
                 EmailTemplates.mentorVerificationRejected(nameOf(mentor), reason));
     }
 
+    @Async("emailTaskExecutor")
     public void sendNotificationEmail(User user, String subject, String body) {
         if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
             return;

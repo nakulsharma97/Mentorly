@@ -3,9 +3,10 @@ package com.skillswap.user;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
@@ -50,6 +51,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
         long countByLastActiveAtAfter(OffsetDateTime cutoff);
 
         long countByCreatedAtAfter(OffsetDateTime cutoff);
+
+        @Modifying
+        @Query("UPDATE User u SET u.lastActiveAt = :now WHERE u.email = :email")
+        int updateLastActiveAt(@Param("email") String email, @Param("now") OffsetDateTime now);
+
+        // ── Bulk operations (avoids N+1 for admin actions) ──
+
+        @Modifying
+        @Query("UPDATE User u SET u.enabled = :enabled WHERE u.id IN :ids")
+        int updateEnabledBatch(@Param("ids") List<Long> ids, @Param("enabled") boolean enabled);
+
+        @Modifying
+        @Query("UPDATE User u SET u.role = :role WHERE u.id IN :ids")
+        int updateRoleBatch(@Param("ids") List<Long> ids, @Param("role") UserRole role);
+
+        @Modifying
+        @Query("UPDATE User u SET u.mentorVerified = false WHERE u.id IN :ids")
+        int resetMentorVerifiedBatch(@Param("ids") List<Long> ids);
 
         // ── Admin pagination queries ──
         @Query("SELECT u FROM User u WHERE "

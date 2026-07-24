@@ -4,6 +4,8 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +25,8 @@ import java.util.Map;
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 public class PaymentController {
+
+    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
 
     private final PaymentService paymentService;
     private final PaymentVerificationService paymentVerificationService;
@@ -100,7 +104,7 @@ public class PaymentController {
                             payment.getId(), payment.getPaymentId(), payment.getSignature(), Map.of());
                 }
             } catch (Exception e) {
-                // Gateway unreachable — return current stored status
+                log.warn("Failed to fetch gateway status for paymentId={}", id, e);
             }
         }
 
@@ -127,8 +131,15 @@ public class PaymentController {
         // Extract common webhook fields - adapters may parse differently
         String eventType = (String) webhookPayload.getOrDefault("event", "unknown");
         // In production, extract payment_id from gateway-specific payload location
-        @SuppressWarnings("unchecked")
-        Map<String, Object> eventData = (Map<String, Object>) webhookPayload.getOrDefault("data", Map.of());
+        Object rawEventData = webhookPayload.getOrDefault("data", Map.of());
+        Map<String, Object> eventData;
+        if (rawEventData instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> cast = (Map<String, Object>) rawEventData;
+            eventData = cast;
+        } else {
+            eventData = Map.of();
+        }
         String gatewayPaymentId = (String) eventData.getOrDefault("payment_id",
                 webhookPayload.getOrDefault("payment_id", "").toString());
 

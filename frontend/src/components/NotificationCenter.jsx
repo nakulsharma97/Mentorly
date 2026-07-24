@@ -223,23 +223,29 @@ export default function NotificationCenter({
 
   /* ──────────────────────────────────────────────────────────── Effects ── */
 
+  const fetchNotifsRef = useRef(fetchNotifications);
+  const fetchUnreadRef = useRef(fetchUnreadCount);
+  // Keep refs in sync with latest callbacks
+  useEffect(() => {
+    fetchNotifsRef.current = fetchNotifications;
+    fetchUnreadRef.current = fetchUnreadCount;
+  }, [fetchNotifications, fetchUnreadCount]);
+
   // Open triggers fetch (only on first open)
   useEffect(() => {
     if ((isOpen || fullPage) && !fetchedOnce) {
-      fetchNotifications();
-      fetchUnreadCount();
+      fetchNotifsRef.current?.();
+      fetchUnreadRef.current?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, fullPage]);
+  }, [isOpen, fullPage, fetchedOnce]);
 
   // Background refresh when external count changes
   useEffect(() => {
     if (fetchedOnce && (isOpen || fullPage)) {
-      fetchNotifications();
-      fetchUnreadCount();
+      fetchNotifsRef.current?.();
+      fetchUnreadRef.current?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalUnreadCount]);
+  }, [externalUnreadCount, fetchedOnce, isOpen, fullPage]);
 
   // Sync external unread count
   useEffect(() => {

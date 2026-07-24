@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { getErrorFeedback } from "../utils/comingSoon";
 
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
+
 const toNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -168,7 +171,7 @@ export default function AnalyticsPage({ profile }) {
       }
 
       const readData = (result) =>
-        result?.status === "fulfilled" ? result?.value?.data?.data || [] : [];
+        result?.status === "fulfilled" ? result?.value?.data?.data || EMPTY_ARRAY : EMPTY_ARRAY;
 
       setBookings(readData(bookingsResult));
       setPayments(readData(paymentsResult));
@@ -191,7 +194,7 @@ export default function AnalyticsPage({ profile }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isMentor]);
 
   const filtered = useMemo(() => {
     const now = Date.now();

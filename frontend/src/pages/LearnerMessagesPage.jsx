@@ -252,7 +252,7 @@ export default function LearnerMessagesPage({ profile }) {
   }, [clearReconnectTimer, closeSocket]);
 
   // ── Load conversations with pagination ──
-  function loadConversations(page, append = false) {
+  function loadConversations(page) {
     const params = { page, size: 30, sort: 'lastMessageAt,desc' };
     return Promise.all([
       apiGet("/api/v1/chat/conversations", { params }).catch(() => []),
@@ -403,7 +403,7 @@ export default function LearnerMessagesPage({ profile }) {
 
   // ── auto-select: URL param > nav state > first conv ──
   useEffect(() => {
-    console.log("[Messages] auto-select effect: selId=%s urlConv=%s convs=%d", selId, urlConversationId, allConvs.length);
+    if (process.env.NODE_ENV === 'development') console.log("[Messages] auto-select effect: selId=%s urlConv=%s convs=%d", selId, urlConversationId, allConvs.length);
 
     // Priority 1: URL param — always process regardless of existing selection
     if (urlConversationId) {
@@ -413,7 +413,7 @@ export default function LearnerMessagesPage({ profile }) {
           (c) => c.kind === "direct" && c.conversationId === parsedId
         );
         if (found) {
-          console.log("[Messages] Found conversation in list, selecting:", found.id);
+          if (process.env.NODE_ENV === 'development') console.log("[Messages] Found conversation in list, selecting:", found.id);
           setSelId(found.id);
           setSelKind(found.kind);
           setMobileView("thread");
@@ -421,7 +421,7 @@ export default function LearnerMessagesPage({ profile }) {
         }
         // Conversation not loaded yet — fetch directly
         if (!fetchingDirectConv) {
-          console.log("[Messages] Conversation not in list, fetching by ID:", parsedId);
+          if (process.env.NODE_ENV === 'development') console.log("[Messages] Conversation not in list, fetching by ID:", parsedId);
           fetchDirectConversationById(parsedId);
         }
         return;
@@ -430,7 +430,7 @@ export default function LearnerMessagesPage({ profile }) {
 
     // Don't override existing selId for lower priority cases
     if (selId) {
-      console.log("[Messages] selId already set, skipping lower priority cases");
+      if (process.env.NODE_ENV === 'development') console.log("[Messages] selId already set, skipping lower priority cases");
       return;
     }
 
@@ -440,7 +440,7 @@ export default function LearnerMessagesPage({ profile }) {
         (c) => c.kind === "direct" && c.conversationId === navState.directConversationId
       );
       if (found) {
-        console.log("[Messages] Selecting from nav state:", found.id);
+        if (process.env.NODE_ENV === 'development') console.log("[Messages] Selecting from nav state:", found.id);
         setSelId(found.id);
         setSelKind(found.kind);
         setMobileView("thread");
@@ -450,7 +450,7 @@ export default function LearnerMessagesPage({ profile }) {
 
     // Priority 3: first conversation
     if (allConvs.length) {
-      console.log("[Messages] Auto-selecting first conversation:", allConvs[0].id);
+      if (process.env.NODE_ENV === 'development') console.log("[Messages] Auto-selecting first conversation:", allConvs[0].id);
       setSelId(allConvs[0].id);
       setSelKind(allConvs[0].kind);
     }
@@ -634,15 +634,15 @@ export default function LearnerMessagesPage({ profile }) {
       return;
     }
     const mentorId = selectedMentor.mentorId || selectedMentor.id;
-    console.log("[NewChat] Starting conversation with mentor ID:", mentorId, selectedMentor);
+    if (process.env.NODE_ENV === 'development') console.log("[NewChat] Starting conversation with mentor ID:", mentorId, selectedMentor);
     setCreatingConv(true);
     setCreateError(null);
     try {
       const res = await apiPost(`/api/v1/chat/direct/${mentorId}`);
-      console.log("[NewChat] API response:", res);
+      if (process.env.NODE_ENV === 'development') console.log("[NewChat] API response:", res);
       if (res?.conversationId) {
         const newConvId = res.conversationId;
-        console.log("[NewChat] Success! conversationId:", newConvId);
+        if (process.env.NODE_ENV === 'development') console.log("[NewChat] Success! conversationId:", newConvId);
         setShowNewChat(false);
         setSelectedMentor(null);
         setMentorSearch("");
@@ -652,8 +652,7 @@ export default function LearnerMessagesPage({ profile }) {
         // Clear any cached thread data from previous conversation
         setThreadData([]);
         // Force refresh conversation list
-        setRefreshKey((k) => k + 1);
-        console.log("[NewChat] Navigating to /learner/messages/" + newConvId);
+        setRefreshKey((k) => k + 1);if (process.env.NODE_ENV === 'development') console.log("[NewChat] Navigating to /learner/messages/"+newConvId);
         // Navigate to the new conversation
         navigate(`/learner/messages/${newConvId}`, { replace: true });
       } else {

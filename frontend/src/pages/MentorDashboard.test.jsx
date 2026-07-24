@@ -8,7 +8,7 @@ const profile = { fullName: "Mentor Prime" };
 
 function renderMentorDashboard() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <MentorDashboard profile={profile} />
     </MemoryRouter>,
   );
@@ -19,10 +19,10 @@ describe("MentorDashboard", () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Good Morning/i)).toBeInTheDocument();
+      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
-    const heading = screen.getByText(/Good Morning/i);
+    const heading = screen.getByText(/Good (Morning|Afternoon|Evening)/i);
     expect(heading.textContent).toContain("Mentor");
   });
 

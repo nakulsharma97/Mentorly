@@ -1,7 +1,7 @@
 package com.skillswap.booking.dto;
 
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.booking.PaymentStatus;
+import com.skillswap.payment.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

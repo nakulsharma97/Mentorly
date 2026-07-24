@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import SsIcon from "../components/ui/SsIcon";
-import { SsStatCard } from "../components/ui/SsCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";

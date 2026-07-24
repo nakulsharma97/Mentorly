@@ -48,7 +48,7 @@ class WalletServiceTest {
 
     @Test
     void balanceReturnsZeroForNewUser() {
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.empty());
 
         var result = walletService.balance(user);
 
@@ -61,7 +61,7 @@ class WalletServiceTest {
         WalletLedgerEntry entry = new WalletLedgerEntry();
         entry.setBalanceAfter(new BigDecimal("75.50"));
 
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(entry));
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.of(entry));
 
         var result = walletService.balance(user);
 
@@ -230,7 +230,7 @@ class WalletServiceTest {
 
     @Test
     void addEntryRejectsNonExistentUser() {
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+        when(userRepository.findByIdWithLock(999L)).thenReturn(Optional.empty());
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.addEntryForUser(999L,
@@ -242,10 +242,8 @@ class WalletServiceTest {
     @Test
     void addCreditEntryIncreasesBalance() {
         setupUserFound();
+        seedBalance(new BigDecimal("50.00"));
 
-        WalletLedgerEntry existing = new WalletLedgerEntry();
-        existing.setBalanceAfter(new BigDecimal("50.00"));
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(existing));
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         walletService.addEntryForUser(userId,
@@ -260,10 +258,8 @@ class WalletServiceTest {
     @Test
     void addDebitEntryDecreasesBalance() {
         setupUserFound();
+        seedBalance(new BigDecimal("100.00"));
 
-        WalletLedgerEntry existing = new WalletLedgerEntry();
-        existing.setBalanceAfter(new BigDecimal("100.00"));
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(existing));
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         walletService.addEntryForUser(userId,
@@ -278,10 +274,7 @@ class WalletServiceTest {
     @Test
     void addDebitEntryRejectsOverdraft() {
         setupUserFound();
-
-        WalletLedgerEntry existing = new WalletLedgerEntry();
-        existing.setBalanceAfter(new BigDecimal("30.00"));
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(existing));
+        seedBalance(new BigDecimal("30.00"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.addEntryForUser(userId,
@@ -290,15 +283,128 @@ class WalletServiceTest {
         assertEquals("Insufficient wallet balance", ex.getMessage());
     }
 
+    // ── addEntry() — additional edge cases ──────────────
+
+    @Test
+    void addEarningEntryIncreasesBalance() {
+        setupUserFound();
+        seedBalance(new BigDecimal("50.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        walletService.addEntryForUser(userId,
+                new WalletService.WalletEntryRequest(WalletTransactionType.EARNING, new BigDecimal("100.00"),
+                        "CREDITS", "Session earnings", null, null));
+
+        verify(ledgerRepository).save(entryCaptor.capture());
+        assertEquals(new BigDecimal("100.00"), entryCaptor.getValue().getAmount());
+        assertEquals(new BigDecimal("150.00"), entryCaptor.getValue().getBalanceAfter());
+    }
+
+    @Test
+    void addRefundEntryIncreasesBalance() {
+        setupUserFound();
+        seedBalance(new BigDecimal("0.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        walletService.addEntryForUser(userId,
+                new WalletService.WalletEntryRequest(WalletTransactionType.REFUND, new BigDecimal("25.00"),
+                        "CREDITS", "Booking refund", null, null));
+
+        verify(ledgerRepository).save(entryCaptor.capture());
+        assertEquals(new BigDecimal("25.00"), entryCaptor.getValue().getAmount());
+        assertEquals(new BigDecimal("25.00"), entryCaptor.getValue().getBalanceAfter());
+    }
+
+    @Test
+    void addEntryRespectsNegativeAmountForDebitAlreadyNegative() {
+        setupUserFound();
+        seedBalance(new BigDecimal("100.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Pass a negative amount directly; DEBIT should negate it — but if already
+        // negative, negating makes it positive. The code handles signum() >= 0 → negate.
+        walletService.addEntryForUser(userId,
+                new WalletService.WalletEntryRequest(WalletTransactionType.DEBIT, new BigDecimal("-30.00"),
+                        "CREDITS", "Already negative debit", null, null));
+
+        verify(ledgerRepository).save(entryCaptor.capture());
+        // -30 signum is -1 (negative), so negate() is NOT applied → amount stays -30
+        assertEquals(new BigDecimal("-30.00"), entryCaptor.getValue().getAmount());
+        assertEquals(new BigDecimal("70.00"), entryCaptor.getValue().getBalanceAfter());
+    }
+
+    @Test
+    void addEntryDefaultsCurrencyToCredits() {
+        setupUserFound();
+        seedBalance(new BigDecimal("100.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        walletService.addEntryForUser(userId,
+                new WalletService.WalletEntryRequest(WalletTransactionType.CREDIT, new BigDecimal("10.00"),
+                        null, "Null currency test", null, null));
+
+        verify(ledgerRepository).save(entryCaptor.capture());
+        assertEquals("CREDITS", entryCaptor.getValue().getCurrency());
+    }
+
+    @Test
+    void addEntryWithBlankCurrencyDefaultsToCredits() {
+        setupUserFound();
+        seedBalance(new BigDecimal("100.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        walletService.addEntryForUser(userId,
+                new WalletService.WalletEntryRequest(WalletTransactionType.CREDIT, new BigDecimal("10.00"),
+                        "", "Blank currency test", null, null));
+
+        verify(ledgerRepository).save(entryCaptor.capture());
+        assertEquals("CREDITS", entryCaptor.getValue().getCurrency());
+    }
+
+    // ── balance() — edge cases ───────────────────────────
+
+    @Test
+    void balanceReturnsLastEntryWhenMultipleEntriesExist() {
+        WalletLedgerEntry first = new WalletLedgerEntry();
+        first.setBalanceAfter(new BigDecimal("50.00"));
+        WalletLedgerEntry second = new WalletLedgerEntry();
+        second.setBalanceAfter(new BigDecimal("75.00"));
+
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(Optional.of(second));
+
+        var result = walletService.balance(user);
+        assertEquals(new BigDecimal("75.00"), result.balance());
+    }
+
+    @Test
+    void balanceUsesFindFirstMethod() {
+        WalletLedgerEntry entry = new WalletLedgerEntry();
+        entry.setBalanceAfter(new BigDecimal("42.00"));
+
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+                .thenReturn(Optional.of(entry));
+
+        var result = walletService.balance(user);
+        assertEquals(new BigDecimal("42.00"), result.balance());
+        // Verify the new LIMIT 1 method is used, not the full-list method
+        verify(ledgerRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
+    }
+
     // ── helpers ──────────────────────────────────────────
 
     private void seedBalance(BigDecimal amount) {
         WalletLedgerEntry existing = new WalletLedgerEntry();
         existing.setBalanceAfter(amount);
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of(existing));
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.of(existing));
     }
 
     private void setupUserFound() {
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
     }
 }

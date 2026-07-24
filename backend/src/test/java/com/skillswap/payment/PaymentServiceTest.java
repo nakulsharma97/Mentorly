@@ -1,0 +1,382 @@
+package com.skillswap.payment;
+
+import com.skillswap.booking.Booking;
+import com.skillswap.booking.BookingRepository;
+import com.skillswap.notification.NotificationService;
+import com.skillswap.session.SkillSession;
+import com.skillswap.user.User;
+import com.skillswap.user.UserRole;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class PaymentServiceTest {
+
+    @Mock
+    private PaymentRepository paymentRepository;
+
+    @Mock
+    private BookingRepository bookingRepository;
+
+    @Mock
+    private PaymentIdempotencyKeyRepository idempotencyKeyRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private MeterRegistry meterRegistry;
+
+    @Mock
+    private PaymentGateway stripeGateway;
+
+    @Mock
+    private Counter counter;
+
+    @Captor
+    private ArgumentCaptor<Payment> paymentCaptor;
+
+    @InjectMocks
+    private PaymentService paymentService;
+
+    private User learner;
+    private User mentor;
+    private User admin;
+    private SkillSession session;
+    private Booking booking;
+    private Payment payment;
+
+    // IdempotencyKeySupport requires 8-120 character keys
+    private static final String IDEM_KEY = "key-test-123456";
+
+    @BeforeEach
+    void setUp() {
+        learner = new User();
+        learner.setId(1L);
+        learner.setRole(UserRole.LEARNER);
+
+        mentor = new User();
+        mentor.setId(2L);
+        mentor.setRole(UserRole.MENTOR);
+
+        admin = new User();
+        admin.setId(3L);
+        admin.setRole(UserRole.ADMIN);
+
+        session = new SkillSession();
+        session.setId(10L);
+        session.setMentor(mentor);
+        session.setTitle("Test Session");
+
+        booking = new Booking();
+        booking.setId(100L);
+        booking.setLearner(learner);
+        booking.setSession(session);
+
+        payment = Payment.builder()
+                .id(1000L)
+                .orderId("ORDER_TEST123")
+                .learnerId(learner.getId())
+                .mentorId(mentor.getId())
+                .sessionId(session.getId())
+                .amount(new BigDecimal("100.00"))
+                .currency("INR")
+                .status(PaymentStatus.INITIATED)
+                .gateway("stripe")
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        // @InjectMocks may not auto-populate List<PaymentGateway> from a single @Mock,
+        // so inject the gateways list via reflection to ensure gateway resolution works.
+        try {
+            java.lang.reflect.Field gatewaysField = PaymentService.class.getDeclaredField("gateways");
+            gatewaysField.setAccessible(true);
+            gatewaysField.set(paymentService, List.of(stripeGateway));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to inject gateways list", e);
+        }
+
+        lenient().when(meterRegistry.counter(anyString(), any(String[].class))).thenReturn(counter);
+        lenient().when(stripeGateway.getGatewaySlug()).thenReturn("stripe");
+        lenient().when(stripeGateway.createOrder(anyString(), any(), anyString()))
+                .thenReturn(Map.of("id", "pi_test_123", "status", "created"));
+        lenient().when(stripeGateway.verifyPayment(anyString(), anyString(), anyString(), any()))
+                .thenReturn(true);
+        lenient().when(stripeGateway.processRefund(any(), any(), any()))
+                .thenReturn("refund_test_123");
+    }
+
+    // ── createPaymentOrder ──────────────────────────────
+
+    @Test
+    void createPaymentOrderRejectsNonPositiveAmount() {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                        BigDecimal.ZERO, "stripe"));
+        assertEquals("Amount must be greater than zero", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderRejectsNegativeAmount() {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                        new BigDecimal("-50.00"), "stripe"));
+        assertEquals("Amount must be greater than zero", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderRejectsMentorRole() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(mentor, IDEM_KEY, 100L,
+                        new BigDecimal("100.00"), "stripe"));
+        assertEquals("Only learners can create payment intents", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderAllowsAdminRole() {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(idempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
+                anyLong(), anyString(), anyString())).thenReturn(Optional.empty());
+
+        Payment result = paymentService.createPaymentOrder(admin, IDEM_KEY, 100L,
+                new BigDecimal("100.00"), "stripe");
+
+        assertNotNull(result);
+        assertEquals("stripe", result.getGateway());
+        verify(paymentRepository).save(any());
+    }
+
+    @Test
+    void createPaymentOrderRejectsBookingNotFound() {
+        when(bookingRepository.findById(999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 999L,
+                        new BigDecimal("100.00"), "stripe"));
+        assertEquals("Booking not found", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderRejectsUnauthorizedLearner() {
+        User otherLearner = new User();
+        otherLearner.setId(99L);
+        otherLearner.setRole(UserRole.LEARNER);
+
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(otherLearner, IDEM_KEY, 100L,
+                        new BigDecimal("100.00"), "stripe"));
+        assertEquals("You can only pay for your own booking", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderSuccess() {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(idempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
+                anyLong(), anyString(), anyString())).thenReturn(Optional.empty());
+
+        Payment result = paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                new BigDecimal("100.00"), "stripe");
+
+        assertNotNull(result);
+        assertEquals("stripe", result.getGateway());
+        assertEquals(PaymentStatus.INITIATED, result.getStatus());
+        assertEquals(new BigDecimal("100.00"), result.getAmount());
+        assertNotNull(result.getGatewayResponse());
+
+        verify(bookingRepository).save(argThat(b -> b.getPayment() != null));
+        verify(notificationService, times(2)).notifyUser(anyLong(), anyString(), anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void createPaymentOrderIdempotencyReplay() {
+        PaymentIdempotencyKey existingKey = createIdempotencyKey(payment);
+        when(idempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
+                anyLong(), anyString(), eq(IDEM_KEY))).thenReturn(Optional.of(existingKey));
+
+        Payment result = paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                new BigDecimal("100.00"), "stripe");
+
+        assertEquals(payment.getId(), result.getId());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void createPaymentOrderRejectsIdempotencyKeyMismatch() {
+        Payment differentPayment = Payment.builder().id(2000L).build();
+        PaymentIdempotencyKey existingKey = new PaymentIdempotencyKey();
+        existingKey.setPayment(differentPayment);
+        existingKey.setRequestHash("different-hash");
+
+        when(idempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
+                anyLong(), anyString(), eq(IDEM_KEY))).thenReturn(Optional.of(existingKey));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                        new BigDecimal("100.00"), "stripe"));
+        assertEquals("Idempotency key reuse with different payload", ex.getMessage());
+    }
+
+    @Test
+    void createPaymentOrderRejectsUnsupportedGateway() {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        // @InjectMocks may not auto-populate List<PaymentGateway> from a single @Mock,
+        // so manually inject the list to enable gateway resolution testing
+        PaymentGateway paypalGateway = mock(PaymentGateway.class);
+        when(paypalGateway.getGatewaySlug()).thenReturn("paypal");
+        try {
+            java.lang.reflect.Field field = PaymentService.class.getDeclaredField("gateways");
+            field.setAccessible(true);
+            field.set(paymentService, List.of(paypalGateway));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
+                        new BigDecimal("100.00"), "bitcoin"));
+        assertEquals("Unsupported payment gateway: bitcoin", ex.getMessage());
+    }
+
+    // ── verifyAndCompletePayment ────────────────────────
+
+    @Test
+    void verifyAndCompletePaymentSuccess() {
+        payment.setStatus(PaymentStatus.INITIATED);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.verifyAndCompletePayment(1000L, "pi_test_123",
+                "sig_123", Map.of());
+
+        assertEquals(PaymentStatus.ESCROWED, result.getStatus());
+        assertEquals("pi_test_123", result.getPaymentId());
+        assertEquals("sig_123", result.getSignature());
+        verify(stripeGateway).verifyPayment("pi_test_123", "ORDER_TEST123", "sig_123", Map.of());
+    }
+
+    @Test
+    void verifyAndCompletePaymentFailsVerification() {
+        payment.setStatus(PaymentStatus.INITIATED);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(stripeGateway.verifyPayment(anyString(), anyString(), anyString(), any()))
+                .thenReturn(false);
+
+        Payment result = paymentService.verifyAndCompletePayment(1000L, "pi_bad", "sig_bad", Map.of());
+
+        assertEquals(PaymentStatus.FAILED, result.getStatus());
+    }
+
+    @Test
+    void verifyAndCompletePaymentPaymentNotFound() {
+        when(paymentRepository.findById(9999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.verifyAndCompletePayment(9999L, "pi_test", "sig", Map.of()));
+        assertTrue(ex.getMessage().contains("Payment not found"));
+    }
+
+    // ── refundPayment ───────────────────────────────────
+
+    @Test
+    void refundPaymentSuccess() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundPayment(1000L, new BigDecimal("100.00"), "Customer request");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(any(), eq(new BigDecimal("100.00")), eq("Customer request"));
+    }
+
+    @Test
+    void refundPaymentRejectsNonEscrowed() {
+        payment.setStatus(PaymentStatus.INITIATED);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test"));
+        assertTrue(ex.getMessage().contains("Only escrowed payments can be refunded"));
+    }
+
+    @Test
+    void refundPaymentPaymentNotFound() {
+        when(paymentRepository.findById(9999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundPayment(9999L, new BigDecimal("50.00"), "Test"));
+        assertTrue(ex.getMessage().contains("Payment not found"));
+    }
+
+    // ── getPaymentHistory ───────────────────────────────
+
+    @Test
+    void getPaymentHistoryForLearner() {
+        when(paymentRepository.findByLearnerIdOrMentorId(learner.getId(), learner.getId()))
+                .thenReturn(List.of(payment));
+
+        List<Payment> history = paymentService.getPaymentHistory(learner);
+
+        assertEquals(1, history.size());
+        verify(paymentRepository).findByLearnerIdOrMentorId(learner.getId(), learner.getId());
+    }
+
+    @Test
+    void getPaymentHistoryForAdmin() {
+        lenient().when(paymentRepository.findByFilters(isNull(), isNull(), isNull(), any()))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(payment)));
+
+        List<Payment> history = paymentService.getPaymentHistory(admin);
+
+        assertEquals(1, history.size());
+    }
+
+    // ── updatePaymentStatus ─────────────────────────────
+
+    @Test
+    void updatePaymentStatusSuccess() {
+        payment.setStatus(PaymentStatus.INITIATED);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.updatePaymentStatus(1000L, PaymentStatus.ESCROWED);
+
+        assertEquals(PaymentStatus.ESCROWED, result.getStatus());
+    }
+
+    // ── helpers ─────────────────────────────────────────
+
+    private PaymentIdempotencyKey createIdempotencyKey(Payment p) {
+        PaymentIdempotencyKey key = new PaymentIdempotencyKey();
+        key.setPayment(p);
+        // Must match the hash format in PaymentService.createPaymentOrder:
+        // String.join("|", bookingId, amount, gatewaySlug)
+        key.setRequestHash("100|" + p.getAmount() + "|stripe");
+        return key;
+    }
+}

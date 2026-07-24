@@ -5,7 +5,7 @@ import SsIcon from "./SsIcon";
 
 /* ────────────────────────────── Stat Card ────────────────────────────── */
 
-export function SsStatCard({ icon, label, value, desc, trend, trendLabel }) {
+export function SsStatCard({ icon, label, value, desc, trend }) {
   const trendClass = trend > 0 ? "ss-stat-card__trend--up" 
     : trend < 0 ? "ss-stat-card__trend--down" 
     : "ss-stat-card__trend--neutral";

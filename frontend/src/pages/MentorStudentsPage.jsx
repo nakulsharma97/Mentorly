@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { SkeletonTable } from "../components/SkeletonLoaders";
@@ -35,10 +35,11 @@ export default function MentorStudentsPage({ profile, notify }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
+  const loadStudentsRef = useRef(null);
+
   useEffect(() => {
     document.title = "Students | SkillSwap Mentor";
-    loadStudents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadStudentsRef.current?.();
   }, []);
 
   const loadStudents = async () => {
@@ -164,6 +165,8 @@ export default function MentorStudentsPage({ profile, notify }) {
       setLoading(false);
     }
   };
+
+  loadStudentsRef.current = loadStudents;
 
   const skillOptions = useMemo(() => {
     const set = new Set();

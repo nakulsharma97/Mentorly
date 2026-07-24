@@ -1,19 +1,32 @@
 package com.skillswap.booking;
 
+import com.skillswap.common.ApiClientException;
+import com.skillswap.common.ApiResponse;
+import com.skillswap.common.IdempotencyKeySupport;
 import com.skillswap.certification.CertificationService;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
+import com.skillswap.referral.ReferralService;
+import com.skillswap.roadmap.LearningRoadmap;
+import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SkillSession;
+import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
+import com.skillswap.wallet.WalletService;
+import com.skillswap.wallet.WalletTransactionType;
 import com.skillswap.waitlist.SessionWaitlistRepository;
 import com.skillswap.waitlist.WaitlistStatus;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +47,12 @@ public class BookingLifecycleService {
     private final SessionWaitlistRepository sessionWaitlistRepository;
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
+    private final WalletService walletService;
+    private final ReferralService referralService;
+    private final SessionRepository sessionRepository;
+    private final LearningRoadmapRepository learningRoadmapRepository;
+    private final BookingIdempotencyKeyRepository bookingIdempotencyKeyRepository;
+    private final MeterRegistry meterRegistry;
 
     @Transactional
     public Booking confirmBooking(Long bookingId, User currentUser) {
@@ -154,6 +173,115 @@ public class BookingLifecycleService {
         return promoted;
     }
 
+    @Transactional
+    public Booking createBooking(User learner, String idempotencyKey, BookingRequest req) {
+        if (learner.getRole() != UserRole.LEARNER && learner.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Only learners can create bookings");
+        }
+
+        IdempotencyKeySupport.validate(idempotencyKey);
+
+        String endpoint = "bookings.create";
+        String requestHash = String.valueOf(req.sessionId());
+        var existingKey = bookingIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
+                learner.getId(), endpoint, idempotencyKey);
+        if (existingKey.isPresent()) {
+            BookingIdempotencyKey key = existingKey.get();
+            if (!key.getRequestHash().equals(requestHash)) {
+                throw new IllegalArgumentException("Idempotency key reuse with different payload");
+            }
+            if (key.getBooking() != null) {
+                return key.getBooking();
+            }
+        }
+
+        var session = sessionRepository.findByIdWithLock(req.sessionId())
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+
+        boolean alreadyBooked = bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
+                session.getId(),
+                learner.getId(),
+                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
+                        BookingStatus.ACCEPTED,
+                        BookingStatus.RESCHEDULE_REQUESTED,
+                        BookingStatus.COMPLETED));
+        if (alreadyBooked) {
+            throw new IllegalArgumentException("You already have a booking for this session");
+        }
+
+        long activeBookingCount = bookingRepository.countActiveBySessionIdWithLock(
+                session.getId(),
+                List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
+                        BookingStatus.ACCEPTED,
+                        BookingStatus.RESCHEDULE_REQUESTED));
+        int maxParticipants = session.getMaxParticipants() == null || session.getMaxParticipants() < 1
+                ? 1
+                : session.getMaxParticipants();
+        if (activeBookingCount >= maxParticipants) {
+            throw new IllegalArgumentException("Session is full. Join waitlist.");
+        }
+
+        Booking booking = new Booking();
+        booking.setSession(session);
+        booking.setLearner(learner);
+        booking.setBookingStatus(BookingStatus.PENDING);
+
+        Booking savedBooking;
+        try {
+            savedBooking = bookingRepository.save(booking);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("booking_create_transient_conflict learnerId={} sessionId={} msg={}",
+                    learner.getId(), session.getId(), ex.getMessage());
+            throw new ApiClientException(
+                    HttpStatus.CONFLICT,
+                    "BOOKING_TEMPORARY_CONFLICT",
+                    "Temporary booking conflict. Please retry.",
+                    true);
+        }
+
+        LearningRoadmap roadmap = new LearningRoadmap();
+        roadmap.setBooking(savedBooking);
+        roadmap.setTitle("Roadmap: " + session.getTitle());
+        roadmap.setMilestones(defaultMilestonesFor(session.getTitle()));
+        roadmap.setProgressPercent(0);
+        learningRoadmapRepository.save(roadmap);
+
+        sessionWaitlistRepository
+                .findBySessionIdAndLearnerIdAndStatus(session.getId(), learner.getId(),
+                        WaitlistStatus.ACTIVE)
+                .ifPresent(waitlistItem -> {
+                    waitlistItem.setStatus(WaitlistStatus.JOINED);
+                    sessionWaitlistRepository.save(waitlistItem);
+                });
+
+        notificationService.notifyUser(
+                session.getMentor().getId(),
+                "BOOKING_CREATED",
+                "New booking request",
+                learner.getFullName() + " requested your session: " + session.getTitle(),
+                savedBooking.getId());
+        emailNotificationService.sendBookingCreated(session.getMentor(), learner, session);
+
+        try {
+            BookingIdempotencyKey key = existingKey.orElseGet(BookingIdempotencyKey::new);
+            key.setUser(learner);
+            key.setEndpoint(endpoint);
+            key.setIdempotencyKey(idempotencyKey);
+            key.setRequestHash(requestHash);
+            key.setBooking(savedBooking);
+            bookingIdempotencyKeyRepository.save(key);
+        } catch (DataIntegrityViolationException ex) {
+            Booking replayed = bookingIdempotencyKeyRepository
+                    .findByUserIdAndEndpointAndIdempotencyKey(learner.getId(), endpoint,
+                            idempotencyKey)
+                    .map(BookingIdempotencyKey::getBooking)
+                    .orElse(savedBooking);
+            return replayed;
+        }
+
+        return savedBooking;
+    }
+
     private Booking loadBooking(Long bookingId) {
         return bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
@@ -206,6 +334,16 @@ public class BookingLifecycleService {
         emailNotificationService.sendNotificationEmail(booking.getSession().getMentor(), subject, body);
     }
 
+    private static String defaultMilestonesFor(String sessionTitle) {
+        String safeTitle = sessionTitle == null ? "Session" : sessionTitle.replace("\"", "\\\"");
+        return "["
+                + "{\"title\":\"Kickoff and current level check\",\"status\":\"PENDING\"},"
+                + "{\"title\":\"Core concepts for " + safeTitle + "\",\"status\":\"PENDING\"},"
+                + "{\"title\":\"Hands-on assignment\",\"status\":\"PENDING\"},"
+                + "{\"title\":\"Review and next-step plan\",\"status\":\"PENDING\"}"
+                + "]";
+    }
+
     private static String sessionTitle(Booking booking) {
         SkillSession session = booking.getSession();
         return session == null || session.getTitle() == null ? "your session" : session.getTitle();
@@ -214,5 +352,185 @@ public class BookingLifecycleService {
     private static String sessionStart(Booking booking) {
         SkillSession session = booking.getSession();
         return session == null || session.getStartTime() == null ? "soon" : session.getStartTime().toString();
+    }
+
+    // ════════════════════════════════════════════════
+    //  Status update handler (moved from BookingController)
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public Booking handleStatusUpdate(Long id, User currentUser, BookingStatus targetStatus,
+            EmailNotificationService emailService) {
+        return switch (targetStatus) {
+            case ACCEPTED -> {
+                Booking booking = acceptBooking(id, currentUser);
+                holdEscrowForAcceptedBooking(booking);
+                emailService.sendBookingAccepted(
+                        booking.getLearner(),
+                        booking.getSession().getMentor(),
+                        booking.getSession());
+                yield booking;
+            }
+            case CONFIRMED -> confirmBooking(id, currentUser);
+            case IN_PROGRESS -> throw new IllegalArgumentException(
+                    "IN_PROGRESS can only be set by the system scheduler");
+            case COMPLETED -> {
+                Booking booking = completeBooking(id, currentUser);
+                grantReferralRewardIfNeeded(booking);
+                releaseEscrowForCompletedBooking(booking);
+                emailService.sendBookingCompleted(
+                        booking.getLearner(),
+                        booking.getSession().getMentor(),
+                        booking.getSession());
+                yield booking;
+            }
+            case CANCELLED -> {
+                Booking booking = cancelBooking(id, currentUser);
+                int refundPercent = refundEscrowForCancelledBooking(booking);
+                emailService.sendBookingCancelled(
+                        booking.getLearner(),
+                        booking.getSession(),
+                        refundPercent);
+                yield booking;
+            }
+            default -> throw new IllegalArgumentException(
+                    "Use the dedicated booking lifecycle endpoints for state transitions");
+        };
+    }
+
+    @Transactional
+    public void grantReferralRewardIfNeeded(Booking booking) {
+        if (booking == null || booking.getLearner() == null) {
+            return;
+        }
+        long completedCount = bookingRepository.countByLearnerIdAndBookingStatus(
+                booking.getLearner().getId(), BookingStatus.COMPLETED);
+        if (completedCount == 1) {
+            referralService.processReferralReward(booking.getLearner().getId(), booking.getId());
+        }
+    }
+
+    public Booking acceptBooking(Long bookingId, User currentUser) {
+        Booking booking = loadBooking(bookingId);
+        SkillSession session = booking.getSession();
+        if (session == null || session.getMentor() == null) {
+            throw new IllegalArgumentException("Booking session mentor is missing");
+        }
+
+        boolean isAdmin = currentUser != null && currentUser.getRole() == UserRole.ADMIN;
+        boolean isMentor = currentUser != null
+                && currentUser.getRole() == UserRole.MENTOR
+                && session.getMentor().getId().equals(currentUser.getId());
+        if (!isAdmin && !isMentor) {
+            throw new IllegalArgumentException("Only the session mentor can accept a booking");
+        }
+
+        if (booking.getBookingStatus() != BookingStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending bookings can be accepted");
+        }
+
+        booking.setBookingStatus(BookingStatus.ACCEPTED);
+        return bookingRepository.save(booking);
+    }
+
+    public void holdEscrowForAcceptedBooking(Booking booking) {
+        User learner = booking.getLearner();
+        SkillSession session = booking.getSession();
+        BigDecimal priceAmount = session.getPriceAmount();
+        if (priceAmount == null || priceAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Session price must be greater than zero");
+        }
+
+        BigDecimal currentBalance = walletService.balance(learner).balance();
+        if (currentBalance.compareTo(priceAmount) < 0) {
+            throw new IllegalArgumentException("Insufficient wallet balance to accept this booking");
+        }
+
+        walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                WalletTransactionType.DEBIT,
+                priceAmount,
+                "CREDITS",
+                "Session booking: " + session.getTitle(),
+                "BOOKING",
+                booking.getId()));
+
+        Payment payment = booking.getPayment();
+        if (payment == null) {
+            payment = Payment.builder()
+                    .orderId("WALLET_" + System.currentTimeMillis())
+                    .learnerId(booking.getLearner().getId())
+                    .mentorId(booking.getSession().getMentor().getId())
+                    .sessionId(booking.getSession().getId())
+                    .amount(priceAmount)
+                    .currency("INR")
+                    .gateway("wallet")
+                    .status(PaymentStatus.ESCROWED)
+                    .createdAt(OffsetDateTime.now())
+                    .build();
+        } else {
+            payment.setAmount(priceAmount);
+            payment.setStatus(PaymentStatus.ESCROWED);
+        }
+
+        payment = paymentRepository.save(payment);
+        booking.setPayment(payment);
+        bookingRepository.save(booking);
+    }
+
+    public void releaseEscrowForCompletedBooking(Booking booking) {
+        Payment payment = booking.getPayment();
+        if (payment == null || payment.getStatus() != PaymentStatus.ESCROWED) {
+            return;
+        }
+
+        BigDecimal fee = payment.getAmount()
+                .multiply(BigDecimal.valueOf(0.10))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal payout = payment.getAmount().subtract(fee)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        User mentor = booking.getSession().getMentor();
+        SkillSession session = booking.getSession();
+        walletService.addEntryForUser(mentor.getId(),
+                new WalletService.WalletEntryRequest(
+                        WalletTransactionType.EARNING,
+                        payout,
+                        "CREDITS",
+                        "Session payout: " + session.getTitle()
+                                + " (after 10% platform fee)",
+                        "BOOKING",
+                        booking.getId()));
+
+        payment.setStatus(PaymentStatus.RELEASED);
+        paymentRepository.save(payment);
+    }
+
+    public int refundEscrowForCancelledBooking(Booking booking) {
+        Payment payment = booking.getPayment();
+        if (payment == null) {
+            return 0;
+        }
+
+        if (payment.getStatus() != PaymentStatus.ESCROWED
+                && payment.getStatus() != PaymentStatus.REFUNDED) {
+            return 0;
+        }
+
+        int refundPercent = 100;
+        BigDecimal refundAmount = payment.getAmount();
+
+        User learner = booking.getLearner();
+        SkillSession session = booking.getSession();
+        walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                WalletTransactionType.REFUND,
+                refundAmount,
+                "CREDITS",
+                "Refund for cancelled session: " + session.getTitle(),
+                "BOOKING",
+                booking.getId()));
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+        paymentRepository.save(payment);
+        return refundPercent;
     }
 }

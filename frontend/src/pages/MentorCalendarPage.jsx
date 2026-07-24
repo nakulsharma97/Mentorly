@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- overlay backdrop */
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -109,10 +110,11 @@ export default function MentorCalendarPage({ notify }) {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
 
+  const loadDataRef = useRef(null);
+
   useEffect(() => {
     document.title = "Calendar | SkillSwap Mentor";
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadDataRef.current?.();
   }, []);
 
   const loadData = async () => {
@@ -181,6 +183,8 @@ export default function MentorCalendarPage({ notify }) {
       setLoading(false);
     }
   };
+
+  loadDataRef.current = loadData;
 
   const stats = useMemo(() => {
     const upcoming = events.filter(

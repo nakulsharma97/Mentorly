@@ -165,7 +165,7 @@ const mockDirectMessages = [
 
 function renderPage(initialRoute = "/learner/messages") {
   return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
+    <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         <Route
           path="/learner/messages"

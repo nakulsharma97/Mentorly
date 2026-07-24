@@ -76,6 +76,7 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
             }
             chatService.ensureParticipant(email, bookingId);
         } catch (Exception ex) {
+            log.warn("Booking chat auth failed: bookingId={}", bookingIdRaw, ex);
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
             return;
         }
@@ -115,6 +116,7 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
         try {
             node = objectMapper.readTree(message.getPayload());
         } catch (Exception ex) {
+            log.warn("Invalid booking chat message payload", ex);
             session.sendMessage(new TextMessage("{\"error\":\"Invalid message payload\"}"));
             return;
         }

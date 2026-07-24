@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +43,14 @@ public class PaymentService {
 
     /**
      * Create a payment order/intent using the specified gateway.
+     * Retries up to 3 times with exponential backoff if the gateway call fails
+     * (e.g. network timeout, temporary gateway outage).
      */
+    @Retryable(
+        retryFor = Exception.class,
+        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
+        backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000)
+    )
     @Transactional
     public Payment createPaymentOrder(User currentUser, String idempotencyKey, Long bookingId,
             BigDecimal amount, String gatewaySlug) {
@@ -115,7 +125,14 @@ public class PaymentService {
 
     /**
      * Verify and complete a payment after gateway callback.
+     * Retries up to 3 times with exponential backoff if signature verification
+     * or gateway lookup fails transiently.
      */
+    @Retryable(
+        retryFor = Exception.class,
+        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
+        backoff = @Backoff(delay = 500, multiplier = 2.0, maxDelay = 5000)
+    )
     @Transactional
     public Payment verifyAndCompletePayment(Long paymentId, String paymentGatewayId, String signature,
             Map<String, String> extraParams) {
@@ -153,7 +170,13 @@ public class PaymentService {
 
     /**
      * Process a refund for the given payment.
+     * Retries up to 3 times with exponential backoff if the refund API call fails transiently.
      */
+    @Retryable(
+        retryFor = Exception.class,
+        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
+        backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000)
+    )
     @Transactional
     public Payment refundPayment(Long paymentId, BigDecimal amount, String reason) {
         Payment payment = paymentRepository.findById(paymentId)

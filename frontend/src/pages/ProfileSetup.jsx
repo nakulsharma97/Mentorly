@@ -1,8 +1,6 @@
-/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import client from "../api/client";
 import RoleSwitcher from "../components/RoleSwitcher";
-import OptimizedImage from "../components/OptimizedImage";
 import {
   getProfileQualityScore,
   parseSkillTags,
@@ -108,29 +106,6 @@ export default function ProfileSetup({
     }
   }, [initialProfile]);
 
-  const addSkillTag = () => {
-    const cleaned = newSkillName.trim();
-    if (!cleaned) {
-      return false;
-    }
-
-    const exists = skillTags.some(
-      (tag) => tag.name.toLowerCase() === cleaned.toLowerCase(),
-    );
-    if (exists) {
-      return true;
-    }
-
-    setSkillTags((prev) => [...prev, { name: cleaned, level: newSkillLevel }]);
-    setNewSkillName("");
-    setNewSkillLevel("Intermediate");
-    return true;
-  };
-
-  const removeSkillTag = (name) => {
-    setSkillTags((prev) => prev.filter((tag) => tag.name !== name));
-  };
-
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -232,20 +207,6 @@ export default function ProfileSetup({
     setProjectError("");
   };
 
-  const editProject = (project) => {
-    setActiveProjectId(project.id);
-    setProjectEditor({
-      title: project.title || "",
-      description: project.description || "",
-      technologies: project.technologies || "",
-      githubUrl: project.githubUrl || "",
-      liveDemoUrl: project.liveDemoUrl || "",
-      startDate: project.startDate || "",
-      endDate: project.endDate || "",
-      currentlyWorking: project.currentlyWorking || false,
-    });
-  };
-
   const validateProjectInput = () => {
     if (!projectEditor.title.trim()) {
       return "Project title is required";
@@ -318,51 +279,6 @@ export default function ProfileSetup({
         "Unable to save project. Verify required fields and try again.",
       );
     }
-  };
-
-  const removeProject = async (projectId) => {
-    try {
-      await client.delete(`/api/v1/users/me/projects/${projectId}`);
-      setProjects((current) =>
-        current.filter((project) => project.id !== projectId),
-      );
-      if (activeProjectId === projectId) {
-        resetProjectEditor();
-      }
-    } catch {
-      setProjectError("Unable to delete project. Try again.");
-    }
-  };
-
-  const openAddSkill = () => {
-    setSkillSearch("");
-    setSkillModalOpen(true);
-  };
-
-  const confirmAddSkill = () => {
-    const cleaned = skillSearch.trim();
-    if (!cleaned) return;
-    const exists = skillTags.some(
-      (t) => t.name.toLowerCase() === cleaned.toLowerCase(),
-    );
-    if (!exists) {
-      setSkillTags((prev) => [
-        ...prev,
-        { name: cleaned, level: "Intermediate" },
-      ]);
-    }
-    setSkillModalOpen(false);
-    setSkillSearch("");
-  };
-
-  const startEditSkill = (tag) => {
-    setNewSkillName(tag.name);
-    setNewSkillLevel(tag.level || "Intermediate");
-    setSkillModalOpen(true);
-  };
-
-  const deleteSkill = (name) => {
-    setSkillTags((prev) => prev.filter((t) => t.name !== name));
   };
 
   const handleProjectFieldChange = (event) => {

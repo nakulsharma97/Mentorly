@@ -32,7 +32,7 @@ describe("MentorCalendarPage", () => {
 
   it("renders the mentor calendar and summary cards", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <MentorCalendarPage
           profile={{ id: 21, fullName: "Mentor Prime" }}
           notify={() => {}}

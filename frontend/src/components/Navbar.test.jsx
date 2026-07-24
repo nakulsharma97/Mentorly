@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import Navbar from "./Navbar.old";
+import Navbar from "./Navbar";
 
 describe('Navbar role actions', () => {
   it('hides mentor-only actions for learner and shows learner actions', () => {

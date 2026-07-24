@@ -260,7 +260,7 @@ public class AuthService {
         try {
             meterRegistry.counter(name, tags).increment();
         } catch (RuntimeException ignored) {
-            // No-op in tests where metrics are mocked.
+            log.debug("Failed to increment metric counter: {}", name, ignored);
         }
     }
 
@@ -434,7 +434,7 @@ public class AuthService {
 
             loginAttemptRepository.save(attempt);
         } catch (Exception ignored) {
-            // Non-critical — rate limiting is best-effort
+            log.warn("Failed to record failed login attempt from ip={}", clientIp, ignored);
         }
     }
 
@@ -468,7 +468,7 @@ public class AuthService {
 
             loginAttemptRepository.save(attempt);
         } catch (Exception ignored) {
-            // Non-critical — rate limiting is best-effort
+            log.warn("Failed to record forgot-password attempt from ip={}", clientIp, ignored);
         }
     }
 

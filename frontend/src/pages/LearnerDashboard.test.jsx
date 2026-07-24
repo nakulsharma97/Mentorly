@@ -12,7 +12,7 @@ const profile = {
 
 function renderLearnerDashboard() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <LearnerDashboard profile={profile} />
     </MemoryRouter>
   );
@@ -26,7 +26,7 @@ describe('LearnerDashboard', () => {
     expect(loading).toBeInTheDocument();
 
     await waitForElementToBeRemoved(() => screen.queryByLabelText('Loading dashboard...'));
-    expect(screen.getByText(/Welcome back, Learner/i)).toBeInTheDocument();
+    expect(screen.getByText(/Good (Morning|Afternoon|Evening), Learner/i)).toBeInTheDocument();
   });
 
   it('renders upcoming sessions count and section when bookings load', async () => {
@@ -103,6 +103,6 @@ describe('LearnerDashboard', () => {
     await waitForElementToBeRemoved(() => screen.queryByLabelText('Loading dashboard...'), { timeout: 5000 });
 
     // The component should render some default content even with failed API
-    expect(screen.getByText(/Welcome back, Learner/i)).toBeInTheDocument();
+    expect(screen.getByText(/Good (Morning|Afternoon|Evening), Learner/i)).toBeInTheDocument();
   });
 });

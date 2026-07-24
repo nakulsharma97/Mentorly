@@ -17,10 +17,11 @@ function useInterval(callback, delay) {
 
 function CountUp({ value }) {
   const [display, setDisplay] = useState(0);
+  const displayRef = useRef(0);
   const rafRef = useRef();
   useEffect(() => {
     const start = performance.now();
-    const from = Number(display);
+    const from = Number(displayRef.current);
     const to = Number(value);
     const dur = 900;
     cancelAnimationFrame(rafRef.current);
@@ -28,6 +29,7 @@ function CountUp({ value }) {
       const t = Math.min(1, (now - start) / dur);
       const v = Math.round(from + (to - from) * t);
       setDisplay(v);
+      displayRef.current = v;
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);

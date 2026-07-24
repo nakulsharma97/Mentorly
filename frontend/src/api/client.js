@@ -182,16 +182,12 @@ export function persistAuthSession(authResponse) {
 
   const normalizedAuthResponse = resolveAuthResponsePayload(authResponse);
 
-  // DEBUG: Log the parsed values so we can see why tokens may be missing.
-  try {
-    console.info("[auth] cookieTokenBeforeClear", cookieTokenBeforeClear);
-    console.info(
-      "[auth] cookieRefreshTokenBeforeClear",
-      cookieRefreshTokenBeforeClear,
-    );
-    console.info("[auth] normalizedAuthResponse", normalizedAuthResponse);
-  } catch (e) {
-    /* ignore logging failures in non-browser envs */
+  // DEV: Log the parsed values to debug token resolution.
+  // Tree-shaken in production builds via Vite's process.env.NODE_ENV replacement.
+  if (process.env.NODE_ENV === 'development') {
+    console.debug("[auth] cookieTokenBeforeClear", cookieTokenBeforeClear);
+    console.debug("[auth] cookieRefreshTokenBeforeClear", cookieRefreshTokenBeforeClear);
+    console.debug("[auth] normalizedAuthResponse", normalizedAuthResponse);
   }
 
   const nextToken =
@@ -212,14 +208,13 @@ export function persistAuthSession(authResponse) {
   const nextRole =
     normalizedAuthResponse?.role || normalizedAuthResponse?.user?.role || null;
 
-  // DEBUG: Log what tokens were resolved before persisting
-  try {
-    console.info("[auth] nextToken", nextToken);
-    console.info("[auth] nextRefreshToken", nextRefreshToken);
-    console.info("[auth] nextEmail", nextEmail);
-    console.info("[auth] nextRole", nextRole);
-  } catch (e) {
-    /* ignore */
+  // DEV: Log what tokens were resolved before persisting.
+  // Tree-shaken in production builds via Vite's process.env.NODE_ENV replacement.
+  if (process.env.NODE_ENV === 'development') {
+    console.debug("[auth] nextToken", nextToken);
+    console.debug("[auth] nextRefreshToken", nextRefreshToken);
+    console.debug("[auth] nextEmail", nextEmail);
+    console.debug("[auth] nextRole", nextRole);
   }
 
   if (nextToken) {

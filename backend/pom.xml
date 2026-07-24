@@ -123,6 +123,10 @@
             <artifactId>spring-boot-starter-aop</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.sentry</groupId>
             <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
             <version>7.6.0</version>
@@ -154,6 +158,12 @@
                 </excludes>
             </resource>
         </resources>
+        <!-- Disable default-testResources on Windows to avoid a known
+             maven-resources-plugin bug that wipes target/classes during the
+             process-test-resources phase. Test resources are NOT copied;
+             BookingLifecycleIntegrationTest configures H2 via @TestPropertySource
+             and all other tests are pure Mockito (no Spring context).
+             Migrations are copied via maven-antrun-plugin. -->
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -162,30 +172,37 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
+                <!-- skip=true globally prevents a Windows bug where the maven-resources-plugin
+                     wipes target/classes during the process-test-resources phase. -->
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
                 <executions>
-                    <!-- Move default testResources to process-resources (before compile)
-                         to avoid wiping target/classes/ at process-test-resources. On this
-                         Windows environment, the resources plugin replaces the output
-                         directory instead of copying additively, which deletes compiled
-                         .class files when running after compile. -->
                     <execution>
                         <id>default-testResources</id>
-                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>testResources</goal>
+                        </goals>
+                        <phase>none</phase>
                     </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
                     <execution>
                         <id>copy-migrations</id>
                         <phase>prepare-package</phase>
                         <goals>
-                            <goal>copy-resources</goal>
+                            <goal>run</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${project.build.outputDirectory}/db/migration</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>src/main/resources/db/migration</directory>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
+                            <target>
+                                <copy todir="${project.build.outputDirectory}/db/migration">
+                                    <fileset dir="src/main/resources/db/migration"/>
+                                </copy>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>

@@ -4,6 +4,7 @@ import com.skillswap.common.exception.BadRequestException;
 import com.skillswap.common.exception.ResourceNotFoundException;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.booking.dto.BookingResponse;
+import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;

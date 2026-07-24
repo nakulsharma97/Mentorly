@@ -229,8 +229,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
           const eligibleRes = await client.get(`/api/v1/reviews/eligible/mentor/${mentorId}`);
           const next = eligibleRes.data.data || [];
           setEligibleBookings(next);
-          setReviewForm(p => ({ ...p, bookingId: p.bookingId || (next[0] ? String(next[0].bookingId) : "") }));
-        } catch { setEligibleBookings([]); }
+          setReviewForm(p => ({ ...p, bookingId: p.bookingId || (next[0] ? String(next[0].bookingId) : "") }));                } catch (err) { setEligibleBookings([]); }
       } else setEligibleBookings([]);
     } catch (err) {
       setError(err?.response?.data?.data?.error || getErrorFeedback("mentorProfileLoadFailed").message);
@@ -713,7 +712,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
                     const data = res?.data?.data;
                     if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
-                  } catch {}
+                  } catch (e) { console.debug('Message navigation failed', e); }
                 }}>
                   <Icon name="chat" /> Send a Message
                 </button>

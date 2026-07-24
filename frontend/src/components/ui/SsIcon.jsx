@@ -1,189 +1,189 @@
 /**
- * SsIcon — Lucide icon mapper for the SkillSwap design system.
- * Maps descriptive names to lucide-react icons for easy use throughout the app.
+ * SsIcon — Material Symbols icon component for the SkillSwap design system.
+ * Maps descriptive names to Material Symbols icon names.
  *
  * Usage: <SsIcon name="dashboard" size={20} className="..." />
+ *
+ * Icon names use snake_case as per Material Symbols naming conventions.
+ * See: https://fonts.google.com/icons
  */
-import {
-  LayoutDashboard, GraduationCap, Users, Calendar,
-  MessageSquare, BarChart3, Wallet, Star, User,
-  Settings, Bell, LogOut, ChevronRight, ChevronLeft,
-  ChevronDown, Search, X, Plus, Menu, MoreHorizontal,
-  RefreshCw, TrendingUp, TrendingDown, DollarSign,
-  Clock, CheckCircle, AlertCircle, AlertTriangle,
-  Info, PlayCircle, Video, Phone, Mail, Link,
-  ExternalLink, Copy, Share2, Download, Upload,
-  FileText, Image, Paperclip, Send, Smile,
-  Sun, Moon, Grid3X3, List, Filter, ArrowUpRight,
-  ArrowDownRight, CalendarDays, Sparkles, Target,
-  BookOpen, Award, Zap, Shield, Eye, EyeOff,
-  Edit3, Trash2, Bookmark, Heart, Mic, BellOff,
-  UserX, CheckSquare, Check, ListChecks, CalendarPlus,
-  Home, Globe, HelpCircle, Loader,
-} from "lucide-react";
-
 const iconMap = {
   // Navigation
-  dashboard: LayoutDashboard,
-  sessions: GraduationCap,
-  students: Users,
-  calendar: Calendar,
-  messages: MessageSquare,
-  analytics: BarChart3,
-  earnings: Wallet,
-  wallet: Wallet,
-  reviews: Star,
-  profile: User,
-  "professional-profile": User,
-  settings: Settings,
-  notifications: Bell,
-  logout: LogOut,
-
+  dashboard: "grid_view",
+  sessions: "school",
+  students: "groups",
+  calendar: "calendar_month",
+  messages: "chat",
+  "message-square": "chat",
+  chat: "chat",
+  analytics: "insights",
+  earnings: "account_balance_wallet",
+  wallet: "account_balance_wallet",
+  reviews: "star",
+  profile: "person",
+  "professional-profile": "person",
+  settings: "settings",
+  notifications: "notifications",
   // Actions
-  add: Plus,
-  plus: Plus,
-  edit: Edit3,
-  delete: Trash2,
-  close: X,
-  menu: Menu,
-  more: MoreHorizontal,
-  refresh: RefreshCw,
-  copy: Copy,
-  share: Share2,
-  search: Search,
-  filter: Filter,
-  download: Download,
-  upload: Upload,
-  send: Send,
+  add: "add",
+  plus: "add",
+  edit: "edit",
+  edit3: "edit",
+  delete: "delete",
+  trash2: "delete",
+  close: "close",
+  x: "close",
+  menu: "menu",
+  more: "more_horiz",
+  "more-horizontal": "more_horiz",
+  refresh: "refresh",
+  "refresh-cw": "refresh",
+  copy: "content_copy",
+  share: "share",
+  "share-2": "share",
+  search: "search",
+  filter: "filter_list",
+  download: "download",
+  upload: "upload",
+  send: "send",
+  "external-link": "open_in_new",
 
   // Navigation arrows
-  "chevron-right": ChevronRight,
-  "chevron-left": ChevronLeft,
-  "chevron-down": ChevronDown,
-  "arrow-up-right": ArrowUpRight,
-  "arrow-down-right": ArrowDownRight,
+  "chevron-right": "chevron_right",
+  "chevron-left": "chevron_left",
+  "chevron-down": "chevron_down",
+  "arrow-up-right": "north_east",
+  "arrow-down-right": "south_east",
 
   // Status
-  "check-circle": CheckCircle,
-  "check_circle": CheckCircle,
-  "alert-circle": AlertCircle,
-  "alert-triangle": AlertTriangle,
-  info: Info,
-  "question-mark": HelpCircle,
-  loader: Loader,
-  sparkles: Sparkles,
-  target: Target,
-  shield: Shield,
+  "check-circle": "check_circle",
+  check_circle: "check_circle",
+  "alert-circle": "error",
+  "alert-triangle": "warning",
+  info: "info",
+  "question-mark": "help",
+  "help-circle": "help",
+  loader: "sync",
+  sparkles: "auto_awesome",
+  target: "track_changes",
+  shield: "shield",
+  zap: "bolt",
+  bolt: "bolt",
+  award: "workspace_premium",
+  "check-square": "check_box",
+  check: "check",
+  "list-checks": "checklist",
 
   // Communication
-  video: Video,
-  "video-call": Video,
-  phone: Phone,
-  call: Phone,
-  mail: Mail,
-  email: Mail,
-  link: ExternalLink,
-  paperclip: Paperclip,
-  attachment: Paperclip,
-  image: Image,
-  emoji: Smile,
-  smile: Smile,
+  video: "videocam",
+  "video-call": "videocam",
+  phone: "call",
+  call: "call",
+  mail: "mail",
+  email: "mail",
+  link: "link",
+  paperclip: "attachment",
+  attachment: "attachment",
+  image: "image",
+  emoji: "emoji_emotions",
+  smile: "emoji_emotions",
 
   // Media
-  play: PlayCircle,
-  "play-circle": PlayCircle,
-  "voice-message": Mic,
-  mic: Mic,
+  play: "play_circle",
+  "play-circle": "play_circle",
+  "voice-message": "mic",
+  mic: "mic",
 
   // UI
-  sun: Sun,
-  moon: Moon,
-  "light-mode": Sun,
-  "dark-mode": Moon,
-  grid: Grid3X3,
-  list: List,
-  eye: Eye,
-  "eye-off": EyeOff,
+  sun: "light_mode",
+  "light-mode": "light_mode",
+  moon: "dark_mode",
+  "dark-mode": "dark_mode",
+  grid: "grid_view",
+  "grid-3x3": "grid_view",
+  list: "view_list",
+  eye: "visibility",
+  "eye-off": "visibility_off",
 
   // Business
-  trending: TrendingUp,
-  "trending-up": TrendingUp,
-  "trending-down": TrendingDown,
-  revenue: DollarSign,
-  "dollar-sign": DollarSign,
-  clock: Clock,
-  calendar_month: Calendar,
-  calendar_days: CalendarDays,
-  "calendar-days": CalendarDays,
-  today: CalendarDays,
+  trending: "trending_up",
+  "trending-up": "trending_up",
+  "trending-down": "trending_down",
+  revenue: "payments",
+  "dollar-sign": "payments",
+  clock: "schedule",
+  calendar_month: "calendar_month",
+  calendar_days: "calendar_month",
+  "calendar-days": "calendar_month",
+  today: "calendar_month",
+  home: "home",
+  globe: "language",
+  "book-open": "book",
+  book: "book",
+  courses: "school",
+  learning: "school",
 
   // Content
-  "file-text": FileText,
-  file: FileText,
-  document: FileText,
-  bookmark: Bookmark,
-  heart: Heart,
-  star: Star,
-  award: Award,
-  zap: Zap,
-  bolt: Zap,
-  book: BookOpen,
-  "book-open": BookOpen,
-  courses: BookOpen,
-  learning: BookOpen,
-  home: Home,
-  globe: Globe,
+  "file-text": "description",
+  file: "description",
+  document: "description",
+  bookmark: "bookmark",
+  heart: "favorite",
+  star: "star",
+  star_rate: "star",
 
-  // Lucide direct name mappings (used in MentorDashboard refactoring)
-  user: User,
-  users: Users,
-  "message-square": MessageSquare,
-  "user-x": UserX,
-  "bell-off": BellOff,
-  "check-square": CheckSquare,
-  check: Check,
-  "list-checks": ListChecks,
-  "calendar-plus": CalendarPlus,
-  "calendar-off": X,
-  "share-2": Share2,
+  // User-facing
+  user: "person",
+  users: "groups",
+  "user-x": "person_remove",
+  "bell-off": "notifications_off",
+  "calendar-plus": "event",
+  "calendar-off": "event_busy",
+  "calendar_add_on": "event",
 
-  // Material Symbols ↔ Lucide name mapping
-  grid_view: LayoutDashboard,
-  video_camera_front: Video,
-  groups: Users,
-  chat: MessageSquare,
-  chat_bubble: MessageSquare,
-  insights: BarChart3,
-  payments: Wallet,
-  person: User,
-  star_rate: Star,
-  school: GraduationCap,
-  menu_open: ChevronLeft,
-  expand_more: ChevronDown,
-  logout: LogOut,
-  "calendar_add_on": CalendarPlus,
-  "notifications_off": BellOff,
-  "group_off": UserX,
-  "event_busy": X,
-  checklist: CheckSquare,
-  "pending_actions": Clock,
-  
+  // Material Symbols direct names
+  grid_view: "grid_view",
+  video_camera_front: "videocam",
+  groups: "groups",
+  chat_bubble: "chat",
+  insights: "insights",
+  payments: "payments",
+  person: "person",
+  school: "school",
+  menu_open: "menu_open",
+  expand_more: "expand_more",
+  logout: "logout",
+  notifications_off: "notifications_off",
+  group_off: "group_off",
+  event_busy: "event_busy",
+  checklist: "checklist",
+  pending_actions: "pending",
+
   // Default fallback
-  default: LayoutDashboard,
+  default: "grid_view",
 };
 
-export default function SsIcon({ name, size = 20, className = "", ...props }) {
+export default function SsIcon({ name, size = 20, className = "", style, ...props }) {
   const normalizedName = (name || "default").toLowerCase().replace(/[\s_]+/g, "-");
-  const IconComponent = iconMap[normalizedName] || iconMap[name] || iconMap.default;
-  
-  if (!IconComponent) return null;
-  
+  const iconName = iconMap[normalizedName] || iconMap[name] || iconMap.default;
+
   return (
-    <IconComponent
-      size={size}
-      className={className}
-      strokeWidth={1.5}
+    <span
+      className={`material-symbols-outlined ${className}`.trim()}
+      style={{
+        fontSize: size,
+        width: size,
+        height: size,
+        lineHeight: 1,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        ...style,
+      }}
+      aria-hidden="true"
       {...props}
-    />
+    >
+      {iconName}
+    </span>
   );
 }

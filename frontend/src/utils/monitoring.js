@@ -38,7 +38,7 @@ const dispatchMonitoringEvent = (eventName, payload) => {
     return;
   }
 
-  if (APP_ENV !== "production" && typeof console !== "undefined") {
+  if (APP_ENV === "development" && typeof console !== "undefined") {
     console.info(`[monitoring] ${eventName}`, payload);
   }
 };

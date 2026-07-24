@@ -2,6 +2,7 @@ package com.skillswap.booking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
@@ -16,16 +17,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.annotation.Rollback;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -34,6 +37,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -42,473 +46,347 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-@org.springframework.test.context.TestPropertySource(properties = {
-                "app.jwt.expiration-ms=3600000",
-                "app.jwt.refresh-expiration-ms=604800000",
-                "app.auth.cookies.secure=false",
-                "app.oauth2.redirect-url=http://localhost:5174/auth/callback",
-                "app.polygon.rpc-url=http://localhost:8545",
-                "spring.datasource.url=jdbc:h2:mem:booking-lifecycle-it;MODE=MySQL;DB_CLOSE_DELAY=-1",
-                "spring.datasource.driver-class-name=org.h2.Driver",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
-                "spring.jpa.hibernate.ddl-auto=create-drop",
-                "spring.flyway.enabled=false"
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:booking-lifecycle-it;MODE=MySQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=sa",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.flyway.enabled=false",
+        "app.jwt.secret=VGhpc0lzQVRlc3RTZWNyZXRLZXlGb3JKV1RBbmRUZXN0aW5nMTIzNDU2Nzg5MA==",
+        "app.jwt.expiration-ms=3600000",
+        "app.jwt.refresh-expiration-ms=604800000",
+        "app.auth.cookies.secure=false",
+        "app.oauth2.redirect-url=http://localhost:5174/auth/callback",
+        "app.polygon.rpc-url=http://localhost:8545"
 })
+@Transactional
+@Rollback
 class BookingLifecycleIntegrationTest {
 
-        @MockitoBean
-        private ClientRegistrationRepository clientRegistrationRepository;
+    @MockBean
+    private ClientRegistrationRepository clientRegistrationRepository;
 
-        @Autowired
-        private MockMvc mockMvc;
+    @MockBean
+    private EmailNotificationService emailNotificationService;
 
-        @Autowired
-        private ObjectMapper objectMapper;
+    @Autowired
+    private MockMvc mockMvc;
 
-        @Autowired
-        private UserRepository userRepository;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-        @Autowired
-        private SessionRepository sessionRepository;
+    @Autowired
+    private UserRepository userRepository;
 
-        @Autowired
-        private BookingRepository bookingRepository;
+    @Autowired
+    private SessionRepository sessionRepository;
 
-        @Autowired
-        private PaymentRepository paymentRepository;
+    @Autowired
+    private BookingRepository bookingRepository;
 
-        @Autowired
-        private WalletService walletService;
+    @Autowired
+    private PaymentRepository paymentRepository;
 
-        @Autowired
-        private PasswordEncoder passwordEncoder;
+    @Autowired
+    private WalletService walletService;
 
-        private String defaultPassword;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
-        @BeforeEach
-        void setUp() {
-                defaultPassword = "Password123!";
+    private User mentor;
+    private User learner;
+    private User learner2;
+    private SkillSession futureSession;
+    private SkillSession pastSession;
+
+    @BeforeEach
+    void setUp() {
+        mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
+        learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
+        learner2 = createUser(uniqueEmail("learner2"), UserRole.LEARNER);
+
+        // Session with future start time (for creating bookings)
+        futureSession = createSession(mentor, new BigDecimal("100.00"),
+                OffsetDateTime.now().plusDays(2),
+                OffsetDateTime.now().plusDays(2).plusHours(1));
+
+        // Session with past times (for starting and completing)
+        pastSession = createSession(mentor, new BigDecimal("100.00"),
+                OffsetDateTime.now().minusHours(3),
+                OffsetDateTime.now().minusHours(1));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 1: Full booking lifecycle
+    //  create → accept (escrow) → start → complete (release)
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenLearnerWithBalance_whenBookingLifecycleCompleted_thenWalletTransferredCorrectly() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        Long bookingId = createBooking(pastSession.getId(), learner);
+
+        // Mentor accepts → wallet debited, escrow created
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk());
+
+        // Verify learner balance was debited (200 - 100 = 100)
+        BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
+        assertThat(learnerBalance).isEqualByComparingTo("100.00");
+
+        // Verify escrowed payment exists
+        Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+        assertThat(payment).isNotNull();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ESCROWED);
+        assertThat(payment.getAmount()).isEqualByComparingTo("100.00");
+
+        // Start the booking
+        mockMvc.perform(post("/api/v1/bookings/{id}/start", bookingId)
+                        .with(csrf())
+                        .with(user(mentor)))
+                .andExpect(status().isOk());
+
+        // Complete the booking via status update → escrow released, mentor credited (90.00 after 10% fee)
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"COMPLETED\"}"))
+                .andExpect(status().isOk());
+
+        // Verify mentor received payout minus 10% fee
+        BigDecimal mentorBalance = walletService.balance(reloadUser(mentor.getId())).balance();
+        assertThat(mentorBalance).isEqualByComparingTo("90.00");
+
+        // Verify payment released
+        payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.RELEASED);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 2: Insufficient wallet balance on acceptance
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenLearnerWithInsufficientBalance_whenBookingAccepted_thenReturn400() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("50.00"));
+
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error").value(org.hamcrest.Matchers.containsString("Insufficient")));
+
+        // Verify learner balance unchanged
+        BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
+        assertThat(learnerBalance).isEqualByComparingTo("50.00");
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 3: Cancel pending booking (no wallet impact)
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenPendingBooking_whenCancelledByLearner_thenNoWalletChange() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(learner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CANCELLED\"}"))
+                .andExpect(status().isOk());
+
+        // Verify learner balance unchanged (no escrow was created for pending booking)
+        BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
+        assertThat(learnerBalance).isEqualByComparingTo("200.00");
+
+        // Verify no payment record exists
+        Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+        assertThat(payment).isNull();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 4: Cancel accepted booking (full refund)
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenAcceptedBooking_whenCancelled_thenFullRefund() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        // Mentor accepts → escrow held
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk());
+
+        // Learner cancels → full refund
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(learner))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CANCELLED\"}"))
+                .andExpect(status().isOk());
+
+        // Verify learner fully refunded (200 - 100 + 100 = 200)
+        BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
+        assertThat(learnerBalance).isEqualByComparingTo("200.00");
+
+        // Verify payment refunded
+        Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+        assertThat(payment).isNotNull();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 5: Non-owner can't update booking status
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenNonOwnerLearner_whenCancelling_thenReturn400() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        // learner2 (different learner) tries to cancel learner1's booking → 400
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(learner2))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"CANCELLED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error")
+                        .value(org.hamcrest.Matchers.containsString("Only the learner or mentor can cancel")));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 6: Idempotency key replay returns same booking
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenDuplicateIdempotencyKey_whenCreatingBooking_thenReturnSameBooking() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        String idempotencyKey = "test-key-12345678";
+
+        // First request
+        MvcResult firstResult = mockMvc.perform(post("/api/v1/bookings")
+                        .with(csrf())
+                        .with(user(learner))
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\": %d}".formatted(futureSession.getId())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long firstBookingId = readBookingId(firstResult);
+
+        // Second request with same key → returns same booking
+        MvcResult secondResult = mockMvc.perform(post("/api/v1/bookings")
+                        .with(csrf())
+                        .with(user(learner))
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\": %d}".formatted(futureSession.getId())))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        long secondBookingId = readBookingId(secondResult);
+        assertThat(secondBookingId).isEqualTo(firstBookingId);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Helpers
+    // ═══════════════════════════════════════════════════════════
+
+    private User createUser(String email, UserRole role) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode("Password123!"));
+        user.setRole(role);
+        user.setReferralCode("TEST-" + UUID.randomUUID());
+        user.setFullName(role.name() + " User " + UUID.randomUUID().toString().substring(0, 8));
+        user.setEnabled(true);
+        return userRepository.save(user);
+    }
+
+    private SkillSession createSession(User sessionMentor, BigDecimal price,
+                                        OffsetDateTime start, OffsetDateTime end) {
+        SkillSession session = new SkillSession();
+        session.setMentor(sessionMentor);
+        session.setTitle("Integration Session " + UUID.randomUUID().toString().substring(0, 8));
+        session.setDescription("Session description");
+        session.setSessionType("ONLINE");
+        session.setStartTime(start);
+        session.setEndTime(end);
+        session.setPriceAmount(price);
+        session.setMeetingLink("https://example.com/meeting/" + UUID.randomUUID());
+        session.setMaxParticipants(1);
+        return sessionRepository.save(session);
+    }
+
+    private void creditWallet(Long userId, BigDecimal amount) {
+        walletService.addEntryForUser(userId, new WalletService.WalletEntryRequest(
+                WalletTransactionType.CREDIT,
+                amount,
+                "CREDITS",
+                "Test credit for integration test",
+                "TEST",
+                userId));
+    }
+
+    private Long createBooking(Long sessionId, User learnerUser) throws Exception {
+        String idempotencyKey = "itest-" + UUID.randomUUID().toString().substring(0, 8);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/bookings")
+                        .with(csrf())
+                        .with(user(learnerUser))
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sessionId\": %d}".formatted(sessionId)))
+                .andReturn();
+
+        int responseStatus = result.getResponse().getStatus();
+        if (responseStatus != 200) {
+            String body = result.getResponse().getContentAsString();
+            Exception resolved = result.getResolvedException();
+            String errorDetail = resolved != null
+                    ? resolved.getClass().getName() + ": " + resolved.getMessage()
+                    : "no exception";
+            throw new AssertionError(
+                    "Create booking failed with status %d. body=%s error=%s".formatted(
+                            responseStatus, body, errorDetail));
         }
 
-        @Test
-        @Transactional
-        @Rollback
-        void givenLearnerWithSufficientBalance_whenBookingAccepted_thenWalletDebited() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(mentor, new BigDecimal("100.00"), OffsetDateTime.now().plusDays(2),
-                                OffsetDateTime.now().plusDays(2).plusHours(1));
-
-                creditWallet(learner.getId(), new BigDecimal("200.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                String mentorToken = loginAndGetJwtToken(mentor.getEmail(), defaultPassword);
-
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-1");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"ACCEPTED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
-                assertThat(learnerBalance).isEqualByComparingTo("100.00");
-
-                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
-                assertThat(payment).isNotNull();
-                assertThat(payment.getStatus()).isEqualTo(PaymentStatus.ESCROWED);
-                assertThat(payment.getAmount()).isEqualByComparingTo("100.00");
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenLearnerWithInsufficientBalance_whenBookingAccepted_thenReturn400() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(mentor, new BigDecimal("100.00"), OffsetDateTime.now().plusDays(2),
-                                OffsetDateTime.now().plusDays(2).plusHours(1));
-
-                creditWallet(learner.getId(), new BigDecimal("50.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                String mentorToken = loginAndGetJwtToken(mentor.getEmail(), defaultPassword);
-
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-2");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"ACCEPTED"}
-                                                """))
-                                .andExpect(status().isBadRequest())
-                                .andExpect(jsonPath("$.data.error")
-                                                .value(org.hamcrest.Matchers.containsString("Insufficient")));
-
-                BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
-                assertThat(learnerBalance).isEqualByComparingTo("50.00");
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenAcceptedBooking_whenCompleted_thenMentorCreditedAndFeeDeducted() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(
-                                mentor,
-                                new BigDecimal("100.00"),
-                                OffsetDateTime.now().minusHours(3),
-                                OffsetDateTime.now().minusHours(1));
-
-                creditWallet(learner.getId(), new BigDecimal("200.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                String mentorToken = loginAndGetJwtToken(mentor.getEmail(), defaultPassword);
-
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-3");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"ACCEPTED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(post("/api/v1/bookings/{id}/start", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken)))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"COMPLETED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                BigDecimal mentorBalance = walletService.balance(reloadUser(mentor.getId())).balance();
-                assertThat(mentorBalance).isEqualByComparingTo("90.00");
-
-                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
-                assertThat(payment).isNotNull();
-                assertThat(payment.getStatus()).isEqualTo(PaymentStatus.RELEASED);
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenPendingBooking_whenCancelledByLearner_thenNoWalletChange() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(mentor, new BigDecimal("100.00"), OffsetDateTime.now().plusDays(3),
-                                OffsetDateTime.now().plusDays(3).plusHours(1));
-
-                creditWallet(learner.getId(), new BigDecimal("200.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-4");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"CANCELLED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
-                assertThat(learnerBalance).isEqualByComparingTo("200.00");
-
-                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
-                assertThat(payment).isNull();
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenAcceptedBooking_whenCancelledBeforeWindow_thenFullRefund() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(
-                                mentor,
-                                new BigDecimal("100.00"),
-                                OffsetDateTime.now().plusHours(48),
-                                OffsetDateTime.now().plusHours(49));
-
-                creditWallet(learner.getId(), new BigDecimal("200.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                String mentorToken = loginAndGetJwtToken(mentor.getEmail(), defaultPassword);
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-5");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"ACCEPTED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"CANCELLED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
-                assertThat(learnerBalance).isEqualByComparingTo("200.00");
-
-                Payment payment = bookingRepository.findById(bookingId).orElseThrow().getPayment();
-                assertThat(payment).isNotNull();
-                assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenCompletedBooking_whenLearnerSubmitsReview_thenReviewSaved() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(
-                                mentor,
-                                new BigDecimal("100.00"),
-                                OffsetDateTime.now().minusHours(4),
-                                OffsetDateTime.now().minusHours(2));
-
-                creditWallet(learner.getId(), new BigDecimal("200.00"));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-                String mentorToken = loginAndGetJwtToken(mentor.getEmail(), defaultPassword);
-                Long bookingId = createBooking(session.getId(), learnerToken, "booking-lifecycle-test-6");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"ACCEPTED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(post("/api/v1/bookings/{id}/start", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken)))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(mentorToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"COMPLETED"}
-                                                """))
-                                .andExpect(status().isOk());
-
-                mockMvc.perform(post("/api/v1/reviews")
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {
-                                                  "bookingId": %d,
-                                                  "mentorId": %d,
-                                                  "rating": 5,
-                                                  "comment": "Great session!"
-                                                }
-                                                """.formatted(bookingId, mentor.getId())))
-                                .andExpect(status().is2xxSuccessful())
-                                .andExpect(jsonPath("$.message").value("Review submitted"));
-
-                mockMvc.perform(get("/api/v1/reviews/mentor/{mentorId}", mentor.getId())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken)))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.data.reviews[0].comment").value("Great session!"));
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenNonOwnerLearner_whenUpdatingBookingStatus_thenReturn400() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner1 = createUser(uniqueEmail("learner1"), UserRole.LEARNER);
-                User learner2 = createUser(uniqueEmail("learner2"), UserRole.LEARNER);
-                SkillSession session = createSession(mentor, new BigDecimal("100.00"), OffsetDateTime.now().plusDays(2),
-                                OffsetDateTime.now().plusDays(2).plusHours(1));
-
-                String learner1Token = loginAndGetJwtToken(learner1.getEmail(), defaultPassword);
-                String learner2Token = loginAndGetJwtToken(learner2.getEmail(), defaultPassword);
-
-                Long bookingId = createBooking(session.getId(), learner1Token, "booking-lifecycle-test-7");
-
-                mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learner2Token))
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"status":"CANCELLED"}
-                                                """))
-                                .andExpect(status().isBadRequest());
-        }
-
-        @Test
-        @Transactional
-        @Rollback
-        void givenDuplicateBookingRequest_whenSameIdempotencyKey_thenReturnSameBooking() throws Exception {
-                User mentor = createUser(uniqueEmail("mentor"), UserRole.MENTOR);
-                User learner = createUser(uniqueEmail("learner"), UserRole.LEARNER);
-                SkillSession session = createSession(mentor, new BigDecimal("100.00"), OffsetDateTime.now().plusDays(2),
-                                OffsetDateTime.now().plusDays(2).plusHours(1));
-
-                String learnerToken = loginAndGetJwtToken(learner.getEmail(), defaultPassword);
-
-                String idempotencyKey = "test-key-123";
-
-                MvcResult firstResult = mockMvc.perform(post("/api/v1/bookings")
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .header("Idempotency-Key", idempotencyKey)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"sessionId": %d}
-                                                """.formatted(session.getId())))
-                                .andExpect(status().isOk())
-                                .andReturn();
-
-                long firstBookingId = readBookingId(firstResult);
-
-                MvcResult secondResult = mockMvc.perform(post("/api/v1/bookings")
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .header("Idempotency-Key", idempotencyKey)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"sessionId": %d}
-                                                """.formatted(session.getId())))
-                                .andExpect(status().isOk())
-                                .andExpect(jsonPath("$.message").value("Booking replayed"))
-                                .andReturn();
-
-                long secondBookingId = readBookingId(secondResult);
-                assertThat(secondBookingId).isEqualTo(firstBookingId);
-        }
-
-        private User createUser(String email, UserRole role) {
-                User user = new User();
-                user.setEmail(email);
-                user.setPasswordHash(passwordEncoder.encode(defaultPassword));
-                user.setRole(role);
-                user.setReferralCode("TEST-" + UUID.randomUUID());
-                user.setFullName(role.name() + " User " + UUID.randomUUID());
-                user.setEnabled(true);
-                return userRepository.save(user);
-        }
-
-        private SkillSession createSession(User mentor, BigDecimal price, OffsetDateTime start, OffsetDateTime end) {
-                SkillSession session = new SkillSession();
-                session.setMentor(mentor);
-                session.setTitle("Integration Session " + UUID.randomUUID());
-                session.setDescription("Session description");
-                session.setSessionType("ONLINE");
-                session.setStartTime(start);
-                session.setEndTime(end);
-                session.setPriceAmount(price);
-                session.setMeetingLink("https://example.com/meeting/" + UUID.randomUUID());
-                session.setMaxParticipants(1);
-                return sessionRepository.save(session);
-        }
-
-        private void creditWallet(Long userId, BigDecimal amount) {
-                walletService.addEntryForUser(userId, new WalletService.WalletEntryRequest(
-                                WalletTransactionType.CREDIT,
-                                amount,
-                                "CREDITS",
-                                "Test credit",
-                                "TEST",
-                                userId));
-        }
-
-        private Long createBooking(Long sessionId, String learnerToken, String idempotencyKey) throws Exception {
-                MvcResult result = mockMvc.perform(post("/api/v1/bookings")
-                                .with(csrf())
-                                .header(HttpHeaders.AUTHORIZATION, bearer(learnerToken))
-                                .header("Idempotency-Key", idempotencyKey)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {"sessionId": %d}
-                                                """.formatted(sessionId)))
-                                .andReturn();
-
-                int responseStatus = result.getResponse().getStatus();
-                if (responseStatus != 200) {
-                        Exception resolvedException = result.getResolvedException();
-                        String body = result.getResponse().getContentAsString();
-                        String message = "Create booking failed with status %d. response=%s resolved=%s".formatted(
-                                        responseStatus,
-                                        body,
-                                        resolvedException == null ? "null"
-                                                        : resolvedException.getClass().getName() + ": "
-                                                                        + resolvedException.getMessage());
-                        if (resolvedException != null) {
-                                throw new AssertionError(message, resolvedException);
-                        }
-                        throw new AssertionError(message);
-                }
-
-                return readBookingId(result);
-        }
-
-        private long readBookingId(MvcResult result) throws Exception {
-                JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
-                return root.path("data").path("id").asLong();
-        }
-
-        private String loginAndGetJwtToken(String email, String password) throws Exception {
-                MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("""
-                                                {
-                                                  "email": "%s",
-                                                  "password": "%s"
-                                                }
-                                                """.formatted(email, password)))
-                                .andExpect(status().isOk())
-                                .andReturn();
-
-                List<String> setCookies = loginResult.getResponse().getHeaders(HttpHeaders.SET_COOKIE);
-                return setCookies.stream()
-                                .filter(cookie -> cookie.startsWith("access_token="))
-                                .findFirst()
-                                .map(cookie -> cookie.substring("access_token=".length(), cookie.indexOf(';')))
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "Access token cookie not found after login"));
-        }
-
-        private User reloadUser(Long userId) {
-                return userRepository.findById(userId).orElseThrow();
-        }
-
-        private String bearer(String token) {
-                return "Bearer " + token;
-        }
-
-        private String uniqueEmail(String prefix) {
-                return prefix + "+" + UUID.randomUUID() + "@example.com";
-        }
+        return readBookingId(result);
+    }
+
+    private long readBookingId(MvcResult result) throws Exception {
+        JsonNode root = objectMapper.readTree(result.getResponse().getContentAsString());
+        return root.path("data").path("id").asLong();
+    }
+
+    private User reloadUser(Long userId) {
+        return userRepository.findById(userId).orElseThrow();
+    }
+
+    private String uniqueEmail(String prefix) {
+        return prefix + "+" + UUID.randomUUID() + "@example.com";
+    }
 }

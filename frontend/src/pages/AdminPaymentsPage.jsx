@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
-import StatsCard from '../modules/common/dashboard/StatsCard';
 import SectionCard from '../modules/common/dashboard/SectionCard';
 import TrendChart from '../modules/common/dashboard/TrendChart';
 import './AdminOperationsPage.css';
 import './AdminPaymentsPage.css';
+
+/* Stable empty array reference to avoid creating a new [] on every render */
+const EMPTY_ARRAY = [];
 
 /* ── Helpers ── */
 
@@ -202,7 +204,7 @@ export default function AdminPaymentsPage({ notify }) {
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
   /* ── Derived data ── */
-  const allPayments = paymentsData?.payments || [];
+  const allPayments = paymentsData?.payments || EMPTY_ARRAY;
   const totalRevenue = Number(paymentsData?.totalRevenue || 0);
   const totalEscrowed = Number(paymentsData?.totalEscrowed || 0);
   const totalRefunded = Number(paymentsData?.totalRefunded || 0);
@@ -234,7 +236,6 @@ export default function AdminPaymentsPage({ notify }) {
 
   const totalPages = Math.max(1, Math.ceil(filteredPayments.length / PAGE_SIZE));
   const pagedPayments = filteredPayments.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  const hasEscrowed = filteredPayments.some((p) => p.status === 'ESCROWED');
 
   /* ── Chart data ── */
   const revenueTrend = useMemo(() => {
@@ -508,7 +509,7 @@ export default function AdminPaymentsPage({ notify }) {
   };
 
   /** Horizontal bar chart showing gateway usage */
-  const GatewayChart = ({ data, maxWidth = 240 }) => {
+  const GatewayChart = ({ data }) => {
     const maxCount = Math.max(...data.map((d) => d.count), 1);
     return (
       <div className="ap-gateway-chart">
