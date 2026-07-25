@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
+import "../modules/mentor/mentor-pages.css";
 
 /* ───────────── helpers ───────────── */
 
@@ -804,15 +805,10 @@ export default function LearnerMessagesPage({ profile }) {
   /* ── Loading ── */
   if (loading) {
     return (
-      <div className="ms-shell">
-        <div className="ms-skel">
-          <div className="ms-skel-panel">
-            {[1,2,3,4].map((k) => <div key={k} className="ms-skel-row"><div className="ms-skel-av" /><div className="ms-skel-lines"><div className="ms-skel-l" /><div className="ms-skel-l ms-skel-l--60" /></div></div>)}
-          </div>
-          <div className="ms-skel-panel ms-skel-panel--chat">
-            <div className="ms-skel-hdr"><div className="ms-skel-av" /><div className="ms-skel-l ms-skel-l--40" /></div>
-            <div className="ms-skel-body">{[1,2,3].map((k) => <div key={k} className="ms-skel-bubble" />)}</div>
-          </div>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="mp-settings-loading">
+          <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+          <p className="mp-settings-loading__text">Loading messages…</p>
         </div>
       </div>
     );
@@ -820,13 +816,16 @@ export default function LearnerMessagesPage({ profile }) {
 
   if (error) {
     return (
-      <div className="ms-shell">
-        <div className="ms-error">
-          <span className="ms-error__icon"><Icon name="error" /></span>
-          <h3>Messages could not be loaded</h3>
-          <p>{error}</p>
-          <button type="button" className="ms-btn ms-btn--primary" onClick={handleRetry}>
-            <Icon name="refresh" /> Retry
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">error_outline</span>
+          </div>
+          <h3 className="md-empty__title">Messages could not be loaded</h3>
+          <p className="md-empty__desc">{error}</p>
+          <button type="button" className="mp-btn mp-btn--primary" onClick={handleRetry}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
           </button>
         </div>
       </div>
@@ -836,24 +835,33 @@ export default function LearnerMessagesPage({ profile }) {
   /* ── Empty state ── */
   if (!allConvs.length && !urlConversationId && !fetchingDirectConv) {
     return (
-      <div className="ms-shell">
-        <div className="ms-empty">
-          <div className="ms-empty__icon">
-            <Icon name="forum" />
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        {/* ===== Premium Hero ===== */}
+        <section className="mp-hero">
+          <div className="mp-hero__watermark">
+            <span className="material-symbols-outlined" style={{ fontSize: 78 }}>forum</span>
           </div>
-          <h2 className="ms-empty__title">Start your first conversation</h2>
-          <p className="ms-empty__desc">
-            Choose a mentor and send your first message to get started.
-          </p>
-          <div className="ms-empty__actions">
-            <button type="button" className="ms-btn ms-btn--primary" onClick={() => setShowNewChat(true)}>
-              <Icon name="add_comment" /> New Chat
-            </button>
-            <Link to="/learner/mentors" className="ms-btn ms-btn--outline">
-              <Icon name="person_search" /> Browse Mentors
-            </Link>
+          <div className="mp-hero__content">
+            <div className="mp-hero__eyebrow">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>chat</span>
+              MESSAGES
+            </div>
+            <h1>Your Messages</h1>
+            <p className="mp-hero__sub">
+              Connect with your mentors through direct messaging. Start a conversation and get the guidance you need.
+            </p>
+            <div className="mp-hero__actions">
+              <button type="button" className="mp-btn mp-btn--primary" onClick={() => setShowNewChat(true)}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>add_comment</span>
+                New Chat
+              </button>
+              <Link to="/learner/mentors" className="mp-btn mp-btn--outline">
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>person_search</span>
+                Browse Mentors
+              </Link>
+            </div>
           </div>
-        </div>
+        </section>
 
         {/* New Chat Modal (empty state) */}
         {renderNewChatModal()}

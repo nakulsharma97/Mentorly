@@ -3,6 +3,11 @@
    Uses project CSS variables from styles.css
    ============================================================ */
 
+/* ── Custom Properties ────────────────────────────────── */
+:root {
+  --pp-transition: var(--pp-transition);
+}
+
 /* ── Shell ────────────────────────────────────────────── */
 .pp-shell {
   max-width: 1200px;
@@ -28,7 +33,7 @@
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--pp-transition);
   border: none;
   text-decoration: none;
   white-space: nowrap;
@@ -223,7 +228,7 @@
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--pp-transition);
 }
 .pp-tab:hover {
   transform: translateY(-1px);
@@ -390,7 +395,7 @@
   font-size: 0.9rem;
   color: var(--input-text);
   background: var(--input-bg);
-  transition: all 0.2s ease;
+  transition: var(--pp-transition);
   outline: none;
   box-sizing: border-box;
 }
@@ -441,7 +446,7 @@
   background: var(--brand-tint);
   color: var(--brand);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--pp-transition);
 }
 .pp-chip:hover { background: var(--brand-tint-strong); }
 .pp-chip__remove {

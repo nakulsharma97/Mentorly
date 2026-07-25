@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { SkeletonTable } from "../components/SkeletonLoaders";
 import StatsCard from "../modules/common/dashboard/StatsCard";
-import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import Icon from "../modules/common/dashboard/Icon";
 import StudentDrawer from "../modules/mentor/components/students/StudentDrawer";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
@@ -35,14 +34,7 @@ export default function MentorStudentsPage({ profile, notify }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
 
-  const loadStudentsRef = useRef(null);
-
-  useEffect(() => {
-    document.title = "Students | SkillSwap Mentor";
-    loadStudentsRef.current?.();
-  }, []);
-
-  const loadStudents = async () => {
+  const loadStudents = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
@@ -164,9 +156,15 @@ export default function MentorStudentsPage({ profile, notify }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id, notify]);
 
-  loadStudentsRef.current = loadStudents;
+  useEffect(() => {
+    document.title = "Students | SkillSwap Mentor";
+  }, []);
+
+  useEffect(() => {
+    loadStudents();
+  }, [loadStudents]);
 
   const skillOptions = useMemo(() => {
     const set = new Set();
@@ -229,6 +227,287 @@ export default function MentorStudentsPage({ profile, notify }) {
     });
   };
 
+  const renderTable = () => (
+    <div className="mp-table-wrap mp-table-wrap--desktop">
+      <table className="mp-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th className="mp-col-hide-md">Skill</th>
+            <th className="mp-col-hide-lg">Sessions</th>
+            <th className="mp-col-hide-lg">Upcoming</th>
+            <th className="mp-col-hide-md">Joined</th>
+            <th style={{ minWidth: 140 }}>Progress</th>
+            <th>Status</th>
+            <th style={{ textAlign: "right" }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((s) => (
+            <tr key={s.id} onClick={() => setSelected(s)}>
+              <td>
+                <div className="mp-cell-user">
+                  <span className="md-avatar md-avatar--sm">
+                    {initials(s.name)}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <p className="mp-cell-user__name">{s.name}</p>
+                    <p className="mp-cell-user__email">{s.email || "—"}</p>
+                  </div>
+                </div>
+              </td>
+              <td className="mp-col-hide-md">
+                <span className="md-badge md-badge--info">{s.skill}</span>
+              </td>
+              <td className="mp-col-hide-lg">
+                <span className="mp-cell-progress__label">
+                  {s.completed}/{s.totalSessions}
+                </span>
+              </td>
+              <td className="mp-col-hide-lg">
+                {s.nextSession
+                  ? new Date(s.nextSession).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "—"}
+              </td>
+              <td className="mp-col-hide-md">
+                {s.joined
+                  ? new Date(s.joined).toLocaleDateString(undefined, {
+                      month: "short",
+                      year: "2-digit",
+                    })
+                  : "—"}
+              </td>
+              <td>
+                <div className="mp-cell-progress">
+                  <div className="md-progress-track">
+                    <div
+                      className="md-progress-fill"
+                      style={{ width: `${s.progress}%` }}
+                    />
+                  </div>
+                  <span className="mp-cell-progress__label">{s.progress}%</span>
+                </div>
+              </td>
+              <td>
+                <span className={`mp-pill mp-pill--${s.status}`}>
+                  {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                </span>
+              </td>
+              <td onClick={(e) => e.stopPropagation()}>
+                <div className="mp-row-actions">
+                  <button
+                    className="mp-icon-btn"
+                    title="View details"
+                    onClick={() => setSelected(s)}
+                  >
+                    <Icon name="visibility" />
+                  </button>
+                  <button
+                    className="mp-icon-btn"
+                    title="Message"
+                    onClick={() => navigate("/mentor/messages")}
+                  >
+                    <Icon name="chat_bubble" />
+                  </button>
+                  <button
+                    className="mp-icon-btn"
+                    title="Download report"
+                    onClick={() => downloadReport(s)}
+                  >
+                    <Icon name="download" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderStudentCard = (s) => (
+    <div
+      key={s.id}
+      className="mp-student-card"
+      onClick={() => setSelected(s)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelected(s); }}
+    >
+      {/* Card top: avatar + name + status + actions */}
+      <div className="mp-student-card__top">
+        <div className="mp-student-card__user">
+          <span className="mp-student-card__avatar">
+            {initials(s.name)}
+          </span>
+          <div className="mp-student-card__info">
+            <p className="mp-student-card__name">{s.name}</p>
+            <p className="mp-student-card__email">{s.email || "—"}</p>
+          </div>
+        </div>
+        <span className={`mp-pill mp-pill--${s.status}`}>
+          {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+        </span>
+      </div>
+
+      {/* Card meta: skill badge + sessions */}
+      <div className="mp-student-card__meta">
+        <span className="md-badge md-badge--info">{s.skill}</span>
+        <span className="mp-student-card__stat">
+          {s.completed}/{s.totalSessions} sessions
+        </span>
+        {s.nextSession && (
+          <span className="mp-student-card__stat">
+            Upcoming: {new Date(s.nextSession).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div className="mp-student-card__progress">
+        <div className="mp-student-card__progress-head">
+          <span className="mp-student-card__progress-label">Progress</span>
+          <span className="mp-student-card__progress-value">{s.progress}%</span>
+        </div>
+        <div className="md-progress-track">
+          <div
+            className="md-progress-fill"
+            style={{ width: `${s.progress}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Card actions */}
+      <div className="mp-student-card__actions" onClick={(e) => e.stopPropagation()}>
+        <button
+          className="md-btn md-btn--outline md-btn--xs"
+          title="View details"
+          onClick={() => setSelected(s)}
+        >
+          <Icon name="visibility" /> Details
+        </button>
+        <button
+          className="md-btn md-btn--outline md-btn--xs"
+          title="Message"
+          onClick={() => navigate("/mentor/messages")}
+        >
+          <Icon name="chat_bubble" /> Message
+        </button>
+        <button
+          className="md-btn md-btn--outline md-btn--xs"
+          title="Download report"
+          onClick={() => downloadReport(s)}
+        >
+          <Icon name="download" /> Export
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderMobileCards = () => (
+    <div className="mp-student-cards">
+      {filtered.map((s) => renderStudentCard(s))}
+    </div>
+  );
+
+  const renderLoading = () => (
+    <>
+      <div className="mp-table-wrap mp-table-wrap--desktop">
+        <SkeletonTable rows={6} columns={6} />
+      </div>
+      {/* Mobile skeleton cards */}
+      <div className="mp-student-cards">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="mp-student-card mp-student-card--skeleton" />
+        ))}
+      </div>
+    </>
+  );
+
+  const renderError = () => (
+    <div className="md-empty">
+      <div className="md-empty__icon">
+        <Icon name="error" />
+      </div>
+      <p className="md-empty__title">Could not load students</p>
+      <p className="md-empty__desc">
+        There was a problem reaching the server. Please try again.
+      </p>
+      <button
+        type="button"
+        className="md-btn md-btn--outline md-btn--sm"
+        style={{ marginTop: 6 }}
+        onClick={loadStudents}
+      >
+        <Icon name="refresh" /> Retry
+      </button>
+    </div>
+  );
+
+  const renderEmpty = () => (
+    <div className="md-empty">
+      <div className="md-empty__icon">
+        <Icon name={students.length === 0 ? "groups" : "search_off"} />
+      </div>
+      <p className="md-empty__title">
+        {students.length === 0 ? "No students yet" : "No matches"}
+      </p>
+      <p className="md-empty__desc">
+        {students.length === 0
+          ? "Once learners book your sessions, they'll appear here with their progress and history."
+          : "Try adjusting your search or filters to find what you're looking for."}
+      </p>
+      {students.length === 0 ? (
+        <button
+          type="button"
+          className="md-btn md-btn--outline md-btn--sm"
+          style={{ marginTop: 6 }}
+          onClick={() => navigate("/mentor/calendar")}
+        >
+          <Icon name="add" /> Create a Session
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="md-btn md-btn--outline md-btn--sm"
+          style={{ marginTop: 6 }}
+          onClick={() => {
+            setSearch("");
+            setSkillFilter("all");
+            setStatusFilter("all");
+          }}
+        >
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
+
+  const renderCountBanner = () => {
+    if (loading || error) return null;
+    const showing = filtered.length;
+    const total = students.length;
+    if (total === 0) return null;
+    if (showing === total) {
+      return (
+        <div className="mp-toolbar__count">
+          {total} student{total !== 1 ? "s" : ""}
+        </div>
+      );
+    }
+    return (
+      <div className="mp-toolbar__count">
+        Showing {showing} of {total} student{total !== 1 ? "s" : ""}
+      </div>
+    );
+  };
+
   return (
     <div className="md md-page">
       <MentorPageHero
@@ -284,16 +563,17 @@ export default function MentorStudentsPage({ profile, notify }) {
         />
       </div>
 
-      {/* Toolbar */}
+      {/* Main card */}
       <div className="md-card md-animate" style={{ gap: 16 }}>
         <div className="mp-toolbar">
           <label className="mp-search">
             <Icon name="search" />
             <input
               type="search"
-              placeholder="Search students by name or email…"
+              placeholder="Search by name or email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search students"
             />
           </label>
           <select
@@ -333,134 +613,21 @@ export default function MentorStudentsPage({ profile, notify }) {
             <option value="progress">Progress</option>
             <option value="sessions">Sessions</option>
           </select>
+          {renderCountBanner()}
         </div>
 
-        {loading ? (
-          <SkeletonTable rows={6} columns={6} />
-        ) : error ? (
-          <EmptyState
-            icon="error"
-            title="Couldn't load students"
-            description="There was a problem reaching the server."
-          />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon="groups"
-            title={students.length === 0 ? "No students yet" : "No matches"}
-            description={
-              students.length === 0
-                ? "Once learners book your sessions, they'll appear here."
-                : "Try adjusting your search or filters."
-            }
-          />
-        ) : (
-          <div className="mp-table-wrap">
-            <table className="mp-table">
-              <thead>
-                <tr>
-                  <th>Student</th>
-                  <th className="mp-col-hide-md">Skill</th>
-                  <th className="mp-col-hide-lg">Sessions</th>
-                  <th className="mp-col-hide-lg">Upcoming</th>
-                  <th className="mp-col-hide-md">Joined</th>
-                  <th style={{ minWidth: 140 }}>Progress</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s.id} onClick={() => setSelected(s)}>
-                    <td>
-                      <div className="mp-cell-user">
-                        <span className="md-avatar md-avatar--sm">
-                          {initials(s.name)}
-                        </span>
-                        <div style={{ minWidth: 0 }}>
-                          <p className="mp-cell-user__name">{s.name}</p>
-                          <p className="mp-cell-user__email">
-                            {s.email || "—"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="mp-col-hide-md">
-                      <span className="md-badge md-badge--info">{s.skill}</span>
-                    </td>
-                    <td className="mp-col-hide-lg">
-                      {s.completed}/{s.totalSessions}
-                    </td>
-                    <td className="mp-col-hide-lg">
-                      {s.nextSession
-                        ? new Date(s.nextSession).toLocaleDateString(
-                            undefined,
-                            { month: "short", day: "numeric" },
-                          )
-                        : "—"}
-                    </td>
-                    <td className="mp-col-hide-md">
-                      {s.joined
-                        ? new Date(s.joined).toLocaleDateString(undefined, {
-                            month: "short",
-                            year: "2-digit",
-                          })
-                        : "—"}
-                    </td>
-                    <td>
-                      <div className="mp-cell-progress">
-                        <div className="md-progress-track">
-                          <div
-                            className="md-progress-fill"
-                            style={{ width: `${s.progress}%` }}
-                          />
-                        </div>
-                        <span
-                          style={{
-                            fontSize: "0.74rem",
-                            fontWeight: 700,
-                            color: "var(--md-muted)",
-                          }}
-                        >
-                          {s.progress}%
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`mp-pill mp-pill--${s.status}`}>
-                        {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                      </span>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="mp-row-actions">
-                        <button
-                          className="mp-icon-btn"
-                          title="View details"
-                          onClick={() => setSelected(s)}
-                        >
-                          <Icon name="visibility" />
-                        </button>
-                        <button
-                          className="mp-icon-btn"
-                          title="Message"
-                          onClick={() => navigate("/mentor/messages")}
-                        >
-                          <Icon name="chat_bubble" />
-                        </button>
-                        <button
-                          className="mp-icon-btn"
-                          title="Download report"
-                          onClick={() => downloadReport(s)}
-                        >
-                          <Icon name="download" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {loading
+          ? renderLoading()
+          : error
+            ? renderError()
+            : filtered.length === 0
+              ? renderEmpty()
+              : (
+                <>
+                  {renderTable()}
+                  {renderMobileCards()}
+                </>
+              )}
       </div>
 
       {selected && (

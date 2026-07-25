@@ -1784,72 +1784,142 @@ export function LearnerCertificatesPage() {
     }
   }
 
-  if (loading) return <LoadingBlock title="Loading certificates" />;
-  if (error)
+  if (loading) {
     return (
-      <ErrorBlock
-        title="Certificates could not be loaded"
-        error={error}
-        onRetry={() => setRefreshKey((value) => value + 1)}
-      />
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="mp-settings-loading">
+          <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+          <p className="mp-settings-loading__text">Loading certificates…</p>
+        </div>
+      </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">error_outline</span>
+          </div>
+          <h3 className="md-empty__title">Could not load certificates</h3>
+          <p className="md-empty__desc">{error}</p>
+          <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="lp-shell">
-      <PageHeader
-        title="Certificates"
-        subtitle="Certificates issued by the backend certification service."
-        actions={
-          <button
-            type="button"
-            className="md-btn md-btn--brand md-btn--sm"
-            onClick={refreshCertificates}
-          >
-            Re-evaluate
-          </button>
-        }
-      />
-      <div className="ld-stats md-animate">
-        <StatsCard
-          icon="workspace_premium"
-          label="Certificates"
-          value={certificates.length}
-          description="Issued on your account"
-        />
-        <StatsCard
-          icon="verified"
-          label="Ready"
-          value={certificates.length ? "Yes" : "No"}
-          description="Backend evaluation status"
-        />
-        <StatsCard
-          icon="calendar_month"
-          label="Latest"
-          value={certificates[0] ? formatDate(certificates[0].issuedAt) : "TBD"}
-          description="Most recent issuance"
-        />
-        <StatsCard
-          icon="badge"
-          label="Codes"
-          value={certificates[0]?.code ? 1 : 0}
-          description="Certificate codes present"
-        />
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ===== Premium Hero ===== */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>workspace_premium</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>verified</span>
+            CERTIFICATES
+          </div>
+          <h1>Your Certificates</h1>
+          <p className="mp-hero__sub">
+            View and manage certificates issued for completed learning milestones and achievements.
+          </p>
+          <div className="mp-hero__actions">
+            <button
+              type="button"
+              className="mp-btn mp-btn--primary mp-btn--sm"
+              onClick={refreshCertificates}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+              Re-evaluate
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== Stats Row ===== */}
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 20 }}>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>workspace_premium</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{certificates.length}</p>
+          <p className="mp-stat__label">Certificates</p>
+          <p className="mp-stat__desc">Issued on your account</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>verified</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{certificates.length ? "Yes" : "No"}</p>
+          <p className="mp-stat__label">Ready</p>
+          <p className="mp-stat__desc">Backend evaluation status</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>calendar_month</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{certificates[0] ? formatDate(certificates[0].issuedAt) : "TBD"}</p>
+          <p className="mp-stat__label">Latest</p>
+          <p className="mp-stat__desc">Most recent issuance</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>badge</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{certificates[0]?.code ? 1 : 0}</p>
+          <p className="mp-stat__label">Codes</p>
+          <p className="mp-stat__desc">Certificate codes present</p>
+        </div>
       </div>
-      <SectionCard title="Certificate gallery" icon="workspace_premium">
+
+      {/* ===== Certificate Gallery ===== */}
+      <div className="mp-card" style={{ marginTop: 18 }}>
+        <div className="mp-section__head">
+          <div className="mp-section__title">
+            <span className="material-symbols-outlined" style={{ fontSize: 22, color: "var(--mp-primary)" }}>workspace_premium</span>
+            Certificate Gallery
+          </div>
+        </div>
         {certificates.length ? (
-          <div className="lp-grid lp-grid--certificates">
+          <div className="mp-animate-stagger lp-grid lp-grid--certificates" style={{ margin: 0, padding: 0 }}>
             {certificates.map((certificate) => (
               <CertificateCard key={certificate.id} certificate={certificate} />
             ))}
           </div>
         ) : (
-          <EmptyState
-            icon="workspace_premium"
-            title="No certificates yet"
-            description="Use the backend evaluation endpoint to generate certificates when eligible."
-          />
+          <div className="md-empty" style={{ border: "none", padding: "32px 0" }}>
+            <div className="md-empty__icon">
+              <span className="material-symbols-outlined">workspace_premium</span>
+            </div>
+            <h3 className="md-empty__title">No certificates yet</h3>
+            <p className="md-empty__desc">
+              Complete learning milestones to earn certificates. Use the Re-evaluate button above to check for new eligible certificates.
+            </p>
+            <button
+              type="button"
+              className="mp-btn mp-btn--primary mp-btn--sm"
+              onClick={refreshCertificates}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
+              Re-evaluate
+            </button>
+          </div>
         )}
-      </SectionCard>
+      </div>
     </div>
   );
 }
@@ -2318,57 +2388,188 @@ export function LearnerSettingsPage() {
   useDocumentTitle("Settings");
   const [refreshKey, setRefreshKey] = useState(0);
   const { loading, data, error } = useNotificationsData(refreshKey);
+  const [localPrefs, setLocalPrefs] = useState(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  if (loading) return <LoadingBlock title="Loading settings" />;
-  if (error)
-    return (
-      <ErrorBlock
-        title="Settings could not be loaded"
-        error={error}
-        onRetry={() => setRefreshKey((value) => value + 1)}
-      />
-    );
-
-  const preferences = data?.preferences || null;
-
-  async function savePreferences(event) {
-    event.preventDefault();
-    if (!preferences) return;
-    try {
-      await apiPut("/api/v1/notifications/preferences", preferences);
-      setRefreshKey((value) => value + 1);
-    } catch (saveError) {
-      window.console.error(saveError);
+  // Sync localPrefs when API data arrives
+  useEffect(() => {
+    if (data?.preferences) {
+      setLocalPrefs({ ...data.preferences });
+      setDirty(false);
     }
+  }, [data]);
+
+  if (loading) {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="mp-settings-loading">
+          <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+          <p className="mp-settings-loading__text">Loading settings…</p>
+        </div>
+      </div>
+    );
   }
 
+  if (error) {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">error_outline</span>
+          </div>
+          <h3 className="md-empty__title">Could not load settings</h3>
+          <p className="md-empty__desc">{error}</p>
+          <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const toggleSetting = (key) => {
+    setLocalPrefs((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [key]: !prev[key] };
+    });
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    if (!localPrefs) return;
+    setSaving(true);
+    try {
+      await apiPut("/api/v1/notifications/preferences", localPrefs);
+      setDirty(false);
+    } catch (err) {
+      window.console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="lp-shell">
-      <PageHeader
-        title="Settings"
-        subtitle="Notification preferences and live backend account settings."
-      />
-      <SectionCard title="Notification preferences" icon="notifications">
-        {preferences ? (
-          <form className="lp-detail-stack" onSubmit={savePreferences}>
-            {Object.entries(preferences).map(([key, value]) => (
-              <label key={key} className="lp-setting-toggle">
-                <span>{key}</span>
-                <input type="checkbox" checked={Boolean(value)} readOnly />
-              </label>
-            ))}
-            <button type="submit" className="md-btn md-btn--brand md-btn--sm">
-              Save preferences
-            </button>
-          </form>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ===== Premium Hero ===== */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>settings</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>tune</span>
+            SETTINGS
+          </div>
+          <h1>Notification Preferences</h1>
+          <p className="mp-hero__sub">
+            Control your notification channels and how you receive updates from mentors and the platform.
+          </p>
+        </div>
+      </section>
+
+      {/* ===== Settings Card ===== */}
+      <div style={{ marginTop: 20 }}>
+        {localPrefs ? (
+          <div className="mp-card">
+            <div className="mp-section__head">
+              <div className="mp-section__title">
+                <span className="material-symbols-outlined" style={{ fontSize: 22, color: "var(--mp-primary)" }}>notifications</span>
+                Notification Preferences
+              </div>
+            </div>
+            <p style={{ margin: "-8px 0 18px", fontSize: "0.88rem", color: "var(--mp-text-secondary)", lineHeight: 1.6 }}>
+              Toggle individual notification channels. Changes are saved to your account.
+            </p>
+            <div className="mp-settings-list mp-animate-stagger">
+              {Object.entries(localPrefs).map(([key, value]) => (
+                <label key={key} className="mp-setting-row">
+                  <div className="mp-setting-row__info">
+                    <span className="mp-setting-row__label">
+                      {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+                    </span>
+                    <span className="mp-setting-row__desc">
+                      {key === "emailEnabled" ? "Receive notification emails in addition to in-app alerts."
+                        : key === "bookingUpdates" ? "Get notified when a booking or cancellation occurs."
+                        : key === "sessionAnnouncements" ? "Receive announcements about upcoming sessions."
+                        : key === "reviewAlerts" ? "Be notified when a review or rating is left."
+                        : key === "certificationAlerts" ? "Get notified when certifications are issued."
+                        : "Toggle this notification setting."}
+                    </span>
+                  </div>
+                  <div className="mp-setting-row__toggle">
+                    <div className={`mp-settings-toggle${value ? " mp-settings-toggle--on" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(value)}
+                        onChange={() => toggleSetting(key)}
+                        className="mp-settings-toggle__input"
+                      />
+                      <span className="mp-settings-toggle__track">
+                        <span className="mp-settings-toggle__thumb" />
+                      </span>
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
         ) : (
-          <EmptyState
-            icon="notifications"
-            title="No preferences found"
-            description="Notification preferences are not available for this account."
-          />
+          <div className="mp-card">
+            <div className="md-empty" style={{ border: "none", padding: "32px 0" }}>
+              <div className="md-empty__icon">
+                <span className="material-symbols-outlined">notifications_off</span>
+              </div>
+              <h3 className="md-empty__title">No preferences found</h3>
+              <p className="md-empty__desc">
+                Notification preferences are not available for this account.
+              </p>
+            </div>
+          </div>
         )}
-      </SectionCard>
+
+        {/* ===== Save Bar ===== */}
+        {dirty && (
+          <div className="mp-save-bar">
+            <div className="mp-save-bar__body">
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: "var(--mp-warning)" }}>edit_note</span>
+              <span className="mp-save-bar__text">You have unsaved changes</span>
+            </div>
+            <div className="mp-save-bar__actions">
+              <button
+                type="button"
+                className="mp-btn mp-btn--ghost mp-btn--sm"
+                onClick={() => {
+                  setLocalPrefs(data?.preferences ? { ...data.preferences } : null);
+                  setDirty(false);
+                }}
+                disabled={saving}
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                className="mp-btn mp-btn--primary mp-btn--sm"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <span className="mp-spinner mp-spinner--sm" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2401,15 +2602,34 @@ export function LearnerAchievementsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { loading, data, error } = useLearnerLearningData(refreshKey);
 
-  if (loading) return <LoadingBlock title="Loading achievements" />;
-  if (error)
+  if (loading) {
     return (
-      <ErrorBlock
-        title="Achievements could not be loaded"
-        error={error}
-        onRetry={() => setRefreshKey((value) => value + 1)}
-      />
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="mp-settings-loading">
+          <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+          <p className="mp-settings-loading__text">Loading achievements…</p>
+        </div>
+      </div>
     );
+  }
+
+  if (error) {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">error_outline</span>
+          </div>
+          <h3 className="md-empty__title">Could not load achievements</h3>
+          <p className="md-empty__desc">{error}</p>
+          <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const {
     certifications,
@@ -2462,50 +2682,100 @@ export function LearnerAchievementsPage() {
   ];
 
   return (
-    <div className="lp-shell">
-      <PageHeader
-        title="Achievements"
-        subtitle="All visible achievements are derived from backend records and live learner activity."
-      />
-      <div className="ld-stats md-animate">
-        <StatsCard
-          icon="workspace_premium"
-          label="Certificates"
-          value={certifications.length}
-          description="Backend issued"
-        />
-        <StatsCard
-          icon="bookmark"
-          label="Saved mentors"
-          value={savedMentors.length}
-          description="Mentor watchlist"
-        />
-        <StatsCard
-          icon="school"
-          label="Saved skills"
-          value={savedSkills.length}
-          description="Skill watchlist"
-        />
-        <StatsCard
-          icon="task_alt"
-          label="Completed"
-          value={completedBookings.length}
-          description="Closed sessions"
-        />
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ===== Premium Hero ===== */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>workspace_premium</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>military_tech</span>
+            ACHIEVEMENTS
+          </div>
+          <h1>Your Achievements</h1>
+          <p className="mp-hero__sub">
+            Track your learning milestones, certificates, saved mentors, and overall progress across the platform.
+          </p>
+        </div>
+      </section>
+
+      {/* ===== Stats Row ===== */}
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 20 }}>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>workspace_premium</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{certifications.length}</p>
+          <p className="mp-stat__label">Certificates</p>
+          <p className="mp-stat__desc">Backend issued</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>bookmark</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{savedMentors.length}</p>
+          <p className="mp-stat__label">Saved mentors</p>
+          <p className="mp-stat__desc">Mentor watchlist</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>school</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{savedSkills.length}</p>
+          <p className="mp-stat__label">Saved skills</p>
+          <p className="mp-stat__desc">Skill watchlist</p>
+        </div>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>task_alt</span>
+            </div>
+          </div>
+          <p className="mp-stat__value">{completedBookings.length}</p>
+          <p className="mp-stat__label">Completed</p>
+          <p className="mp-stat__desc">Closed sessions</p>
+        </div>
       </div>
-      <SectionCard title="Achievement list" icon="military_tech">
-        <div className="lp-achievement-list">
+
+      {/* ===== Achievement List Card ===== */}
+      <div className="mp-card" style={{ marginTop: 18 }}>
+        <div className="mp-section__head">
+          <div className="mp-section__title">
+            <span className="material-symbols-outlined" style={{ fontSize: 22, color: "var(--mp-primary)" }}>military_tech</span>
+            Achievement List
+          </div>
+        </div>
+        <p style={{ margin: "-8px 0 18px", fontSize: "0.88rem", color: "var(--mp-text-secondary)", lineHeight: 1.6 }}>
+          All visible achievements are derived from backend records and live learner activity.
+        </p>
+        <div className="mp-animate-stagger">
           {items.map((item) => (
-            <div key={item.title} className="lp-achievement">
-              <Icon name={item.icon} />
-              <div>
-                <strong>{item.title}</strong>
-                <p>{item.detail}</p>
+            <div key={item.title} className="mp-setting-row" style={{ cursor: "default" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, width: "100%" }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: "var(--mp-radius)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "var(--mp-primary-light)", color: "var(--mp-primary)",
+                  fontSize: "1.2rem", flexShrink: 0
+                }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{item.icon}</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <strong style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--mp-text)", display: "block" }}>{item.title}</strong>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--mp-text-secondary)" }}>{item.detail}</p>
+                </div>
               </div>
             </div>
           ))}
         </div>
-      </SectionCard>
+      </div>
     </div>
   );
 }

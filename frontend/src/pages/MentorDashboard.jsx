@@ -136,11 +136,7 @@ export default function MentorDashboard({ profile }) {
 
   const loadMentorDataRef = useRef(null);
 
-  useEffect(() => {
-    loadMentorDataRef.current?.();
-  }, []);
-
-  const loadMentorData = async () => {
+  const loadMentorData = useCallback(async () => {
     try {
       setLoading(true);
       await client.post("/api/v1/certifications/evaluate").catch(() => null);
@@ -328,9 +324,14 @@ export default function MentorDashboard({ profile }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  // Keep ref updated + initial load
   loadMentorDataRef.current = loadMentorData;
+
+  useEffect(() => {
+    loadMentorDataRef.current?.();
+  }, []);
 
   const bookingReferralLink = referral
     ? `https://skillswap.app/signup?ref=${referral.referralCode}`

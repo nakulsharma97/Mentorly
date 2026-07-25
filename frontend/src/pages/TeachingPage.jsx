@@ -3,6 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import client from "../api/client";
 import MobileBottomNav from "../components/MobileBottomNav";
 import { getApiErrorMessage } from "../utils/apiErrors";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
+import Icon from "../modules/common/dashboard/Icon";
+import StatsCard from "../modules/common/dashboard/StatsCard";
+import "../modules/mentor/mentor-pages.css";
 
 const SORT_OPTIONS = [
   { value: "dateAsc", label: "Date ↑" },
@@ -21,15 +25,7 @@ const STATUS_TABS = [
   { key: "Cancelled", label: "Cancelled" },
 ];
 
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+const ISO_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat(undefined, {
@@ -74,18 +70,18 @@ const getStatusLabel = (session) => {
   return "Published";
 };
 
-const badgeStyle = (status) => {
+const statusPillClass = (status) => {
   switch (status) {
     case "Published":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-100";
+      return "mp-pill mp-pill--active";
     case "Draft":
-      return "bg-slate-100 text-slate-800 border border-slate-200";
+      return "mp-pill mp-pill--inactive";
     case "Completed":
-      return "bg-slate-100 text-slate-700 border border-slate-200";
+      return "mp-pill mp-pill--completed";
     case "Cancelled":
-      return "bg-rose-50 text-rose-700 border border-rose-100";
+      return "mp-pill mp-pill--cancelled";
     default:
-      return "bg-slate-100 text-slate-800 border border-slate-200";
+      return "mp-pill mp-pill--inactive";
   }
 };
 
@@ -96,6 +92,7 @@ export default function TeachingPage({ notify }) {
   const [bookings, setBookings] = useState([]);
   const [availabilitySlots, setAvailabilitySlots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [savingSlot, setSavingSlot] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -475,6 +472,7 @@ export default function TeachingPage({ notify }) {
   const saveAvailability = async (event) => {
     event.preventDefault();
     setAvailabilityMessage("");
+
     if (!availabilityForm.startTime || !availabilityForm.endTime) {
       setAvailabilityMessage("Please provide both start and end times.");
       return;
@@ -492,6 +490,7 @@ export default function TeachingPage({ notify }) {
       active: true,
     };
 
+    setSavingSlot(true);
     try {
       let response;
       if (editingAvailability?.id) {
@@ -529,8 +528,11 @@ export default function TeachingPage({ notify }) {
         title: "Save failed",
         message: getApiErrorMessage(error, "Could not save availability."),
       });
+    } finally {
+      setSavingSlot(false);
     }
   };
+
   const removeAvailability = async (slotId) => {
     try {
       await client.delete(`/api/v1/availability/my-slots/${slotId}`);
@@ -556,7 +558,7 @@ export default function TeachingPage({ notify }) {
       if (!slotMap.has(day)) slotMap.set(day, slot);
     });
 
-    return DAYS.map((dayName, index) => {
+    return ISO_DAY_NAMES.map((dayName, index) => {
       const dayNumber = index + 1;
       return {
         dayName,
@@ -567,175 +569,133 @@ export default function TeachingPage({ notify }) {
   }, [availabilitySlots]);
 
   return (
-    <div className="md-page space-y-6">
-      <section className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-8 shadow-xl shadow-slate-200/40 transition duration-200 hover:-translate-y-0.5 hover:shadow-2xl">
-        <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-on-surface-variant">
-              Mentor &gt; Manage Sessions
-            </p>
-            <h1 className="mt-3 text-[2.4rem] font-bold tracking-tight text-on-surface">
-              Manage Sessions
-            </h1>
-            <p className="mt-4 max-w-2xl text-[16px] font-normal leading-[1.6] text-on-surface-variant">
-              Publish sessions, manage bookings, and keep your availability updated.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              className="inline-flex min-h-[50px] items-center justify-center rounded-[18px] bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-              onClick={() => openSessionModal()}
-            >
-              + Create Session
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-[50px] items-center justify-center rounded-[18px] border border-outline-variant/20 bg-surface-container-low px-6 py-3 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
-              onClick={() => navigate("/mentor/calendar")}
-            >
-              Import Calendar
-            </button>
-          </div>
-        </div>
-      </section>
+    <div className="md-page">
+      {/* ═══════════════════ PREMIUM HERO ═══════════════════ */}
+      <MentorPageHero
+        eyebrow="Mentor › Manage Sessions"
+        icon="video_camera_front"
+        title="Manage Sessions"
+        sub="Publish sessions, manage bookings, and keep your availability updated."
+      >
+        <button
+          type="button"
+          className="md-btn md-btn--brand md-btn--sm"
+          onClick={() => openSessionModal()}
+        >
+          <Icon name="plus" /> Create Session
+        </button>
+        <button
+          type="button"
+          className="md-btn md-btn--ghost md-btn--sm"
+          onClick={() => navigate("/mentor/calendar")}
+        >
+          <Icon name="calendar_month" /> Import Calendar
+        </button>
+      </MentorPageHero>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            label: "Total Sessions",
-            value: stats.total,
-            hint: "All published and historical sessions",
-            icon: "calendar_month",
-          },
-          {
-            label: "Active Sessions",
-            value: stats.active,
-            hint: "Upcoming sessions learners can book",
-            icon: "bolt",
-          },
-          {
-            label: "Pending Requests",
-            value: stats.pending,
-            hint: "Bookings awaiting your response",
-            icon: "mail",
-          },
-          {
-            label: "This Week",
-            value: stats.thisWeek,
-            hint: stats.trend,
-            icon: "schedule",
-          },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="group min-h-[168px] rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-          >
-            <div className="flex items-center gap-3 text-primary">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-xl">
-                <span className="material-symbols-outlined">{card.icon}</span>
-              </span>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                {card.label}
-              </p>
-            </div>
-            <p className="mt-5 text-[40px] md:text-[44px] font-semibold leading-none text-on-surface">
-              {card.value}
-            </p>
-            <p className="mt-3 text-[14px] leading-7 text-on-surface-variant">
-              {card.hint}
-            </p>
-          </div>
-        ))}
-      </section>
+      {/* ═══════════════════ STATS CARDS ═══════════════════ */}
+      <div
+        className="md-stats md-animate"
+        style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}
+      >
+        <StatsCard
+          icon="calendar_month"
+          label="Total Sessions"
+          value={stats.total}
+          description="All published and historical sessions"
+        />
+        <StatsCard
+          icon="bolt"
+          label="Active Sessions"
+          value={stats.active}
+          description="Upcoming sessions learners can book"
+        />
+        <StatsCard
+          icon="mail"
+          label="Pending Requests"
+          value={stats.pending}
+          description="Bookings awaiting your response"
+        />
+        <StatsCard
+          icon="schedule"
+          label="This Week"
+          value={stats.thisWeek}
+          description={stats.trend}
+        />
+      </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.75fr_0.95fr]">
+      {/* ═══════════════════ MAIN CONTENT + SIDEBAR ═══════════════════ */}
+      <section className="mp-reviews-layout">
         <div className="space-y-6">
-          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          {/* ─── Session Management Card ─── */}
+          <div className="md-card md-animate" style={{ gap: 16 }}>
+            <div className="mp-head">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-on-surface-variant">
+                <p className="mp-head__sub" style={{ margin: 0 }}>
                   Session Management
                 </p>
-                <h2 className="mt-2 text-[1.85rem] font-semibold text-on-surface">
-                  Your Sessions
-                </h2>
-                <p className="mt-3 max-w-2xl text-[16px] font-normal leading-[1.6] text-on-surface-variant">
+                <h2 className="mp-head__title">Your Sessions</h2>
+                <p className="mp-head__sub">
                   Manage your live sessions, keep bookings organized, and update
                   availability with confidence.
                 </p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mp-head__actions">
                 <button
                   type="button"
-                  className="inline-flex min-h-[50px] items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                  className="md-btn md-btn--brand md-btn--sm"
                   onClick={() => openSessionModal()}
                 >
-                  + Create Session
+                  <Icon name="plus" /> Create Session
                 </button>
                 <button
                   type="button"
-                  className="inline-flex min-h-[50px] items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-6 py-3 text-sm font-semibold text-on-surface transition duration-200 hover:bg-surface-container-high"
+                  className="md-btn md-btn--outline md-btn--sm"
                   onClick={() => navigate("/mentor/calendar")}
                 >
-                  Import Calendar
+                  <Icon name="calendar_month" /> View Calendar
                 </button>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Sessions live
-                </p>
-                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
-                  {mentorSessions.length}
-                </p>
-                <p className="mt-2 text-[14px] text-on-surface-variant">
-                  Total sessions currently available.
-                </p>
+            {/* Mini stats */}
+            <div className="mp-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0,1fr))" }}>
+              <div className="mp-stat">
+                <p className="mp-stat__label">Sessions live</p>
+                <p className="mp-stat__value">{mentorSessions.length}</p>
+                <p className="mp-stat__desc">Total sessions currently available.</p>
               </div>
-              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Pending requests
-                </p>
-                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
-                  {pendingRequests.length}
-                </p>
-                <p className="mt-2 text-[14px] text-on-surface-variant">
-                  Requests waiting for your response.
-                </p>
+              <div className="mp-stat">
+                <p className="mp-stat__label">Pending requests</p>
+                <p className="mp-stat__value">{pendingRequests.length}</p>
+                <p className="mp-stat__desc">Requests waiting for your response.</p>
               </div>
-              <div className="rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-4">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-on-surface-variant">
-                  Upcoming only
-                </p>
-                <p className="mt-4 text-[40px] md:text-[44px] font-semibold text-on-surface">
-                  {upcomingOnly ? "Yes" : "No"}
-                </p>
-                <p className="mt-2 text-[14px] text-on-surface-variant">
-                  Showing {upcomingOnly ? "only upcoming" : "all"} sessions.
-                </p>
+              <div className="mp-stat">
+                <p className="mp-stat__label">Filter</p>
+                <p className="mp-stat__value">{upcomingOnly ? "Yes" : "No"}</p>
+                <p className="mp-stat__desc">Showing {upcomingOnly ? "only upcoming" : "all"} sessions.</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          {/* ─── Sessions Table / Controls ─── */}
+          <div className="md-card md-animate" style={{ gap: 16 }}>
+            {/* Status tabs */}
+            <div className="mp-section__head">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+                <p className="mp-head__sub" style={{ margin: 0 }}>
                   Sessions overview
                 </p>
-                <h3 className="mt-2 text-[1.35rem] font-semibold text-on-surface">
+                <h3 className="mp-section__title" style={{ fontSize: "1.1rem", marginTop: 2 }}>
                   Live sessions & controls
                 </h3>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="mp-toolbar">
                 {STATUS_TABS.map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition duration-200 ${statusFilter === tab.key ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
+                    className={`md-btn md-btn--sm ${statusFilter === tab.key ? "md-btn--brand" : "md-btn--outline"}`}
                     onClick={() => setStatusFilter(tab.key)}
                   >
                     {tab.label}
@@ -744,24 +704,22 @@ export default function TeachingPage({ notify }) {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_auto]">
-              <div className="relative w-full">
-                <span className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
-                  search
-                </span>
+            {/* Search + Sort */}
+            <div className="mp-toolbar" style={{ flexWrap: "wrap", gap: 12 }}>
+              <div className="mp-search" style={{ flex: "1", minWidth: 220 }}>
+                <Icon name="search" />
                 <input
                   type="search"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search sessions..."
-                  className="w-full rounded-full border border-outline-variant/20 bg-surface-container-low py-3 pl-12 pr-4 text-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary focus:outline-none"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="mp-toolbar" style={{ gap: 8 }}>
                 <select
                   value={sortKey}
                   onChange={(event) => setSortKey(event.target.value)}
-                  className="rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-3 text-sm text-on-surface"
+                  className="mp-select"
                 >
                   {SORT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -771,7 +729,7 @@ export default function TeachingPage({ notify }) {
                 </select>
                 <button
                   type="button"
-                  className={`rounded-full px-4 py-3 text-sm font-semibold transition duration-200 ${upcomingOnly ? "bg-primary text-on-primary" : "border border-outline-variant/20 bg-surface-container-low text-on-surface hover:bg-surface-container-high"}`}
+                  className={`md-btn md-btn--sm ${upcomingOnly ? "md-btn--brand" : "md-btn--outline"}`}
                   onClick={() => setUpcomingOnly((prev) => !prev)}
                 >
                   {upcomingOnly ? "Upcoming only" : "All dates"}
@@ -779,65 +737,58 @@ export default function TeachingPage({ notify }) {
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-outline-variant/15 bg-surface-container-lowest/60 px-4 py-3 text-sm">
-              <p className="text-on-surface-variant">
-                Showing {filteredSessions.length} of {mentorSessions.length}{" "}
-                sessions
+            {/* Results count */}
+            <div className="mp-avail-row" style={{ padding: "8px 14px" }}>
+              <p style={{ fontSize: "0.82rem", color: "var(--mp-text-secondary)", margin: 0 }}>
+                Showing <strong>{filteredSessions.length}</strong> of{" "}
+                <strong>{mentorSessions.length}</strong> sessions
               </p>
-              <p className="text-[13px] font-medium text-on-surface">
+              <span className="mp-pill mp-pill--inactive" style={{ fontSize: "0.7rem" }}>
                 {upcomingOnly ? "Upcoming only" : "All dates"}
-              </p>
+              </span>
             </div>
 
+            {/* Loading state */}
             {loading ? (
-              <div className="mt-6 rounded-[20px] border border-outline-variant/15 bg-surface-container-low p-8 text-center text-sm text-on-surface-variant">
-                Loading sessions...
+              <div className="mp-skeleton" style={{ padding: "24px 0" }}>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="mp-skeleton__row" />
+                ))}
               </div>
             ) : filteredSessions.length === 0 ? (
-              <div className="mt-6 rounded-[20px] border border-dashed border-outline-variant/30 bg-surface-container-lowest/70 p-12 text-center text-sm text-on-surface-variant shadow-sm flex flex-col items-center justify-center">
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary text-[40px] mb-4">
-                  <span className="material-symbols-outlined text-[40px]">calendar_month</span>
+              /* Premium empty state */
+              <div className="md-empty">
+                <div className="md-empty__icon">
+                  <Icon name="calendar_month" />
                 </div>
-                <h3 className="mt-2 text-xl font-semibold text-on-surface">
-                  No Sessions Published Yet
-                </h3>
-                <p className="mt-2 text-[15px] leading-6 text-on-surface-variant max-w-sm mx-auto">
-                  Create your first mentoring session to start receiving bookings from learners.
+                <p className="md-empty__title">No Sessions Published Yet</p>
+                <p className="md-empty__desc">
+                  Create your first mentoring session to start receiving bookings
+                  from learners.
                 </p>
-                <button
-                  type="button"
-                  className="mt-6 inline-flex rounded-[14px] bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:opacity-90"
-                  onClick={() => openSessionModal()}
-                >
-                  + Create Session
-                </button>
+                <div className="mp-head__actions" style={{ marginTop: 4 }}>
+                  <button
+                    type="button"
+                    className="md-btn md-btn--brand md-btn--sm"
+                    onClick={() => openSessionModal()}
+                  >
+                    <Icon name="plus" /> Create Session
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="mt-6 overflow-hidden rounded-[20px] border border-outline-variant/15 bg-surface-container-low shadow-sm">
-                <table className="min-w-full border-separate border-spacing-0 text-left">
-                  <thead className="bg-surface-container-lowest">
+              /* Premium table */
+              <div className="mp-table-wrap">
+                <table className="mp-table">
+                  <thead>
                     <tr>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Session
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Type
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Date & Time
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Price
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Seats
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Status
-                      </th>
-                      <th className="px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-on-surface-variant">
-                        Actions
-                      </th>
+                      <th>Session</th>
+                      <th>Type</th>
+                      <th>Date & Time</th>
+                      <th>Price</th>
+                      <th>Seats</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -846,100 +797,84 @@ export default function TeachingPage({ notify }) {
                       return (
                         <tr
                           key={session.id}
-                          className="border-t border-outline-variant/10 transition-colors hover:bg-surface-container-lowest"
+                          onClick={() => {
+                            setActiveMenu(
+                              activeMenu === session.id ? null : session.id,
+                            );
+                          }}
                         >
-                          <td className="px-5 py-3 align-top">
-                            <div className="font-semibold text-on-surface">
-                              {session.title || "Untitled session"}
+                          <td>
+                            <div className="mp-cell-user">
+                              <div>
+                                <p className="mp-cell-user__name">
+                                  {session.title || "Untitled session"}
+                                </p>
+                                <p className="mp-cell-user__email">
+                                  {session.description
+                                    ? session.description.length > 60
+                                      ? `${session.description.substring(0, 60)}…`
+                                      : session.description
+                                    : "No description."}
+                                </p>
+                              </div>
                             </div>
-                            <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">
-                              {session.description || "No description."}
-                            </p>
                           </td>
-                          <td className="px-5 py-3 align-top text-sm text-on-surface">
-                            {session.sessionType || "Mentoring"}
+                          <td>{session.sessionType || "Mentoring"}</td>
+                          <td>
+                            <span style={{ fontSize: "0.84rem" }}>
+                              {formatDateTime(session.startTime)}
+                            </span>
+                            <br />
+                            <span style={{ fontSize: "0.72rem", color: "var(--mp-text-muted)" }}>
+                              {formatDateTime(session.endTime)}
+                            </span>
                           </td>
-                          <td className="px-5 py-3 align-top text-sm text-on-surface">
-                            {formatDateTime(session.startTime)} —{" "}
-                            {formatDateTime(session.endTime)}
-                          </td>
-                          <td className="px-5 py-3 align-top text-sm text-on-surface">
+                          <td>
                             {formatCurrency(
                               session.priceAmount || session.pricePerHour || 0,
                             )}
                           </td>
-                          <td className="px-5 py-3 align-top text-sm text-on-surface">
-                            {session.maxParticipants || session.capacity || 1}
-                          </td>
-                          <td className="px-5 py-3 align-top">
-                            <span
-                              className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${badgeStyle(status)}`}
-                            >
+                          <td>{session.maxParticipants || session.capacity || 1}</td>
+                          <td>
+                            <span className={statusPillClass(status)}>
                               {status}
                             </span>
                           </td>
-                          <td className="px-5 py-3 align-top">
-                            <div className="relative inline-flex">
+                          <td>
+                            <div className="mp-row-actions">
                               <button
                                 type="button"
-                                className="inline-flex items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm text-on-surface transition-colors hover:bg-surface-container-high"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setActiveMenu(
-                                    activeMenu === session.id
-                                      ? null
-                                      : session.id,
-                                  );
+                                className="mp-icon-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openSessionModal(session);
                                 }}
+                                title="Edit"
                               >
-                                <span className="material-symbols-outlined text-base">
-                                  more_horiz
-                                </span>
+                                <Icon name="edit" />
                               </button>
-                              {activeMenu === session.id && (
-                                <div className="absolute right-0 top-full z-10 mt-2 w-48 rounded-2xl border border-outline-variant/15 bg-surface-container-low p-2 shadow-lg">
-                                  <button
-                                    type="button"
-                                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
-                                    onClick={() => {
-                                      openSessionModal(session);
-                                      setActiveMenu(null);
-                                    }}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
-                                    onClick={() => {
-                                      duplicateSession(session);
-                                      setActiveMenu(null);
-                                    }}
-                                  >
-                                    Duplicate
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
-                                    onClick={() => {
-                                      navigate(`/sessions/${session.id}`);
-                                      setActiveMenu(null);
-                                    }}
-                                  >
-                                    View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50"
-                                    onClick={() => {
-                                      deleteSession(session.id);
-                                      setActiveMenu(null);
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
+                              <button
+                                type="button"
+                                className="mp-icon-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  duplicateSession(session);
+                                }}
+                                title="Duplicate"
+                              >
+                                <Icon name="content_copy" />
+                              </button>
+                              <button
+                                type="button"
+                                className="mp-icon-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteSession(session.id);
+                                }}
+                                title="Delete"
+                              >
+                                <Icon name="delete" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -952,88 +887,84 @@ export default function TeachingPage({ notify }) {
           </div>
         </div>
 
+        {/* ═══════════════════ RIGHT SIDEBAR ═══════════════════ */}
         <aside className="space-y-6">
-          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
+          {/* Pending Requests */}
+          <div className="md-card md-animate" style={{ gap: 14 }}>
+            <div className="mp-section__head" style={{ marginBottom: 0 }}>
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+                <p className="mp-head__sub" style={{ margin: 0 }}>
                   Session Requests
                 </p>
-                <h2 className="mt-2 text-[1.2rem] font-semibold text-on-surface">
-                  Pending Requests
-                </h2>
+                <h3 className="mp-section__title">Pending Requests</h3>
               </div>
-              <span className="rounded-full bg-surface-container-lowest px-3 py-1.5 text-[11px] font-semibold text-on-surface-variant">
+              <span className="mp-pill mp-pill--pending">
                 {pendingRequests.length} open
               </span>
             </div>
-            <div className="mt-6 space-y-4">
+
+            <div
+              className="mp-feed"
+              style={{ maxHeight: 400, overflowY: "auto" }}
+            >
               {pendingRequests.length === 0 ? (
-                <div className="rounded-[24px] border border-outline-variant/15 bg-surface-container-lowest/70 p-5 text-center text-sm text-on-surface-variant">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    <span className="material-symbols-outlined text-base">
-                      inbox
-                    </span>
+                <div className="md-empty" style={{ padding: "24px 16px" }}>
+                  <div className="md-empty__icon" style={{ width: 48, height: 48, fontSize: "1.3rem" }}>
+                    <Icon name="inbox" />
                   </div>
-                  <h3 className="mt-4 text-[1rem] font-semibold text-on-surface">
-                    No pending requests
-                  </h3>
-                  <p className="mt-2 text-[13px] leading-6 text-on-surface-variant">
+                  <p className="md-empty__title">No pending requests</p>
+                  <p className="md-empty__desc">
                     Requests will appear here as soon as learners book.
                   </p>
                   <Link
                     to="/mentor/messages"
-                    className="mt-5 inline-flex rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
+                    className="md-btn md-btn--outline md-btn--sm"
                   >
                     View All Requests
                   </Link>
                 </div>
               ) : (
                 pendingRequests.slice(0, 4).map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="overflow-hidden rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-3">
-                      {booking.learner?.profileImageUrl ? (
-                        <img
-                          src={booking.learner.profileImageUrl}
-                          alt={booking.learner.fullName}
-                          className="h-12 w-12 rounded-2xl object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-container-high text-sm font-bold text-primary">
-                          {String(booking.learner?.fullName || "?").charAt(0)}
+                  <div key={booking.id} className="mp-review-card" style={{ cursor: "default", padding: "16px" }}>
+                    <div className="mp-review-card__head">
+                      <div className="mp-review-card__user">
+                        {booking.learner?.profileImageUrl ? (
+                          <img
+                            src={booking.learner.profileImageUrl}
+                            alt={booking.learner.fullName}
+                            className="mp-review-card__avatar"
+                            style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <div className="mp-review-card__avatar" style={{ width: 38, height: 38, fontSize: "0.8rem" }}>
+                            {String(booking.learner?.fullName || "?").charAt(0)}
+                          </div>
+                        )}
+                        <div>
+                          <p className="mp-review-card__name">
+                            {booking.learner?.fullName || "Learner"}
+                          </p>
+                          <p className="mp-review-card__meta">
+                            {formatDateOnly(booking.session?.startTime)}
+                          </p>
                         </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-semibold text-on-surface">
-                          {booking.learner?.fullName || "Learner"}
-                        </p>
-                        <p className="mt-1 text-sm text-on-surface-variant line-clamp-2">
-                          {booking.session?.title || "Session request"}
-                        </p>
-                        <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-on-surface-variant">
-                          {formatDateOnly(booking.session?.startTime)}
-                        </p>
                       </div>
                     </div>
-                    <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <p className="mp-mini-row__m" style={{ marginTop: 8 }}>
+                      {booking.session?.title || "Session request"}
+                    </p>
+                    <div className="mp-drawer__foot" style={{ padding: "10px 0 0" }}>
                       <button
                         type="button"
-                        className="rounded-2xl bg-primary px-3 py-2 text-sm font-semibold text-on-primary transition hover:opacity-90"
-                        onClick={() =>
-                          updateBookingStatus(booking.id, "ACCEPTED")
-                        }
+                        className="md-btn md-btn--brand md-btn--sm"
+                        onClick={() => updateBookingStatus(booking.id, "ACCEPTED")}
                       >
                         Accept
                       </button>
                       <button
                         type="button"
-                        className="rounded-2xl border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-                        onClick={() =>
-                          updateBookingStatus(booking.id, "REJECTED")
-                        }
+                        className="md-btn md-btn--outline md-btn--sm"
+                        onClick={() => updateBookingStatus(booking.id, "REJECTED")}
                       >
                         Reject
                       </button>
@@ -1042,109 +973,114 @@ export default function TeachingPage({ notify }) {
                 ))
               )}
             </div>
-            <Link
-              to="/mentor/messages"
-              className="mt-6 inline-flex w-full items-center justify-center rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface transition duration-200 hover:-translate-y-0.5 hover:bg-surface-container-high"
-            >
-              View all requests
-            </Link>
+
+            {pendingRequests.length > 0 && (
+              <Link
+                to="/mentor/messages"
+                className="md-btn md-btn--outline md-btn--sm"
+                style={{ width: "100%", justifyContent: "center" }}
+              >
+                View all requests
+              </Link>
+            )}
           </div>
 
-          <div className="rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                <span className="material-symbols-outlined text-base">
-                  tips_and_updates
+          {/* Quick Tips */}
+          <div className="md-card md-animate" style={{ gap: 14 }}>
+            <div className="mp-section__head" style={{ marginBottom: 0 }}>
+              <div className="mp-section__title" style={{ gap: 10 }}>
+                <span
+                  className="md-stat__icon"
+                  style={{ width: 36, height: 36, fontSize: "1rem" }}
+                >
+                  <Icon name="tips_and_updates" />
                 </span>
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-on-surface">
-                  Quick tips
-                </p>
-                <p className="text-sm text-on-surface-variant">
-                  Keep the mentor experience polished and predictable.
-                </p>
+                <div>
+                  <p className="mp-section__title" style={{ fontSize: "0.9rem" }}>
+                    Quick tips
+                  </p>
+                  <p className="mp-head__sub" style={{ fontSize: "0.78rem" }}>
+                    Keep the mentor experience polished.
+                  </p>
+                </div>
               </div>
             </div>
-            <ul className="mt-5 space-y-3 text-sm text-on-surface-variant">
+            <ul className="mp-tip-list">
               {[
                 "Publish sessions regularly",
                 "Keep your availability updated",
                 "Respond to requests quickly",
                 "Keep session details concise",
               ].map((tip) => (
-                <li key={tip} className="flex items-start gap-3">
-                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-surface-container-low text-primary">
-                    <span className="material-symbols-outlined text-sm">
-                      check
-                    </span>
-                  </span>
-                  <span>{tip}</span>
-                </li>
+                <li key={tip}>{tip}</li>
               ))}
             </ul>
           </div>
         </aside>
       </section>
 
-      <section className="rounded-[24px] border border-outline-variant/15 bg-surface-container-low p-4 py-4 sm:px-6 sm:py-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* ═══════════════════ AVAILABILITY SECTION ═══════════════════ */}
+      <section className="md-card md-animate" style={{ gap: 18 }}>
+        <div className="mp-head">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
+            <p className="mp-head__sub" style={{ margin: 0 }}>
               Availability
             </p>
-            <h2 className="mt-2 text-[1.35rem] font-semibold text-on-surface sm:text-[1.5rem]">
-              Availability
-            </h2>
+            <h2 className="mp-head__title">Availability</h2>
+            <p className="mp-head__sub">
+              Define recurring weekly slots so learners can find times to book with you.
+            </p>
           </div>
           <button
             type="button"
-            className="inline-flex items-center justify-center rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition duration-200 hover:-translate-y-0.5 hover:opacity-90"
+            className="md-btn md-btn--brand md-btn--sm"
             onClick={() => openAvailabilityModal()}
           >
-            + Add Time
+            <Icon name="plus" /> Add Time
           </button>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mp-stats" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
           {availabilityByDay.map(({ dayName, dayNumber, slot }) => (
             <div
               key={dayName}
-              className="rounded-[20px] border border-outline-variant/15 bg-surface-container-lowest/70 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              className="mp-stat"
+              style={{ cursor: "default", padding: "16px", minHeight: 140 }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[13px] font-semibold text-on-surface">
-                    {dayName}
-                  </p>
-                  <p className="mt-2 text-[13px] leading-5 text-on-surface-variant">
-                    {slot ? `${slot.startTime} – ${slot.endTime}` : "No availability added"}
-                  </p>
+              <div className="mp-stat__top">
+                <div className="mp-stat__icon" style={{ width: 34, height: 34, fontSize: "1rem" }}>
+                  <Icon name="schedule" />
                 </div>
                 <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${slot?.active ? "bg-emerald-500/10 text-emerald-700" : "bg-surface-container-high text-on-surface-variant"}`}
+                  className={`mp-stat__delta ${slot?.active ? "mp-stat__delta--pos" : "mp-stat__delta--flat"}`}
                 >
                   {slot ? (slot.active ? "Active" : "Open") : "Closed"}
                 </span>
               </div>
-              {slot && (
-                <p className="mt-3 text-[12px] text-on-surface-variant">
-                  {slot.timezone || "Timezone not set"}
+              <p className="mp-stat__label" style={{ fontSize: "0.78rem" }}>
+                {dayName}
+              </p>
+              <p className="mp-stat__value" style={{ fontSize: "1.1rem", margin: "4px 0" }}>
+                {slot ? `${slot.startTime}–${slot.endTime}` : "—"}
+              </p>
+              {slot?.timezone && (
+                <p className="mp-stat__desc" style={{ fontSize: "0.68rem" }}>
+                  {slot.timezone}
                 </p>
               )}
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mp-head__actions" style={{ marginTop: 8 }}>
                 {slot ? (
                   <>
                     <button
                       type="button"
-                      className="rounded-full border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
+                      className="md-btn md-btn--outline md-btn--sm"
                       onClick={() => openAvailabilityModal(slot)}
                     >
                       Edit
                     </button>
                     <button
                       type="button"
-                      className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                      className="md-btn md-btn--outline md-btn--sm"
                       onClick={() => removeAvailability(slot.id)}
                     >
                       Delete
@@ -1153,7 +1089,7 @@ export default function TeachingPage({ notify }) {
                 ) : (
                   <button
                     type="button"
-                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-3 py-2 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
+                    className="md-btn md-btn--outline md-btn--sm"
                     onClick={() => openAvailabilityModal(null, dayNumber)}
                   >
                     + Add Time
@@ -1165,239 +1101,238 @@ export default function TeachingPage({ notify }) {
         </div>
 
         {availabilityMessage && (
-          <p className="mt-4 text-sm font-semibold text-primary">
+          <p className="mp-mini-row__m" style={{ color: "var(--mp-primary)", fontWeight: 600 }}>
             {availabilityMessage}
           </p>
         )}
       </section>
 
-      {(isSessionModalOpen || isAvailabilityModalOpen) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-8">
-          <div className="w-full max-w-2xl rounded-[28px] border border-outline-variant/15 bg-surface-container-low p-6 shadow-2xl">
-            {isSessionModalOpen ? (
-              <form onSubmit={saveSession} className="space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                      {editingSession ? "Edit session" : "Create session"}
-                    </p>
-                    <h2 className="mt-2 text-2xl font-bold text-on-surface">
-                      {editingSession ? "Update session" : "New session"}
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high"
-                    onClick={() => setIsSessionModalOpen(false)}
-                  >
-                    Close
-                  </button>
+      {/* ═══════════════════ SESSION MODAL ═══════════════════ */}
+      {isSessionModalOpen && (
+        <div className="mp-overlay mp-overlay--center">
+          <div
+            className="mp-drawer"
+            style={{ width: "min(640px, 100%)", height: "auto", maxHeight: "90vh", borderRadius: "var(--mp-radius-xl)", borderLeft: "none" }}
+          >
+            <form onSubmit={saveSession} style={{ display: "contents" }}>
+              <div className="mp-drawer__head">
+                <div className="mp-drawer__head-main">
+                  <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                    {editingSession ? "Edit session" : "Create session"}
+                  </p>
+                  <h3 className="mp-drawer__title">
+                    {editingSession ? "Update session" : "New session"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  className="mp-icon-btn"
+                  onClick={() => setIsSessionModalOpen(false)}
+                  aria-label="Close"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+
+              <div className="mp-drawer__body" style={{ gap: 16 }}>
+                <div className="mp-field">
+                  <label className="mp-label" htmlFor="teach-title">Title</label>
+                  <input
+                    id="teach-title"
+                    type="text"
+                    className={`mp-input ${sessionErrors.title ? "mp-input--error" : ""}`}
+                    value={sessionForm.title}
+                    onChange={(event) => handleSessionChange("title", event.target.value)}
+                    placeholder="e.g. React Deep Dive"
+                  />
+                  {sessionErrors.title && (
+                    <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
+                      {sessionErrors.title}
+                    </span>
+                  )}
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Title
-                    </span>
+                <div className="mp-field--row">
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-type">Type</label>
                     <input
+                      id="teach-type"
                       type="text"
-                      value={sessionForm.title}
-                      onChange={(event) =>
-                        handleSessionChange("title", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.title ? "border-rose-300" : "border-outline-variant/20"}`}
-                    />
-                    {sessionErrors.title && (
-                      <span className="text-xs text-rose-600">
-                        {sessionErrors.title}
-                      </span>
-                    )}
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Type
-                    </span>
-                    <input
-                      type="text"
+                      className={`mp-input ${sessionErrors.sessionType ? "mp-input--error" : ""}`}
                       value={sessionForm.sessionType}
-                      onChange={(event) =>
-                        handleSessionChange("sessionType", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.sessionType ? "border-rose-300" : "border-outline-variant/20"}`}
+                      onChange={(event) => handleSessionChange("sessionType", event.target.value)}
+                      placeholder="e.g. 1:1 Mentoring"
                     />
                     {sessionErrors.sessionType && (
-                      <span className="text-xs text-rose-600">
+                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
                         {sessionErrors.sessionType}
                       </span>
                     )}
-                  </label>
-                  <label className="sm:col-span-2 grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Description
-                    </span>
-                    <textarea
-                      rows={4}
-                      value={sessionForm.description}
-                      onChange={(event) =>
-                        handleSessionChange("description", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.description ? "border-rose-300" : "border-outline-variant/20"}`}
-                    />
-                    {sessionErrors.description && (
-                      <span className="text-xs text-rose-600">
-                        {sessionErrors.description}
-                      </span>
-                    )}
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Start
-                    </span>
+                  </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-price">Price ($)</label>
                     <input
-                      type="datetime-local"
-                      value={sessionForm.startTime}
-                      onChange={(event) =>
-                        handleSessionChange("startTime", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.startTime ? "border-rose-300" : "border-outline-variant/20"}`}
-                    />
-                    {sessionErrors.startTime && (
-                      <span className="text-xs text-rose-600">
-                        {sessionErrors.startTime}
-                      </span>
-                    )}
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      End
-                    </span>
-                    <input
-                      type="datetime-local"
-                      value={sessionForm.endTime}
-                      onChange={(event) =>
-                        handleSessionChange("endTime", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.endTime ? "border-rose-300" : "border-outline-variant/20"}`}
-                    />
-                    {sessionErrors.endTime && (
-                      <span className="text-xs text-rose-600">
-                        {sessionErrors.endTime}
-                      </span>
-                    )}
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Price
-                    </span>
-                    <input
+                      id="teach-price"
                       type="number"
                       min="0"
                       step="1"
+                      className={`mp-input ${sessionErrors.priceAmount ? "mp-input--error" : ""}`}
                       value={sessionForm.priceAmount}
-                      onChange={(event) =>
-                        handleSessionChange("priceAmount", event.target.value)
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.priceAmount ? "border-rose-300" : "border-outline-variant/20"}`}
+                      onChange={(event) => handleSessionChange("priceAmount", event.target.value)}
+                      placeholder="0"
                     />
                     {sessionErrors.priceAmount && (
-                      <span className="text-xs text-rose-600">
+                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
                         {sessionErrors.priceAmount}
                       </span>
                     )}
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Seats
+                  </div>
+                </div>
+
+                <div className="mp-field">
+                  <label className="mp-label" htmlFor="teach-desc">Description</label>
+                  <textarea
+                    id="teach-desc"
+                    rows={3}
+                    className={`mp-textarea ${sessionErrors.description ? "mp-input--error" : ""}`}
+                    value={sessionForm.description}
+                    onChange={(event) => handleSessionChange("description", event.target.value)}
+                    placeholder="What will learners take away from this session?"
+                  />
+                  {sessionErrors.description && (
+                    <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
+                      {sessionErrors.description}
                     </span>
+                  )}
+                </div>
+
+                <div className="mp-field--row">
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-start">Start</label>
                     <input
+                      id="teach-start"
+                      type="datetime-local"
+                      className={`mp-input ${sessionErrors.startTime ? "mp-input--error" : ""}`}
+                      value={sessionForm.startTime}
+                      onChange={(event) => handleSessionChange("startTime", event.target.value)}
+                    />
+                    {sessionErrors.startTime && (
+                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
+                        {sessionErrors.startTime}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-end">End</label>
+                    <input
+                      id="teach-end"
+                      type="datetime-local"
+                      className={`mp-input ${sessionErrors.endTime ? "mp-input--error" : ""}`}
+                      value={sessionForm.endTime}
+                      onChange={(event) => handleSessionChange("endTime", event.target.value)}
+                    />
+                    {sessionErrors.endTime && (
+                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
+                        {sessionErrors.endTime}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mp-field--row">
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-seats">Seats</label>
+                    <input
+                      id="teach-seats"
                       type="number"
                       min="1"
+                      className={`mp-input ${sessionErrors.maxParticipants ? "mp-input--error" : ""}`}
                       value={sessionForm.maxParticipants}
-                      onChange={(event) =>
-                        handleSessionChange(
-                          "maxParticipants",
-                          event.target.value,
-                        )
-                      }
-                      className={`rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none ${sessionErrors.maxParticipants ? "border-rose-300" : "border-outline-variant/20"}`}
+                      onChange={(event) => handleSessionChange("maxParticipants", event.target.value)}
                     />
                     {sessionErrors.maxParticipants && (
-                      <span className="text-xs text-rose-600">
+                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
                         {sessionErrors.maxParticipants}
                       </span>
                     )}
-                  </label>
-                  <label className="sm:col-span-2 grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Meeting link
-                    </span>
+                  </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-link">Meeting link</label>
                     <input
+                      id="teach-link"
                       type="url"
+                      className="mp-input"
                       value={sessionForm.meetingLink}
-                      onChange={(event) =>
-                        handleSessionChange("meetingLink", event.target.value)
-                      }
+                      onChange={(event) => handleSessionChange("meetingLink", event.target.value)}
                       placeholder="https://meet.example.com/..."
-                      className="rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none border-outline-variant/20 bg-surface-container-lowest"
                     />
-                  </label>
+                  </div>
                 </div>
 
                 {sessionMessage && (
-                  <p className="text-sm font-semibold text-primary">
+                  <p className="mp-mini-row__m" style={{ color: "var(--mp-primary)", fontWeight: 600 }}>
                     {sessionMessage}
                   </p>
                 )}
+              </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-5 py-3 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-                    onClick={() => setIsSessionModalOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
-                  >
-                    {editingSession ? "Save changes" : "Publish session"}
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={saveAvailability} className="space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.26em] text-on-surface-variant">
-                      {editingAvailability
-                        ? "Edit availability"
-                        : "Add availability"}
-                    </p>
-                    <h2 className="mt-2 text-2xl font-bold text-on-surface">
-                      {editingAvailability
-                        ? "Update availability"
-                        : "New availability"}
-                    </h2>
-                  </div>
-                  <button
-                    type="button"
-                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-4 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-high"
-                    onClick={() => {
-                      setIsAvailabilityModalOpen(false);
-                      setEditingAvailability(null);
-                    }}
-                  >
-                    Close
-                  </button>
-                </div>
+              <div className="mp-drawer__foot">
+                <button
+                  type="button"
+                  className="md-btn md-btn--outline md-btn--sm"
+                  onClick={() => setIsSessionModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="md-btn md-btn--brand md-btn--sm"
+                >
+                  {editingSession ? "Save changes" : "Publish session"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Day
-                    </span>
+      {/* ═══════════════════ AVAILABILITY MODAL ═══════════════════ */}
+      {isAvailabilityModalOpen && (
+        <div className="mp-overlay mp-overlay--center">
+          <div
+            className="mp-drawer"
+            style={{ width: "min(520px, 100%)", height: "auto", maxHeight: "80vh", borderRadius: "var(--mp-radius-xl)", borderLeft: "none" }}
+          >
+            <form onSubmit={saveAvailability} style={{ display: "contents" }}>
+              <div className="mp-drawer__head">
+                <div className="mp-drawer__head-main">
+                  <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                    {editingAvailability ? "Edit availability" : "Add availability"}
+                  </p>
+                  <h3 className="mp-drawer__title">
+                    {editingAvailability ? "Update availability" : "New availability"}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  className="mp-icon-btn"
+                  onClick={() => {
+                    setIsAvailabilityModalOpen(false);
+                    setEditingAvailability(null);
+                  }}
+                  aria-label="Close"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+
+              <div className="mp-drawer__body" style={{ gap: 16 }}>
+                <div className="mp-field--row">
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="avail-day">Day</label>
                     <select
+                      id="avail-day"
+                      className="mp-input"
                       value={availabilityForm.dayOfWeek}
                       onChange={(event) =>
                         setAvailabilityForm((prev) => ({
@@ -1405,37 +1340,30 @@ export default function TeachingPage({ notify }) {
                           dayOfWeek: Number(event.target.value),
                         }))
                       }
-                      className="rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none border-outline-variant/20 bg-surface-container-lowest"
                     >
-                      {DAYS.map((day, index) => (
+                      {ISO_DAY_NAMES.map((day, index) => (
                         <option key={day} value={index + 1}>
                           {day}
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Timezone
-                    </span>
+                  </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="avail-tz">Timezone</label>
+                    <div className="mp-timezone-display">
+                      <Icon name="schedule" />
+                      <span>{availabilityForm.timezone}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mp-field--row">
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="avail-start">Start time</label>
                     <input
-                      type="text"
-                      value={availabilityForm.timezone}
-                      onChange={(event) =>
-                        setAvailabilityForm((prev) => ({
-                          ...prev,
-                          timezone: event.target.value,
-                        }))
-                      }
-                      className="rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none border-outline-variant/20 bg-surface-container-lowest"
-                    />
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      Start time
-                    </span>
-                    <input
+                      id="avail-start"
                       type="time"
+                      className="mp-input"
                       value={availabilityForm.startTime}
                       onChange={(event) =>
                         setAvailabilityForm((prev) => ({
@@ -1443,15 +1371,15 @@ export default function TeachingPage({ notify }) {
                           startTime: event.target.value,
                         }))
                       }
-                      className="rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none border-outline-variant/20 bg-surface-container-lowest"
+                      required
                     />
-                  </label>
-                  <label className="grid gap-2">
-                    <span className="text-sm font-semibold text-on-surface">
-                      End time
-                    </span>
+                  </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="avail-end">End time</label>
                     <input
+                      id="avail-end"
                       type="time"
+                      className="mp-input"
                       value={availabilityForm.endTime}
                       onChange={(event) =>
                         setAvailabilityForm((prev) => ({
@@ -1459,46 +1387,68 @@ export default function TeachingPage({ notify }) {
                           endTime: event.target.value,
                         }))
                       }
-                      className="rounded-2xl border px-4 py-3 text-sm text-on-surface focus:outline-none border-outline-variant/20 bg-surface-container-lowest"
+                      required
                     />
-                  </label>
+                  </div>
                 </div>
 
                 {availabilityMessage && (
-                  <p className="text-sm font-semibold text-primary">
+                  <p className="mp-mini-row__m" style={{ color: "var(--mp-primary)", fontWeight: 600 }}>
                     {availabilityMessage}
                   </p>
                 )}
+              </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    className="rounded-full border border-outline-variant/20 bg-surface-container-low px-5 py-3 text-sm font-semibold text-on-surface transition hover:bg-surface-container-high"
-                    onClick={() => {
-                      setIsAvailabilityModalOpen(false);
-                      setEditingAvailability(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-on-primary transition hover:opacity-90"
-                  >
-                    {editingAvailability
-                      ? "Save availability"
-                      : "Add availability"}
-                  </button>
-                </div>
-              </form>
-            )}
+              <div className="mp-drawer__foot">
+                <button
+                  type="button"
+                  className="md-btn md-btn--outline md-btn--sm"
+                  onClick={() => {
+                    setIsAvailabilityModalOpen(false);
+                    setEditingAvailability(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="md-btn md-btn--brand md-btn--sm"
+                  disabled={savingSlot}
+                >
+                  {savingSlot ? (
+                    <>
+                      <span className="mp-spinner" /> Saving…
+                    </>
+                  ) : editingAvailability ? (
+                    "Save availability"
+                  ) : (
+                    "Add availability"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
+      {/* Error toast */}
       {loadError && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-3xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-lg">
-          {loadError}
+        <div className="mp-overlay mp-overlay--center" style={{ alignItems: "flex-end", padding: "24px", background: "transparent", pointerEvents: "none" }}>
+          <div
+            style={{
+              background: "var(--mp-card)",
+              border: "1px solid var(--mp-card-border)",
+              borderRadius: "var(--mp-radius-lg)",
+              padding: "16px 20px",
+              boxShadow: "var(--mp-shadow-lg)",
+              pointerEvents: "auto",
+              maxWidth: 400,
+            }}
+          >
+            <p style={{ margin: 0, fontWeight: 600, color: "var(--mp-text)" }}>
+              {loadError}
+            </p>
+          </div>
         </div>
       )}
 

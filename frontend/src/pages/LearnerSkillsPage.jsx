@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
+import "../modules/mentor/mentor-pages.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
 const EMPTY_ARRAY = [];
@@ -370,83 +371,71 @@ export default function LearnerSkillsPage() {
   /* ═══════ RENDER ═══════ */
 
   return (
-    <div className="sk-shell">
-      {/* ─── HERO ─── */}
-      <section className="sk-hero">
-        <div className="sk-hero__layout">
-          <div className="sk-hero__left">
-            <span className="sk-hero__badge">
-              <Icon name="auto_stories" /> SKILL MARKETPLACE
-            </span>
-            <h1 className="sk-hero__title">
-              Explore <span className="sk-hero__hl">Skills</span><br />
-              That Build Real Careers
-            </h1>
-            <p className="sk-hero__sub">
-              Browse industry-demand technologies, discover expert mentors,
-              follow structured learning paths, and prepare for real software engineering careers.
-            </p>
-            <div className="sk-hero__features">
-              <span><Icon name="check" /> Live Skill Catalog</span>
-              <span><Icon name="check" /> Expert Mentors</span>
-              <span><Icon name="check" /> Structured Learning Paths</span>
-              <span><Icon name="check" /> Career Ready</span>
-            </div>
-            <div className="sk-hero__search-row">
-              <label className="sk-hero__search">
-                <Icon name="search" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search skills, technologies or categories..."
-                  aria-label="Search skills"
-                />
-                {query && (
-                  <button type="button" className="sk-hero__search-clr" onClick={() => setQuery("")} aria-label="Clear">
-                    <Icon name="close" />
-                  </button>
-                )}
-              </label>
-              <button
-                type="button"
-                className={`sk-btn sk-btn--filter${showFilters ? " is-active" : ""}`}
-                onClick={() => setShowFilters((v) => !v)}
-              >
-                <Icon name="tune" /> Filter
-              </button>
-              <label className="sk-hero__select">
-                <Icon name="sort" />
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                  <option value="popular">Most Popular</option>
-                  <option value="name">Name A–Z</option>
-                  <option value="newest">Newest</option>
-                </select>
-              </label>
-              <label className="sk-hero__select">
-                <Icon name="signal_cellular_alt" />
-                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-                  <option value="">All Levels</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </label>
-            </div>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ===== Premium Hero ===== */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>auto_stories</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>auto_stories</span>
+            SKILLS
           </div>
-          <div className="sk-hero__right">
-            <div className="sk-hero__ill">
-              <div className="sk-hero__orb sk-hero__orb--1" />
-              <div className="sk-hero__orb sk-hero__orb--2" />
-              <div className="sk-hero__ill-card">
-                <span className="sk-hero__ill-icon" style={{ background: "#0f766e" }}><Icon name="laptop" /></span>
-                <span className="sk-hero__ill-icon" style={{ background: "#1d4ed8" }}><Icon name="menu_book" /></span>
-                <span className="sk-hero__ill-icon" style={{ background: "#7c3aed" }}><Icon name="school" /></span>
-                <span className="sk-hero__ill-icon" style={{ background: "#0369a1" }}><Icon name="code" /></span>
-                <span className="sk-hero__ill-icon" style={{ background: "#059669" }}><Icon name="psychology" /></span>
-                <span className="sk-hero__ill-icon" style={{ background: "#b45309" }}><Icon name="route" /></span>
-              </div>
-              <p className="sk-hero__ill-tag">Start your learning journey today</p>
-            </div>
+          <h1>Explore Skills &amp; Learning Paths</h1>
+          <p className="mp-hero__sub">
+            Browse hundreds of in-demand skills, find expert mentors, and start your personalised learning journey today.
+          </p>
+          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 8 }}>
+            <label className="sk-hero__search" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search skills, technologies or categories..."
+                aria-label="Search skills"
+                style={{ color: "#fff" }}
+              />
+              {query && (
+                <button type="button" className="sk-hero__search-clr" onClick={() => setQuery("")} aria-label="Clear" style={{ color: "rgba(255,255,255,0.60)" }}>
+                  <Icon name="close" />
+                </button>
+              )}
+            </label>
+            <button
+              type="button"
+              className={`sk-btn sk-btn--filter${showFilters ? " is-active" : ""}`}
+              onClick={() => setShowFilters((v) => !v)}
+              style={{
+                background: showFilters ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.08)",
+                color: "#fff", border: "1px solid rgba(255,255,255,0.15)"
+              }}
+            >
+              <Icon name="tune" /> Filter
+            </button>
+            <label className="sk-hero__select" style={{
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+              color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6
+            }}>
+              <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+                <option value="popular" style={{ color: "#111" }}>Most Popular</option>
+                <option value="name" style={{ color: "#111" }}>Name A–Z</option>
+                <option value="newest" style={{ color: "#111" }}>Newest</option>
+              </select>
+            </label>
+            <label className="sk-hero__select" style={{
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+              color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6
+            }}>
+              <Icon name="signal_cellular_alt" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+                <option value="" style={{ color: "#111" }}>All Levels</option>
+                <option value="beginner" style={{ color: "#111" }}>Beginner</option>
+                <option value="intermediate" style={{ color: "#111" }}>Intermediate</option>
+                <option value="advanced" style={{ color: "#111" }}>Advanced</option>
+              </select>
+            </label>
           </div>
         </div>
       </section>
@@ -497,65 +486,59 @@ export default function LearnerSkillsPage() {
       </div>
 
       {/* ─── STATS ─── */}
-      <div className="sk-stats">        
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#0f766e12", color: "#0f766e" }}><Icon name="auto_stories" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{skills.length}</span>
-            <span className="sk-stat__lbl">Total Skills</span>
-            <span className="sk-stat__desc">In the catalogue</span>
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(6, 1fr)", marginTop: 16 }}>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>auto_stories</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{skills.length}</p>
+          <p className="mp-stat__label">Total Skills</p>
+          <p className="mp-stat__desc">In the catalogue</p>
         </div>
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#4f46e512", color: "#4f46e5" }}><Icon name="groups" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{mentors.length}</span>
-            <span className="sk-stat__lbl">Expert Mentors</span>
-            <span className="sk-stat__desc">Teaching mentors</span>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>groups</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{mentors.length}</p>
+          <p className="mp-stat__label">Expert Mentors</p>
+          <p className="mp-stat__desc">Teaching mentors</p>
         </div>
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#05966912", color: "#059669" }}><Icon name="route" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{learningPaths.length}</span>
-            <span className="sk-stat__lbl">Learning Paths</span>
-            <span className="sk-stat__desc">Curated tracks</span>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>route</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{learningPaths.length}</p>
+          <p className="mp-stat__label">Learning Paths</p>
+          <p className="mp-stat__desc">Curated tracks</p>
         </div>
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#d9770612", color: "#d97706" }}><Icon name="bookmark" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{savedSkills.length}</span>
-            <span className="sk-stat__lbl">Saved Skills</span>
-            <span className="sk-stat__desc">On your watchlist</span>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>bookmark</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{savedSkills.length}</p>
+          <p className="mp-stat__label">Saved Skills</p>
+          <p className="mp-stat__desc">On your watchlist</p>
         </div>
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#0891b212", color: "#0891b2" }}><Icon name="group" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{skills.reduce((s, sk) => s + (Number(sk.studentCount) || 0), 0)}</span>
-            <span className="sk-stat__lbl">Students Learning</span>
-            <span className="sk-stat__desc">Active learners</span>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>group</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{skills.reduce((s, sk) => s + (Number(sk.studentCount) || 0), 0)}</p>
+          <p className="mp-stat__label">Students Learning</p>
+          <p className="mp-stat__desc">Active learners</p>
         </div>
-        <div className="sk-stat">
-          <div className="sk-stat__icon" style={{ background: "#8b5cf612", color: "#8b5cf6" }}><Icon name="star" /></div>
-          <div className="sk-stat__body">
-            <span className="sk-stat__val">{
-              (() => {
-                const ratings = skills.filter((s) => s.averageRating > 0).map((s) => Number(s.averageRating));
-                return ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "—";
-              })()
-            }</span>
-            <span className="sk-stat__lbl">Average Rating</span>
-            <span className="sk-stat__desc">Across skills</span>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>star</span></div>
           </div>
-          <div className="sk-stat__trend" />
+          <p className="mp-stat__value">{
+            (() => {
+              const ratings = skills.filter((s) => s.averageRating > 0).map((s) => Number(s.averageRating));
+              return ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : "—";
+            })()
+          }</p>
+          <p className="mp-stat__label">Average Rating</p>
+          <p className="mp-stat__desc">Across skills</p>
         </div>
       </div>
 
@@ -574,12 +557,15 @@ export default function LearnerSkillsPage() {
             {Array.from({ length: 8 }).map((_, i) => <SkillSkeleton key={i} />)}
           </div>
         ) : error ? (
-          <div className="sk-error">
-            <div className="sk-error__icon"><Icon name="error" /></div>
-            <p className="sk-error__title">Skills could not be loaded</p>
-            <p className="sk-error__desc">{error}</p>
-            <button type="button" className="sk-btn sk-btn--primary sk-btn--sm" onClick={() => setRefreshKey((k) => k + 1)}>
-              <Icon name="refresh" /> Retry
+          <div className="md-empty" style={{ margin: "24px 0" }}>
+            <div className="md-empty__icon">
+              <span className="material-symbols-outlined">error_outline</span>
+            </div>
+            <h3 className="md-empty__title">Skills could not be loaded</h3>
+            <p className="md-empty__desc">{error}</p>
+            <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((k) => k + 1)}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+              Retry
             </button>
           </div>
         ) : filtered.length > 0 ? (
@@ -595,12 +581,15 @@ export default function LearnerSkillsPage() {
             ))}
           </div>
         ) : (
-          <div className="sk-empty">
-            <div className="sk-empty__icon"><Icon name="search_off" /></div>
-            <h3 className="sk-empty__title">No matching skills found</h3>
-            <p className="sk-empty__desc">Try another keyword or browse different categories.</p>
-            <button type="button" className="sk-btn sk-btn--primary sk-btn--sm" onClick={() => { setQuery(""); setCategory(""); }}>
-              <Icon name="restart_alt" /> Reset Filters
+          <div className="md-empty" style={{ margin: "24px 0" }}>
+            <div className="md-empty__icon">
+              <span className="material-symbols-outlined">search_off</span>
+            </div>
+            <h3 className="md-empty__title">No matching skills found</h3>
+            <p className="md-empty__desc">Try another keyword or browse different categories.</p>
+            <button type="button" className="mp-btn mp-btn--primary" onClick={() => { setQuery(""); setCategory(""); }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span>
+              Reset Filters
             </button>
           </div>
         )}

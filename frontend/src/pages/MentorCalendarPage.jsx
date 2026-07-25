@@ -1,5 +1,5 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- overlay backdrop */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
@@ -12,6 +12,9 @@ import "../modules/mentor/mentor-pages.css";
 const VIEW_TABS = ["day", "week", "month", "agenda"];
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// ISO day names starting from Monday
+const ISO_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function toDate(value) {
   if (!value) return null;
@@ -103,6 +106,8 @@ export default function MentorCalendarPage({ notify }) {
     maxParticipants: 1,
   });
   const [creating, setCreating] = useState(false);
+  const [savingSlot, setSavingSlot] = useState(false);
+  const [slotDeleting, setSlotDeleting] = useState(null);
   const [slotForm, setSlotForm] = useState({
     dayOfWeek: 1,
     startTime: "09:00",
@@ -110,14 +115,7 @@ export default function MentorCalendarPage({ notify }) {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
 
-  const loadDataRef = useRef(null);
-
-  useEffect(() => {
-    document.title = "Calendar | SkillSwap Mentor";
-    loadDataRef.current?.();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
@@ -182,9 +180,12 @@ export default function MentorCalendarPage({ notify }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notify]);
 
-  loadDataRef.current = loadData;
+  useEffect(() => {
+    document.title = "Calendar | SkillSwap Mentor";
+    loadData();
+  }, [loadData]);
 
   const stats = useMemo(() => {
     const upcoming = events.filter(
@@ -280,26 +281,65 @@ export default function MentorCalendarPage({ notify }) {
     }
   };
 
+  // ─── Availability: Create / Save Slot ───
   const createAvailabilitySlot = async (event) => {
     event.preventDefault();
+
+    // Validate form
+    if (!slotForm.startTime || !slotForm.endTime) {
+      notify?.({
+        type: "error",
+        title: "Missing times",
+        message: "Please provide both start and end times.",
+      });
+      return;
+    }
+
+    if (slotForm.startTime >= slotForm.endTime) {
+      notify?.({
+        type: "error",
+        title: "Invalid time range",
+        message: "Start time must be before end time.",
+      });
+      return;
+    }
+
+    setSavingSlot(true);
     try {
-      await client.post("/api/v1/availability/my-slots", slotForm);
+      const payload = {
+        dayOfWeek: Number(slotForm.dayOfWeek),
+        startTime: slotForm.startTime,
+        endTime: slotForm.endTime,
+        timezone: slotForm.timezone,
+        active: true,
+      };
+      await client.post("/api/v1/availability/my-slots", payload);
       notify?.({
         type: "success",
-        title: "Availability updated",
-        message: "Your availability slot was saved.",
+        title: "Availability added",
+        message: "Your availability slot was saved successfully.",
       });
+      // Reset form to defaults
+      setSlotForm((prev) => ({
+        ...prev,
+        startTime: "09:00",
+        endTime: "17:00",
+      }));
       loadData();
     } catch (err) {
       notify?.({
         type: "error",
         title: "Could not save slot",
-        message: err?.response?.data?.message || "Try again.",
+        message: err?.response?.data?.message || "Please try again later.",
       });
+    } finally {
+      setSavingSlot(false);
     }
   };
 
+  // ─── Availability: Remove Slot ───
   const removeSlot = async (slotId) => {
+    setSlotDeleting(slotId);
     try {
       await client.delete(`/api/v1/availability/my-slots/${slotId}`);
       notify?.({
@@ -312,8 +352,10 @@ export default function MentorCalendarPage({ notify }) {
       notify?.({
         type: "error",
         title: "Could not delete slot",
-        message: err?.response?.data?.message || "Try again.",
+        message: err?.response?.data?.message || "Please try again later.",
       });
+    } finally {
+      setSlotDeleting(null);
     }
   };
 
@@ -329,12 +371,13 @@ export default function MentorCalendarPage({ notify }) {
           type="button"
           className="md-btn md-btn--outline md-btn--sm"
           onClick={loadData}
+          disabled={loading}
         >
           <Icon name="refresh" /> Refresh
         </button>
         <button
           type="button"
-          className="md-btn md-btn--brand md-btn--sm"
+          className="md-btn md-btn--ghost md-btn--sm"
           onClick={() => navigate("/mentor/students")}
         >
           <Icon name="groups" /> View Students
@@ -371,6 +414,7 @@ export default function MentorCalendarPage({ notify }) {
             <button
               type="button"
               className="md-btn md-btn--outline md-btn--sm"
+              aria-label="Previous month"
               onClick={() =>
                 setViewDate(
                   new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1),
@@ -382,19 +426,13 @@ export default function MentorCalendarPage({ notify }) {
             <div className="mp-cal-nav__label">
               {formatDate(viewDate, "long")}
             </div>
-            <span style={{
-              fontSize: "0.72rem",
-              color: "var(--ss-text-muted, #6b7280)",
-              background: "var(--ss-surface, #f3f4f6)",
-              padding: "2px 8px",
-              borderRadius: 6,
-              marginLeft: 8,
-            }}>
+            <span className="mp-tz-badge">
               {USER_TIMEZONE}
             </span>
             <button
               type="button"
               className="md-btn md-btn--outline md-btn--sm"
+              aria-label="Next month"
               onClick={() =>
                 setViewDate(
                   new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1),
@@ -583,7 +621,15 @@ export default function MentorCalendarPage({ notify }) {
             {view === "agenda" && (
               <div className="mp-agenda">
                 {events.length === 0 ? (
-                  <div className="mp-avail-row">No schedule items yet.</div>
+                  <div className="md-empty">
+                    <div className="md-empty__icon">
+                      <Icon name="calendar_month" />
+                    </div>
+                    <p className="md-empty__title">No schedule items yet</p>
+                    <p className="md-empty__desc">
+                      Your sessions and bookings will appear here once created.
+                    </p>
+                  </div>
                 ) : (
                   events.map((event) => (
                     <div key={event.id} className="mp-agenda__group">
@@ -629,6 +675,7 @@ export default function MentorCalendarPage({ notify }) {
             <input
               id="session-title"
               className="mp-input"
+              placeholder="e.g. React Deep Dive"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
@@ -641,6 +688,7 @@ export default function MentorCalendarPage({ notify }) {
             <textarea
               id="session-description"
               className="mp-textarea"
+              placeholder="What will learners take away from this session?"
               value={form.description}
               onChange={(e) =>
                 setForm({ ...form, description: e.target.value })
@@ -686,6 +734,7 @@ export default function MentorCalendarPage({ notify }) {
               <input
                 id="session-skill"
                 className="mp-input"
+                placeholder="e.g. JavaScript, Design"
                 value={form.sessionType}
                 onChange={(e) =>
                   setForm({ ...form, sessionType: e.target.value })
@@ -695,13 +744,15 @@ export default function MentorCalendarPage({ notify }) {
             </div>
             <div className="mp-field">
               <label className="mp-label" htmlFor="session-price">
-                Price
+                Price ($)
               </label>
               <input
                 id="session-price"
                 type="number"
                 min="0"
+                step="0.01"
                 className="mp-input"
+                placeholder="0.00"
                 value={form.priceAmount}
                 onChange={(e) =>
                   setForm({ ...form, priceAmount: e.target.value })
@@ -718,6 +769,7 @@ export default function MentorCalendarPage({ notify }) {
               <input
                 id="session-link"
                 className="mp-input"
+                placeholder="https://meet.google.com/..."
                 value={form.meetingLink}
                 onChange={(e) =>
                   setForm({ ...form, meetingLink: e.target.value })
@@ -752,6 +804,7 @@ export default function MentorCalendarPage({ notify }) {
         </form>
       </div>
 
+      {/* ═══════════════════ AVAILABILITY SECTION ═══════════════════ */}
       <div className="md-card md-animate" style={{ gap: 18 }}>
         <div className="mp-head">
           <div>
@@ -759,15 +812,17 @@ export default function MentorCalendarPage({ notify }) {
               Availability
             </h2>
             <p className="mp-head__sub">
-              Define recurring mentor slots and manage blocked dates.
+              Define recurring mentor slots so learners know when you are
+              available.
             </p>
           </div>
         </div>
+
         <form className="mp-modal__body" onSubmit={createAvailabilitySlot}>
           <div className="mp-field--row">
             <div className="mp-field">
               <label className="mp-label" htmlFor="slot-day">
-                Day
+                Day of week
               </label>
               <select
                 id="slot-day"
@@ -780,30 +835,27 @@ export default function MentorCalendarPage({ notify }) {
                   })
                 }
               >
-                {DAY_NAMES.map((name, index) => (
+                {ISO_DAY_NAMES.map((name, index) => (
                   <option key={name} value={index + 1}>
                     {name}
                   </option>
                 ))}
               </select>
-            </div>                <div className="mp-field">
+            </div>
+            <div className="mp-field">
               <label className="mp-label" htmlFor="slot-timezone">
-                Timezone <span style={{fontSize:"0.72rem",color:"var(--ss-text-muted, #6b7280)"}}>({USER_TIMEZONE})</span>
+                Timezone
               </label>
-              <input
-                id="slot-timezone"
-                className="mp-input"
-                value={slotForm.timezone}
-                onChange={(e) =>
-                  setSlotForm({ ...slotForm, timezone: e.target.value })
-                }
-              />
+              <div className="mp-timezone-display">
+                <Icon name="schedule" />
+                <span>{USER_TIMEZONE}</span>
+              </div>
             </div>
           </div>
           <div className="mp-field--row">
             <div className="mp-field">
               <label className="mp-label" htmlFor="slot-start">
-                Start
+                Start time
               </label>
               <input
                 id="slot-start"
@@ -818,7 +870,7 @@ export default function MentorCalendarPage({ notify }) {
             </div>
             <div className="mp-field">
               <label className="mp-label" htmlFor="slot-end">
-                End
+                End time
               </label>
               <input
                 id="slot-end"
@@ -833,38 +885,79 @@ export default function MentorCalendarPage({ notify }) {
             </div>
           </div>
           <div className="mp-modal__foot">
-            <button type="submit" className="md-btn md-btn--brand">
-              Save Availability
+            <button
+              type="submit"
+              className="md-btn md-btn--brand"
+              disabled={savingSlot}
+            >
+              {savingSlot ? (
+                <>
+                  <span className="mp-spinner" /> Saving…
+                </>
+              ) : (
+                "Save Availability"
+              )}
             </button>
           </div>
         </form>
+
+        {/* Existing Slots */}
         {slots.length > 0 && (
           <div className="mp-mini-list">
+            <p className="mp-section__title" style={{ margin: "0 0 4px" }}>
+              <Icon name="schedule" /> Saved Slots ({slots.length})
+            </p>
             {slots.map((slot) => (
               <div key={slot.id} className="mp-avail-row">
+                <div className="mp-avail-row__indicator" />
                 <div style={{ flex: 1 }}>
                   <div className="mp-avail-row__day">
-                    {DAY_NAMES[(slot.dayOfWeek || 1) - 1] || "Day"}
+                    {ISO_DAY_NAMES[(slot.dayOfWeek || 1) - 1] || "Day"}
                   </div>
                   <div className="mp-avail-row__time">
-                    {slot.startTime} – {slot.endTime} · {slot.timezone}
+                    {slot.startTime} – {slot.endTime}
+                    {slot.timezone && ` · ${slot.timezone}`}
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="mp-icon-btn"
+                  className="mp-icon-btn mp-icon-btn--danger"
                   onClick={() => removeSlot(slot.id)}
+                  disabled={slotDeleting === slot.id}
+                  aria-label={`Delete ${ISO_DAY_NAMES[(slot.dayOfWeek || 1) - 1]} slot`}
                 >
-                  <Icon name="delete" />
+                  {slotDeleting === slot.id ? (
+                    <span className="mp-spinner mp-spinner--sm" />
+                  ) : (
+                    <Icon name="delete" />
+                  )}
                 </button>
               </div>
             ))}
           </div>
         )}
+
+        {slots.length === 0 && (
+          <div className="md-empty" style={{ marginTop: 8 }}>
+            <div className="md-empty__icon">
+              <Icon name="schedule" />
+            </div>
+            <p className="md-empty__title">No availability set</p>
+            <p className="md-empty__desc">
+              Set your weekly availability above so learners can see when you
+              are free for mentoring sessions.
+            </p>
+          </div>
+        )}
       </div>
 
+      {/* ═══════════════════ EVENT DETAIL DRAWER ═══════════════════ */}
       {selectedEvent && (
-        <div className="mp-overlay" onMouseDown={() => setSelectedEvent(null)} role="presentation">
+        <div
+          className="mp-overlay"
+          onMouseDown={() => setSelectedEvent(null)}
+          role="presentation"
+        >
           <aside
             className="mp-drawer"
             onMouseDown={(e) => e.stopPropagation()}
@@ -899,20 +992,15 @@ export default function MentorCalendarPage({ notify }) {
                   <p className="mp-kv__v">
                     {formatTime(selectedEvent.start)} –{" "}
                     {formatTime(selectedEvent.end)}
-                    <span style={{
-                      fontSize: "0.7rem",
-                      color: "var(--ss-text-muted, #6b7280)",
-                      display: "block",
-                    }}>
-                      {USER_TIMEZONE}
-                    </span>
+                    <span className="mp-tz-label">{USER_TIMEZONE}</span>
                   </p>
                 </div>
               </div>
               <div>
                 <p className="mp-block__label">Notes</p>
                 <p className="mp-mini-row__m">
-                  {selectedEvent.description || "No additional notes provided."}
+                  {selectedEvent.description ||
+                    "No additional notes provided."}
                 </p>
               </div>
               <div>

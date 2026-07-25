@@ -70,7 +70,7 @@ export default function OptimizedImage({
       className={className}
       loading={priority ? 'eager' : loading}
       decoding={decoding}
-      fetchPriority={priority ? 'high' : 'auto'}
+      fetchpriority={priority ? 'high' : 'auto'}
       onError={(event) => {
         if (webpSrc && useWebp) {
           setUseWebp(false);

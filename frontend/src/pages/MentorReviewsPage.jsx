@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import StatsCard from "../modules/common/dashboard/StatsCard";
-import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
 import ExcelJS from "exceljs";
@@ -32,18 +31,11 @@ const DATE_RANGE_OPTIONS = [
   { value: "custom", label: "Custom range" },
 ];
 
-
-
-
 const EXPORT_OPTIONS = [
   { value: "csv", label: "Export as CSV" },
   { value: "xlsx", label: "Export as Excel" },
   { value: "pdf", label: "Export as PDF" },
 ];
-
-
-
-
 
 function formatDate(value) {
   if (!value) return "—";
@@ -84,47 +76,14 @@ export default function MentorReviewsPage({ notify }) {
   const [customRange] = useState({ from: "", to: "" });
 
   const searchTimeoutRef = useRef(null);
-  const loadReviewsRef = useRef(null);
+  const debounceLoadRef = useRef(null);
+  const paginationLoadRef = useRef(null);
 
   useEffect(() => {
     document.title = "Reviews & Ratings | SkillSwap Mentor";
-    loadReviewsRef.current?.();
   }, []);
 
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    const timeout = setTimeout(() => {
-      if (reviewPage !== 0) {
-        setReviewPage(0);
-      } else {
-        loadReviewsRef.current?.();
-      }
-    }, 300);
-
-    searchTimeoutRef.current = timeout;
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    filters.search,
-    filters.rating,
-    filters.recommendation,
-    filters.skill,
-    filters.session,
-    filters.dateRange,
-    filters.sort,
-    filters.verifiedOnly,
-    filters.pendingReply,
-    customRange,
-  ]);
-
-  useEffect(() => {
-    loadReviewsRef.current?.();
-  }, [reviewPage, reviewSize]);
-
-  const buildReviewQueryParams = () => {
+  const buildReviewQueryParams = useCallback(() => {
     const params = {
       page: reviewPage,
       size: reviewSize,
@@ -155,9 +114,9 @@ export default function MentorReviewsPage({ notify }) {
       }
     }
     return params;
-  };
+  }, [reviewPage, reviewSize, filters, customRange]);
 
-  const loadReviews = async ({ showToast = false } = {}) => {
+  const loadReviews = useCallback(async ({ showToast = false } = {}) => {
     setLoading(true);
     setError(false);
     try {
@@ -196,14 +155,50 @@ export default function MentorReviewsPage({ notify }) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [buildReviewQueryParams, notify]);
 
-  loadReviewsRef.current = loadReviews;
+  // Keep refs updated so effects always call the latest loadReviews
+  debounceLoadRef.current = loadReviews;
+  paginationLoadRef.current = loadReviews;
 
-  const refreshReviews = async () => {
+  // Search debounce — uses ref to avoid cascading re-renders from loadReviews dependency
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    const timeout = setTimeout(() => {
+      if (reviewPage !== 0) {
+        setReviewPage(0);
+      } else {
+        debounceLoadRef.current?.();
+      }
+    }, 300);
+    searchTimeoutRef.current = timeout;
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    filters.search,
+    filters.rating,
+    filters.recommendation,
+    filters.skill,
+    filters.session,
+    filters.dateRange,
+    filters.sort,
+    filters.verifiedOnly,
+    filters.pendingReply,
+    customRange,
+  ]);
+
+  // Pagination — uses ref to avoid stale closures
+  useEffect(() => {
+    paginationLoadRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewPage, reviewSize]);
+
+  const refreshReviews = useCallback(async () => {
     setRefreshing(true);
     await loadReviews({ showToast: true });
-  };
+  }, [loadReviews]);
 
   const isReviewRecommended = (review) => {
     if (review?.recommended !== undefined) return Boolean(review.recommended);
@@ -303,8 +298,6 @@ export default function MentorReviewsPage({ notify }) {
     );
     return Array.from(sessions).sort();
   }, [reviews]);
-
-
 
   const ratingBreakdown = useMemo(() => {
     const list = [5, 4, 3, 2, 1];
@@ -416,7 +409,6 @@ export default function MentorReviewsPage({ notify }) {
       views: [{ state: "frozen", ySplit: 1 }],
     });
 
-    // Define columns with headers and widths
     const headers = Object.keys(rows[0] || {});
     worksheet.columns = headers.map((header) => ({
       header,
@@ -424,7 +416,6 @@ export default function MentorReviewsPage({ notify }) {
       width: Math.max(header.length + 5, 18),
     }));
 
-    // Style the header row
     const headerRow = worksheet.getRow(1);
     headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
     headerRow.fill = {
@@ -435,17 +426,14 @@ export default function MentorReviewsPage({ notify }) {
     headerRow.alignment = { vertical: "middle", horizontal: "center" };
     headerRow.height = 28;
 
-    // Add data rows
     const dataRows = rows.map((row) => Object.values(row));
     worksheet.addRows(dataRows);
 
-    // Auto-filter on header row
     worksheet.autoFilter = {
       from: { row: 1, column: 1 },
       to: { row: 1, column: headers.length },
     };
 
-    // Generate buffer and trigger download
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -474,8 +462,6 @@ export default function MentorReviewsPage({ notify }) {
     });
     doc.save(`mentor-reviews-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
-
-
 
   const fetchExportReviews = async () => {
     const params = {
@@ -520,38 +506,51 @@ export default function MentorReviewsPage({ notify }) {
     }
   };
 
-
-
   const stats = [
     {
       title: "Average Rating",
       value: summary.averageRating.toFixed(1),
       subtitle: "Based on all reviews",
       icon: "star_rate",
-      accent: "linear-gradient(135deg, #7c3aed, #2563eb)",
     },
     {
       title: "Total Reviews",
       value: summary.totalReviews,
       subtitle: `${Math.max(0, summary.totalReviews - 2)}+ this month`,
       icon: "forum",
-      accent: "linear-gradient(135deg, #0f766e, #14b8a6)",
     },
     {
       title: "Recommendation Rate",
       value: `${summary.recommendationRate}%`,
       subtitle: "Learners recommend you",
       icon: "thumb_up",
-      accent: "linear-gradient(135deg, #d97706, #f59e0b)",
     },
     {
       title: "Five Star Reviews",
       value: summary.fiveStarReviews,
       subtitle: `${summary.totalReviews ? Math.round((summary.fiveStarReviews / summary.totalReviews) * 100) : 0}% of all reviews`,
       icon: "workspace_premium",
-      accent: "linear-gradient(135deg, #db2777, #ec4899)",
     },
   ];
+
+  const renderResultCount = () => {
+    if (loading || error) return null;
+    const total = reviews.length;
+    const showing = sortedReviews.length;
+    if (total === 0) return null;
+    if (showing === total) {
+      return (
+        <span className="mp-toolbar__count">
+          {total} review{total !== 1 ? "s" : ""}
+        </span>
+      );
+    }
+    return (
+      <span className="mp-toolbar__count">
+        Showing {showing} of {total}
+      </span>
+    );
+  };
 
   return (
     <main className="md md-page">
@@ -626,7 +625,7 @@ export default function MentorReviewsPage({ notify }) {
             <Icon name="search" />
             <input
               value={filters.search}
-              placeholder="Search reviews"
+              placeholder="Search reviews by learner, skill, or comment…"
               onChange={(event) =>
                 setFilters((prev) => ({ ...prev, search: event.target.value }))
               }
@@ -638,6 +637,7 @@ export default function MentorReviewsPage({ notify }) {
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, rating: event.target.value }))
             }
+            aria-label="Filter by rating"
           >
             <option value="all">All ratings</option>
             <option value="5">5 stars</option>
@@ -655,6 +655,7 @@ export default function MentorReviewsPage({ notify }) {
                 recommendation: event.target.value,
               }))
             }
+            aria-label="Filter by recommendation"
           >
             <option value="all">All recommendations</option>
             <option value="recommended">Recommended</option>
@@ -666,6 +667,7 @@ export default function MentorReviewsPage({ notify }) {
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, skill: event.target.value }))
             }
+            aria-label="Filter by skill"
           >
             <option value="all">All skills</option>
             {skillOptions.map((skill) => (
@@ -680,6 +682,7 @@ export default function MentorReviewsPage({ notify }) {
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, session: event.target.value }))
             }
+            aria-label="Filter by session"
           >
             <option value="all">All sessions</option>
             {sessionOptions.map((session) => (
@@ -694,6 +697,7 @@ export default function MentorReviewsPage({ notify }) {
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, dateRange: event.target.value }))
             }
+            aria-label="Filter by date range"
           >
             {DATE_RANGE_OPTIONS.map((range) => (
               <option key={range.value} value={range.value}>
@@ -707,11 +711,14 @@ export default function MentorReviewsPage({ notify }) {
             onChange={(event) =>
               setFilters((prev) => ({ ...prev, sort: event.target.value }))
             }
+            aria-label="Sort by"
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
             <option value="highest">Highest rating</option>
             <option value="lowest">Lowest rating</option>
+            <option value="mostHelpful">Most helpful</option>
+            <option value="leastHelpful">Least helpful</option>
           </select>
           <label className="mp-toggle">
             <input
@@ -739,12 +746,13 @@ export default function MentorReviewsPage({ notify }) {
             />
             <span>Pending reply</span>
           </label>
+          {renderResultCount()}
         </section>
 
         <div className="mp-reviews-layout">
           <section className="mp-feed">
             {loading ? (
-              <div className="mp-skeleton-list">
+              <div className="mp-skeleton-list mp-animate-stagger">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div
                     key={index}
@@ -753,17 +761,60 @@ export default function MentorReviewsPage({ notify }) {
                 ))}
               </div>
             ) : error ? (
-              <EmptyState
-                title="Reviews are temporarily unavailable"
-                message="Try refreshing to fetch the latest mentor feedback."
-                actionLabel="Retry"
-                onAction={loadReviews}
-              />
+              <div className="md-empty">
+                <div className="md-empty__icon">
+                  <Icon name="error" />
+                </div>
+                <p className="md-empty__title">
+                  Reviews are temporarily unavailable
+                </p>
+                <p className="md-empty__desc">
+                  Try refreshing to fetch the latest mentor feedback.
+                </p>
+                <button
+                  type="button"
+                  className="md-btn md-btn--outline md-btn--sm"
+                  style={{ marginTop: 6 }}
+                  onClick={() => loadReviews()}
+                >
+                  <Icon name="refresh" /> Retry
+                </button>
+              </div>
             ) : sortedReviews.length === 0 ? (
-              <EmptyState
-                title="No reviews found"
-                message="Adjust your filters or wait for new learner feedback to appear."
-              />
+              <div className="md-empty">
+                <div className="md-empty__icon">
+                  <Icon name="reviews" />
+                </div>
+                <p className="md-empty__title">
+                  {reviews.length === 0
+                    ? "No reviews yet"
+                    : "No reviews match your filters"}
+                </p>
+                <p className="md-empty__desc">
+                  {reviews.length === 0
+                    ? "Once learners complete sessions, they can leave feedback about their experience."
+                    : "Try adjusting your filters to find what you're looking for."}
+                </p>
+                {reviews.length === 0 ? (
+                  <button
+                    type="button"
+                    className="md-btn md-btn--outline md-btn--sm"
+                    style={{ marginTop: 6 }}
+                    onClick={() => navigate("/mentor/calendar")}
+                  >
+                    <Icon name="add" /> Create a Session
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="md-btn md-btn--outline md-btn--sm"
+                    style={{ marginTop: 6 }}
+                    onClick={() => setFilters(INITIAL_FILTERS)}
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
             ) : (
               <>
                 {sortedReviews.map((review) => (
@@ -816,6 +867,7 @@ export default function MentorReviewsPage({ notify }) {
                           <button
                             className="mp-icon-btn"
                             type="button"
+                            title="Reply to this review"
                             onClick={(event) => {
                               event.stopPropagation();
                               openReview(review);
@@ -826,6 +878,7 @@ export default function MentorReviewsPage({ notify }) {
                           <button
                             className="mp-icon-btn"
                             type="button"
+                            title="View student"
                             onClick={(event) => {
                               event.stopPropagation();
                               navigate(`/mentor/students`);
@@ -836,6 +889,7 @@ export default function MentorReviewsPage({ notify }) {
                           <button
                             className="mp-icon-btn"
                             type="button"
+                            title="Go to teaching page"
                             onClick={(event) => {
                               event.stopPropagation();
                               navigate(`/mentor/teach`);
@@ -937,7 +991,11 @@ export default function MentorReviewsPage({ notify }) {
       </div>
 
       {selectedReview && (
-        <div className="mp-overlay" onClick={() => setSelectedReview(null)} role="presentation">
+        <div
+          className="mp-overlay"
+          onClick={() => setSelectedReview(null)}
+          role="presentation"
+        >
           <div
             className="mp-drawer"
             onClick={(event) => event.stopPropagation()}
@@ -953,6 +1011,7 @@ export default function MentorReviewsPage({ notify }) {
                 className="mp-icon-btn"
                 type="button"
                 onClick={() => setSelectedReview(null)}
+                title="Close"
               >
                 <Icon name="close" />
               </button>

@@ -28,6 +28,7 @@ export default function WorkspaceTopbar({
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
 
@@ -45,6 +46,26 @@ export default function WorkspaceTopbar({
   }, []);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+
+  // Sticky shadow on scroll
+  useEffect(() => {
+    const onScroll = () => {
+      const mainContent = document.querySelector('.ws-main-content');
+      if (mainContent) {
+        setScrolled(mainContent.scrollTop > 8);
+      }
+    };
+    const mainContent = document.querySelector('.ws-main-content');
+    if (mainContent) {
+      mainContent.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    }
+    return () => {
+      if (mainContent) {
+        mainContent.removeEventListener('scroll', onScroll);
+      }
+    };
+  }, []);
 
   // Global keyboard shortcut: press / to focus search
   useEffect(() => {
@@ -83,7 +104,7 @@ export default function WorkspaceTopbar({
   };
 
   return (
-    <header className="ws-top">
+    <header className={`ws-top${scrolled ? " ws-top--scrolled" : ""}`}>
       <div className="ws-top__left">
         <button
           type="button"
@@ -158,7 +179,10 @@ export default function WorkspaceTopbar({
                 <i className="ws-top__dot" /> Online
               </span>
             </span>
-            <SsIcon name="chevron-down" size={20} className="ws-top__chevron" />
+            {/* Inline SVG chevron — more reliable than Material Symbols font */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ws-top__chevron" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </button>
 
           {menuOpen && (

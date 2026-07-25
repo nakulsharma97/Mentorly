@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
+import "../modules/mentor/mentor-pages.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
 const EMPTY_ARRAY = [];
@@ -734,29 +735,31 @@ export default function LearnerSessionsPage() {
   /* ── Render ── */
 
   return (
-    <div className="ls-shell">
-      {/* Hero Section */}
-      <div className="ls-hero md-animate">
-        <div className="ls-hero__layout">
-          {/* Left: Heading + Search */}
-          <div className="ls-hero__left">
-            <div className="ls-hero__eyebrow">
-              <Icon name="calendar_month" />
-              Session Manager
-            </div>
-            <h1 className="ls-hero__title">Your Booked Sessions</h1>
-            <p className="ls-hero__sub">
-              Manage upcoming, completed and cancelled sessions in one place. Join, reschedule, cancel
-              or review any session.
-            </p>
-            <div className="ls-hero__search-wrap">
-              <Icon name="search" className="ls-hero__search-icon" />
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ===== Premium Hero ===== */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>calendar_month</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>event</span>
+            SESSIONS
+          </div>
+          <h1>Your Booked Sessions</h1>
+          <p className="mp-hero__sub">
+            Manage upcoming, completed and cancelled sessions in one place. Join, reschedule, cancel or review any session.
+          </p>
+          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 10 }}>
+            <div className="ls-hero__search-wrap" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <Icon name="search" className="ls-hero__search-icon" style={{ color: "rgba(255,255,255,0.60)" }} />
               <input
                 className="ls-hero__search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by mentor, title, date, or status\u2026"
+                placeholder="Search by mentor, title, date, or status…"
                 aria-label="Search sessions"
+                style={{ color: "#fff" }}
               />
               {query && (
                 <button
@@ -764,156 +767,139 @@ export default function LearnerSessionsPage() {
                   className="ls-hero__search-clear"
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
+                  style={{ color: "rgba(255,255,255,0.60)" }}
                 >
                   <Icon name="close" />
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Center: Illustration (hidden on mobile) */}
-          <div className="ls-hero__center">
-            <div className="ls-hero__illustration">
-              <div className="ls-hero__illustration-bg">
-                <div className="ls-hero__orb ls-hero__orb--1" />
-                <div className="ls-hero__orb ls-hero__orb--2" />
-                <div className="ls-hero__orb ls-hero__orb--3" />
-              </div>
-              <div className="ls-hero__illustration-card">
-                <Icon name="calendar_month" />
-                <span>Session</span>
-                <span>Management</span>
-              </div>
-              <div className="ls-hero__illustration-card ls-hero__illustration-card--sm">
-                <Icon name="videocam" />
-                <span>Ready</span>
-              </div>
-              <div className="ls-hero__illustration-card ls-hero__illustration-card--alt">
-                <Icon name="check_circle" />
-                <span>Completed</span>
-              </div>
+            <div className="ls-view-toggle" style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: 3 }}>
+              <button
+                type="button"
+                className={`ls-view-btn${viewMode === "list" ? " is-active" : ""}`}
+                onClick={() => setViewMode("list")}
+                aria-label="List view"
+                style={viewMode === "list" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+              >
+                <Icon name="view_list" />
+              </button>
+              <button
+                type="button"
+                className={`ls-view-btn${viewMode === "grid" ? " is-active" : ""}`}
+                onClick={() => setViewMode("grid")}
+                aria-label="Grid view"
+                style={viewMode === "grid" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+              >
+                <Icon name="grid_view" />
+              </button>
             </div>
           </div>
-
-          {/* Right: Next Upcoming + Mini Calendar */}
-          <div className="ls-hero__right">
-            {nextUpcoming ? (
-              <div className="ls-hero__next-card">
-                <div className="ls-hero__next-header">
-                  <Icon name="notifications_active" />
-                  <span>Next Upcoming Session</span>
-                </div>
-                <div className="ls-hero__next-body">
-                  <div className="ls-hero__next-mentor">
-                    <div className="ls-hero__next-avatar">
-                      {nextUpcoming?.session?.mentor?.profileImageUrl ? (
-                        <img
-                          src={nextUpcoming.session.mentor.profileImageUrl}
-                          alt={nextUpcoming.session.mentor.fullName}
-                        />
-                      ) : (
-                        initials(nextUpcoming?.session?.mentor?.fullName || "M")
-                      )}
-                    </div>
-                    <div>
-                      <p className="ls-hero__next-name">
-                        {nextUpcoming?.session?.mentor?.fullName || "Your Mentor"}
-                      </p>
-                      <p className="ls-hero__next-title">
-                        {nextUpcoming?.session?.title || "Session"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="ls-hero__next-details">
-                    <span>
-                      <Icon name="calendar_today" />
-                      {formatDate(nextUpcoming?.session?.startTime)}
-                    </span>
-                    <span>
-                      <Icon name="schedule" />
-                      {formatTime(nextUpcoming?.session?.startTime)}
-                    </span>
-                    <span>
-                      <Icon name="timelapse" />
-                      {formatDuration(nextUpcoming?.session?.startTime, nextUpcoming?.session?.endTime)}
-                    </span>
-                    {nextUpcoming?.session?.meetingPlatform && (
-                      <span>
-                        <Icon name="videocam" />
-                        {nextUpcoming.session.meetingPlatform}
-                      </span>
-                    )}
-                  </div>
-                  {nextUpcoming?.session?.meetingLink && (
-                    <a
-                      href={nextUpcoming.session.meetingLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="ls-hero__next-join"
-                    >
-                      <Icon name="videocam" /> Join Session
-                    </a>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="ls-hero__next-card ls-hero__next-card--empty">
-                <div className="ls-hero__next-empty-icon">
-                  <Icon name="event_busy" />
-                </div>
-                <p className="ls-hero__next-empty-title">No upcoming sessions</p>
-                <p className="ls-hero__next-empty-desc">Book a session with a mentor to get started.</p>
-                <Link to="/learner/mentors" className="ls-btn ls-btn--primary ls-btn--sm">
-                  <Icon name="person_search" /> Find Mentors
-                </Link>
-              </div>
-            )}
-            <MiniCalendar sessions={allBookings} />
-          </div>
         </div>
+      </section>
+
+      {/* Next Upcoming Session Card */}
+      {nextUpcoming && (
+        <div className="mp-card" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16, padding: 16 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: "var(--mp-radius)",
+            overflow: "hidden", flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--mp-primary-light)", color: "var(--mp-primary)"
+          }}>
+            {nextUpcoming?.session?.mentor?.profileImageUrl ? (
+              <img src={nextUpcoming.session.mentor.profileImageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>person</span>
+            )}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: "0.78rem", fontWeight: 700, color: "var(--mp-text-muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Next Session</p>
+            <p style={{ margin: "2px 0 0", fontSize: "0.92rem", fontWeight: 700, color: "var(--mp-text)" }}>
+              {nextUpcoming?.session?.title || "Session"} with {nextUpcoming?.session?.mentor?.fullName || "your mentor"}
+            </p>
+            <div style={{ display: "flex", gap: 12, marginTop: 6, fontSize: "0.78rem", color: "var(--mp-text-secondary)" }}>
+              <span><span className="material-symbols-outlined" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 3 }}>calendar_today</span>{formatDate(nextUpcoming?.session?.startTime)}</span>
+              <span><span className="material-symbols-outlined" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 3 }}>schedule</span>{formatTime(nextUpcoming?.session?.startTime)}</span>
+              <span><span className="material-symbols-outlined" style={{ fontSize: 14, verticalAlign: "middle", marginRight: 3 }}>timelapse</span>{formatDuration(nextUpcoming?.session?.startTime, nextUpcoming?.session?.endTime)}</span>
+            </div>
+          </div>
+          {nextUpcoming?.session?.meetingLink && (
+            <a href={nextUpcoming.session.meetingLink} target="_blank" rel="noreferrer" className="mp-btn mp-btn--primary mp-btn--sm" style={{ flexShrink: 0 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>videocam</span>
+              Join
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* No upcoming empty state */}
+      {!nextUpcoming && grouped.upcoming.length === 0 && (
+        <div className="mp-card" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+          <div style={{
+            width: 40, height: 40, borderRadius: "var(--mp-radius)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "var(--mp-primary-light)", color: "var(--mp-primary)",
+            fontSize: "1.2rem", flexShrink: 0
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 22 }}>event_busy</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: "0.88rem", fontWeight: 700, color: "var(--mp-text)" }}>No upcoming sessions</p>
+            <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--mp-text-secondary)" }}>Book a session with a mentor to get started.</p>
+          </div>
+          <Link to="/learner/mentors" className="mp-btn mp-btn--primary mp-btn--sm" style={{ flexShrink: 0 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person_search</span>
+            Find Mentors
+          </Link>
+        </div>
+      )}
+
+      {/* Mini Calendar */}
+      <div className="mp-card" style={{ marginTop: 16, padding: 16 }}>
+        <MiniCalendar sessions={allBookings} />
       </div>
 
       {/* Stats Cards */}
-      <div className="ls-stats md-animate">
-        <div className="ls-stat-card">
-          <div className="ls-stat-card__icon" style={{ background: "linear-gradient(135deg, #0f766e15, #14b8a615)", color: "#0f766e" }}>
-            <Icon name="event" />
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 16 }}>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>event</span>
+            </div>
           </div>
-          <div className="ls-stat-card__body">
-            <span className="ls-stat-card__value">{grouped.upcoming.length}</span>
-            <span className="ls-stat-card__label">Upcoming Sessions</span>
-            <span className="ls-stat-card__desc">Future mentoring sessions</span>
-          </div>
+          <p className="mp-stat__value">{grouped.upcoming.length}</p>
+          <p className="mp-stat__label">Upcoming Sessions</p>
+          <p className="mp-stat__desc">Future mentoring sessions</p>
         </div>
-        <div className="ls-stat-card">
-          <div className="ls-stat-card__icon" style={{ background: "linear-gradient(135deg, #10b98115, #34d39915)", color: "#059669" }}>
-            <Icon name="task_alt" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>task_alt</span>
+            </div>
           </div>
-          <div className="ls-stat-card__body">
-            <span className="ls-stat-card__value">{grouped.completed.length}</span>
-            <span className="ls-stat-card__label">Completed Sessions</span>
-            <span className="ls-stat-card__desc">Finished learning sessions</span>
-          </div>
+          <p className="mp-stat__value">{grouped.completed.length}</p>
+          <p className="mp-stat__label">Completed Sessions</p>
+          <p className="mp-stat__desc">Finished learning sessions</p>
         </div>
-        <div className="ls-stat-card">
-          <div className="ls-stat-card__icon" style={{ background: "linear-gradient(135deg, #ef444415, #f8717115)", color: "#dc2626" }}>
-            <Icon name="cancel" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>cancel</span>
+            </div>
           </div>
-          <div className="ls-stat-card__body">
-            <span className="ls-stat-card__value">{grouped.cancelled.length}</span>
-            <span className="ls-stat-card__label">Cancelled Sessions</span>
-            <span className="ls-stat-card__desc">Cancelled bookings</span>
-          </div>
+          <p className="mp-stat__value">{grouped.cancelled.length}</p>
+          <p className="mp-stat__label">Cancelled Sessions</p>
+          <p className="mp-stat__desc">Cancelled bookings</p>
         </div>
-        <div className="ls-stat-card">
-          <div className="ls-stat-card__icon" style={{ background: "linear-gradient(135deg, #6366f115, #818cf815)", color: "#4f46e5" }}>
-            <Icon name="schedule" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon">
+              <span className="material-symbols-outlined" style={{ fontSize: 22 }}>schedule</span>
+            </div>
           </div>
-          <div className="ls-stat-card__body">
-            <span className="ls-stat-card__value">{stats.totalHours}h</span>
-            <span className="ls-stat-card__label">Total Learning Hours</span>
-            <span className="ls-stat-card__desc">Across all completed sessions</span>
-          </div>
+          <p className="mp-stat__value">{stats.totalHours}h</p>
+          <p className="mp-stat__label">Total Learning Hours</p>
+          <p className="mp-stat__desc">Across all completed sessions</p>
         </div>
       </div>
 
@@ -1029,14 +1015,15 @@ export default function LearnerSessionsPage() {
               ))}
             </div>
           ) : error ? (
-            <div className="ls-error md-animate">
-              <div className="ls-error__icon">
-                <Icon name="error" />
+            <div className="md-empty" style={{ padding: "32px 24px", border: "none", boxShadow: "none", marginTop: 16 }}>
+              <div className="md-empty__icon">
+                <span className="material-symbols-outlined">error_outline</span>
               </div>
-              <p className="ls-error__title">Sessions could not be loaded</p>
-              <p className="ls-error__desc">{error}</p>
-              <button type="button" className="ls-btn ls-btn--primary ls-btn--sm" onClick={() => setRefreshKey((v) => v + 1)}>
-                <Icon name="refresh" /> Retry
+              <h3 className="md-empty__title">Sessions could not be loaded</h3>
+              <p className="md-empty__desc">{error}</p>
+              <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+                Retry
               </button>
             </div>
           ) : sorted.length > 0 ? (

@@ -97,7 +97,7 @@
 .notif-dropdown {
   position: absolute;
   top: calc(100% + 10px);
-  right: -6px;
+  right: 0;
   width: 420px;
   max-height: 520px;
   background: var(--notif-bg);

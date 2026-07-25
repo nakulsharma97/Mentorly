@@ -32,6 +32,7 @@ module.exports = {
     "jsx-a11y/no-static-element-interactions": "off",
     "jsx-a11y/label-has-associated-control": "off",
     "react/no-unescaped-entities": "off",
+    "react/no-unknown-property": ["error", { "ignore": ["fetchpriority"] }],
     "no-unused-vars": "warn",
   },
   overrides: [

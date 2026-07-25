@@ -3,6 +3,11 @@
    Uses project CSS variables from styles.css
    ============================================================ */
 
+/* ── Custom Properties ────────────────────────────────── */
+:root {
+  --mpr-transition: var(--mpr-transition);
+}
+
 /* ── Animations ──────────────────────────────────────── */
 @keyframes mpr-shimmer {
   0% { background-position: -200% 0; }
@@ -79,7 +84,7 @@
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
   border: none;
   text-decoration: none;
   white-space: nowrap;
@@ -335,7 +340,7 @@
   color: #cffafe;
   background: rgba(6,182,212,0.18);
   border: 1px solid rgba(6,182,212,0.25);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-chip:hover {
   background: rgba(6,182,212,0.3);
@@ -423,7 +428,7 @@
   cursor: pointer;
   padding: 2px;
   border-radius: 6px;
-  transition: all 0.2s;
+  transition: var(--mpr-transition);
   display: flex;
   align-items: center;
 }
@@ -492,7 +497,7 @@
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--mpr-transition);
   text-align: left;
   width: 100%;
   color: #e2e8f0;
@@ -707,7 +712,7 @@
   border-radius: 14px;
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-achievement:hover {
   transform: translateY(-2px);
@@ -850,7 +855,7 @@
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
   border-left: 4px solid var(--brand);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-skill-card:hover {
   transform: translateY(-2px);
@@ -887,7 +892,7 @@
   border-radius: 14px;
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-cert-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: var(--brand-ring); }
 .mpr-cert-item .material-symbols-outlined { font-size: 24px; color: var(--brand); flex-shrink: 0; }
@@ -917,7 +922,7 @@
   font-size: 0.9rem;
   font-weight: 700;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-link:hover { background: var(--brand-tint-strong); transform: translateY(-1px); }
 .mpr-link__icon { font-size: 20px; }
@@ -961,7 +966,7 @@
   border-radius: 14px;
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-session-row:hover { border-color: var(--brand-ring); box-shadow: 0 4px 12px var(--brand-tint); }
 .mpr-session-row__top {
@@ -1086,7 +1091,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-expertise-card:hover {
   transform: translateY(-2px);
@@ -1241,7 +1246,7 @@
   border-radius: 12px;
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-review-card:hover { border-color: var(--brand-ring); }
 .mpr-review-card__head {
@@ -1391,7 +1396,7 @@
   border-radius: 14px;
   background: var(--surface-container-low);
   border: 1px solid var(--card-border);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-achievement-card:hover {
   transform: translateY(-2px);
@@ -1511,7 +1516,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
-  transition: all 0.2s;
+  transition: var(--mpr-transition);
 }
 .mpr-link-icon:hover {
   background: var(--brand-tint-strong);
@@ -1635,7 +1640,7 @@
   font-size: 0.9rem;
   color: var(--input-text);
   background: var(--input-bg);
-  transition: all 0.2s ease;
+  transition: var(--mpr-transition);
 }
 .mpr-review-form__select:focus,
 .mpr-review-form__textarea:focus {

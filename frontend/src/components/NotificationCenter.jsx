@@ -165,6 +165,7 @@ export default function NotificationCenter({
   unreadNotifications: externalUnreadCount,
   onUnreadCountChange,
   fullPage = false,
+  hideFullPageHeader = false,
   onClose,
   notificationsPath = "/learner/notifications",
 }) {
@@ -213,9 +214,16 @@ export default function NotificationCenter({
   const fetchUnreadCount = useCallback(async () => {
     try {
       const response = await client.get("/api/v1/notifications/unread-count");
-      const count = Number(unwrap(response.data) || 0);
-      setUnreadCount(count);
-      if (onUnreadCountChange) onUnreadCountChange(count);
+      const raw = response?.data?.data;
+      const count = Number(raw) || 0;
+      // Defensive: sanitize count to avoid phantom badge display
+      if (count > 0 && count < 1000) {
+        setUnreadCount(count);
+        if (onUnreadCountChange) onUnreadCountChange(count);
+      } else {
+        setUnreadCount(0);
+        if (onUnreadCountChange) onUnreadCountChange(0);
+      }
     } catch {
       // silently fail for background polling
     }
@@ -375,22 +383,24 @@ export default function NotificationCenter({
   if (fullPage) {
     return (
       <div className="notif-full-page">
-        <div className="notif-full-page__header">
-          <h1 className="notif-full-page__title">Notifications</h1>
-          {onClose && (
-            <button
-              type="button"
-              className="notif-full-page__close"
-              onClick={onClose}
-              aria-label="Close notifications"
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12" />
-                <polyline points="12 19 5 12 12 5" />
-              </svg>
-            </button>
-          )}
-        </div>
+        {!hideFullPageHeader && (
+          <div className="notif-full-page__header">
+            <h1 className="notif-full-page__title">Notifications</h1>
+            {onClose && (
+              <button
+                type="button"
+                className="notif-full-page__close"
+                onClick={onClose}
+                aria-label="Close notifications"
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
         {renderPanel()}
       </div>
     );

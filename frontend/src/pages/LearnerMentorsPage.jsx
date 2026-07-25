@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
+import "../modules/mentor/mentor-pages.css";
 
 /* ==========================================================================
    Inline helpers (mirrored from LearnerPages.jsx for self-containedness)
@@ -440,14 +441,6 @@ export default function LearnerMentorsPage() {
     setSkillFilter("");
   }
 
-  const topCategories = [
-    { name: "Programming", icon: "code" },
-    { name: "Web Development", icon: "web" },
-    { name: "Data Science", icon: "analytics" },
-    { name: "Design", icon: "palette" },
-    { name: "Business", icon: "business_center" },
-  ];
-
   const categoryTabs = [
     { key: "all", label: "All Mentors", icon: "group" },
     { key: "online", label: "Online Now", icon: "wifi_tethering" },
@@ -460,146 +453,107 @@ export default function LearnerMentorsPage() {
   /* ── Render ── */
 
   return (
-    <div className="lf-shell">
-      {/* ═══ HERO SECTION ═══ */}
-      <div className="lf-hero md-animate">
-        <div className="lf-hero__layout">
-          {/* Left: heading, search, filters */}
-          <div className="lf-hero__left">
-            <div className="lf-hero__badge">MENTOR MARKETPLACE</div>
-            <h1 className="lf-hero__title">
-              Find Your Perfect <span className="lf-hero__title-highlight">Mentor</span>
-            </h1>
-            <p className="lf-hero__sub">
-              Discover expert mentors across 100+ skills. Book 1-on-1 sessions,
-              save favourites, and accelerate your growth.
-            </p>
-            <div className="lf-hero__actions">
-              <label className="lf-hero__search">
-                <Icon name="search" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search by name, skill, or technology\u2026"
-                  aria-label="Search mentors"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    className="lf-hero__search-clear"
-                    onClick={() => setQuery("")}
-                    aria-label="Clear search"
-                  >
-                    <Icon name="close" />
-                  </button>
-                )}
-              </label>
-              <button
-                type="button"
-                className={`lf-btn lf-btn--filter${showFilters ? " is-active" : ""}`}
-                onClick={() => setShowFilters((v) => !v)}
-              >
-                <Icon name="tune" /> Filters
-              </button>
-              <label className="lf-hero__select">
-                <Icon name="sort" />
-                <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                  <option value="recent">Most Recent</option>
-                  <option value="rating">Top Rated</option>
-                  <option value="reviews">Most Reviews</option>
-                  <option value="sessions">Most Sessions</option>
-                  <option value="price_asc">Lowest Price</option>
-                </select>
-              </label>
-            </div>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      {/* ═══ PREMIUM HERO ═══ */}
+      <section className="mp-hero">
+        <div className="mp-hero__watermark">
+          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>person_search</span>
+        </div>
+        <div className="mp-hero__content">
+          <div className="mp-hero__eyebrow">
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person_search</span>
+            MENTORS
           </div>
-
-          {/* Right: illustration + top categories */}
-          <div className="lf-hero__right">
-            <div className="lf-hero__illustration">
-              <div className="lf-hero__illustration-bg">
-                <div className="lf-hero__orb lf-hero__orb--1" />
-                <div className="lf-hero__orb lf-hero__orb--2" />
-                <div className="lf-hero__orb lf-hero__orb--3" />
-              </div>
-              <div className="lf-hero__illustration-main">
-                <Icon name="person_search" />
-              </div>
-            </div>
-            <div className="lf-hero__categories-card">
-              <div className="lf-hero__categories-header">
-                <Icon name="category" />
-                <span>Top Categories</span>
-              </div>
-              <div className="lf-hero__categories-list">
-                {topCategories.slice(0, 4).map((cat) => (
-                  <button
-                    key={cat.name}
-                    type="button"
-                    className="lf-hero__category-chip"
-                    onClick={() => {
-                      setQuery(cat.name);
-                    }}
-                  >
-                    <Icon name={cat.icon} />
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-              <Link to="/learner/skills" className="lf-hero__categories-all">
-                View All Categories
-                <Icon name="arrow_forward" />
-              </Link>
-            </div>
+          <h1>Find Your Perfect Mentor</h1>
+          <p className="mp-hero__sub">
+            Discover expert mentors across 100+ skills. Book 1-on-1 sessions, save favourites, and accelerate your growth.
+          </p>
+          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 8 }}>
+            <label className="lf-hero__search" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name, skill, or technology\u2026"
+                aria-label="Search mentors"
+                style={{ color: "#fff" }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="lf-hero__search-clear"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                  style={{ color: "rgba(255,255,255,0.60)" }}
+                >
+                  <Icon name="close" />
+                </button>
+              )}
+            </label>
+            <button
+              type="button"
+              className={`lf-btn lf-btn--filter${showFilters ? " is-active" : ""}`}
+              onClick={() => setShowFilters((v) => !v)}
+              style={{
+                background: showFilters ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.08)",
+                color: "#fff", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "var(--mp-radius)",
+                padding: "9px 14px", display: "inline-flex", alignItems: "center", gap: 6,
+                fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", fontFamily: "var(--mp-font)"
+              }}
+            >
+              <Icon name="tune" /> Filters
+            </button>
+            <label className="lf-hero__select" style={{
+              background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)",
+              color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px",
+              display: "inline-flex", alignItems: "center", gap: 6
+            }}>
+              <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+              <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+                <option value="recent" style={{ color: "#111" }}>Most Recent</option>
+                <option value="rating" style={{ color: "#111" }}>Top Rated</option>
+                <option value="reviews" style={{ color: "#111" }}>Most Reviews</option>
+                <option value="sessions" style={{ color: "#111" }}>Most Sessions</option>
+                <option value="price_asc" style={{ color: "#111" }}>Lowest Price</option>
+              </select>
+            </label>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* ═══ STATS CARDS ═══ */}
-      <div className="lf-stats md-animate">
-        <div className="lf-stat-card">
-          <div className="lf-stat-card__icon" style={{ background: "linear-gradient(135deg, #0f766e15, #14b8a615)", color: "#0f766e" }}>
-            <Icon name="group" />
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 16 }}>
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>group</span></div>
           </div>
-          <div className="lf-stat-card__body">
-            <span className="lf-stat-card__value">{liveMentors.length}</span>
-            <span className="lf-stat-card__label">Total Mentors</span>
-            <span className="lf-stat-card__desc">Matching your search</span>
-          </div>
-          <div className="lf-stat-card__trend" />
+          <p className="mp-stat__value">{liveMentors.length}</p>
+          <p className="mp-stat__label">Total Mentors</p>
+          <p className="mp-stat__desc">Matching your search</p>
         </div>
-        <div className="lf-stat-card">
-          <div className="lf-stat-card__icon" style={{ background: "linear-gradient(135deg, #10b98115, #34d39915)", color: "#059669" }}>
-            <Icon name="wifi_tethering" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>wifi_tethering</span></div>
           </div>
-          <div className="lf-stat-card__body">
-            <span className="lf-stat-card__value">{onlineNow}</span>
-            <span className="lf-stat-card__label">Online Now</span>
-            <span className="lf-stat-card__desc">Active mentors</span>
-          </div>
-          <div className="lf-stat-card__trend" />
+          <p className="mp-stat__value">{onlineNow}</p>
+          <p className="mp-stat__label">Online Now</p>
+          <p className="mp-stat__desc">Active mentors</p>
         </div>
-        <div className="lf-stat-card">
-          <div className="lf-stat-card__icon" style={{ background: "linear-gradient(135deg, #6366f115, #818cf815)", color: "#4f46e5" }}>
-            <Icon name="bookmark" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>bookmark</span></div>
           </div>
-          <div className="lf-stat-card__body">
-            <span className="lf-stat-card__value">{savedMentors.length}</span>
-            <span className="lf-stat-card__label">Saved Mentors</span>
-            <span className="lf-stat-card__desc">Your shortlist</span>
-          </div>
-          <div className="lf-stat-card__trend" />
+          <p className="mp-stat__value">{savedMentors.length}</p>
+          <p className="mp-stat__label">Saved Mentors</p>
+          <p className="mp-stat__desc">Your shortlist</p>
         </div>
-        <div className="lf-stat-card">
-          <div className="lf-stat-card__icon" style={{ background: "linear-gradient(135deg, #f59e0b15, #fbbf2415)", color: "#d97706" }}>
-            <Icon name="star" />
+        <div className="mp-stat">
+          <div className="mp-stat__top">
+            <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>star</span></div>
           </div>
-          <div className="lf-stat-card__body">
-            <span className="lf-stat-card__value">{averageRating > 0 ? averageRating.toFixed(1) : "—"}</span>
-            <span className="lf-stat-card__label">Avg Rating</span>
-            <span className="lf-stat-card__desc">Across all mentors</span>
-          </div>
-          <div className="lf-stat-card__trend" />
+          <p className="mp-stat__value">{averageRating > 0 ? averageRating.toFixed(1) : "—"}</p>
+          <p className="mp-stat__label">Avg Rating</p>
+          <p className="mp-stat__desc">Across all mentors</p>
         </div>
       </div>
 
@@ -704,18 +658,19 @@ export default function LearnerMentorsPage() {
           ))}
         </div>
       ) : error ? (
-        <div className="lf-error md-animate">
-          <div className="lf-error__icon">
-            <Icon name="error" />
+        <div className="md-empty" style={{ margin: "24px 0" }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">error_outline</span>
           </div>
-          <p className="lf-error__title">Mentors could not be loaded</p>
-          <p className="lf-error__desc">{error}</p>
+          <h3 className="md-empty__title">Mentors could not be loaded</h3>
+          <p className="md-empty__desc">{error}</p>
           <button
             type="button"
-            className="lf-btn lf-btn--primary lf-btn--sm"
+            className="mp-btn mp-btn--primary"
             onClick={() => setRefreshKey((v) => v + 1)}
           >
-            <Icon name="refresh" /> Retry
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
           </button>
         </div>
       ) : filtered.length > 0 ? (

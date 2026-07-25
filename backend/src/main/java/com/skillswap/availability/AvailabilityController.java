@@ -31,12 +31,14 @@ public class AvailabilityController {
     private final BookingRepository bookingRepository;
 
     @GetMapping("/my-slots")
-    public ApiResponse<List<UserAvailabilitySlot>> mySlots(@AuthenticationPrincipal User user) {
-        return new ApiResponse<>("Availability slots fetched", slotRepository.findByUserIdAndActiveTrue(user.getId()));
+    public ApiResponse<List<SlotResponse>> mySlots(@AuthenticationPrincipal User user) {
+        List<SlotResponse> slots = slotRepository.findByUserIdAndActiveTrue(user.getId())
+                .stream().map(SlotResponse::fromEntity).toList();
+        return new ApiResponse<>("Availability slots fetched", slots);
     }
 
     @PostMapping("/my-slots")
-    public ApiResponse<UserAvailabilitySlot> createSlot(@AuthenticationPrincipal User user,
+    public ApiResponse<SlotResponse> createSlot(@AuthenticationPrincipal User user,
             @RequestBody SlotRequest req) {
         log.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
         validateSlotRequest(req);
@@ -50,7 +52,29 @@ public class AvailabilityController {
         slot.setActive(req.active() == null || req.active());
         UserAvailabilitySlot saved = slotRepository.save(slot);
         log.info("Availability slot saved id={} for userId={}", saved.getId(), user.getId());
-        return new ApiResponse<>("Availability slot created", saved);
+        return new ApiResponse<>("Availability slot created", SlotResponse.fromEntity(saved));
+    }
+
+    @PatchMapping("/my-slots/{id}")
+    public ApiResponse<SlotResponse> updateSlot(@AuthenticationPrincipal User user,
+            @PathVariable Long id, @RequestBody SlotRequest req) {
+        log.info("updateSlot called for userId={}, slotId={}", user.getId(), id);
+        validateSlotRequest(req);
+
+        UserAvailabilitySlot slot = slotRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Availability slot not found"));
+        if (!slot.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's slot");
+        }
+
+        slot.setDayOfWeek(req.dayOfWeek());
+        slot.setStartTime(req.startTime());
+        slot.setEndTime(req.endTime());
+        slot.setTimezone(req.timezone());
+        slot.setActive(req.active() == null || req.active());
+        UserAvailabilitySlot saved = slotRepository.save(slot);
+        log.info("Availability slot updated id={} for userId={}", saved.getId(), user.getId());
+        return new ApiResponse<>("Availability slot updated", SlotResponse.fromEntity(saved));
     }
 
     @DeleteMapping("/my-slots/{id}")
@@ -237,6 +261,14 @@ public class AvailabilityController {
     }
 
     public record SlotRequest(Integer dayOfWeek, String startTime, String endTime, String timezone, Boolean active) {
+    }
+
+    public record SlotResponse(Long id, Integer dayOfWeek, String startTime, String endTime,
+                               String timezone, boolean active) {
+        static SlotResponse fromEntity(UserAvailabilitySlot slot) {
+            return new SlotResponse(slot.getId(), slot.getDayOfWeek(), slot.getStartTime(),
+                    slot.getEndTime(), slot.getTimezone(), slot.isActive());
+        }
     }
 
     public record SlotView(Integer dayOfWeek, String startTime, String endTime, String timezone, String note) {
