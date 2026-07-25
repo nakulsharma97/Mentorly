@@ -168,6 +168,16 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- spring.config.additional-location points to source resources dir
+                     because maven-resources-plugin has <skip>true</skip> (Windows workaround).
+                     The application.yml already has ${JWT_SECRET:fallback} defaults,
+                     so no need to set it here. -->
+                <configuration>
+                    <arguments>
+                        <argument>--spring.config.additional-location=file:./src/main/resources/</argument>
+                        <argument>--spring.profiles.active=dev</argument>
+                    </arguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -192,14 +202,31 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-migrations</id>
-                        <phase>prepare-package</phase>
+                        <id>copy-resources</id>
+                        <phase>process-resources</phase>
                         <goals>
                             <goal>run</goal>
                         </goals>
                         <configuration>
                             <target>
-                                <copy todir="${project.build.outputDirectory}/db/migration">
+                                <!-- Copy main resources (excluding migrations, handled below) -->
+                                <copy todir="${project.build.outputDirectory}" overwrite="true">
+                                    <fileset dir="src/main/resources">
+                                        <exclude name="db/migration/**"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-migrations</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <copy todir="${project.build.outputDirectory}/db/migration" overwrite="true">
                                     <fileset dir="src/main/resources/db/migration"/>
                                 </copy>
                             </target>

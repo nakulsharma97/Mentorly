@@ -47,7 +47,7 @@ spring:
 
 app:
   jwt:
-    secret: ${JWT_SECRET}
+    secret: ${JWT_SECRET:c2VjdXJlLWRldi1qd3Qtc2VjcmV0LWZvci1sb2NhbC1kZXZlbG9wbWVudA==}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
   rate-limit:
