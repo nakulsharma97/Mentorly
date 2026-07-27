@@ -22,6 +22,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/ws": {
+        target: "http://localhost:8080",
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   preview: {
@@ -35,7 +41,6 @@ export default defineConfig({
   },
   build: {
     cssMinify: false,
-    chunkSizeWarningLimit: 600,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

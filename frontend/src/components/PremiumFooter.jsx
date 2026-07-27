@@ -46,101 +46,107 @@ export default function PremiumFooter({ onScrollToSection }) {
           {/* Column 2: Platform */}
           <div className="footer-column">
             <h4 className="footer-column-title">Platform</h4>
-            <ul className="footer-links">
-              <li>
-                <a
-                  href="#mentors"
-                  onClick={scrollToSection("mentors")}
-                  className="footer-link"
-                >
-                  Find Mentors
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Become a Mentor
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Live Sessions
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Roadmaps
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Skill Exchange
-                </a>
-              </li>
-            </ul>
+            <nav aria-label="Platform links">
+              <ul className="footer-links">
+                <li>
+                  <a
+                    href="#mentors"
+                    onClick={scrollToSection("mentors")}
+                    className="footer-link"
+                  >
+                    Find Mentors
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Become a Mentor
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Live Sessions
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Roadmaps
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Skill Exchange
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
 
           {/* Column 3: Resources */}
           <div className="footer-column">
             <h4 className="footer-column-title">Resources</h4>
-            <ul className="footer-links">
-              <li>
-                <a href="#" className="footer-link">
-                  Documentation
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Blog
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  FAQs
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Help Center
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Community
-                </a>
-              </li>
-            </ul>
+            <nav aria-label="Resource links">
+              <ul className="footer-links">
+                <li>
+                  <a href="#" className="footer-link">
+                    Documentation
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    FAQs
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Help Center
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Community
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
 
           {/* Column 4: Company */}
           <div className="footer-column">
             <h4 className="footer-column-title">Company</h4>
-            <ul className="footer-links">
-              <li>
-                <a href="#" className="footer-link">
-                  About Us
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Careers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Contact
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Privacy Policy
-                </a>
-              </li>
-              <li>
-                <a href="#" className="footer-link">
-                  Terms & Conditions
-                </a>
-              </li>
-            </ul>
+            <nav aria-label="Company links">
+              <ul className="footer-links">
+                <li>
+                  <a href="#" className="footer-link">
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Careers
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Contact
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="footer-link">
+                    Terms & Conditions
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
       </div>
@@ -158,7 +164,7 @@ export default function PremiumFooter({ onScrollToSection }) {
           {/* Center: Tagline */}
           <div className="footer-bottom-center">
             <p className="footer-tagline">
-              Built with ❤️ for learners and mentors.
+              Built with <span aria-hidden="true">❤️</span><span className="sr-only">love</span> for learners and mentors.
             </p>
           </div>
 

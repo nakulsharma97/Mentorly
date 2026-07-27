@@ -39,8 +39,9 @@ export default function MobileBottomNav({ className = "" }) {
         <NavLink
           className={navLinkClass}
           to={roleMessagesPath}
+          aria-current={location.pathname === roleMessagesPath ? "page" : undefined}
         >
-          <span className="material-symbols-outlined">chat</span>
+          <span className="material-symbols-outlined" aria-hidden="true">chat</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Messages
           </span>
@@ -50,8 +51,9 @@ export default function MobileBottomNav({ className = "" }) {
         <NavLink
           className={navLinkClass}
           to="/resources"
+          aria-current={location.pathname.startsWith("/resources") ? "page" : undefined}
         >
-          <span className="material-symbols-outlined">library_books</span>
+          <span className="material-symbols-outlined" aria-hidden="true">library_books</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Resources
           </span>
@@ -61,8 +63,9 @@ export default function MobileBottomNav({ className = "" }) {
         <NavLink
           className={navLinkClass}
           to="/sessions"
+          aria-current={location.pathname.startsWith("/sessions") ? "page" : undefined}
         >
-          <span className="material-symbols-outlined">calendar_today</span>
+          <span className="material-symbols-outlined" aria-hidden="true">calendar_today</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Schedule
           </span>
@@ -73,8 +76,9 @@ export default function MobileBottomNav({ className = "" }) {
           className={navLinkClass}
           to={roleHomePath}
           end
+          aria-current={location.pathname === roleHomePath ? "page" : undefined}
         >
-          <span className="material-symbols-outlined">account_circle</span>
+          <span className="material-symbols-outlined" aria-hidden="true">account_circle</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             Profile
           </span>
@@ -87,7 +91,7 @@ export default function MobileBottomNav({ className = "" }) {
           onClick={() => theme?.toggle?.()}
           aria-label="Toggle dark mode"
         >
-          <span className="material-symbols-outlined">
+          <span className="material-symbols-outlined" aria-hidden="true">
             {theme?.isDark ? "light_mode" : "dark_mode"}
           </span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
@@ -102,7 +106,7 @@ export default function MobileBottomNav({ className = "" }) {
           onClick={toggleLanguage}
           aria-label="Switch language"
         >
-          <span className="material-symbols-outlined">language</span>
+          <span className="material-symbols-outlined" aria-hidden="true">language</span>
           <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider">
             {(localStorage.getItem("language") || "en").toUpperCase()}
           </span>

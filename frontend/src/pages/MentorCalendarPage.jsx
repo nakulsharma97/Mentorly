@@ -95,17 +95,6 @@ export default function MentorCalendarPage({ notify }) {
   const [events, setEvents] = useState([]);
   const [slots, setSlots] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    sessionType: "1:1 Mentoring",
-    startTime: "",
-    endTime: "",
-    meetingLink: "",
-    priceAmount: "",
-    maxParticipants: 1,
-  });
-  const [creating, setCreating] = useState(false);
   const [savingSlot, setSavingSlot] = useState(false);
   const [slotDeleting, setSlotDeleting] = useState(null);
   const [slotForm, setSlotForm] = useState({
@@ -222,13 +211,17 @@ export default function MentorCalendarPage({ notify }) {
 
   const changeView = (nextView) => setView(nextView);
 
+  const createOneOffSession = () => {
+    navigate("/mentor/teach?tab=sessions");
+  };
+
   const updateStatus = async (bookingId, status) => {
     try {
       await client.patch(`/api/v1/bookings/${bookingId}/status`, { status });
       notify?.({
         type: "success",
-        title: "Session updated",
-        message: "The booking status was updated.",
+        title: "Status updated",
+        message: `Booking status changed to ${status}.`,
       });
       loadData();
     } catch (err) {
@@ -237,47 +230,6 @@ export default function MentorCalendarPage({ notify }) {
         title: "Update failed",
         message: err?.response?.data?.message || "Try again.",
       });
-    }
-  };
-
-  const createSession = async (event) => {
-    event.preventDefault();
-    setCreating(true);
-    try {
-      await client.post("/api/v1/sessions", {
-        title: form.title,
-        description: form.description,
-        sessionType: form.sessionType,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
-        priceAmount: Number(form.priceAmount || 0),
-        meetingLink: form.meetingLink,
-        maxParticipants: Number(form.maxParticipants || 1),
-      });
-      notify?.({
-        type: "success",
-        title: "Session created",
-        message: "Your new session is live.",
-      });
-      setForm({
-        title: "",
-        description: "",
-        sessionType: "1:1 Mentoring",
-        startTime: "",
-        endTime: "",
-        meetingLink: "",
-        priceAmount: "",
-        maxParticipants: 1,
-      });
-      loadData();
-    } catch (err) {
-      notify?.({
-        type: "error",
-        title: "Session not created",
-        message: err?.response?.data?.message || "Please review the form.",
-      });
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -656,152 +608,60 @@ export default function MentorCalendarPage({ notify }) {
         )}
       </div>
 
-      <div className="md-card md-animate" style={{ gap: 18 }}>
+
+      {/* ═══════════════════ AUTO-CREATED SESSIONS NOTICE ═══════════════════ */}
+      <div className="md-card md-animate" style={{ gap: 14 }}>
         <div className="mp-head">
-          <div>
-            <h2 className="mp-head__title" style={{ fontSize: "1.1rem" }}>
-              Create session
-            </h2>
-            <p className="mp-head__sub">
-              Publish a live mentee session directly from the dashboard.
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="auto_awesome" />
+            <div>
+              <h2 className="mp-head__title" style={{ fontSize: "1.1rem", margin: 0 }}>
+                Auto Sessions
+              </h2>
+              <p className="mp-head__sub" style={{ margin: "2px 0 0" }}>
+                Sessions are created automatically from your availability slots.
+                Just set your weekly availability below and we will generate sessions
+                for the upcoming two weeks.
+              </p>
+            </div>
           </div>
         </div>
-        <form className="mp-modal__body" onSubmit={createSession}>
-          <div className="mp-field">
-            <label className="mp-label" htmlFor="session-title">
-              Title
-            </label>
-            <input
-              id="session-title"
-              className="mp-input"
-              placeholder="e.g. React Deep Dive"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              required
-            />
-          </div>
-          <div className="mp-field">
-            <label className="mp-label" htmlFor="session-description">
-              Description
-            </label>
-            <textarea
-              id="session-description"
-              className="mp-textarea"
-              placeholder="What will learners take away from this session?"
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-              required
-            />
-          </div>
-          <div className="mp-field--row">
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-start">
-                Start
-              </label>
-              <input
-                id="session-start"
-                type="datetime-local"
-                className="mp-input"
-                value={form.startTime}
-                onChange={(e) =>
-                  setForm({ ...form, startTime: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-end">
-                End
-              </label>
-              <input
-                id="session-end"
-                type="datetime-local"
-                className="mp-input"
-                value={form.endTime}
-                onChange={(e) => setForm({ ...form, endTime: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          <div className="mp-field--row">
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-skill">
-                Skill
-              </label>
-              <input
-                id="session-skill"
-                className="mp-input"
-                placeholder="e.g. JavaScript, Design"
-                value={form.sessionType}
-                onChange={(e) =>
-                  setForm({ ...form, sessionType: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-price">
-                Price ($)
-              </label>
-              <input
-                id="session-price"
-                type="number"
-                min="0"
-                step="0.01"
-                className="mp-input"
-                placeholder="0.00"
-                value={form.priceAmount}
-                onChange={(e) =>
-                  setForm({ ...form, priceAmount: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
-          <div className="mp-field--row">
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-link">
-                Meeting link
-              </label>
-              <input
-                id="session-link"
-                className="mp-input"
-                placeholder="https://meet.google.com/..."
-                value={form.meetingLink}
-                onChange={(e) =>
-                  setForm({ ...form, meetingLink: e.target.value })
-                }
-              />
-            </div>
-            <div className="mp-field">
-              <label className="mp-label" htmlFor="session-max">
-                Max learners
-              </label>
-              <input
-                id="session-max"
-                type="number"
-                min="1"
-                className="mp-input"
-                value={form.maxParticipants}
-                onChange={(e) =>
-                  setForm({ ...form, maxParticipants: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="mp-modal__foot">
+        <div
+          style={{
+            background: "var(--md-soft, #f0fdf4)",
+            borderRadius: 10,
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            fontSize: "0.88rem",
+            color: "var(--md-text-2, #166534)",
+          }}
+        >
+          <Icon name="info" />
+          <span>
+            Sessions use your profile headline or skills as the title and your
+            hourly rate as the price. You can edit or cancel sessions anytime from{" "}
             <button
-              type="submit"
-              className="md-btn md-btn--brand"
-              disabled={creating}
+              type="button"
+              className="md-btn md-btn--ghost md-btn--sm"
+              style={{ display: "inline", padding: 0, fontSize: "inherit", textDecoration: "underline", verticalAlign: "baseline" }}
+              onClick={() => navigate("/mentor/teach?tab=sessions")}
             >
-              {creating ? "Creating…" : "Create Session"}
+              Manage Sessions
             </button>
-          </div>
-        </form>
+            .
+          </span>
+        </div>
+        <div className="mp-modal__foot">
+          <button
+            type="button"
+            className="md-btn md-btn--outline md-btn--sm"
+            onClick={createOneOffSession}
+          >
+            <Icon name="add" /> Create Custom Session
+          </button>
+        </div>
       </div>
 
       {/* ═══════════════════ AVAILABILITY SECTION ═══════════════════ */}
@@ -812,8 +672,8 @@ export default function MentorCalendarPage({ notify }) {
               Availability
             </h2>
             <p className="mp-head__sub">
-              Define recurring mentor slots so learners know when you are
-              available.
+              Define recurring weekly slots. Sessions will be auto-created for each
+              slot for the next two weeks.
             </p>
           </div>
         </div>

@@ -41,9 +41,15 @@ public class AuditLogAspect {
     private Long extractUserId() {
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if (principal instanceof org.springframework.security.core.userdetails.User) {
-                org.springframework.security.core.userdetails.User user = (org.springframework.security.core.userdetails.User) principal;
-                return Long.parseLong(user.getUsername());
+            if (principal instanceof com.skillswap.user.User user) {
+                return user.getId();
+            }
+            if (principal instanceof org.springframework.security.core.userdetails.User springUser) {
+                try {
+                    return Long.parseLong(springUser.getUsername());
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
             }
         } catch (Exception e) {
             log.debug("Could not extract user ID from security context", e);

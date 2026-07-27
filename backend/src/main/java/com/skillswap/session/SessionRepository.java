@@ -30,6 +30,8 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
     @Query("select min(s.priceAmount) from SkillSession s where s.mentor.id = :mentorId")
     BigDecimal findMinPriceByMentorId(Long mentorId);
 
+    boolean existsByMentorIdAndStartTime(Long mentorId, OffsetDateTime startTime);
+
     // ── Admin pagination queries ──
     @Query("SELECT s FROM SkillSession s WHERE "
             + "(:status IS NULL OR s.status = :status) "

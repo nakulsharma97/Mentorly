@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import MobileBottomNav from "../components/MobileBottomNav";
 import { getApiErrorMessage } from "../utils/apiErrors";
@@ -46,6 +46,476 @@ const formatDateTime = (value) => {
   }).format(date);
 };
 
+/* ═══════════════════ Session Requests Section ═══════════════════ */
+
+function SessionRequestsSection({ notify, highlightRequestId }) {
+  const highlightRef = useRef(null);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null); // 'requestId-action'
+  const [setupRequest, setSetupRequest] = useState(null); // request being set up
+  const [setupForm, setSetupForm] = useState({
+    title: "",
+    description: "",
+    startTime: "",
+    endTime: "",
+    priceAmount: "",
+    meetingLink: "",
+  });
+  const [setupSaving, setSetupSaving] = useState(false);
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptingRequestId, setAcceptingRequestId] = useState(null);
+  const [acceptMessage, setAcceptMessage] = useState("");
+  const acceptTextareaRef = useRef(null);
+
+  const loadRequests = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await client.get("/api/v1/session-requests");
+      setRequests(res?.data?.data || []);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
+
+  // Scroll to highlighted request when data loads
+  useEffect(() => {
+    if (!loading && highlightRequestId && highlightRef.current) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    }
+  }, [loading, highlightRequestId]);
+
+  // Focus the accept modal textarea when it opens
+  useEffect(() => {
+    if (showAcceptModal && acceptTextareaRef.current) {
+      setTimeout(() => {
+        acceptTextareaRef.current?.focus();
+      }, 50);
+    }
+  }, [showAcceptModal]);
+
+  const handleAccept = (requestId) => {
+    setAcceptingRequestId(requestId);
+    setAcceptMessage("");
+    setShowAcceptModal(true);
+  };
+
+  const handleAcceptConfirm = async () => {
+    if (!acceptingRequestId) return;
+    setActionLoading(acceptingRequestId + "-accept");
+    setShowAcceptModal(false);
+    try {
+      const body = acceptMessage.trim() ? { message: acceptMessage.trim() } : {};
+      await client.post(`/api/v1/session-requests/${acceptingRequestId}/accept`, body);
+      notify?.({ type: "success", title: "Request accepted", message: "Now set up the session time and details." });
+      setSetupRequest(requests.find(r => r.id === acceptingRequestId));
+      loadRequests();
+    } catch (err) {
+      notify?.({ type: "error", title: "Accept failed", message: err?.response?.data?.message || "Could not accept request." });
+    } finally {
+      setActionLoading(null);
+      setAcceptingRequestId(null);
+    }
+  };
+
+  const handleDecline = async (requestId) => {
+    const reason = window.prompt("Reason for declining (optional):");
+    setActionLoading(requestId + "-decline");
+    try {
+      await client.post(`/api/v1/session-requests/${requestId}/decline${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`);
+      notify?.({ type: "success", title: "Request declined", message: "The learner has been notified." });
+      loadRequests();
+    } catch (err) {
+      notify?.({ type: "error", title: "Decline failed", message: err?.response?.data?.message || "Could not decline request." });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSetupSubmit = async (e) => {
+    e.preventDefault();
+    if (!setupRequest) return;
+    if (!setupForm.title.trim() || !setupForm.startTime || !setupForm.endTime) {
+      notify?.({ type: "error", title: "Missing fields", message: "Title, start time, and end time are required." });
+      return;
+    }
+    setSetupSaving(true);
+    try {
+      await client.post(`/api/v1/session-requests/${setupRequest.id}/create-session`, {
+        title: setupForm.title.trim(),
+        description: setupForm.description.trim(),
+        startTime: new Date(setupForm.startTime).toISOString(),
+        endTime: new Date(setupForm.endTime).toISOString(),
+        priceAmount: Number(setupForm.priceAmount || 0),
+        meetingLink: setupForm.meetingLink.trim() || null,
+      });
+      notify?.({ type: "success", title: "Session created!", message: "The learner has been notified with session details." });
+      setSetupRequest(null);
+      setSetupForm({ title: "", description: "", startTime: "", endTime: "", priceAmount: "", meetingLink: "" });
+      loadRequests();
+    } catch (err) {
+      notify?.({ type: "error", title: "Setup failed", message: err?.response?.data?.message || "Could not create session." });
+    } finally {
+      setSetupSaving(false);
+    }
+  };
+
+  const pendingRequests = requests.filter(r => r.status === "PENDING");
+  const acceptedRequests = requests.filter(r => r.status === "ACCEPTED");
+  const repliedRequests = requests.filter(r => r.status !== "PENDING" && r.status !== "ACCEPTED" && r.replyMessage);
+
+  if (setupRequest) {
+    return (
+      <div className="md-card md-animate" style={{ gap: 14 }}>
+        <div className="mp-section__head" style={{ marginBottom: 0 }}>
+          <div>
+            <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>Session Setup</p>
+            <h3 className="mp-section__title">Set Up Session</h3>
+          </div>
+          <button
+            type="button"
+            className="md-btn md-btn--outline md-btn--sm"
+            onClick={() => setSetupRequest(null)}
+          >
+            Cancel
+          </button>
+        </div>
+        <div style={{ padding: "0 4px", fontSize: "0.84rem", color: "var(--mp-text-secondary, #64748b)" }}>
+          Learner: <strong>{setupRequest.learner?.fullName || `User #${setupRequest.learner?.id}`}</strong>
+          {setupRequest.message && <p style={{ margin: "4px 0 0", fontStyle: "italic", fontSize: "0.8rem" }}>"{setupRequest.message}"</p>}
+        </div>
+        <form onSubmit={handleSetupSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="mp-field">
+            <label className="mp-label" htmlFor="setup-title">Session Title</label>
+            <input id="setup-title" type="text" className="mp-input"
+              value={setupForm.title}
+              onChange={(e) => setSetupForm(p => ({ ...p, title: e.target.value }))}
+              placeholder="e.g. React Fundamentals" required />
+          </div>
+          <div className="mp-field">
+            <label className="mp-label" htmlFor="setup-desc">Description</label>
+            <textarea id="setup-desc" className="mp-textarea" rows={2}
+              value={setupForm.description}
+              onChange={(e) => setSetupForm(p => ({ ...p, description: e.target.value }))}
+              placeholder="What will this session cover?" />
+          </div>
+          <div className="mp-field--row">
+            <div className="mp-field">
+              <label className="mp-label" htmlFor="setup-start">Start</label>
+              <input id="setup-start" type="datetime-local" className="mp-input"
+                value={setupForm.startTime}
+                onChange={(e) => setSetupForm(p => ({ ...p, startTime: e.target.value }))}
+                required />
+            </div>
+            <div className="mp-field">
+              <label className="mp-label" htmlFor="setup-end">End</label>
+              <input id="setup-end" type="datetime-local" className="mp-input"
+                value={setupForm.endTime}
+                onChange={(e) => setSetupForm(p => ({ ...p, endTime: e.target.value }))}
+                required />
+            </div>
+          </div>
+          <div className="mp-field--row">
+            <div className="mp-field">
+              <label className="mp-label" htmlFor="setup-price">Price ($)</label>
+              <input id="setup-price" type="number" min="0" step="0.01" className="mp-input"
+                value={setupForm.priceAmount}
+                onChange={(e) => setSetupForm(p => ({ ...p, priceAmount: e.target.value }))}
+                placeholder="0.00" />
+            </div>
+            <div className="mp-field">
+              <label className="mp-label" htmlFor="setup-link">Meeting Link</label>
+              <input id="setup-link" type="url" className="mp-input"
+                value={setupForm.meetingLink}
+                onChange={(e) => setSetupForm(p => ({ ...p, meetingLink: e.target.value }))}
+                placeholder="https://meet.google.com/..." />
+            </div>
+          </div>
+          <div className="mp-drawer__foot" style={{ padding: "8px 0 0" }}>
+            <button type="submit" className="md-btn md-btn--brand md-btn--sm" disabled={setupSaving}>
+              {setupSaving ? "Creating…" : "Create Session for Learner"}
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="md-card md-animate" style={{ gap: 14 }}>
+      <div className="mp-section__head" style={{ marginBottom: 0 }}>
+        <div>
+          <p className="mp-head__sub" style={{ margin: 0 }}>Learner Requests</p>
+          <h3 className="mp-section__title">Session Requests</h3>
+        </div>
+        <span className="mp-pill mp-pill--pending">
+          {loading ? "..." : `${pendingRequests.length} pending`}
+        </span>
+      </div>
+
+      <div className="mp-feed" style={{ maxHeight: 400, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ padding: "24px", textAlign: "center", color: "var(--mp-text-muted, #94a3b8)", fontSize: "0.84rem" }}>
+            Loading requests...
+          </div>
+        ) : pendingRequests.length === 0 && acceptedRequests.length === 0 && repliedRequests.length === 0 ? (
+          <div className="md-empty" style={{ padding: "24px 16px" }}>
+            <div className="md-empty__icon" style={{ width: 48, height: 48, fontSize: "1.3rem" }}>
+              <Icon name="person_add" />
+            </div>
+            <p className="md-empty__title">No session requests</p>
+            <p className="md-empty__desc">
+              When learners request a custom session, it will appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            {pendingRequests.map((req) => (
+              <div
+                key={req.id}
+                ref={highlightRequestId === String(req.id) ? highlightRef : null}
+                className="mp-review-card"
+                style={{
+                  cursor: "default",
+                  padding: "16px",
+                  ...(highlightRequestId === String(req.id) ? {
+                    border: "2px solid var(--mp-primary, #0f766e)",
+                    boxShadow: "0 0 0 3px rgba(15, 118, 110, 0.15)",
+                    borderRadius: "var(--mp-radius-lg, 12px)",
+                    transition: "box-shadow 0.3s ease",
+                  } : {}),
+                }}
+              >
+                <div className="mp-review-card__head">
+                  <div className="mp-review-card__user">
+                    <div className="mp-review-card__avatar" style={{ width: 38, height: 38, fontSize: "0.8rem" }}>
+                      {String(req.learner?.fullName || "?").charAt(0)}
+                    </div>
+                    <div>
+                      <p className="mp-review-card__name">{req.learner?.fullName || "Learner"}</p>
+                      <p className="mp-review-card__meta">{new Date(req.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+                {req.message && (
+                  <p className="mp-mini-row__m" style={{ marginTop: 8, fontStyle: "italic", fontSize: "0.84rem" }}>
+                    "{req.message}"
+                  </p>
+                )}
+                <div className="mp-drawer__foot" style={{ padding: "10px 0 0" }}>
+                  <button
+                    type="button"
+                    className="md-btn md-btn--brand md-btn--sm"
+                    disabled={actionLoading === req.id + "-accept"}
+                    onClick={() => handleAccept(req.id)}
+                  >
+                    {actionLoading === req.id + "-accept" ? "..." : "Accept"}
+                  </button>
+                  <button
+                    type="button"
+                    className="md-btn md-btn--outline md-btn--sm"
+                    disabled={actionLoading === req.id + "-decline"}
+                    onClick={() => handleDecline(req.id)}
+                  >
+                    {actionLoading === req.id + "-decline" ? "..." : "Decline"}
+                  </button>
+                </div>
+              </div>
+            ))}                {repliedRequests.length > 0 && (
+              <div style={{ padding: "4px 0", fontSize: "0.75rem", fontWeight: 600, color: "var(--mp-text-muted, #94a3b8)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Learner Replies
+              </div>
+            )}
+            {repliedRequests.map((req) => (
+              <div
+                key={req.id}
+                ref={highlightRequestId === String(req.id) ? highlightRef : null}
+                className="mp-review-card"
+                style={{
+                  cursor: "default",
+                  padding: "16px",
+                  opacity: 0.7,
+                  ...(highlightRequestId === String(req.id) ? {
+                    opacity: 1,
+                    border: "2px solid var(--mp-primary, #0f766e)",
+                    boxShadow: "0 0 0 3px rgba(15, 118, 110, 0.15)",
+                    borderRadius: "var(--mp-radius-lg, 12px)",
+                  } : {}),
+                }}
+              >
+                <div className="mp-review-card__head">
+                  <div className="mp-review-card__user">
+                    <div className="mp-review-card__avatar" style={{ width: 38, height: 38, fontSize: "0.8rem", background: "rgba(79, 70, 229, 0.1)" }}>
+                      💬
+                    </div>
+                    <div>
+                      <p className="mp-review-card__name">{req.learner?.fullName || "Learner"}</p>
+                      <p className="mp-review-card__meta" style={{ color: "var(--mp-text-muted, #94a3b8)" }}>
+                        {req.status === "DECLINED" ? "Declined" : "Replied"} · {new Date(req.updatedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {req.replyMessage && (
+                  <p className="mp-mini-row__m" style={{ marginTop: 8, padding: "8px 10px", background: "rgba(79, 70, 229, 0.06)", borderRadius: "6px", fontSize: "0.82rem" }}>
+                    <strong>Learner replied:</strong> "{req.replyMessage}"
+                  </p>
+                )}
+              </div>
+            ))}
+            {acceptedRequests.map((req) => (
+              <div
+                key={req.id}
+                ref={highlightRequestId === String(req.id) ? highlightRef : null}
+                className="mp-review-card"
+                style={{
+                  cursor: "default",
+                  padding: "16px",
+                  opacity: 0.7,
+                  ...(highlightRequestId === String(req.id) ? {
+                    opacity: 1,
+                    border: "2px solid var(--mp-primary, #0f766e)",
+                    boxShadow: "0 0 0 3px rgba(15, 118, 110, 0.15)",
+                    borderRadius: "var(--mp-radius-lg, 12px)",
+                  } : {}),
+                }}
+              >
+                <div className="mp-review-card__head">
+                  <div className="mp-review-card__user">
+                    <div className="mp-review-card__avatar" style={{ width: 38, height: 38, fontSize: "0.8rem", background: "var(--mp-success-bg, #dcfce7)" }}>
+                      ✓
+                    </div>
+                    <div>
+                      <p className="mp-review-card__name">{req.learner?.fullName || "Learner"}</p>
+                      {req.sessionId ? (
+                        <p className="mp-review-card__meta" style={{ color: "var(--mp-success, #16a34a)" }}>
+                          Session created · #{req.sessionId}
+                        </p>
+                      ) : (
+                        <p className="mp-review-card__meta" style={{ color: "var(--mp-warning, #d97706)" }}>
+                          Accepted — set up session
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {req.replyMessage && (
+                  <p className="mp-mini-row__m" style={{ marginTop: 8, padding: "8px 10px", background: "rgba(15, 118, 110, 0.06)", borderRadius: "6px", fontSize: "0.82rem" }}>
+                    <strong>Learner replied:</strong> "{req.replyMessage}"
+                  </p>
+                )}
+                {!req.sessionId && (
+                  <div className="mp-drawer__foot" style={{ padding: "8px 0 0" }}>
+                    <button
+                      type="button"
+                      className="md-btn md-btn--brand md-btn--sm"
+                      onClick={() => setSetupRequest(req)}
+                    >
+                      Set Up Session
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      {/* ─── Accept Message Modal ─── */}
+      {showAcceptModal && (
+        <div
+          className="mp-overlay mp-overlay--center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAcceptModal(false); }}
+        >
+          <div
+            className="mp-drawer"
+            style={{
+              width: "min(480px, 100%)",
+              height: "auto",
+              maxHeight: "80vh",
+              borderRadius: "var(--mp-radius-xl)",
+              borderLeft: "none",
+            }}
+          >
+            <div className="mp-drawer__head">
+              <div className="mp-drawer__head-main">
+                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                  Accept Request
+                </p>
+                <h3 className="mp-drawer__title">
+                  Message to {requests.find(r => r.id === acceptingRequestId)?.learner?.fullName || "Learner"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="mp-icon-btn"
+                onClick={() => setShowAcceptModal(false)}
+                aria-label="Close"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+
+            <div className="mp-drawer__body" style={{ gap: 16 }}>
+              <div className="mp-field">
+                <label className="mp-label" htmlFor="accept-msg">
+                  Personal message (optional)
+                </label>
+                <textarea
+                  id="accept-msg"
+                  className="mp-textarea"
+                  rows={3}
+                  value={acceptMessage}
+                  onChange={(e) => setAcceptMessage(e.target.value)}
+                  placeholder="e.g. I'm excited to work with you! Let's set up a time that works."
+                  ref={acceptTextareaRef}
+                />
+                <span
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--mp-text-muted, #94a3b8)",
+                    marginTop: 4,
+                  }}
+                >
+                  This message will be included in the acceptance notification sent to the learner.
+                </span>
+              </div>
+            </div>
+
+            <div className="mp-drawer__foot">
+              <button
+                type="button"
+                className="md-btn md-btn--outline md-btn--sm"
+                onClick={() => setShowAcceptModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="md-btn md-btn--brand md-btn--sm"
+                onClick={handleAcceptConfirm}
+                disabled={actionLoading === (acceptingRequestId || "") + "-accept"}
+              >
+                {actionLoading === (acceptingRequestId || "") + "-accept" ? "Accepting…" : "Accept & Notify Learner"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════ Helpers ═══════════════════ */
+
 const formatDateOnly = (value) => {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "TBD";
@@ -87,6 +557,8 @@ const statusPillClass = (status) => {
 
 export default function TeachingPage({ notify }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const highlightRequestId = searchParams.get("requestId");
   const [profile, setProfile] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -575,14 +1047,14 @@ export default function TeachingPage({ notify }) {
         eyebrow="Mentor › Manage Sessions"
         icon="video_camera_front"
         title="Manage Sessions"
-        sub="Publish sessions, manage bookings, and keep your availability updated."
+        sub="Sessions are auto-created when you set your weekly availability. Manage your sessions, bookings, and schedule from here."
       >
         <button
           type="button"
-          className="md-btn md-btn--brand md-btn--sm"
-          onClick={() => openSessionModal()}
+          className="md-btn md-btn--outline md-btn--sm"
+          onClick={() => navigate("/mentor/calendar")}
         >
-          <Icon name="plus" /> Create Session
+          <Icon name="schedule" /> Set Availability
         </button>
         <button
           type="button"
@@ -636,24 +1108,25 @@ export default function TeachingPage({ notify }) {
                 </p>
                 <h2 className="mp-head__title">Your Sessions</h2>
                 <p className="mp-head__sub">
-                  Manage your live sessions, keep bookings organized, and update
-                  availability with confidence.
+                  Sessions are automatically generated from your availability slots.
+                  Set your weekly availability to create sessions for the upcoming
+                  two weeks, then manage them here.
                 </p>
               </div>
               <div className="mp-head__actions">
                 <button
                   type="button"
-                  className="md-btn md-btn--brand md-btn--sm"
-                  onClick={() => openSessionModal()}
-                >
-                  <Icon name="plus" /> Create Session
-                </button>
-                <button
-                  type="button"
                   className="md-btn md-btn--outline md-btn--sm"
                   onClick={() => navigate("/mentor/calendar")}
                 >
-                  <Icon name="calendar_month" /> View Calendar
+                  <Icon name="schedule" /> Manage Availability
+                </button>
+                <button
+                  type="button"
+                  className="md-btn md-btn--brand md-btn--sm"
+                  onClick={() => openSessionModal()}
+                >
+                  <Icon name="add" /> New Session
                 </button>
               </div>
             </div>
@@ -763,16 +1236,24 @@ export default function TeachingPage({ notify }) {
                 </div>
                 <p className="md-empty__title">No Sessions Published Yet</p>
                 <p className="md-empty__desc">
-                  Create your first mentoring session to start receiving bookings
-                  from learners.
+                  Set your weekly availability and sessions will be created
+                  automatically for the next two weeks. Or create a one-off
+                  session directly.
                 </p>
-                <div className="mp-head__actions" style={{ marginTop: 4 }}>
+                <div className="mp-head__actions" style={{ marginTop: 4, gap: 8 }}>
                   <button
                     type="button"
                     className="md-btn md-btn--brand md-btn--sm"
+                    onClick={() => navigate("/mentor/calendar")}
+                  >
+                    <Icon name="schedule" /> Set Availability
+                  </button>
+                  <button
+                    type="button"
+                    className="md-btn md-btn--outline md-btn--sm"
                     onClick={() => openSessionModal()}
                   >
-                    <Icon name="plus" /> Create Session
+                    <Icon name="add" /> Create Manually
                   </button>
                 </div>
               </div>
@@ -985,6 +1466,9 @@ export default function TeachingPage({ notify }) {
             )}
           </div>
 
+          {/* Session Requests */}
+          <SessionRequestsSection notify={notify} highlightRequestId={highlightRequestId} />
+
           {/* Quick Tips */}
           <div className="md-card md-animate" style={{ gap: 14 }}>
             <div className="mp-section__head" style={{ marginBottom: 0 }}>
@@ -1007,10 +1491,10 @@ export default function TeachingPage({ notify }) {
             </div>
             <ul className="mp-tip-list">
               {[
-                "Publish sessions regularly",
-                "Keep your availability updated",
-                "Respond to requests quickly",
-                "Keep session details concise",
+                "Set availability → sessions are auto-created",
+                "Sessions use your headline and hourly rate as defaults",
+                "Keep your availability updated for each week",
+                "Respond to booking requests quickly",
               ].map((tip) => (
                 <li key={tip}>{tip}</li>
               ))}
@@ -1028,7 +1512,8 @@ export default function TeachingPage({ notify }) {
             </p>
             <h2 className="mp-head__title">Availability</h2>
             <p className="mp-head__sub">
-              Define recurring weekly slots so learners can find times to book with you.
+              Define recurring weekly slots. Sessions will be auto-created for each
+              slot for the next two weeks.
             </p>
           </div>
           <button
@@ -1036,7 +1521,7 @@ export default function TeachingPage({ notify }) {
             className="md-btn md-btn--brand md-btn--sm"
             onClick={() => openAvailabilityModal()}
           >
-            <Icon name="plus" /> Add Time
+            <Icon name="add" /> Add Time
           </button>
         </div>
 

@@ -86,22 +86,22 @@ export default function DateTimePicker({ onSelect, minDate, maxDate, label }) {
       </button>
 
       {isOpen && (
-        <div className="datetime-picker-popover" role="dialog" aria-label="Select date and time">
+        <div className="datetime-picker-popover" role="dialog" aria-label="Select date and time" aria-modal="true">
           {/* Calendar */}
           <div className="datetime-calendar">
             <div className="calendar-header">
-              <button onClick={handlePrevMonth} aria-label="Previous month">
-                ‹
+              <button onClick={handlePrevMonth} aria-label={`Previous month: ${monthName}`}>
+                <span aria-hidden="true">‹</span>
               </button>
-              <h3>{monthName}</h3>
-              <button onClick={handleNextMonth} aria-label="Next month">
-                ›
+              <h3 id="calendar-month-heading">{monthName}</h3>
+              <button onClick={handleNextMonth} aria-label={`Next month: ${monthName}`}>
+                <span aria-hidden="true">›</span>
               </button>
             </div>
 
-            <div className="calendar-weekdays">
+            <div className="calendar-weekdays" role="row">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="weekday">
+                <div key={day} className="weekday" role="columnheader" aria-label={day}>
                   {day}
                 </div>
               ))}

@@ -56,7 +56,8 @@ public class BookingService {
         // Approve the booking
         booking.setApprovedByAdmin(true);
         booking.setApprovedAt(OffsetDateTime.now());
-        booking.setPaymentStatus(PaymentStatus.COMPLETED); // In real system, verify payment
+        // Payment status is NOT auto-set to COMPLETED here.
+        // Payment verification is handled by the dedicated payment flow.
         booking = bookingRepository.save(booking);
 
         log.info("Booking approved. Booking ID: {}, Learner ID: {}, Session ID: {}",
@@ -124,7 +125,7 @@ public class BookingService {
         bookings.forEach(b -> {
             b.setApprovedByAdmin(true);
             b.setApprovedAt(OffsetDateTime.now());
-            b.setPaymentStatus(PaymentStatus.COMPLETED);
+            // Payment status is handled by the dedicated payment verification flow.
             bookingRepository.save(b);
         });
 

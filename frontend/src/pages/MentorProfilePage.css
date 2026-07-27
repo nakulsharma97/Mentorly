@@ -109,6 +109,18 @@
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
+
+/* Outline button used outside dark hero (e.g. card empty states) - use brand color for contrast */
+.mpr-section-card .mpr-btn--outline,
+.mpr-empty .mpr-btn--outline {
+  color: var(--brand, #0f766e);
+  border-color: var(--brand-ring, rgba(15,118,110,0.4));
+}
+.mpr-section-card .mpr-btn--outline:hover,
+.mpr-empty .mpr-btn--outline:hover {
+  background: var(--brand-tint, rgba(15,118,110,0.1));
+  border-color: var(--brand, #0f766e);
+}
 .mpr-btn--ghost {
   background: rgba(255,255,255,0.06);
   color: #cbd5e1;

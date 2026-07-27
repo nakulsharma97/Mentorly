@@ -128,7 +128,9 @@ export default function App() {
         )}
 
         {auth.maintenanceMode && auth.profile?.role === "ADMIN" && (
-          <div
+          <section
+            role="alert"
+            aria-live="assertive"
             style={{
               background: "linear-gradient(135deg, #f59e0b, #d97706)",
               color: "#fff",
@@ -139,7 +141,7 @@ export default function App() {
               fontFamily: "'Inter', sans-serif",
             }}
           >
-            🔧 Maintenance mode is active — only administrators can access the platform.
+            <span aria-hidden="true">🔧</span> Maintenance mode is active — only administrators can access the platform.
             Go to{' '}
             <a
               href="/admin/settings"
@@ -148,7 +150,7 @@ export default function App() {
               Settings
             </a>{' '}
             to disable it.
-          </div>
+          </section>
         )}
 
         {auth.maintenanceMode && auth.profile?.role !== "ADMIN" ? null : (
@@ -157,7 +159,6 @@ export default function App() {
             id="route-content"
             style={{ padding: 0, margin: 0 }}
             tabIndex={-1}
-            role="main"
             aria-label="Primary content"
           >
             <AppRoutes

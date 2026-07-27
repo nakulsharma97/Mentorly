@@ -130,9 +130,9 @@ export default function Navbar({
           aria-controls="primary-nav-panel"
           onClick={() => setMenuOpen((prev) => !prev)}
         >
-          <span />
-          <span />
-          <span />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </button>
 
         <div

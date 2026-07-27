@@ -22,6 +22,7 @@ export default function WorkspaceTopbar({
   crumbRoot = "Workspace",
   profileMenu = [],
   onUnreadCountChange,
+  onNotify,
 }) {
   const { isDark, toggle } = useTheme();
   const location = useLocation();
@@ -151,6 +152,7 @@ export default function WorkspaceTopbar({
         <NotificationCenter
           unreadNotifications={unreadNotifications}
           onUnreadCountChange={onUnreadCountChange}
+          onNotify={onNotify}
           notificationsPath={notificationsPath}
         />
 

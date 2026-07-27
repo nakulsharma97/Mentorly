@@ -129,10 +129,18 @@ export function clearAuthSessionState(options = {}) {
   const { preserveCookies = false } = options;
   if (typeof window !== "undefined") {
     const preservedLanguage = window.localStorage.getItem("language");
-    window.localStorage.clear();
-    window.sessionStorage.clear();
+    const preservedTheme = window.localStorage.getItem("theme-preference");
+    // Only clear auth-related keys instead of wiping all of localStorage
+    const authKeys = ["token", "refreshToken", "user", "currentUser"];
+    authKeys.forEach((key) => {
+      window.localStorage.removeItem(key);
+      window.sessionStorage.removeItem(key);
+    });
     if (preservedLanguage) {
       window.localStorage.setItem("language", preservedLanguage);
+    }
+    if (preservedTheme) {
+      window.localStorage.setItem("theme-preference", preservedTheme);
     }
   }
   activeAuthToken = null;

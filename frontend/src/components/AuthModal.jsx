@@ -344,7 +344,9 @@ export default function AuthModal({
             ) : (
               <>
                 <div className="auth-forgot-input-row">
+                  <label htmlFor="forgot-email-input" className="sr-only">Email for password reset</label>
                   <input
+                    id="forgot-email-input"
                     type="email"
                     placeholder="Your email address"
                     value={forgotEmail}

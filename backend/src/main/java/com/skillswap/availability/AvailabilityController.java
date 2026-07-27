@@ -2,6 +2,8 @@ package com.skillswap.availability;
 
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.session.SessionAutoCreationService;
+import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -29,6 +31,7 @@ public class AvailabilityController {
 
     private final UserAvailabilitySlotRepository slotRepository;
     private final BookingRepository bookingRepository;
+    private final SessionAutoCreationService sessionAutoCreationService;
 
     @GetMapping("/my-slots")
     public ApiResponse<List<SlotResponse>> mySlots(@AuthenticationPrincipal User user) {
@@ -52,6 +55,15 @@ public class AvailabilityController {
         slot.setActive(req.active() == null || req.active());
         UserAvailabilitySlot saved = slotRepository.save(slot);
         log.info("Availability slot saved id={} for userId={}", saved.getId(), user.getId());
+
+        // Auto-create sessions from this availability slot
+        try {
+            List<SkillSession> autoSessions = sessionAutoCreationService.createSessionsFromSlot(saved, user);
+            log.info("Auto-created {} sessions from availability slot id={}", autoSessions.size(), saved.getId());
+        } catch (Exception e) {
+            log.warn("Failed to auto-create sessions from availability slot id={}: {}", saved.getId(), e.getMessage());
+        }
+
         return new ApiResponse<>("Availability slot created", SlotResponse.fromEntity(saved));
     }
 
@@ -74,6 +86,15 @@ public class AvailabilityController {
         slot.setActive(req.active() == null || req.active());
         UserAvailabilitySlot saved = slotRepository.save(slot);
         log.info("Availability slot updated id={} for userId={}", saved.getId(), user.getId());
+
+        // Auto-create sessions from this updated availability slot (for future dates)
+        try {
+            List<SkillSession> autoSessions = sessionAutoCreationService.createSessionsFromSlot(saved, user);
+            log.info("Auto-created {} sessions from updated availability slot id={}", autoSessions.size(), saved.getId());
+        } catch (Exception e) {
+            log.warn("Failed to auto-create sessions from updated slot id={}: {}", saved.getId(), e.getMessage());
+        }
+
         return new ApiResponse<>("Availability slot updated", SlotResponse.fromEntity(saved));
     }
 

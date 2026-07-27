@@ -105,7 +105,7 @@ export default function Testimonials({ onShareReview }) {
             <div className="landing-mentor-image">
               <img
                 src={it.reviewerProfileImageUrl || "/default-avatar.png"}
-                alt=""
+                alt={it.reviewerName ? `${it.reviewerName}'s avatar` : "Reviewer avatar"}
               />
               <span
                 className={

@@ -34,6 +34,9 @@ class NotificationServiceTest {
     @Mock
     private EmailNotificationService emailNotificationService;
 
+    @Mock
+    private NotificationWebSocketHandler webSocketHandler;
+
     @InjectMocks
     private NotificationService notificationService;
 

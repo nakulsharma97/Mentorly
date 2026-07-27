@@ -25,7 +25,7 @@ public class AuthController {
     public ApiResponse<AuthSessionResponse> signup(@Valid @RequestBody SignupRequest request,
             HttpServletResponse response,
             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor, request);
+        String clientIp = resolveClientIp(xForwardedFor);
         AuthResponse authResponse = authService.signup(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Signup successful", sanitize(authResponse));
@@ -35,7 +35,7 @@ public class AuthController {
     public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request,
             HttpServletResponse response,
             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor, request);
+        String clientIp = resolveClientIp(xForwardedFor);
         AuthResponse authResponse = authService.login(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Login successful", sanitize(authResponse));
@@ -71,7 +71,7 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
             @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor, request);
+        String clientIp = resolveClientIp(xForwardedFor);
         authService.forgotPassword(request, clientIp);
         return new ApiResponse<>("If this email is registered, a reset link has been sent.", null);
     }
@@ -94,7 +94,7 @@ public class AuthController {
                 authResponse.refreshToken());
     }
 
-    private static String resolveClientIp(String xForwardedFor, Object requestContext) {
+    private static String resolveClientIp(String xForwardedFor) {
         if (xForwardedFor != null && !xForwardedFor.isBlank()) {
             // X-Forwarded-For can be comma-separated; take the first (client) IP
             int comma = xForwardedFor.indexOf(',');

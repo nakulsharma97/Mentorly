@@ -49,6 +49,7 @@ const LearnerAchievementsPage = lazy(() => import("../pages/LearnerAchievementsP
 const LearnerProfilePage = lazy(() => import("../pages/LearnerProfilePage"));
 const LearnerSettingsPage = lazy(() => import("../pages/LearnerSettingsPage"));
 const LearnerNotificationsPage = lazy(() => import("../pages/LearnerNotificationsPage"));
+const LearnerSessionRequestsPage = lazy(() => import("../pages/LearnerSessionRequestsPage"));
 
 function RedirectToMentorProfessionalProfile() {
   const { section } = useParams();
@@ -173,6 +174,7 @@ export default function AppRoutes({
               onLanguageChange={onLanguageChange}
               unreadNotifications={unreadNotifications}
               onUnreadCountChange={setUnreadNotifications}
+              notify={notify}
             />
           </RoleGuard>
         }
@@ -183,13 +185,13 @@ export default function AppRoutes({
         <Route path="skills" element={rc("learner-skills", <LearnerSkillsPage />)} />
         <Route path="learning" element={rc("learner-learning", <LearnerLearningPage />)} />
         <Route path="sessions" element={rc("learner-sessions", <LearnerSessionsPage />)} />
+        <Route path="requests" element={rc("learner-requests", <LearnerSessionRequestsPage />)} />
         <Route path="certificates" element={rc("learner-certificates", <LearnerCertificatesPage />)} />
         <Route path="messages" element={rc("learner-messages", <LearnerMessagesPage profile={profile} />)} />
         <Route path="messages/:conversationId" element={rc("learner-messages-conversation", <LearnerMessagesPage profile={profile} />)} />
         <Route path="saved" element={rc("learner-saved", <LearnerSavedMentorsPage />)} />
         <Route path="path" element={rc("learner-path", <LearnerPathPage />)} />
-        <Route path="achievements" element={rc("learner-achievements", <LearnerAchievementsPage />)} />
-        <Route path="notifications" element={rc("learner-notifications", <LearnerNotificationsPage />)} />
+        <Route path="achievements" element={rc("learner-achievements", <LearnerAchievementsPage />)} />            <Route path="notifications" element={rc("learner-notifications", <LearnerNotificationsPage notify={notify} />)} />
         <Route path="profile" element={rc("learner-profile", <LearnerProfilePage profile={profile} />)} />
         <Route path="settings" element={rc("learner-settings", <LearnerSettingsPage profile={profile} />)} />
         <Route path="resources" element={rc("learner-resources", <ResourcesPage />)} />
@@ -209,6 +211,7 @@ export default function AppRoutes({
               onLanguageChange={onLanguageChange}
               unreadNotifications={unreadNotifications}
               onUnreadCountChange={setUnreadNotifications}
+              notify={notify}
             />
           </RoleGuard>
         }
@@ -222,8 +225,7 @@ export default function AppRoutes({
         <Route path="reviews" element={rc("mentor-reviews", <MentorReviewsPage profile={profile} notify={notify} />)} />
         <Route path="messages" element={rc("mentor-messages", <MessagesPage profile={profile} notify={notify} onLogout={handleLogout} />)} />
         <Route path="wallet" element={rc("mentor-wallet", <WalletPage profile={profile} notify={notify} />)} />
-        <Route path="professional-profile" element={rc("mentor-professional-profile", <ProfessionalProfilePage profile={profile} notify={notify} />)} />
-        <Route path="notifications" element={rc("mentor-notifications", <MentorNotificationsPage />)} />
+        <Route path="professional-profile" element={rc("mentor-professional-profile", <ProfessionalProfilePage profile={profile} notify={notify} />)} />            <Route path="notifications" element={rc("mentor-notifications", <MentorNotificationsPage notify={notify} />)} />
         <Route path="settings" element={rc("mentor-settings", <MentorSettingsPage profile={profile} notify={notify} />)} />
         <Route path="*" element={<Navigate to="/mentor/dashboard" replace />} />
       </Route>
@@ -249,7 +251,7 @@ export default function AppRoutes({
           profile?.role === "ADMIN" ? (
             <RoleGuard profile={profile} allowedRoles={["ADMIN"]}>
               <Suspense fallback={routeFallback}>
-                <AdminLayout profile={profile} onLogout={handleLogout} unreadNotifications={unreadNotifications} onUnreadCountChange={setUnreadNotifications} />
+                <AdminLayout profile={profile} onLogout={handleLogout} unreadNotifications={unreadNotifications} onUnreadCountChange={setUnreadNotifications} notify={notify} />
               </Suspense>
             </RoleGuard>
           ) : (

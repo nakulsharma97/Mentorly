@@ -11,6 +11,7 @@ const GROUPS = [
       { to: "/learner/skills", label: "Explore Skills", icon: "auto_stories" },
       { to: "/learner/learning", label: "My Learning", icon: "school" },
       { to: "/learner/sessions", label: "Booked Sessions", icon: "calendar_month" },
+      { to: "/learner/requests", label: "My Requests", icon: "handshake" },
       { to: "/learner/messages", label: "Messages", icon: "chat" },
     ],
   },
@@ -27,6 +28,7 @@ const PAGE_META = {
   skills: { title: "Explore Skills", search: "Search skills..." },
   learning: { title: "My Learning", search: "Search your learning..." },
   sessions: { title: "Booked Sessions", search: "Search sessions..." },
+  requests: { title: "My Requests", search: "Search requests..." },
   certificates: { title: "Certificates", search: "Search certificates..." },
   messages: { title: "Messages", search: "Search conversations..." },
   saved: { title: "Saved Mentors", search: "Search saved mentors..." },
@@ -43,13 +45,14 @@ const PROFILE_MENU = [
   { to: "/learner/certificates", label: "Certificates", icon: "workspace_premium" },
 ];
 
-export default function LearnerLayout({ profile, onLogout, unreadNotifications, onUnreadCountChange }) {
+export default function LearnerLayout({ profile, onLogout, unreadNotifications, onUnreadCountChange, notify }) {
   return (
     <WorkspaceLayout
       profile={profile}
       onLogout={onLogout}
       unreadNotifications={unreadNotifications}
       onUnreadCountChange={onUnreadCountChange}
+      onNotify={notify}
       brand={BRAND}
       groups={GROUPS}
       secondaryLinks={SECONDARY}

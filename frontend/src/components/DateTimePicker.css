@@ -37,9 +37,12 @@
 }
 
 .datetime-trigger:focus {
-  outline: none;
   border-color: var(--primary-color, #007bff);
   box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+.datetime-trigger:focus-visible {
+  outline: 3px solid var(--focus-ring, rgba(14, 116, 144, 0.42));
+  outline-offset: 2px;
 }
 
 .datetime-trigger .material-symbols-outlined {

@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import client from "../api/client";
-import Icon from "../modules/common/dashboard/Icon";
-import "../modules/common/dashboard/dashboard.css";
+import SsIcon from "../components/ui/SsIcon";
+import "./LearnerDashboard.css";
 
 /* ==========================================================================
    Helpers (self-contained)
@@ -128,6 +128,38 @@ function MiniChart({ data, height = 32, color = "#0f766e" }) {
 }
 
 /* ==========================================================================
+   Stat Card with Mini Chart
+   ========================================================================== */
+
+function LearnerStatCard({ icon, iconBg, iconColor, value, label, desc, trend, trendLabel, chartData, chartColor }) {
+  const trendClass = trend > 0 ? "ld-stat-card__trend--pos" : "";
+  const trendIcon = trend > 0 ? "trending-up" : "minus";
+  return (
+    <div className="ld-stat-card">
+      <div className="ld-stat-card__header">
+        <div className="ld-stat-card__icon" style={{ background: iconBg || "rgba(15,157,138,0.1)", color: iconColor || "#0F9D8A" }}>
+          <SsIcon name={icon} size={22} />
+        </div>
+        {trend !== undefined && (
+          <span className={`ld-stat-card__trend ${trendClass}`}>
+            <SsIcon name={trendIcon} size={12} />
+            {trendLabel || `+${Math.abs(trend)}`}
+          </span>
+        )}
+      </div>
+      <p className="ld-stat-card__value">{value}</p>
+      <p className="ld-stat-card__label">{label}</p>
+      {desc && <p className="ld-stat-card__desc">{desc}</p>}
+      {chartData && (
+        <div className="ld-stat-card__chart">
+          <MiniChart data={chartData} color={chartColor || iconColor || "#0F9D8A"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==========================================================================
    Main Component
    ========================================================================== */
 
@@ -159,6 +191,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
 
   useEffect(() => {
     loadLearnerData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadLearnerData = async () => {
@@ -254,7 +287,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
         skillsLearning: watchlist.length || uniqueSkills.size,
       });
     } catch (error) {
-      console.error("Error loading learner data:", error);
+      // silently handle data load failures; UI shows empty sections
     } finally {
       setLoading(false);
     }
@@ -263,14 +296,14 @@ export default function LearnerDashboard({ profile, onLogout }) {
   // Loading state
   if (loading) {
     return (
-      <div className="ld-shell" role="status" aria-label="Loading dashboard...">
-        <div className="ld-skel-hero" />
-        <div className="ld-stats">
-          {[1, 2, 3, 4, 5].map((k) => <div key={k} className="ld-skel-stat" />)}
+      <div className="ss-page" role="status" aria-label="Loading dashboard...">
+        <div className="ss-skeleton ss-skeleton--hero" />
+        <div className="ss-stats-grid">
+          {[1, 2, 3, 4, 5].map((k) => <div key={k} className="ss-skeleton ss-skeleton--card" />)}
         </div>
-        <div className="ld-row">
-          <div className="ld-skel-block" style={{ flex: 2 }} />
-          <div className="ld-skel-block" style={{ flex: 1 }} />
+        <div className="ss-grid-2">
+          <div className="ss-skeleton ss-skeleton--card" style={{ height: 280 }} />
+          <div className="ss-skeleton ss-skeleton--card" style={{ height: 280 }} />
         </div>
       </div>
     );
@@ -369,86 +402,98 @@ export default function LearnerDashboard({ profile, onLogout }) {
   const nextTierReferralsNeeded = nextTier ? nextTier.referrals - totalReferrals : 0;
 
   return (
-    <div className="ld-shell">
-      {/* ── Premium Hero ── */}
-      <div className="ld-hero">
-        <div className="ld-hero__body">
-          <span className="ld-hero__eyebrow">
-            <span className="ld-hero__eyebrow-dot" />
+    <div className="ss-page ld-page">
+
+      {/* ═══════════════════ HERO SECTION — Premium SaaS ═══════════════════ */}
+      <section className="ss-hero">
+        <div className="ss-hero__content">
+          <div className="ss-hero__badge">
+            <SsIcon name="sparkles" size={14} />
             Learner Dashboard
-          </span>
-          <h1 className="ld-hero__title">
+          </div>
+          <h1 className="ss-hero__title">
             {getGreeting()}, {firstName}
           </h1>
-          <p className="ld-hero__sub">
+          <p className="ss-hero__desc">
             Track your progress, join upcoming sessions, and continue learning.
             {stats.completedSessions > 0 || streak > 0
               ? ` You have ${stats.completedSessions} completed session${stats.completedSessions !== 1 ? 's' : ''}${streak > 0 ? ` and a ${streak}-day streak` : ''}.`
               : ` Start by booking your first session with a mentor.`
             }
           </p>
-          <div className="ld-hero__actions">
+
+          <div className="ss-hero__quick-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Streak</p>
+              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <SsIcon name="local_fire_department" size={20} /> {streak}d
+              </p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Certificates</p>
+              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <SsIcon name="workspace_premium" size={20} /> {certifications.length}
+              </p>
+            </div>
+            <div className="ss-hero__qs-item">
+              <p className="ss-hero__qs-label">Hours Learned</p>
+              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <SsIcon name="schedule" size={20} /> {stats.learningHours}h
+              </p>
+            </div>
+          </div>
+
+          <div className="ss-hero__actions">
             {nextSession?.session?.meetingLink && (
-              <a href={nextSession.session.meetingLink} target="_blank" rel="noreferrer" className="ld-btn ld-btn--primary">
-                <Icon name="videocam" /> Join Next Session
+              <a href={nextSession.session.meetingLink} target="_blank" rel="noreferrer" className="ss-btn ss-btn--primary">
+                <SsIcon name="videocam" size={18} /> Join Next Session
               </a>
             )}
-            <Link to="/learner/mentors" className="ld-btn ld-btn--ghost">
-              <Icon name="person_search" /> Find Mentors
+            <Link to="/learner/mentors" className="ss-btn ss-btn--secondary">
+              <SsIcon name="person_search" size={18} /> Find Mentors
             </Link>
-            <Link to="/learner/messages" className="ld-btn ld-btn--ghost">
-              <Icon name="chat" /> Messages
+            <Link to="/learner/messages" className="ss-btn ss-btn--ghost">
+              <SsIcon name="chat" size={18} /> Messages
             </Link>
-            <button type="button" className="ld-btn ld-btn--ghost" onClick={loadLearnerData}>
-              <Icon name="refresh" /> Refresh
+            <button type="button" className="ss-btn ss-btn--icon" onClick={loadLearnerData} title="Refresh data" aria-label="Refresh data">
+              <SsIcon name="refresh" size={20} />
             </button>
-            <button type="button" className="ld-btn ld-btn--ghost" onClick={onLogout}>
-              <Icon name="logout" /> Logout
-            </button>
-          </div>
-          <div className="ld-hero__badges">
-            <span className="ld-hero__badge">
-              <Icon name="local_fire_department" /> {streak}d streak
-            </span>
-            <span className="ld-hero__badge">
-              <Icon name="workspace_premium" /> {certifications.length} certs
-            </span>
-            <span className="ld-hero__badge">
-              <Icon name="schedule" /> {stats.learningHours}h learned
-            </span>
           </div>
         </div>
-        <div className="ld-hero__aside">
-          <div className="ld-hero-glass">
-            <p className="ld-hero-glass__label">
-              <Icon name="trending_up" /> Roadmap Progress
-            </p>
-            <div className="ld-hero-glass__ring">
-              <ProgressRing value={roadmapCompletion} size={80} stroke={7} />
-            </div>
-            <p className="ld-hero-glass__value">{roadmapCompletion}%</p>
-            <p className="ld-hero-glass__desc">Overall learning completion</p>
-          </div>
-          {nextSession && (
+
+        <div className="ss-hero__illustration" style={{ width: 240, alignItems: "flex-start" }}>
+          <div className="ld-hero-glass-cards">
             <div className="ld-hero-glass">
               <p className="ld-hero-glass__label">
-                <Icon name="event" /> Next Session
+                <SsIcon name="trending_up" size={14} /> Roadmap Progress
               </p>
-              <p className="ld-hero-glass__value ld-hero-glass__value--sm">
-                {nextSession?.session?.title || "Session"}
-              </p>
-              <p className="ld-hero-glass__desc">
-                {formatDate(nextSession?.session?.startTime)} at {formatTime(nextSession?.session?.startTime)}
-              </p>
-              <p className="ld-hero-glass__desc" style={{ fontWeight: 600 }}>
-                with {nextSession?.session?.mentor?.fullName || "Mentor"}
-              </p>
+              <div className="ld-hero-glass__ring">
+                <ProgressRing value={roadmapCompletion} size={80} stroke={7} />
+              </div>
+              <p className="ld-hero-glass__value" style={{ textAlign: "center" }}>{roadmapCompletion}%</p>
+              <p className="ld-hero-glass__desc" style={{ textAlign: "center" }}>Overall learning completion</p>
             </div>
-          )}
+            {nextSession && (
+              <div className="ld-hero-glass">
+                <p className="ld-hero-glass__label">
+                  <SsIcon name="event" size={14} /> Next Session
+                </p>
+                <p className="ld-hero-glass__value ld-hero-glass__value--sm">
+                  {nextSession?.session?.title || "Session"}
+                </p>
+                <p className="ld-hero-glass__desc">
+                  {formatDate(nextSession?.session?.startTime)} at {formatTime(nextSession?.session?.startTime)}
+                </p>
+                <p className="ld-hero-glass__desc" style={{ fontWeight: 600 }}>
+                  with {nextSession?.session?.mentor?.fullName || "Mentor"}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
-      {/* ── Premium Referral Section ── */}
+      {/* ═══════════════════ REFERRAL SECTION ═══════════════════ */}
       {referral && (
         <div className="ld-referral-hero">
           <div className="ld-referral-hero__bg" />
@@ -456,7 +501,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
             <div className="ld-referral-hero__header">
               <div className="ld-referral-hero__title-group">
                 <span className="ld-referral-hero__eyebrow">
-                  <Icon name="share" /> Referral Rewards
+                  <SsIcon name="share" size={14} /> Referral Rewards
                 </span>
                 <h2 className="ld-referral-hero__title">
                   Invite Friends, Earn Credits
@@ -469,19 +514,19 @@ export default function LearnerDashboard({ profile, onLogout }) {
                 <div className="ld-referral-hero__stat">
                   <span className="ld-referral-hero__stat-value">{totalReferrals}</span>
                   <span className="ld-referral-hero__stat-label">
-                    <Icon name="group" /> Friends Referred
+                    <SsIcon name="group" size={14} /> Friends Referred
                   </span>
                 </div>
                 <div className="ld-referral-hero__stat ld-referral-hero__stat--highlight">
                   <span className="ld-referral-hero__stat-value">{totalCredits}</span>
                   <span className="ld-referral-hero__stat-label">
-                    <Icon name="payments" /> Credits Earned
+                    <SsIcon name="payments" size={14} /> Credits Earned
                   </span>
                 </div>
                 <div className="ld-referral-hero__stat">
                   <span className="ld-referral-hero__stat-value">{currentTier?.label || "Beginner"}</span>
                   <span className="ld-referral-hero__stat-label">
-                    <Icon name="emoji_events" /> Current Tier
+                    <SsIcon name="emoji_events" size={14} /> Current Tier
                   </span>
                 </div>
               </div>
@@ -491,7 +536,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
             <div className="ld-referral-progress">
               <div className="ld-referral-progress__header">
                 <span className="ld-referral-progress__title">
-                  <Icon name="trending_up" /> Rewards Progress
+                  <SsIcon name="trending_up" size={14} /> Rewards Progress
                 </span>
                 {nextTier ? (
                   <span className="ld-referral-progress__next">
@@ -499,7 +544,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                   </span>
                 ) : (
                   <span className="ld-referral-progress__next ld-referral-progress__next--done">
-                    <Icon name="check_circle" /> Maximum tier reached!
+                    <SsIcon name="check_circle" size={14} /> Maximum tier reached!
                   </span>
                 )}
               </div>
@@ -514,7 +559,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                       className={`ld-referral-tier${isUnlocked ? " is-unlocked" : ""}${isCurrent ? " is-current" : ""}`}
                     >
                       <div className="ld-referral-tier__icon">
-                        <Icon name={tier.icon} />
+                        <SsIcon name={tier.icon} size={18} />
                       </div>
                       <div className="ld-referral-tier__info">
                         <span className="ld-referral-tier__name">{tier.label}</span>
@@ -550,7 +595,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={handleCopyLink}
                     aria-label={copied ? "Copied" : "Copy referral code"}
                   >
-                    <Icon name={copied ? "check" : "content_copy"} />
+                    <SsIcon name={copied ? "check" : "content_copy"} size={16} />
                     <span>{copied ? "Copied!" : "Copy Code"}</span>
                   </button>
                 </div>
@@ -564,7 +609,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={handleCopyLink}
                     aria-label="Copy referral link"
                   >
-                    <Icon name={copied ? "check" : "link"} />
+                    <SsIcon name={copied ? "check" : "link"} size={16} />
                     <span>{copied ? "Copied" : "Copy Link"}</span>
                   </button>
                   <button
@@ -573,7 +618,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={() => handleShare("whatsapp")}
                     aria-label="Share on WhatsApp"
                   >
-                    <Icon name="chat" />
+                    <SsIcon name="chat" size={16} />
                     <span>WhatsApp</span>
                   </button>
                   <button
@@ -582,7 +627,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={() => handleShare("twitter")}
                     aria-label="Share on Twitter"
                   >
-                    <Icon name="alternate_email" />
+                    <SsIcon name="alternate_email" size={16} />
                     <span>Twitter</span>
                   </button>
                   <button
@@ -591,7 +636,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={() => handleShare("gmail")}
                     aria-label="Compose in Gmail"
                   >
-                    <Icon name="mail" />
+                    <SsIcon name="mail" size={16} />
                     <span>Gmail</span>
                   </button>
                   <button
@@ -600,7 +645,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     onClick={() => handleShare("email")}
                     aria-label="Share via Email"
                   >
-                    <Icon name="alternate_email" />
+                    <SsIcon name="alternate_email" size={16} />
                     <span>Email</span>
                   </button>
                 </div>
@@ -610,387 +655,402 @@ export default function LearnerDashboard({ profile, onLogout }) {
         </div>
       )}
 
-      {/* ── Statistics (5 cards) ── */}
-      <div className="ld-stats">
-        <div className="ld-stat">
-          <div className="ld-stat__top">
-            <div className="ld-stat__icon" style={{ background: "rgba(5,150,105,0.1)", color: "#059669" }}>
-              <Icon name="task_alt" />
-            </div>
-            <span className="ld-stat__delta ld-stat__delta--pos">+{stats.completedSessions}</span>
-          </div>
-          <span className="ld-stat__value">{stats.completedSessions}</span>
-          <span className="ld-stat__label">Sessions Done</span>
-          <span className="ld-stat__desc">Keep it going</span>
-          <MiniChart data={series.monthly} color="#059669" />
+      {/* ═══════════════════ STAT CARDS — Custom with Mini Charts ═══════════════════ */}
+      <section>
+        <div className="ss-stats-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
+          <LearnerStatCard
+            icon="task_alt"
+            iconBg="rgba(5,150,105,0.1)"
+            iconColor="#059669"
+            value={stats.completedSessions}
+            label="Sessions Done"
+            desc="Keep it going"
+            trend={stats.completedSessions}
+            trendLabel={`+${stats.completedSessions}`}
+            chartData={series.monthly}
+            chartColor="#059669"
+          />
+          <LearnerStatCard
+            icon="school"
+            iconBg="rgba(59,130,246,0.1)"
+            iconColor="#3b82f6"
+            value={stats.skillsLearning}
+            label="Skills Learning"
+            desc="On your watchlist"
+            trend={stats.skillsLearning}
+            trendLabel={`+${stats.skillsLearning}`}
+            chartData={series.monthly}
+            chartColor="#3b82f6"
+          />
+          <LearnerStatCard
+            icon="workspace_premium"
+            iconBg="rgba(124,58,237,0.1)"
+            iconColor="#7c3aed"
+            value={certifications.length}
+            label="Certificates"
+            desc="Earned so far"
+            trend={certifications.length}
+            trendLabel={`+${certifications.length}`}
+            chartData={series.monthly}
+            chartColor="#7c3aed"
+          />
+          <LearnerStatCard
+            icon="local_fire_department"
+            iconBg="rgba(245,158,11,0.1)"
+            iconColor="#f59e0b"
+            value={`${streak}d`}
+            label="Learning Streak"
+            desc="Consecutive days"
+            trend={streak}
+            trendLabel={`+${streak}d`}
+            chartData={series.weekly}
+            chartColor="#f59e0b"
+          />
+          <LearnerStatCard
+            icon="schedule"
+            iconBg="rgba(16,185,129,0.1)"
+            iconColor="#10b981"
+            value={`${stats.learningHours}h`}
+            label="Hours Learned"
+            desc="Total time invested"
+            trend={stats.learningHours}
+            trendLabel={`+${stats.learningHours}h`}
+            chartData={series.hours}
+            chartColor="#10b981"
+          />
         </div>
-        <div className="ld-stat">
-          <div className="ld-stat__top">
-            <div className="ld-stat__icon" style={{ background: "rgba(59,130,246,0.1)", color: "#3b82f6" }}>
-              <Icon name="school" />
-            </div>
-            <span className="ld-stat__delta ld-stat__delta--pos">+{stats.skillsLearning}</span>
-          </div>
-          <span className="ld-stat__value">{stats.skillsLearning}</span>
-          <span className="ld-stat__label">Skills Learning</span>
-          <span className="ld-stat__desc">On your watchlist</span>
-          <MiniChart data={series.monthly} color="#3b82f6" />
-        </div>
-        <div className="ld-stat">
-          <div className="ld-stat__top">
-            <div className="ld-stat__icon" style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}>
-              <Icon name="workspace_premium" />
-            </div>
-            <span className="ld-stat__delta ld-stat__delta--pos">+{certifications.length}</span>
-          </div>
-          <span className="ld-stat__value">{certifications.length}</span>
-          <span className="ld-stat__label">Certificates</span>
-          <span className="ld-stat__desc">Earned so far</span>
-          <MiniChart data={series.monthly} color="#7c3aed" />
-        </div>
-        <div className="ld-stat">
-          <div className="ld-stat__top">
-            <div className="ld-stat__icon" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
-              <Icon name="local_fire_department" />
-            </div>
-            <span className="ld-stat__delta ld-stat__delta--pos">+{streak}d</span>
-          </div>
-          <span className="ld-stat__value">{streak}d</span>
-          <span className="ld-stat__label">Learning Streak</span>
-          <span className="ld-stat__desc">Consecutive days</span>
-          <MiniChart data={series.weekly} color="#f59e0b" />
-        </div>
-        <div className="ld-stat">
-          <div className="ld-stat__top">
-            <div className="ld-stat__icon" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
-              <Icon name="schedule" />
-            </div>
-            <span className="ld-stat__delta ld-stat__delta--pos">+{stats.learningHours}h</span>
-          </div>
-          <span className="ld-stat__value">{stats.learningHours}h</span>
-          <span className="ld-stat__label">Hours Learned</span>
-          <span className="ld-stat__desc">Total time invested</span>
-          <MiniChart data={series.hours} color="#10b981" />
-        </div>
-      </div>
+      </section>
 
-      {/* ── Continue Learning ── */}
+      {/* ═══════════════════ CONTINUE LEARNING ═══════════════════ */}
       {currentCourses.length > 0 && (
-        <div className="ld-card">
-          <div className="ld-section__head">
-            <h2 className="ld-section__title">
-              <Icon name="play_circle" /> Continue Learning
-            </h2>
-            <Link to="/learner/learning" className="ld-section__link">
-              View All <Icon name="arrow_forward" />
-            </Link>
-          </div>
-          <div className="ld-courses-scroll">
-            {currentCourses.map((course, idx) => {
-              const pct = Math.round(Number(course.progressPercent || 0));
-              return (
-                <article key={course.id || idx} className="ld-course-card">
-                  <div className="ld-course-card__thumb" style={{ background: `linear-gradient(135deg,#0f766e,#14b8a6)` }}>
-                    <Icon name={course.category === "Frontend" ? "web" : "code"} />
-                    <span className="ld-course-card__pct">{pct}%</span>
-                  </div>
-                  <div className="ld-course-card__body">
-                    <h4 className="ld-course-card__title">{course.title || "Learning roadmap"}</h4>
-                    <p className="ld-course-card__mentor">
-                      <Icon name="person" /> {course.mentorName || course.mentor?.fullName || "Self-paced"}
-                    </p>
-                    <div className="ld-course-card__track">
-                      <div className="ld-course-card__fill" style={{ width: `${pct}%` }} />
+        <section>
+          <div className="ss-card">
+            <div className="ss-card__header">
+              <h3 className="ss-card__title">
+                <SsIcon name="play_circle" size={20} /> Continue Learning
+              </h3>
+              <Link to="/learner/learning" className="ss-btn ss-btn--ghost ss-btn--sm">
+                View All <SsIcon name="arrow_forward" size={16} />
+              </Link>
+            </div>
+            <div className="ld-courses-scroll">
+              {currentCourses.map((course, idx) => {
+                const pct = Math.round(Number(course.progressPercent || 0));
+                return (
+                  <article key={course.id || idx} className="ld-course-card">
+                    <div className="ld-course-card__thumb" style={{ background: `linear-gradient(135deg,#0f766e,#14b8a6)` }}>
+                      <SsIcon name={course.category === "Frontend" ? "web" : "code"} size={32} />
+                      <span className="ld-course-card__pct">{pct}%</span>
                     </div>
-                    <div className="ld-course-card__foot">
-                      <span className="ld-course-card__pct-label">{pct}% complete</span>
-                      <Link to="/learner/learning" className="ld-btn ld-btn--brand ld-btn--sm">
-                        <Icon name="play_arrow" /> Resume
-                      </Link>
+                    <div className="ld-course-card__body">
+                      <h4 className="ld-course-card__title">{course.title || "Learning roadmap"}</h4>
+                      <p className="ld-course-card__mentor">
+                        <SsIcon name="person" size={14} /> {course.mentorName || course.mentor?.fullName || "Self-paced"}
+                      </p>
+                      <div className="ld-course-card__track">
+                        <div className="ld-course-card__fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="ld-course-card__foot">
+                        <span className="ld-course-card__pct-label">{pct}% complete</span>
+                        <Link to="/learner/learning" className="ss-btn ss-btn--primary ss-btn--sm">
+                          <SsIcon name="play_arrow" size={16} /> Resume
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
+                  </article>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* ── Row: Upcoming Sessions (7) + Learning Progress (5) ── */}
-      <div className="ld-row">
-        <div className="ld-col-7">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="event" /> Upcoming Sessions
-              </h2>
-              <Link to="/learner/sessions" className="ld-section__link">
-                View All <Icon name="arrow_forward" />
-              </Link>
-            </div>
-            {upcomingSessions.length > 0 ? (
-              <div className="ld-sessions-list">
-                {upcomingSessions.slice(0, 5).map((booking) => {
-                  const session = booking?.session || {};
-                  const mentor = session?.mentor || {};
-                  return (
-                    <div key={booking.id} className="ld-session-row">
-                      <div className="ld-session-row__date">
-                        <span className="ld-session-row__day">{new Date(session.startTime || 0).getDate()}</span>
-                        <span className="ld-session-row__mon">
-                          {new Date(session.startTime || 0).toLocaleString(undefined, { month: "short" })}
-                        </span>
-                      </div>
-                      <div className="ld-session-row__main">
-                        <p className="ld-session-row__title">{session.title || "Upcoming Session"}</p>
-                        <p className="ld-session-row__meta">
-                          <Icon name="person" /> {mentor.fullName || "Mentor"}
-                          <Icon name="schedule" /> {formatTime(session.startTime)}
-                          <Icon name="timelapse" /> {Math.max(0, Math.round((new Date(session.endTime || 0) - new Date(session.startTime || 0)) / 60000))} min
-                        </p>
-                      </div>
-                      <div className="ld-session-row__actions">
-                        {session.meetingLink && (
-                          <a href={session.meetingLink} target="_blank" rel="noreferrer" className="ld-btn ld-btn--brand ld-btn--sm">
-                            <Icon name="videocam" /> Join
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="ld-empty">
-                <div className="ld-empty__icon"><Icon name="event_busy" /></div>
-                <p className="ld-empty__title">No upcoming sessions</p>
-                <p className="ld-empty__desc">Book a session with a mentor to get started.</p>
-                <Link to="/learner/mentors" className="ld-btn ld-btn--brand ld-btn--sm">
-                  Find Mentors
-                </Link>
-              </div>
-            )}
+      {/* ═══════════════════ ROW 1: Upcoming Sessions + Learning Progress ═══════════════════ */}
+      <div className="ss-grid-sidebar">
+        {/* Upcoming Sessions */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="event" size={20} /> Upcoming Sessions
+            </h3>
+            <Link to="/learner/sessions" className="ss-btn ss-btn--ghost ss-btn--sm">
+              View All <SsIcon name="arrow_forward" size={16} />
+            </Link>
           </div>
-        </div>
-        <div className="ld-col-5">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="insights" /> Learning Progress
-              </h2>
-            </div>
-            <div className="ld-progress-chart">
-              <div className="ld-chart-bars">
-                {series.monthly.slice(-6).map((m) => {
-                  const maxVal = Math.max(...series.monthly.map((x) => x.value), 1);
-                  const h = Math.max((m.value / maxVal) * 120, m.value > 0 ? 8 : 0);
-                  return (
-                    <div key={m.key} className="ld-chart-col">
-                      <span className="ld-chart-val">{m.value}</span>
-                      <div className="ld-chart-bar-wrap">
-                        <div className="ld-chart-bar" style={{ height: `${h}px` }} />
-                      </div>
-                      <span className="ld-chart-label">{m.label}</span>
+          {upcomingSessions.length > 0 ? (
+            <div className="ld-sessions-list">
+              {upcomingSessions.slice(0, 5).map((booking) => {
+                const session = booking?.session || {};
+                const mentor = session?.mentor || {};
+                return (
+                  <div key={booking.id} className="ld-session-row">
+                    <div className="ld-session-row__date">
+                      <span className="ld-session-row__day">{new Date(session.startTime || 0).getDate()}</span>
+                      <span className="ld-session-row__mon">
+                        {new Date(session.startTime || 0).toLocaleString(undefined, { month: "short" })}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-              <div className="ld-progress-stats">
-                <div className="ld-progress-stat">
-                  <span className="ld-progress-stat__val">{stats.completedSessions}</span>
-                  <span className="ld-progress-stat__lbl">Sessions</span>
-                </div>
-                <div className="ld-progress-stat">
-                  <span className="ld-progress-stat__val">{stats.learningHours}h</span>
-                  <span className="ld-progress-stat__lbl">Hours</span>
-                </div>
-                <div className="ld-progress-stat">
-                  <span className="ld-progress-stat__val">{roadmapCompletion}%</span>
-                  <span className="ld-progress-stat__lbl">Complete</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Row: Recommended Mentors (7) + Achievements (5) ── */}
-      <div className="ld-row">
-        <div className="ld-col-7">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="recommend" /> Top Mentors
-              </h2>
-              <Link to="/learner/mentors" className="ld-section__link">
-                View All <Icon name="arrow_forward" />
-              </Link>
-            </div>
-            {recommendedMentors.length > 0 ? (
-              <div className="ld-mentors">
-                {recommendedMentors.slice(0, 4).map((mentor) => (
-                  <div key={mentor.id} className="ld-mentor-row">
-                    <div className="ld-mentor-row__avatar">
-                      {mentor.profileImageUrl ? (
-                        <img src={mentor.profileImageUrl} alt={mentor.fullName} />
-                      ) : (
-                        <span>{initials(mentor.fullName || "M")}</span>
+                    <div className="ld-session-row__main">
+                      <p className="ld-session-row__title">{session.title || "Upcoming Session"}</p>
+                      <p className="ld-session-row__meta">
+                        <SsIcon name="person" size={14} /> {mentor.fullName || "Mentor"}
+                        <SsIcon name="schedule" size={14} /> {formatTime(session.startTime)}
+                        <SsIcon name="timelapse" size={14} /> {Math.max(0, Math.round((new Date(session.endTime || 0) - new Date(session.startTime || 0)) / 60000))} min
+                      </p>
+                    </div>
+                    <div className="ld-session-row__actions">
+                      {session.meetingLink && (
+                        <a href={session.meetingLink} target="_blank" rel="noreferrer" className="ss-btn ss-btn--primary ss-btn--sm">
+                          <SsIcon name="videocam" size={16} /> Join
+                        </a>
                       )}
                     </div>
-                    <div className="ld-mentor-row__info">
-                      <p className="ld-mentor-row__name">{mentor.fullName || "Mentor"}</p>
-                      <p className="ld-mentor-row__role">{mentor.headline || mentor.title || "Expert mentor"}</p>
-                    </div>
-                    <span className="ld-mentor-row__rating">
-                      \u2605 {Number(mentor.averageRating || mentor.rating || 0).toFixed(1)}
-                    </span>
-                    <Link to={`/mentors/${mentor.id}`} className="ld-btn ld-btn--outline ld-btn--sm">
-                      View Profile
-                    </Link>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+          ) : (
+            <div className="ss-empty" style={{ padding: "32px 20px" }}>
+              <div className="ss-empty__icon">
+                <SsIcon name="event_busy" size={36} />
               </div>
-            ) : (
-              <div className="ld-empty">
-                <div className="ld-empty__icon"><Icon name="group" /></div>
-                <p className="ld-empty__title">No mentor recommendations</p>
-                <p className="ld-empty__desc">Explore mentors to find the perfect match.</p>
-                <Link to="/learner/mentors" className="ld-btn ld-btn--brand ld-btn--sm">
+              <h3 className="ss-empty__title">No upcoming sessions</h3>
+              <p className="ss-empty__desc">Book a session with a mentor to get started.</p>
+              <div className="ss-empty__actions">
+                <Link to="/learner/mentors" className="ss-btn ss-btn--primary ss-btn--sm">
                   Find Mentors
                 </Link>
               </div>
-            )}
-          </div>
-        </div>
-        <div className="ld-col-5">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="emoji_events" /> Achievements
-              </h2>
             </div>
-            <div className="ld-achievements">
-              <div className="ld-achievement">
-                <div className="ld-achievement__icon" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
-                  <Icon name="local_fire_department" />
-                </div>
-                <div className="ld-achievement__body">
-                  <span className="ld-achievement__label">Learning Streak</span>
-                  <span className="ld-achievement__desc">{streak} consecutive days</span>
-                </div>
-                <span className="ld-achievement__xp">+{streak * 10} XP</span>
+          )}
+        </div>
+
+        {/* Learning Progress */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="insights" size={20} /> Learning Progress
+            </h3>
+          </div>
+          <div className="ld-progress-chart">
+            <div className="ld-chart-bars">
+              {series.monthly.slice(-6).map((m) => {
+                const maxVal = Math.max(...series.monthly.map((x) => x.value), 1);
+                const h = Math.max((m.value / maxVal) * 120, m.value > 0 ? 8 : 0);
+                return (
+                  <div key={m.key} className="ld-chart-col">
+                    <span className="ld-chart-val">{m.value}</span>
+                    <div className="ld-chart-bar-wrap">
+                      <div className="ld-chart-bar" style={{ height: `${h}px` }} />
+                    </div>
+                    <span className="ld-chart-label">{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="ld-progress-stats">
+              <div className="ld-progress-stat">
+                <span className="ld-progress-stat__val">{stats.completedSessions}</span>
+                <span className="ld-progress-stat__lbl">Sessions</span>
               </div>
-              <div className="ld-achievement">
-                <div className="ld-achievement__icon" style={{ background: "rgba(5,150,105,0.1)", color: "#059669" }}>
-                  <Icon name="task_alt" />
-                </div>
-                <div className="ld-achievement__body">
-                  <span className="ld-achievement__label">Sessions Completed</span>
-                  <span className="ld-achievement__desc">{stats.completedSessions} total sessions</span>
-                </div>
-                <span className="ld-achievement__xp">+{stats.completedSessions * 5} XP</span>
+              <div className="ld-progress-stat">
+                <span className="ld-progress-stat__val">{stats.learningHours}h</span>
+                <span className="ld-progress-stat__lbl">Hours</span>
               </div>
-              <div className="ld-achievement">
-                <div className="ld-achievement__icon" style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}>
-                  <Icon name="workspace_premium" />
-                </div>
-                <div className="ld-achievement__body">
-                  <span className="ld-achievement__label">Certificates</span>
-                  <span className="ld-achievement__desc">{certifications.length} earned</span>
-                </div>
-                <span className="ld-achievement__xp">+{certifications.length * 50} XP</span>
+              <div className="ld-progress-stat">
+                <span className="ld-progress-stat__val">{roadmapCompletion}%</span>
+                <span className="ld-progress-stat__lbl">Complete</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Row: Learning Roadmap (7) + Certificates (5) ── */}
-      <div className="ld-row">
-        <div className="ld-col-7">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="timeline" /> Learning Roadmap
-              </h2>
-              <Link to="/learner/learning" className="ld-section__link">
-                Open Roadmap <Icon name="arrow_forward" />
-              </Link>
+      {/* ═══════════════════ ROW 2: Top Mentors + Achievements ═══════════════════ */}
+      <div className="ss-grid-sidebar">
+        {/* Top Mentors */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="recommend" size={20} /> Top Mentors
+            </h3>
+            <Link to="/learner/mentors" className="ss-btn ss-btn--ghost ss-btn--sm">
+              View All <SsIcon name="arrow_forward" size={16} />
+            </Link>
+          </div>
+          {recommendedMentors.length > 0 ? (
+            <div className="ld-mentors">
+              {recommendedMentors.slice(0, 4).map((mentor) => (
+                <div key={mentor.id} className="ld-mentor-row">
+                  <div className="ld-mentor-row__avatar">
+                    {mentor.profileImageUrl ? (
+                      <img src={mentor.profileImageUrl} alt={mentor.fullName} />
+                    ) : (
+                      <span>{initials(mentor.fullName || "M")}</span>
+                    )}
+                  </div>
+                  <div className="ld-mentor-row__info">
+                    <p className="ld-mentor-row__name">{mentor.fullName || "Mentor"}</p>
+                    <p className="ld-mentor-row__role">{mentor.headline || mentor.title || "Expert mentor"}</p>
+                  </div>
+                  <span className="ld-mentor-row__rating">
+                    \u2605 {Number(mentor.averageRating || mentor.rating || 0).toFixed(1)}
+                  </span>
+                  <Link to={`/mentors/${mentor.id}`} className="ss-btn ss-btn--secondary ss-btn--sm">
+                    View Profile
+                  </Link>
+                </div>
+              ))}
             </div>
-            {roadmaps.length > 0 ? (
-              <div className="ld-timeline">
-                {roadmaps.slice(0, 5).map((r, idx) => {
-                  const pct = Math.round(Number(r.progressPercent || 0));
-                  const done = pct >= 100;
-                  const current = !done && (idx === 0 || Number(roadmaps[idx - 1]?.progressPercent || 0) >= 100);
-                  return (
-                    <div key={r.id || idx} className={`ld-timeline__item${done ? " is-done" : ""}${current ? " is-current" : ""}`}>
-                      <span className="ld-timeline__dot">
-                        {done ? <Icon name="check" /> : current ? <Icon name="radio_button_checked" /> : <Icon name="radio_button_unchecked" />}
-                      </span>
-                      <div className="ld-timeline__body">
-                        <div className="ld-timeline__head">
-                          <strong>{r.title || "Learning roadmap"}</strong>
-                          <span className="ld-timeline__pct">{pct}%</span>
-                        </div>
-                        <div className="ld-timeline__bar">
-                          <div className="ld-timeline__fill" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="ld-timeline__meta">
-                          {done ? "Completed" : current ? "In progress" : "Upcoming"}
-                          {r.mentorName ? ` \u00b7 ${r.mentorName}` : ""}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+          ) : (
+            <div className="ss-empty" style={{ padding: "32px 20px" }}>
+              <div className="ss-empty__icon">
+                <SsIcon name="group" size={36} />
               </div>
-            ) : (
-              <div className="ld-empty">
-                <div className="ld-empty__icon"><Icon name="timeline" /></div>
-                <p className="ld-empty__title">No roadmaps yet</p>
-                <p className="ld-empty__desc">Book a session to generate your learning roadmap.</p>
-                <Link to="/learner/mentors" className="ld-btn ld-btn--brand ld-btn--sm">
+              <h3 className="ss-empty__title">No mentor recommendations</h3>
+              <p className="ss-empty__desc">Explore mentors to find the perfect match.</p>
+              <div className="ss-empty__actions">
+                <Link to="/learner/mentors" className="ss-btn ss-btn--primary ss-btn--sm">
                   Find Mentors
                 </Link>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+
+        {/* Achievements */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="emoji_events" size={20} /> Achievements
+            </h3>
+          </div>
+          <div className="ld-achievements">
+            <div className="ld-achievement">
+              <div className="ld-achievement__icon" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
+                <SsIcon name="local_fire_department" size={22} />
+              </div>
+              <div className="ld-achievement__body">
+                <span className="ld-achievement__label">Learning Streak</span>
+                <span className="ld-achievement__desc">{streak} consecutive days</span>
+              </div>
+              <span className="ld-achievement__xp">+{streak * 10} XP</span>
+            </div>
+            <div className="ld-achievement">
+              <div className="ld-achievement__icon" style={{ background: "rgba(5,150,105,0.1)", color: "#059669" }}>
+                <SsIcon name="task_alt" size={22} />
+              </div>
+              <div className="ld-achievement__body">
+                <span className="ld-achievement__label">Sessions Completed</span>
+                <span className="ld-achievement__desc">{stats.completedSessions} total sessions</span>
+              </div>
+              <span className="ld-achievement__xp">+{stats.completedSessions * 5} XP</span>
+            </div>
+            <div className="ld-achievement">
+              <div className="ld-achievement__icon" style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}>
+                <SsIcon name="workspace_premium" size={22} />
+              </div>
+              <div className="ld-achievement__body">
+                <span className="ld-achievement__label">Certificates</span>
+                <span className="ld-achievement__desc">{certifications.length} earned</span>
+              </div>
+              <span className="ld-achievement__xp">+{certifications.length * 50} XP</span>
+            </div>
           </div>
         </div>
-        <div className="ld-col-5">
-          <div className="ld-card">
-            <div className="ld-section__head">
-              <h2 className="ld-section__title">
-                <Icon name="workspace_premium" /> Recent Certificates
-              </h2>
-              <Link to="/learner/certificates" className="ld-section__link">
-                View All <Icon name="arrow_forward" />
-              </Link>
-            </div>
-            {certifications.length > 0 ? (
-              <div className="ld-certs">
-                {certifications.slice(0, 4).map((cert) => (
-                  <div key={cert.id} className="ld-cert">
-                    <div className="ld-cert__icon">
-                      <Icon name="workspace_premium" />
-                    </div>
-                    <div className="ld-cert__body">
-                      <span className="ld-cert__title">{cert.title || "Certificate"}</span>
-                      <span className="ld-cert__meta">
-                        {cert.mentorName || cert.issuedBy || "SkillSwap"} \u00b7 {formatDate(cert.issuedAt)}
+      </div>
+
+      {/* ═══════════════════ ROW 3: Learning Roadmap + Recent Certificates ═══════════════════ */}
+      <div className="ss-grid-sidebar">
+        {/* Learning Roadmap */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="timeline" size={20} /> Learning Roadmap
+            </h3>
+            <Link to="/learner/learning" className="ss-btn ss-btn--ghost ss-btn--sm">
+              Open Roadmap <SsIcon name="arrow_forward" size={16} />
+            </Link>
+          </div>
+          {roadmaps.length > 0 ? (
+            <div className="ld-timeline">
+              {roadmaps.slice(0, 5).map((r, idx) => {
+                const pct = Math.round(Number(r.progressPercent || 0));
+                const done = pct >= 100;
+                const current = !done && (idx === 0 || Number(roadmaps[idx - 1]?.progressPercent || 0) >= 100);
+                return (
+                  <div key={r.id || idx} className={`ld-timeline__item${done ? " is-done" : ""}${current ? " is-current" : ""}`}>
+                    <span className="ld-timeline__dot">
+                      {done ? <SsIcon name="check" size={16} /> : current ? <SsIcon name="radio_button_checked" size={16} /> : <SsIcon name="radio_button_unchecked" size={16} />}
+                    </span>
+                    <div className="ld-timeline__body">
+                      <div className="ld-timeline__head">
+                        <strong>{r.title || "Learning roadmap"}</strong>
+                        <span className="ld-timeline__pct">{pct}%</span>
+                      </div>
+                      <div className="ld-timeline__bar">
+                        <div className="ld-timeline__fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="ld-timeline__meta">
+                        {done ? "Completed" : current ? "In progress" : "Upcoming"}
+                        {r.mentorName ? ` \u00b7 ${r.mentorName}` : ""}
                       </span>
                     </div>
                   </div>
-                ))}
+                );
+              })}
+            </div>
+          ) : (
+            <div className="ss-empty" style={{ padding: "32px 20px" }}>
+              <div className="ss-empty__icon">
+                <SsIcon name="timeline" size={36} />
               </div>
-            ) : (
-              <div className="ld-empty">
-                <div className="ld-empty__icon"><Icon name="workspace_premium" /></div>
-                <p className="ld-empty__title">No certificates yet</p>
-                <p className="ld-empty__desc">Complete sessions to earn certificates.</p>
+              <h3 className="ss-empty__title">No roadmaps yet</h3>
+              <p className="ss-empty__desc">Book a session to generate your learning roadmap.</p>
+              <div className="ss-empty__actions">
+                <Link to="/learner/mentors" className="ss-btn ss-btn--primary ss-btn--sm">
+                  Find Mentors
+                </Link>
               </div>
-            )}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Certificates */}
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="workspace_premium" size={20} /> Recent Certificates
+            </h3>
+            <Link to="/learner/certificates" className="ss-btn ss-btn--ghost ss-btn--sm">
+              View All <SsIcon name="arrow_forward" size={16} />
+            </Link>
           </div>
+          {certifications.length > 0 ? (
+            <div className="ld-certs">
+              {certifications.slice(0, 4).map((cert) => (
+                <div key={cert.id} className="ld-cert">
+                  <div className="ld-cert__icon">
+                    <SsIcon name="workspace_premium" size={22} />
+                  </div>
+                  <div className="ld-cert__body">
+                    <span className="ld-cert__title">{cert.title || "Certificate"}</span>
+                    <span className="ld-cert__meta">
+                      {cert.mentorName || cert.issuedBy || "SkillSwap"} \u00b7 {formatDate(cert.issuedAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="ss-empty" style={{ padding: "32px 20px" }}>
+              <div className="ss-empty__icon">
+                <SsIcon name="workspace_premium" size={36} />
+              </div>
+              <h3 className="ss-empty__title">No certificates yet</h3>
+              <p className="ss-empty__desc">Complete sessions to earn certificates.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

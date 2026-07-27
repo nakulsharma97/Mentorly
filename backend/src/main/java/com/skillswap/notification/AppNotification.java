@@ -1,5 +1,6 @@
 package com.skillswap.notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.skillswap.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -19,6 +20,7 @@ public class AppNotification {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User user;
 
     @Column(nullable = false)

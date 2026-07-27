@@ -50,23 +50,24 @@ public class EndpointRateLimitFilter extends OncePerRequestFilter {
         String key = buildRateLimitKey(path, request);
         long now = Instant.now().toEpochMilli();
 
-        WindowCounter counter = counters.computeIfAbsent(key, ignored -> new WindowCounter(now));
-        synchronized (counter) {
-            if (now - counter.windowStartMs >= ONE_MINUTE_MS) {
-                counter.windowStartMs = now;
-                counter.requests.set(0);
+        WindowCounter counter = counters.compute(key, (k, existing) -> {
+            if (existing == null || now - existing.windowStartMs >= ONE_MINUTE_MS) {
+                WindowCounter fresh = new WindowCounter(now);
+                fresh.requests.incrementAndGet();
+                return fresh;
             }
+            existing.requests.incrementAndGet();
+            return existing;
+        });
 
-            int current = counter.requests.incrementAndGet();
-            if (current > limit) {
-                log.warn("rate_limit_exceeded path={} ip={} current={} limit={}", path, request.getRemoteAddr(),
-                        current, limit);
-                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                response.setContentType("application/json");
-                response.getWriter().write(
-                        "{\"message\":\"Too many requests\",\"data\":{\"error\":\"Rate limit exceeded. Please retry in a minute.\"}}");
-                return;
-            }
+        if (counter.requests.get() > limit) {
+            log.warn("rate_limit_exceeded path={} ip={} current={} limit={}", path, request.getRemoteAddr(),
+                    counter.requests.get(), limit);
+            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+            response.setContentType("application/json");
+            response.getWriter().write(
+                    "{\"message\":\"Too many requests\",\"data\":{\"error\":\"Rate limit exceeded. Please retry in a minute.\"}}");
+            return;
         }
 
         filterChain.doFilter(request, response);

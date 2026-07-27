@@ -446,6 +446,13 @@ public class BookingLifecycleService {
             throw new IllegalArgumentException("Insufficient wallet balance to accept this booking");
         }
 
+        // Check if there's already an active payment for this booking to prevent double-charging
+        Payment existingPayment = booking.getPayment();
+        if (existingPayment != null && existingPayment.getStatus() != PaymentStatus.INITIATED) {
+            log.info("Payment already processed for booking {}, status={}", booking.getId(), existingPayment.getStatus());
+            return;
+        }
+
         walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
                 WalletTransactionType.DEBIT,
                 priceAmount,
@@ -454,20 +461,19 @@ public class BookingLifecycleService {
                 "BOOKING",
                 booking.getId()));
 
-        Payment payment = booking.getPayment();
-        if (payment == null) {
-            payment = Payment.builder()
-                    .orderId("WALLET_" + System.currentTimeMillis())
-                    .learnerId(booking.getLearner().getId())
-                    .mentorId(booking.getSession().getMentor().getId())
-                    .sessionId(booking.getSession().getId())
-                    .amount(priceAmount)
-                    .currency("INR")
-                    .gateway("wallet")
-                    .status(PaymentStatus.ESCROWED)
-                    .createdAt(OffsetDateTime.now())
-                    .build();
-        } else {
+        Payment payment = existingPayment != null ? existingPayment : Payment.builder()
+                .orderId("WALLET_" + System.currentTimeMillis())
+                .learnerId(booking.getLearner().getId())
+                .mentorId(booking.getSession().getMentor().getId())
+                .sessionId(booking.getSession().getId())
+                .amount(priceAmount)
+                .currency("INR")
+                .gateway("wallet")
+                .status(PaymentStatus.ESCROWED)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        if (existingPayment != null) {
             payment.setAmount(priceAmount);
             payment.setStatus(PaymentStatus.ESCROWED);
         }

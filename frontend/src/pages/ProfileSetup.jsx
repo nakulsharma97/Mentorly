@@ -7,8 +7,16 @@ import {
   serializeSkillTags,
   SKILL_LEVELS,
 } from "../utils/profileSkills";
-import { getErrorFeedback } from "../utils/comingSoon";
 import "./ProfileSetup.css";
+
+/* ─────────────────────────────────────────────────────────────
+   Constants
+   ───────────────────────────────────────────────────────────── */
+const STEPS = [
+  { key: "basic", label: "Basic Info", icon: "person" },
+  { key: "skills", label: "Skills & Experience", icon: "psychology" },
+  { key: "portfolio", label: "Links & Portfolio", icon: "link" },
+];
 
 const emptyForm = {
   skills: "",
@@ -29,6 +37,167 @@ const emptyProject = {
   currentlyWorking: false,
 };
 
+/* ─────────────────────────────────────────────────────────────
+   Step Indicator Component
+   ───────────────────────────────────────────────────────────── */
+function StepIndicator({ currentStep, onStepClick }) {
+  return (
+    <div className="ps-stepper">
+      {STEPS.map((step, idx) => {
+        const isActive = currentStep === idx;
+        const isCompleted = currentStep > idx;
+        return (
+          <div
+            key={step.key}
+            className={`ps-step${isCompleted ? " completed" : ""}${isActive ? " active" : ""}`}
+          >
+            <div
+              className={`ps-step-circle${!isCompleted && !isActive ? " ps-step-circle--disabled" : ""}`}
+              onClick={() => {
+                if (isCompleted || isActive) onStepClick(idx);
+              }}
+              role="button"
+              tabIndex={isCompleted || isActive ? 0 : -1}
+              aria-disabled={!isCompleted && !isActive}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  if (isCompleted || isActive) onStepClick(idx);
+                }
+              }}
+            >
+              {isCompleted ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                idx + 1
+              )}
+            </div>
+            <span className="ps-step-label">{step.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Circular Progress Component
+   ───────────────────────────────────────────────────────────── */
+function CircularProgress({ value, size = 88, strokeWidth = 7 }) {
+  const r = (size - strokeWidth) / 2;
+  const cx = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference - (Math.min(100, Math.max(0, value)) / 100) * circumference;
+
+  return (
+    <div className="ps-completion-ring" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`}>
+        <circle className="ps-completion-ring-bg" cx={cx} cy={cx} r={r} />
+        <circle
+          className="ps-completion-ring-fg"
+          cx={cx}
+          cy={cx}
+          r={r}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <div className="ps-completion-ring-text">
+        <span className="ps-completion-pct">{value}%</span>
+        <span className="ps-completion-pct-label">complete</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Completion Card (Sidebar)
+   ───────────────────────────────────────────────────────────── */
+function CompletionCard({ qualityScore, completedChecks, totalChecks }) {
+  const remaining = totalChecks - completedChecks;
+  const message =
+    qualityScore < 33
+      ? { title: "Let's get started!", text: "Fill in your profile to help learners discover you." }
+      : qualityScore < 66
+        ? { title: "Almost there!", text: "Just a few more details to complete your profile." }
+        : { title: "Looking great!", text: "Your profile is ready to impress learners." };
+
+  return (
+    <div className="ps-completion">
+      <CircularProgress value={qualityScore} />
+      <h4>{message.title}</h4>
+      <p>{message.text}</p>
+      {remaining > 0 && (
+        <div className="ps-completion-remaining">
+          <span>🔄</span>
+          <span><strong>{remaining}</strong> of {totalChecks} sections remaining</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Tip Card (Sidebar)
+   ───────────────────────────────────────────────────────────── */
+function TipsCard({ checks }) {
+  const total = checks.length;
+  const done = checks.filter((c) => c.done).length;
+
+  return (
+    <div className="ps-tips">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
+          <path d="M9 21h6" />
+        </svg>
+        Profile Checklist
+      </h3>
+      <div className="ps-checklist">
+        {checks.map((check) => (
+          <div
+            key={check.key}
+            className={`ps-checklist-item${check.done ? " done" : ""}`}
+            onClick={check.onClick}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") check.onClick();
+            }}
+          >
+            <span className="ps-checklist-check">
+              {check.done && (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+            <span>{check.label}</span>
+            <span className="ps-checklist-count">{check.done ? "✓" : `${check.current ?? 0}/${check.required ?? 1}`}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Field Helper
+   ───────────────────────────────────────────────────────────── */
+function Field({ label, helper, children, className = "" }) {
+  return (
+    <div className={`ps-field ${className}`}>
+      {label && <label className="ps-label">{label}</label>}
+      {children}
+      {helper && <p className="ps-helper">{helper}</p>}
+    </div>
+  );
+}
+
+/* ═════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═════════════════════════════════════════════════════════════ */
 export default function ProfileSetup({
   initialProfile,
   onCompleted,
@@ -36,16 +205,42 @@ export default function ProfileSetup({
   onProfileUpdated,
   notify,
 }) {
+  /* ── State ── */
+  const [currentStep, setCurrentStep] = useState(0);
   const [form, setForm] = useState(emptyForm);
   const [skillTags, setSkillTags] = useState([]);
   const [newSkillName, setNewSkillName] = useState("");
   const [newSkillLevel, setNewSkillLevel] = useState("Intermediate");
+  const [skillError, setSkillError] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [projects, setProjects] = useState([]);
   const [projectEditor, setProjectEditor] = useState(emptyProject);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projectError, setProjectError] = useState("");
+  const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState(null);
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  /* ── Refs ── */
+  const cardRef = useRef(null);
+  const skillInputRef = useRef(null);
+
+  /* ── Compute quality score ── */
+  const hasAboutMe = Boolean(String(form.aboutMe || "").trim());
+  const hasSkills = skillTags.length > 0;
+  const hasGithub = /^https?:\/\//i.test(String(form.githubUrl || "").trim());
+  const hasLinkedin = /^https?:\/\//i.test(String(form.linkedinUrl || "").trim());
+  const hasPortfolio = projects.length > 0;
+
+  const requiredChecks = [
+    { key: "basic", label: "Basic Information", done: hasAboutMe, current: hasAboutMe ? 1 : 0, required: 1 },
+    { key: "skills", label: "Skills & Experience", done: hasSkills, current: skillTags.length, required: 1 },
+    { key: "portfolio", label: "Portfolio / Links", done: hasGithub && hasLinkedin, current: [hasGithub, hasLinkedin, hasPortfolio].filter(Boolean).length, required: 3 },
+  ];
+  const completedChecks = requiredChecks.filter((c) => c.done).length;
+  const totalChecks = requiredChecks.length;
 
   const qualityScore = useMemo(
     () =>
@@ -56,41 +251,12 @@ export default function ProfileSetup({
     [form, skillTags],
   );
 
-  const basicInfoRef = useRef(null);
-  const skillsRef = useRef(null);
-  const experienceRef = useRef(null);
-  const educationRef = useRef(null);
-  const languagesRef = useRef(null);
-  const portfolioRef = useRef(null);
-  const pricingRef = useRef(null);
-  const verificationRef = useRef(null);
+  /* ── Scroll to top on step change ── */
+  useEffect(() => {
+    cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [currentStep]);
 
-  const [lastSavedAt, setLastSavedAt] = useState(null);
-  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [openSections, setOpenSections] = useState({
-    basic: true,
-    skills: false,
-    experience: false,
-    education: false,
-    languages: false,
-    portfolio: false,
-    pricing: false,
-    verification: false,
-  });
-  const [skillModalOpen, setSkillModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [skillSearch, setSkillSearch] = useState("");
-
-  const fetchProjects = async () => {
-    try {
-      const response = await client.get("/api/v1/users/me/projects");
-      setProjects(response.data.data || []);
-    } catch (err) {
-      console.debug("Unable to load profile projects", err);
-    }
-  };
-
+  /* ── Load initial data ── */
   useEffect(() => {
     const parsedTags = parseSkillTags(initialProfile?.skills);
     setForm({
@@ -104,103 +270,66 @@ export default function ProfileSetup({
     if (initialProfile?.id) {
       fetchProjects();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialProfile]);
 
+  const fetchProjects = async () => {
+    try {
+      const response = await client.get("/api/v1/users/me/projects");
+      setProjects(response.data.data || []);
+    } catch (err) {
+      // silently ignore project load failures
+    }
+  };
+
+  /* ── Form handlers ── */
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setSaving(true);
+  /* ── Skill management ── */
+  const addSkill = () => {
+    const name = newSkillName.trim();
+    if (!name) {
+      setSkillError("Please enter a skill name before adding.");
+      return;
+    }
 
-    try {
-      let finalSkillTags = skillTags;
-      const pendingSkill = newSkillName.trim();
-      if (pendingSkill) {
-        const alreadyExists = finalSkillTags.some(
-          (tag) => tag.name.toLowerCase() === pendingSkill.toLowerCase(),
-        );
-        if (!alreadyExists) {
-          finalSkillTags = [
-            ...finalSkillTags,
-            { name: pendingSkill, level: newSkillLevel },
-          ];
-          setSkillTags(finalSkillTags);
-        }
-      }
-
-      if (finalSkillTags.length === 0) {
-        setError(getErrorFeedback("profileSetupMissingSkills").message);
-        notify?.({
-          type: "warning",
-          title: getErrorFeedback("profileSetupMissingSkills").title,
-          message:
-            "Add at least one skill tag so mentors/learners can discover your profile.",
-        });
-        setSaving(false);
-        return;
-      }
-
-      const hasValidGithub = /^https?:\/\//i.test(
-        String(form.githubUrl || "").trim(),
+    setSkillError("");
+    const exists = skillTags.some(
+      (t) => t.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (exists) {
+      setSkillTags((prev) =>
+        prev.map((t) =>
+          t.name.toLowerCase() === name.toLowerCase()
+            ? { ...t, level: newSkillLevel }
+            : t,
+        ),
       );
-      const hasValidLinkedin = /^https?:\/\//i.test(
-        String(form.linkedinUrl || "").trim(),
-      );
-      if (!hasValidGithub || !hasValidLinkedin) {
-        setError(getErrorFeedback("profileSetupInvalidLinks").message);
-        notify?.({
-          type: "warning",
-          title: getErrorFeedback("profileSetupInvalidLinks").title,
-          message: "Use full URLs including https:// for GitHub and LinkedIn.",
-        });
-        setSaving(false);
-        return;
-      }
+    } else {
+      setSkillTags((prev) => [...prev, { name, level: newSkillLevel }]);
+    }
+    setNewSkillName("");
+    setNewSkillLevel("Intermediate");
+    // Re-focus the input after adding
+    skillInputRef.current?.focus();
+  };
 
-      const serializedSkills = serializeSkillTags(finalSkillTags);
-      const payload = {
-        skills: serializedSkills,
-        aboutMe: form.aboutMe,
-        githubUrl: form.githubUrl,
-        linkedinUrl: form.linkedinUrl,
-        profileImageUrl: form.profileImageUrl,
-      };
-      const response = await saveProfile(payload, { notifySuccess: true });
-      if (response && onCompleted) onCompleted(response);
-    } catch (err) {
-      const backendError =
-        err?.response?.data?.data?.error ||
-        getErrorFeedback("profileSetupSaveFailed").message;
-      setError(backendError);
-      notify?.({
-        type: "error",
-        title: getErrorFeedback("profileSetupSaveFailed").title,
-        message: backendError,
-      });
-    } finally {
-      setSaving(false);
+  const removeSkill = (index) => {
+    setSkillTags((prev) => prev.filter((_, i) => i !== index));
+    setSkillError("");
+  };
+
+  const handleSkillKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSkill();
     }
   };
 
-  useEffect(() => {
-    async function fetchProjects() {
-      try {
-        const response = await client.get("/api/v1/users/me/projects");
-        setProjects(response.data.data || []);
-      } catch {
-        // ignore project load failures until save
-      }
-    }
-
-    if (initialProfile?.id) {
-      fetchProjects();
-    }
-  }, [initialProfile?.id]);
-
+  /* ── Project management ── */
   const resetProjectEditor = () => {
     setActiveProjectId(null);
     setProjectEditor(emptyProject);
@@ -208,24 +337,14 @@ export default function ProfileSetup({
   };
 
   const validateProjectInput = () => {
-    if (!projectEditor.title.trim()) {
-      return "Project title is required";
-    }
-    if (!projectEditor.description.trim()) {
-      return "Project description is required";
-    }
-    if (!projectEditor.technologies.trim()) {
-      return "Project technologies are required";
-    }
-    if (!projectEditor.startDate) {
-      return "Project start date is required";
-    }
+    if (!projectEditor.title.trim()) return "Project title is required";
+    if (!projectEditor.description.trim()) return "Project description is required";
+    if (!projectEditor.technologies.trim()) return "Project technologies are required";
+    if (!projectEditor.startDate) return "Project start date is required";
     if (!projectEditor.currentlyWorking && projectEditor.endDate) {
       const start = new Date(projectEditor.startDate);
       const end = new Date(projectEditor.endDate);
-      if (end < start) {
-        return "End date cannot be before start date";
-      }
+      if (end < start) return "End date cannot be before start date";
     }
     return null;
   };
@@ -251,17 +370,9 @@ export default function ProfileSetup({
             ? null
             : projectEditor.endDate,
       };
-      console.debug(
-        "Saving project",
-        activeProjectId ? `update ${activeProjectId}` : "create",
-        payload,
-      );
 
       const response = activeProjectId
-        ? await client.put(
-            `/api/v1/users/me/projects/${activeProjectId}`,
-            payload,
-          )
+        ? await client.put(`/api/v1/users/me/projects/${activeProjectId}`, payload)
         : await client.post("/api/v1/users/me/projects", payload);
 
       const savedProject = response.data.data;
@@ -274,10 +385,37 @@ export default function ProfileSetup({
         return [...current, savedProject];
       });
       resetProjectEditor();
+      setProjectModalOpen(false);
     } catch (err) {
+      // Extract backend error message — works for both validation errors and general API errors
+      const backendMsg = err?.response?.data?.data?.error;
+      // For field-level validation errors, extract the first one
+      const validationErrors = err?.response?.data?.data?.errors;
+      const firstFieldError =
+        validationErrors &&
+        typeof validationErrors === "object" &&
+        Object.values(validationErrors).find(Boolean);
+      const networkError = !err?.response
+        ? "Unable to connect to the server. Please check your connection and try again."
+        : null;
+
       setProjectError(
-        "Unable to save project. Verify required fields and try again.",
+        backendMsg || firstFieldError || networkError ||
+          "Unable to save project. Verify required fields and try again.",
       );
+    }
+  };
+
+  const deleteProject = async (projectId) => {
+    try {
+      await client.delete(`/api/v1/users/me/projects/${projectId}`);
+      setProjects((current) => current.filter((p) => p.id !== projectId));
+    } catch (err) {
+      notify?.({
+        type: "error",
+        title: "Delete failed",
+        message: "Unable to delete project.",
+      });
     }
   };
 
@@ -290,6 +428,26 @@ export default function ProfileSetup({
     setProjectError("");
   };
 
+  const openProjectModal = (project = null) => {
+    if (project) {
+      setActiveProjectId(project.id);
+      setProjectEditor({
+        title: project.title || "",
+        description: project.description || "",
+        technologies: project.technologies || "",
+        githubUrl: project.githubUrl || "",
+        liveDemoUrl: project.liveDemoUrl || "",
+        startDate: project.startDate || "",
+        endDate: project.endDate || "",
+        currentlyWorking: project.currentlyWorking || false,
+      });
+    } else {
+      resetProjectEditor();
+    }
+    setProjectModalOpen(true);
+  };
+
+  /* ── Profile save ── */
   const saveProfile = useCallback(
     async (payload, { notifySuccess } = {}) => {
       setIsSaving(true);
@@ -308,7 +466,6 @@ export default function ProfileSetup({
         }
         return updated;
       } catch (err) {
-        console.debug("Profile save failed", err);
         if (notifySuccess) {
           notify?.({
             type: "error",
@@ -324,9 +481,9 @@ export default function ProfileSetup({
     [form, skillTags, onProfileUpdated, notify],
   );
 
+  /* ── Autosave ── */
   useEffect(() => {
     const interval = setInterval(() => {
-      // autosave minimal payload
       const payload = {
         skills: serializeSkillTags(skillTags),
         aboutMe: form.aboutMe,
@@ -340,24 +497,7 @@ export default function ProfileSetup({
     return () => clearInterval(interval);
   }, [form, skillTags, saveProfile]);
 
-  const scrollToSection = (key) => {
-    const mapping = {
-      basic: basicInfoRef,
-      skills: skillsRef,
-      experience: experienceRef,
-      education: educationRef,
-      languages: languagesRef,
-      portfolio: portfolioRef,
-      pricing: pricingRef,
-      verification: verificationRef,
-    };
-    const ref = mapping[key];
-    if (ref && ref.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      setOpenSections((prev) => ({ ...prev, [key]: true }));
-    }
-  };
-
+  /* ── Undo ── */
   const handleUndo = () => {
     if (!lastSavedSnapshot) return;
     setForm(lastSavedSnapshot.form || emptyForm);
@@ -369,480 +509,674 @@ export default function ProfileSetup({
     });
   };
 
+  /* ── Final Submit ── */
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+
+    // Validate all required fields before final save
+    if (skillTags.length === 0) {
+      setError("Please add at least one skill tag before saving.");
+      setCurrentStep(1);
+      notify?.({
+        type: "warning",
+        title: "Missing skills",
+        message: "Add at least one skill so learners can discover your profile.",
+      });
+      return;
+    }
+
+    const hasValidGithub = /^https?:\/\//i.test(String(form.githubUrl || "").trim());
+    const hasValidLinkedin = /^https?:\/\//i.test(String(form.linkedinUrl || "").trim());
+    if (!hasValidGithub || !hasValidLinkedin) {
+      setError("Please provide full URLs including https:// for GitHub and LinkedIn.");
+      setCurrentStep(2);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const serializedSkills = serializeSkillTags(skillTags);
+      const payload = {
+        skills: serializedSkills,
+        aboutMe: form.aboutMe,
+        githubUrl: form.githubUrl,
+        linkedinUrl: form.linkedinUrl,
+        profileImageUrl: form.profileImageUrl,
+      };
+      const response = await saveProfile(payload, { notifySuccess: true });
+      if (response && onCompleted) onCompleted(response);
+    } catch (err) {
+      const backendError =
+        err?.response?.data?.data?.error ||
+        "Could not save profile. Please check required fields and retry.";
+      setError(backendError);
+      notify?.({
+        type: "error",
+        title: "Profile update failed",
+        message: backendError,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ── Step navigation logic ── */
+  const goToStep = (stepIndex) => {
+    setError("");
+    setSkillError("");
+
+    // Going back is always allowed
+    if (stepIndex < currentStep) {
+      setCurrentStep(stepIndex);
+      return;
+    }
+
+    // Going forward requires validation
+    if (stepIndex > currentStep) {
+      // Moving from Step 1 to Step 2: no validation needed (aboutMe is optional)
+      if (currentStep === 0 && stepIndex === 1) {
+        setCurrentStep(stepIndex);
+        return;
+      }
+
+      // Moving from Step 2 to Step 3: must have at least 1 skill
+      if (currentStep === 1 && stepIndex === 2) {
+        if (skillTags.length === 0) {
+          setSkillError("Please add at least one skill before continuing.");
+          return;
+        }
+        setCurrentStep(stepIndex);
+        return;
+      }
+    }
+  };
+
+  const handleContinue = () => {
+    goToStep(currentStep + 1);
+  };
+
+  const scrollToChecklist = (key) => {
+    const stepIndex = STEPS.findIndex((s) => s.key === key);
+    if (stepIndex >= 0) {
+      setCurrentStep(stepIndex);
+    }
+  };
+
+  /* ── Build checklist data ── */
+  const checklistItems = [
+    {
+      key: "basic",
+      label: "Basic Information",
+      done: hasAboutMe,
+      current: hasAboutMe ? 1 : 0,
+      required: 1,
+      onClick: () => scrollToChecklist("basic"),
+    },
+    {
+      key: "skills",
+      label: "Skills & Experience",
+      done: hasSkills,
+      current: skillTags.length,
+      required: 1,
+      onClick: () => scrollToChecklist("skills"),
+    },
+    {
+      key: "portfolio",
+      label: "Portfolio / Links",
+      done: hasGithub && hasLinkedin,
+      current: [hasGithub, hasLinkedin, hasPortfolio].filter(Boolean).length,
+      required: 3,
+      onClick: () => scrollToChecklist("portfolio"),
+    },
+  ];
+
+  /* ─────────────────────────────────────────────────────────────
+     Render
+     ───────────────────────────────────────────────────────────── */
   return (
-    <main className="profile-setup-wrapper">
-      <div className="profile-setup-container">
-        {/* Header Section */}
-        <div className="profile-setup-header">
+    <main className="ps-wrapper">
+      <div className="ps-container">
+        {/* ── Header ── */}
+        <header className="ps-header">
           <h1>Complete Your Mentor Profile</h1>
-          <p>
-            Complete your profile to increase trust and attract more learners.
-          </p>
+          <p>Fill in your details to attract more learners and build trust in the community.</p>
+          <StepIndicator currentStep={currentStep} onStepClick={goToStep} />
+        </header>
 
-          <div className="progress-indicator">
-            <div className="progress-step completed">
-              <div className="progress-step-circle">✓</div>
-              <div className="progress-step-label">Basic Information</div>
-            </div>
-            <div className="progress-step active">
-              <div className="progress-step-circle">2</div>
-              <div className="progress-step-label">Skills & Experience</div>
-            </div>
-            <div className="progress-step">
-              <div className="progress-step-circle">3</div>
-              <div className="progress-step-label">Links & Portfolio</div>
-            </div>
-          </div>
-        </div>
+        {/* ── Main Content ── */}
+        <div className="ps-content">
+          {/* ── Sidebar ── */}
+          <aside className="ps-sidebar">
+            <CompletionCard
+              qualityScore={qualityScore}
+              completedChecks={completedChecks}
+              totalChecks={totalChecks}
+            />
+            <TipsCard checks={checklistItems} />
+          </aside>
 
-        <div className="profile-setup-content">
-          <div className="profile-setup-tips">
-            <div className="tips-card">
-              <h3>Profile Tips 💡</h3>
-              <div className="aside-checklist">
-                <h4>Checklist</h4>
-                <div
-                  className="checklist-item"
-                  onClick={() => scrollToSection("basic")}
-                >
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={form.aboutMe?.length > 0}
-                  />
-                  <div>Basic information</div>
-                </div>
-                <div
-                  className="checklist-item"
-                  onClick={() => scrollToSection("skills")}
-                >
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={skillTags.length > 0}
-                  />
-                  <div>Skills & experience</div>
-                </div>
-                <div
-                  className="checklist-item"
-                  onClick={() => scrollToSection("portfolio")}
-                >
-                  <input
-                    type="checkbox"
-                    readOnly
-                    checked={projects.length > 0}
-                  />
-                  <div>Portfolio</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="profile-setup-form-wrapper">
-            <div className="profile-completion-card">
-              <div className="completion-progress-circle">
-                <svg viewBox="0 0 100 100">
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="rgba(255, 255, 255, 0.1)"
-                    strokeWidth="8"
-                  />
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="45"
-                    fill="none"
-                    stroke="url(#gradient)"
-                    strokeWidth="8"
-                    strokeDasharray={`${(qualityScore / 100) * 282.7} 282.7`}
-                    strokeLinecap="round"
-                  />
-                  <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%">
-                      <stop offset="0%" stopColor="#0f766e" />
-                      <stop offset="100%" stopColor="#16a085" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-                <div className="completion-progress-text">
-                  <div className="completion-percentage">{qualityScore}%</div>
-                  <div className="completion-label">Complete</div>
-                </div>
-              </div>
-              <div className="completion-message">
-                <h4>
-                  {qualityScore < 33
-                    ? "Get started"
-                    : qualityScore < 66
-                      ? "Almost there!"
-                      : "Great progress!"}
-                </h4>
-                <p>
-                  {qualityScore < 33
-                    ? "Start filling out your profile to attract more learners."
-                    : qualityScore < 66
-                      ? "You're doing great! Complete a few more fields."
-                      : "Your profile is looking amazing!"}
-                </p>
-              </div>
-            </div>
-
-            <div className="profile-form-card">
-              <form className="profile-setup-form" onSubmit={handleSubmit}>
-                {/* Basic Information Section */}
-                <div
-                  className="form-section"
-                  ref={basicInfoRef}
-                  data-open={openSections.basic}
-                >
-                  <div>
-                    <h3 className="form-section-title">Basic Information</h3>
-                    <p className="form-section-description">
-                      Tell learners who you are and what you do.
-                    </p>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="aboutMe">About Yourself</label>
-                    <div className="input-with-counter">
-                      <textarea
-                        id="aboutMe"
-                        name="aboutMe"
-                        placeholder="Tell others about yourself, your background, and expertise..."
-                        value={form.aboutMe}
-                        onChange={handleChange}
-                        rows={5}
-                        required
-                      />
-                      <div className="character-counter">
-                        {form.aboutMe.length}/500
-                      </div>
+          {/* ── Form Area ── */}
+          <div className="ps-main" ref={cardRef}>
+            <div className="ps-card">
+              <form onSubmit={handleSubmit}>
+                {/* ═══ STEP 1: Basic Info ═══ */}
+                {currentStep === 0 && (
+                  <div className="ps-step-content">
+                    <div className="ps-section-head">
+                      <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                        Basic Information
+                      </h2>
+                      <p>Tell learners who you are and what you do.</p>
                     </div>
-                    <p className="form-helper-text">
-                      A great bio helps build trust with learners.
-                    </p>
+
+                    <Field
+                      label="About Yourself"
+                      helper="A great bio helps build trust with learners. Tell them about your background and expertise."
+                    >
+                      <div style={{ position: "relative" }}>
+                        <textarea
+                          className="ps-textarea"
+                          name="aboutMe"
+                          placeholder="Tell others about yourself, your background, and expertise..."
+                          value={form.aboutMe}
+                          onChange={handleChange}
+                          rows={5}
+                          maxLength={500}
+                        />
+                        <div className="ps-counter">{form.aboutMe.length}/500</div>
+                      </div>
+                    </Field>
+
+                    <Field
+                      label="Profile Picture URL"
+                      helper="Use a professional headshot (JPG, PNG, or WebP)."
+                    >
+                      <input
+                        className="ps-input"
+                        name="profileImageUrl"
+                        type="url"
+                        placeholder="https://example.com/your-photo.jpg"
+                        value={form.profileImageUrl}
+                        onChange={handleChange}
+                      />
+                      {form.profileImageUrl && (
+                        <div style={{ marginTop: 10, borderRadius: 10, overflow: "hidden", maxWidth: 160, border: "1px solid #e2e8f0" }}>
+                          <img
+                            src={form.profileImageUrl}
+                            alt="Profile preview"
+                            style={{ width: "100%", height: "auto", display: "block" }}
+                            onError={(e) => { e.target.style.display = "none"; }}
+                          />
+                        </div>
+                      )}
+                    </Field>
+                  </div>
+                )}
+
+                {/* ═══ STEP 2: Skills & Experience ═══ */}
+                {currentStep === 1 && (
+                  <div className="ps-step-content">
+                    <div className="ps-section-head">
+                      <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
+                          <path d="M9 21h6" />
+                        </svg>
+                        Skills &amp; Experience
+                      </h2>
+                      <p>Add the skills you can teach. Learners search by skill to find mentors like you.</p>
+                    </div>
+
+                    {/* Skill Input */}
+                    <Field label="Add a Skill">
+                      <div className="ps-skills-row">
+                        <input
+                          ref={skillInputRef}
+                          className="ps-input"
+                          placeholder="Enter a skill"
+                          value={newSkillName}
+                          onChange={(e) => setNewSkillName(e.target.value)}
+                          onKeyDown={handleSkillKeyDown}
+                        />
+                        <select
+                          className="ps-select"
+                          value={newSkillLevel}
+                          onChange={(e) => setNewSkillLevel(e.target.value)}
+                        >
+                          {SKILL_LEVELS.map((level) => (
+                            <option key={level} value={level}>{level}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="ps-btn-add-skill"
+                          onClick={addSkill}
+                          disabled={!newSkillName.trim()}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                          Add
+                        </button>
+                      </div>
+                    </Field>
+
+                    {/* Inline validation for empty skill input */}
+                    {skillError && (
+                      <div className="ps-skill-error-inline">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        {skillError}
+                      </div>
+                    )}
+
+                    {/* Skill Tags */}
+                    {skillTags.length > 0 ? (
+                      <div className="ps-tags">
+                        {skillTags.map((tag, idx) => (
+                          <span key={idx} className="ps-tag">
+                            <span>{tag.name}</span>
+                            <span className="ps-tag-level">{tag.level}</span>
+                            <button
+                              type="button"
+                              className="ps-tag-remove"
+                              onClick={() => removeSkill(idx)}
+                              aria-label={`Remove ${tag.name}`}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="ps-tags-empty">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7z" />
+                        </svg>
+                        <span>No skills added yet. Type a skill above and click "Add".</span>
+                      </div>
+                    )}
+
+
+                  </div>
+                )}
+
+                {/* ═══ STEP 3: Links & Portfolio ═══ */}
+                {currentStep === 2 && (
+                  <div className="ps-step-content">
+                    <div className="ps-section-head">
+                      <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                        </svg>
+                        Links &amp; Portfolio
+                      </h2>
+                      <p>Connect your professional profiles and showcase your work.</p>
+                    </div>
+
+                    <Field
+                      label="GitHub URL"
+                      helper="Link to your GitHub profile so learners can see your open-source work."
+                    >
+                      <input
+                        className="ps-input"
+                        name="githubUrl"
+                        type="url"
+                        placeholder="https://github.com/your-username"
+                        value={form.githubUrl}
+                        onChange={handleChange}
+                      />
+                      {form.githubUrl && !hasGithub && (
+                        <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
+                          Please enter a full URL starting with https://
+                        </p>
+                      )}
+                    </Field>
+
+                    <Field
+                      label="LinkedIn URL"
+                      helper="Link to your LinkedIn profile for professional credibility."
+                    >
+                      <input
+                        className="ps-input"
+                        name="linkedinUrl"
+                        type="url"
+                        placeholder="https://linkedin.com/in/your-profile"
+                        value={form.linkedinUrl}
+                        onChange={handleChange}
+                      />
+                      {form.linkedinUrl && !hasLinkedin && (
+                        <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
+                          Please enter a full URL starting with https://
+                        </p>
+                      )}
+                    </Field>
+
+                    {/* Projects Section */}
+                    <div style={{ marginTop: 32 }}>
+                      <div className="ps-projects-header">
+                        <div>
+                          <h3>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 6 }}>
+                              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                              <line x1="8" y1="21" x2="16" y2="21" />
+                              <line x1="12" y1="17" x2="12" y2="21" />
+                            </svg>
+                            Projects
+                          </h3>
+                          <p className="ps-helper" style={{ margin: "2px 0 0" }}>Showcase your work with project descriptions.</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="ps-btn-add-project"
+                          onClick={() => openProjectModal()}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                          Add Project
+                        </button>
+                      </div>
+
+                      {projects.length > 0 ? (
+                        <div className="ps-project-grid">
+                          {projects.map((project) => (
+                            <div key={project.id} className="ps-project-card">
+                              <div className="ps-project-top">
+                                <div>
+                                  <h4>{project.title}</h4>
+                                  <p className="ps-project-desc">{project.description}</p>
+                                  {project.technologies && (
+                                    <div className="ps-project-tech">
+                                      {project.technologies.split(",").map((tech, i) => (
+                                        <span key={i}>{tech.trim()}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <p className="ps-project-meta">
+                                    {project.startDate && `${project.startDate}`}
+                                    {project.endDate && ` — ${project.endDate}`}
+                                    {project.currentlyWorking && " (Current)"}
+                                  </p>
+                                </div>
+                                <div className="ps-project-actions">
+                                  <button
+                                    type="button"
+                                    className="ps-btn ps-btn-secondary ps-btn-sm"
+                                    onClick={() => openProjectModal(project)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="ps-btn ps-btn-danger ps-btn-sm"
+                                    onClick={() => deleteProject(project.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="ps-empty-projects">
+                          No projects yet. Click "Add Project" to showcase your work.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Error Message ── */}
+                {error && (
+                  <div className="ps-error">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {error}
+                  </div>
+                )}
+
+                {/* ── Step Navigation / Actions ── */}
+                <div className="ps-actions" style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid #e2e8f0" }}>
+                  <div className="ps-actions-left">
+                    {currentStep > 0 && (
+                      <button
+                        type="button"
+                        className="ps-btn ps-btn-secondary"
+                        onClick={() => goToStep(currentStep - 1)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="19" y1="12" x2="5" y2="12" />
+                          <polyline points="12 19 5 12 12 5" />
+                        </svg>
+                        Back
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ps-btn ps-btn-ghost ps-btn-sm"
+                      onClick={handleUndo}
+                    >
+                      Undo
+                    </button>
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="profileImageUrl">Profile Picture URL</label>
-                    <input
-                      id="profileImageUrl"
-                      name="profileImageUrl"
-                      type="url"
-                      placeholder="https://example.com/your-profile-picture.jpg"
-                      value={form.profileImageUrl}
-                      onChange={handleChange}
-                    />
-                    <p className="form-helper-text">
-                      Use a professional headshot (JPG, PNG, or WebP).
-                    </p>
+                  <div className="ps-actions-right">
+                    <span className="ps-save-indicator">
+                      {isSaving
+                        ? "Saving..."
+                        : lastSavedAt
+                          ? `Saved ${new Date(lastSavedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                          : ""}
+                    </span>
+
+                    {currentStep < STEPS.length - 1 ? (
+                      <button
+                        type="button"
+                        className="ps-btn ps-btn-primary"
+                        onClick={handleContinue}
+                        disabled={currentStep === 1 && skillTags.length === 0}
+                      >
+                        Continue
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                          <polyline points="12 5 19 12 19" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="ps-btn ps-btn-primary"
+                        disabled={saving}
+                      >
+                        {saving ? "Saving..." : "Complete Profile"}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      className="ps-btn ps-btn-ghost ps-btn-sm"
+                      onClick={onLogout}
+                    >
+                      Logout
+                    </button>
                   </div>
                 </div>
-
-                {error && <p className="error">{error}</p>}
-
-                <div className="profile-setup-actions">
-                  <button
-                    type="submit"
-                    className="submit-btn"
-                    disabled={saving}
-                  >
-                    {saving ? "Saving..." : "Save & Continue"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onLogout}
-                    className="secondary-btn"
-                  >
-                    Logout
-                  </button>
-                </div>
-
-                <input
-                  type="hidden"
-                  name="skills"
-                  value={serializeSkillTags(skillTags)}
-                  readOnly
-                />
               </form>
             </div>
-
-            <div
-              className="profile-setup-footer"
-              role="region"
-              aria-label="Profile actions"
-            >
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    saveProfile(
-                      {
-                        skills: serializeSkillTags(skillTags),
-                        aboutMe: form.aboutMe,
-                        githubUrl: form.githubUrl,
-                        linkedinUrl: form.linkedinUrl,
-                        profileImageUrl: form.profileImageUrl,
-                      },
-                      { notifySuccess: true },
-                    )
-                  }
-                  className="secondary-btn"
-                >
-                  Save draft
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    notify?.({
-                      type: "info",
-                      title: "Preview",
-                      message: "Preview not implemented",
-                    })
-                  }
-                  className="secondary-btn"
-                >
-                  Preview
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUndo()}
-                  className="secondary-btn"
-                >
-                  Undo
-                </button>
-              </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <div style={{ fontSize: 13, color: "var(--muted, #6b7280)" }}>
-                  {isSaving
-                    ? "Saving..."
-                    : lastSavedAt
-                      ? `Saved ${new Date(lastSavedAt).toLocaleTimeString()}`
-                      : "Not saved"}
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    document
-                      .querySelector(".profile-setup-form")
-                      .dispatchEvent(new Event("submit", { cancelable: true }))
-                  }
-                  className="submit-btn"
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* Role Switcher */}
-        {/* Modals */}
-        {skillModalOpen && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true">
-            <div className="modal">
-              <h3>{newSkillName ? "Edit Skill" : "Add Skill"}</h3>
-              <p className="muted">
-                Search or type a skill name and choose proficiency.
-              </p>
-              <input
-                list="skill-suggestions"
-                placeholder="e.g. React, Java, Spring Boot"
-                value={skillSearch || newSkillName}
-                onChange={(e) => setSkillSearch(e.target.value)}
-              />
-              <datalist id="skill-suggestions">
-                <option>Java</option>
-                <option>Spring Boot</option>
-                <option>React</option>
-                <option>Python</option>
-                <option>Node.js</option>
-                <option>TypeScript</option>
-              </datalist>
-              <div style={{ marginTop: 8 }}>
-                <label style={{ fontWeight: 600 }}>Proficiency</label>
-                <select
-                  value={newSkillLevel}
-                  onChange={(e) => setNewSkillLevel(e.target.value)}
-                >
-                  {SKILL_LEVELS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginTop: 12,
-                }}
-              >
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => {
-                    setSkillModalOpen(false);
-                    setNewSkillName("");
-                    setNewSkillLevel("Intermediate");
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="submit-btn"
-                  onClick={() => {
-                    const name = (skillSearch || newSkillName).trim();
-                    if (!name) return;
-                    const exists = skillTags.some(
-                      (t) => t.name.toLowerCase() === name.toLowerCase(),
-                    );
-                    if (!exists) {
-                      setSkillTags((prev) => [
-                        ...prev,
-                        { name, level: newSkillLevel },
-                      ]);
-                    } else {
-                      setSkillTags((prev) =>
-                        prev.map((t) =>
-                          t.name.toLowerCase() === name.toLowerCase()
-                            ? { ...t, level: newSkillLevel }
-                            : t,
-                        ),
-                      );
-                    }
-                    setSkillModalOpen(false);
-                    setSkillSearch("");
-                    setNewSkillName("");
-                  }}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {projectModalOpen && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true">
-            <div className="modal modal-large">
-              <h3>{activeProjectId ? "Edit Project" : "Add Project"}</h3>
-              {projectError && <p className="error">{projectError}</p>}
-              <div className="project-form-grid">
-                <input
-                  name="title"
-                  placeholder="Project title"
-                  value={projectEditor.title}
-                  onChange={handleProjectFieldChange}
-                />
-                <textarea
-                  name="description"
-                  placeholder="Project description"
-                  value={projectEditor.description}
-                  onChange={handleProjectFieldChange}
-                  rows={4}
-                />
-                <input
-                  name="technologies"
-                  placeholder="Technologies used"
-                  value={projectEditor.technologies}
-                  onChange={handleProjectFieldChange}
-                />
-                <input
-                  name="githubUrl"
-                  type="url"
-                  placeholder="GitHub repository URL (optional)"
-                  value={projectEditor.githubUrl}
-                  onChange={handleProjectFieldChange}
-                />
-                <input
-                  name="liveDemoUrl"
-                  type="url"
-                  placeholder="Live demo URL (optional)"
-                  value={projectEditor.liveDemoUrl}
-                  onChange={handleProjectFieldChange}
-                />
-                <div className="project-dates-row">
-                  <input
-                    name="startDate"
-                    type="date"
-                    placeholder="DD / MM / YYYY"
-                    value={projectEditor.startDate}
-                    onChange={handleProjectFieldChange}
-                  />
-                  <input
-                    name="endDate"
-                    type="date"
-                    placeholder="DD / MM / YYYY"
-                    value={projectEditor.endDate}
-                    onChange={handleProjectFieldChange}
-                    disabled={projectEditor.currentlyWorking}
-                  />
-                </div>
-                <label className="project-currently-working">
-                  <input
-                    name="currentlyWorking"
-                    type="checkbox"
-                    checked={projectEditor.currentlyWorking}
-                    onChange={handleProjectFieldChange}
-                  />{" "}
-                  Currently working on this project
-                </label>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 8,
-                  marginTop: 12,
-                }}
-              >
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => {
-                    setProjectModalOpen(false);
-                    resetProjectEditor();
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="submit-btn"
-                  onClick={() => {
-                    saveProject()
-                      .then(() => setProjectModalOpen(false))
-                      .catch(() => {});
-                  }}
-                >
-                  {activeProjectId ? "Update Project" : "Save Project"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* ── Role Switcher ── */}
         {initialProfile && (
-          <div style={{ marginTop: "40px", textAlign: "center" }}>
+          <div className="ps-role-switcher">
             <RoleSwitcher
               profile={initialProfile}
               onProfileUpdated={(updated) => {
-                if (onProfileUpdated) {
-                  onProfileUpdated(updated);
-                }
+                if (onProfileUpdated) onProfileUpdated(updated);
               }}
             />
           </div>
         )}
       </div>
+
+      {/* ═══════════════════════════════════════════
+          Project Modal
+          ═══════════════════════════════════════════ */}
+      {projectModalOpen && (
+        <div
+          className="ps-modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setProjectModalOpen(false);
+          }}
+        >
+          <div className="ps-modal">
+            <h3>{activeProjectId ? "Edit Project" : "Add Project"}</h3>
+            <p className="ps-helper">
+              {activeProjectId
+                ? "Update your project details."
+                : "Add a project to showcase your work experience."}
+            </p>
+
+            {projectError && (
+              <div className="ps-error">
+                {projectError}
+              </div>
+            )}
+
+            <div className="ps-project-form">
+              <Field label="Project Title">
+                <input
+                  className="ps-input"
+                  name="title"
+                  placeholder="e.g. E-commerce Platform"
+                  value={projectEditor.title}
+                  onChange={handleProjectFieldChange}
+                />
+              </Field>
+
+              <Field label="Description">
+                <textarea
+                  className="ps-textarea"
+                  name="description"
+                  placeholder="Describe your role and what you built..."
+                  value={projectEditor.description}
+                  onChange={handleProjectFieldChange}
+                  rows={3}
+                />
+              </Field>
+
+              <Field
+                label="Technologies Used"
+                helper="Separate with commas (e.g. React, Node.js, PostgreSQL)"
+              >
+                <input
+                  className="ps-input"
+                  name="technologies"
+                  placeholder="React, Node.js, PostgreSQL"
+                  value={projectEditor.technologies}
+                  onChange={handleProjectFieldChange}
+                />
+              </Field>
+
+              <Field label="GitHub URL (optional)">
+                <input
+                  className="ps-input"
+                  name="githubUrl"
+                  type="url"
+                  placeholder="https://github.com/username/project"
+                  value={projectEditor.githubUrl}
+                  onChange={handleProjectFieldChange}
+                />
+              </Field>
+
+              <Field label="Live Demo URL (optional)">
+                <input
+                  className="ps-input"
+                  name="liveDemoUrl"
+                  type="url"
+                  placeholder="https://my-project.vercel.app"
+                  value={projectEditor.liveDemoUrl}
+                  onChange={handleProjectFieldChange}
+                />
+              </Field>
+
+              <div className="ps-project-dates">
+                <Field label="Start Date">
+                  <input
+                    className="ps-input"
+                    name="startDate"
+                    type="date"
+                    value={projectEditor.startDate}
+                    onChange={handleProjectFieldChange}
+                  />
+                </Field>
+                <Field label="End Date">
+                  <input
+                    className="ps-input"
+                    name="endDate"
+                    type="date"
+                    value={projectEditor.endDate}
+                    onChange={handleProjectFieldChange}
+                    disabled={projectEditor.currentlyWorking}
+                  />
+                </Field>
+              </div>
+
+              <label className="ps-check-row">
+                <input
+                  name="currentlyWorking"
+                  type="checkbox"
+                  checked={projectEditor.currentlyWorking}
+                  onChange={handleProjectFieldChange}
+                />
+                Currently working on this project
+              </label>
+            </div>
+
+            <div className="ps-modal-actions">
+              <button
+                type="button"
+                className="ps-btn ps-btn-secondary"
+                onClick={() => {
+                  setProjectModalOpen(false);
+                  resetProjectEditor();
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="ps-btn ps-btn-primary"
+                onClick={() => {
+                  saveProject()
+                    .catch(() => {});
+                }}
+              >
+                {activeProjectId ? "Update Project" : "Save Project"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

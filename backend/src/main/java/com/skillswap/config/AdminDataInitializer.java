@@ -71,8 +71,11 @@ public class AdminDataInitializer implements CommandLineRunner {
                 }
             }
             if (!foundConfigured) {
-                // The configured admin email doesn't match any existing admin — create them
-                createAdminUser();
+                // The configured admin email doesn't match any existing admin.
+                // If there's already an enabled admin in the system, do NOT create another one.
+                // Instead, inform via log that the configured admin email was not matched.
+                log.warn("Configured admin email '{}' does not match any existing admin. " +
+                        "An admin already exists in the system. Skipping creation.", adminEmail);
             }
             return;
         }

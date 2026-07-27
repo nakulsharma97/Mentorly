@@ -63,21 +63,27 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
 
         String email;
         try {
+            // Try cookie first, then fall back to query parameter (for proxy environments)
             String token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
             if (token == null) {
+                token = extractTokenFromQuery(session);
+            }
+            if (token == null) {
+                log.warn("Direct chat auth failed: no token found in cookie or query param for conversationId={}", conversationIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
                 return;
             }
             email = jwtService.extractUsername(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
             if (!jwtService.isTokenValid(token, userDetails)) {
+                log.warn("Direct chat auth failed: invalid or expired token for conversationId={}", conversationIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
                 return;
             }
             // Validate the user is a participant in this conversation (lightweight check)
             chatService.isParticipantInConversation(email, conversationId);
         } catch (Exception ex) {
-            log.warn("Direct chat auth failed: conversationId={}", conversationIdRaw, ex);
+            log.warn("Direct chat auth failed: conversationId={}, error={}", conversationIdRaw, ex.getMessage(), ex);
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
             return;
         }
@@ -86,6 +92,17 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put(ATTR_USER_EMAIL, email);
 
         conversationRooms.computeIfAbsent(conversationId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
+    }
+
+    /**
+     * Extract the JWT token from the "token" query parameter (fallback for proxy environments
+     * where the Cookie header may not be forwarded).
+     */
+    private String extractTokenFromQuery(WebSocketSession session) {
+        URI uri = session.getUri();
+        if (uri == null) return null;
+        var params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+        return params.getFirst("token");
     }
 
     private String extractAccessTokenFromCookie(String cookieHeader) {

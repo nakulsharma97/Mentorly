@@ -16,6 +16,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final NotificationPreferenceRepository preferenceRepository;
     private final EmailNotificationService emailNotificationService;
+    private final NotificationWebSocketHandler webSocketHandler;
 
     public void notifyUser(Long userId, String type, String title, String message, Long referenceId) {
         User user = userRepository.findById(userId)
@@ -28,6 +29,9 @@ public class NotificationService {
         notification.setMessage(message);
         notification.setReferenceId(referenceId);
         notificationRepository.save(notification);
+
+        // Push real-time notification via WebSocket
+        webSocketHandler.broadcastToUser(userId, notification);
 
         NotificationPreference preference = getOrCreatePreference(user);
         if (shouldSendEmail(preference, user.getRole(), type)) {

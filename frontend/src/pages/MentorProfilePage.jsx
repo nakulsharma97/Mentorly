@@ -145,6 +145,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [showAllSessions, setShowAllSessions] = useState(false);
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestMessage, setRequestMessage] = useState("");
+  const [requestSending, setRequestSending] = useState(false);
   
   const [visibleSections, setVisibleSections] = useState({});
 
@@ -416,6 +419,19 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 </div>
               )}
 
+              {/* Request Custom Session Button */}
+              <button
+                type="button"
+                className="mpr-btn mpr-btn--outline mpr-btn--lg mpr-booking-card__cta"
+                onClick={() => {
+                  if (!isLoggedIn) { onRequireLogin?.(); return; }
+                  setShowRequestModal(true);
+                }}
+                style={{ marginTop: 8 }}
+              >
+                <Icon name="handshake" /> Request Custom Session
+              </button>
+
               <div className="mpr-booking-card__divider" />
 
               {/* Mini Calendar */}
@@ -433,13 +449,19 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     const today = new Date();
                     const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
                     const isPast = d && new Date(calYear, calMonth, d + 1) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    // Render empty cells as divs (not buttons) to avoid empty button-name violations
+                    if (!d) {
+                      return <div key={i} className="mpr-booking-card__cal-day" />;
+                    }
+                    const canSelect = hasSlot && !isPast;
                     return (
                       <button key={i} type="button"
                         className={`mpr-booking-card__cal-day${isToday ? " is-today" : ""}${hasSlot ? " has-slot" : ""}${isPast ? " is-past" : ""}`}
-                        disabled={!hasSlot || isPast}
+                        disabled={!canSelect}
+                        aria-label={`${months[calMonth]} ${d}, ${calYear}${canSelect ? " - available" : isPast ? " - past" : " - no slots"}`}
                         onClick={() => { if (dateStr) setSelectedDate(dateStr); }}
                       >
-                        {d || ""}
+                        {d}
                       </button>
                     );
                   })}
@@ -787,6 +809,73 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
           )}
         </div>
       </div>
+
+      {/* ═══ Request Session Modal ═══ */}
+      {showRequestModal && (
+        <div className="mpr-overlay" role="presentation">
+          <div className="mp-drawer" role="dialog" aria-label="Request a custom session"
+            style={{ width: "min(480px, 100%)", height: "auto", maxHeight: "80vh", borderRadius: 16, borderLeft: "none" }}
+          >
+            <div className="mp-drawer__head">
+              <div className="mp-drawer__head-main">
+                <h3 className="mp-drawer__title">Request a Session</h3>
+                <p className="mp-head__sub" style={{ margin: "2px 0 0", fontSize: "0.82rem" }}>
+                  Tell {mentor?.fullName || "this mentor"} what you would like to learn
+                </p>
+              </div>
+              <button type="button" className="mp-icon-btn" onClick={() => setShowRequestModal(false)} aria-label="Close">
+                <Icon name="close" />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!requestMessage.trim()) return;
+              setRequestSending(true);
+              try {
+                await client.post("/api/v1/session-requests", {
+                  mentorId: Number(mentorId),
+                  message: requestMessage.trim(),
+                });
+                notify?.({
+                  type: "success",
+                  title: "Request sent!",
+                  message: "Your session request has been sent to " + (mentor?.fullName || "the mentor") + ". They will review and respond soon.",
+                });
+                setShowRequestModal(false);
+                setRequestMessage("");
+              } catch (err) {
+                const msg = err?.response?.data?.message || err?.response?.data?.data?.error || "Could not send request.";
+                notify?.({ type: "error", title: "Request failed", message: msg });
+              } finally {
+                setRequestSending(false);
+              }
+            }} style={{ display: "contents" }}>
+              <div className="mp-drawer__body" style={{ gap: 16 }}>
+                <div className="mp-field">
+                  <label className="mp-label" htmlFor="request-message">Your Message</label>
+                  <textarea
+                    id="request-message"
+                    className="mp-textarea"
+                    rows={4}
+                    placeholder="What would you like to learn? Any specific topics or goals?"
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="mp-drawer__foot">
+                <button type="button" className="md-btn md-btn--outline md-btn--sm" onClick={() => setShowRequestModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="md-btn md-btn--brand md-btn--sm" disabled={requestSending || !requestMessage.trim()}>
+                  {requestSending ? "Sending…" : "Send Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

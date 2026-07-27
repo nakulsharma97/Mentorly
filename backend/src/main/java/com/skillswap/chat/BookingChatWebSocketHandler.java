@@ -63,20 +63,26 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
 
         String email;
         try {
+            // Try cookie first, then fall back to query parameter (for proxy environments)
             String token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
             if (token == null) {
+                token = extractTokenFromQuery(session);
+            }
+            if (token == null) {
+                log.warn("Booking chat auth failed: no token found in cookie or query param for bookingId={}", bookingIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
                 return;
             }
             email = jwtService.extractUsername(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
             if (!jwtService.isTokenValid(token, userDetails)) {
+                log.warn("Booking chat auth failed: invalid or expired token for bookingId={}", bookingIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
                 return;
             }
             chatService.ensureParticipant(email, bookingId);
         } catch (Exception ex) {
-            log.warn("Booking chat auth failed: bookingId={}", bookingIdRaw, ex);
+            log.warn("Booking chat auth failed: bookingId={}, error={}", bookingIdRaw, ex.getMessage(), ex);
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
             return;
         }
@@ -85,6 +91,17 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put(ATTR_USER_EMAIL, email);
 
         bookingRooms.computeIfAbsent(bookingId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
+    }
+
+    /**
+     * Extract the JWT token from the "token" query parameter (fallback for proxy environments
+     * where the Cookie header may not be forwarded).
+     */
+    private String extractTokenFromQuery(WebSocketSession session) {
+        URI uri = session.getUri();
+        if (uri == null) return null;
+        var params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
+        return params.getFirst("token");
     }
 
     private String extractAccessTokenFromCookie(String cookieHeader) {

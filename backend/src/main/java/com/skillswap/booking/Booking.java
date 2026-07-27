@@ -1,5 +1,6 @@
 package com.skillswap.booking;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -26,6 +27,7 @@ public class Booking {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "learner_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User learner;
 
     @Enumerated(EnumType.STRING)

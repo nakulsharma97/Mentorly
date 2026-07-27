@@ -58,6 +58,7 @@ export default function MentorLayout({
   onLogout,
   unreadNotifications,
   onUnreadCountChange,
+  notify,
 }) {
   return (
     <WorkspaceLayout
@@ -65,6 +66,7 @@ export default function MentorLayout({
       onLogout={onLogout}
       unreadNotifications={unreadNotifications}
       onUnreadCountChange={onUnreadCountChange}
+      onNotify={notify}
       brand={BRAND}
       groups={GROUPS}
       secondaryLinks={SECONDARY}

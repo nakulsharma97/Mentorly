@@ -393,9 +393,12 @@
 }
 
 .msg-intro-input:focus {
-  outline: none;
   border-color: rgba(15, 118, 110, 0.55);
   box-shadow: var(--m-focus);
+}
+.msg-intro-input:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
 }
 
 .msg-search-result-actions {
@@ -1085,10 +1088,13 @@
 }
 
 .msg-composer-input:focus {
-  outline: none;
   background: var(--m-surface);
   border-color: rgba(15, 118, 110, 0.55);
   box-shadow: var(--m-focus);
+}
+.msg-composer-input:focus-visible {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 2px;
 }
 
 .msg-send-btn {

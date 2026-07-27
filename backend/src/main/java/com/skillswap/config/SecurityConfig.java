@@ -87,7 +87,10 @@ public class SecurityConfig {
 																new AntPathRequestMatcher("/api/v1/wallet/**"),
 																new AntPathRequestMatcher("/api/v1/users/me/ping", "POST"),
 																new AntPathRequestMatcher("/api/v1/sessions/**"),
-																new AntPathRequestMatcher("/api/v1/availability/**")))
+																new AntPathRequestMatcher("/api/v1/session-requests/**"),
+																new AntPathRequestMatcher("/api/v1/availability/**"),
+																new AntPathRequestMatcher("/api/v1/notifications/**"),
+																new AntPathRequestMatcher("/api/v1/bookings/**")))
                                 .headers(headers -> headers
                                                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                                                                 "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:"))
@@ -113,6 +116,8 @@ public class SecurityConfig {
                                                                 "/actuator/prometheus", "/ws/**")
                                                 .permitAll()
                                                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+                                                .requestMatchers("/api/v1/public/**")
+                                                .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/mentors",
                                                                 "/api/v1/users/mentors/**")
                                                 .permitAll()
@@ -166,7 +171,7 @@ public class SecurityConfig {
                                 .filter(origin -> !origin.isBlank())
                                 .filter(origin -> !"*".equals(origin))
                                 .collect(Collectors.toList());
-                config.setAllowedOriginPatterns(parsedOrigins);
+                config.setAllowedOrigins(parsedOrigins);
                 config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                 config.setAllowedHeaders(List.of("*"));
                 config.setAllowCredentials(allowCredentials);

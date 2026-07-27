@@ -15,6 +15,7 @@ export default function WorkspaceLayout({
   onLogout,
   unreadNotifications,
   onUnreadCountChange,
+  onNotify,
   brand,
   groups,
   secondaryLinks,
@@ -58,6 +59,7 @@ export default function WorkspaceLayout({
           onLogout={onLogout}
           unreadNotifications={unreadNotifications}
           onUnreadCountChange={onUnreadCountChange}
+          onNotify={onNotify}
           pageMeta={pageMeta}
           crumbRoot={crumbRoot}
           notificationsTo={notificationsTo}

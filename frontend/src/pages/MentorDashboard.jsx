@@ -320,7 +320,7 @@ export default function MentorDashboard({ profile }) {
         completedSessions: completedBookings.length,
       });
     } catch (error) {
-      console.error("Error loading mentor data:", error);
+      // silently handle data load failures; UI shows empty sections
     } finally {
       setLoading(false);
     }
@@ -401,7 +401,7 @@ export default function MentorDashboard({ profile }) {
       await client.patch(`/api/v1/bookings/${bookingId}/status`, { status });
       await loadMentorData();
     } catch (error) {
-      console.error("Error updating booking status:", error);
+      // silently handle booking status update failures
     }
   };
 

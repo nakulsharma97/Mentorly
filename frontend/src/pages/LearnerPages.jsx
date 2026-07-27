@@ -44,6 +44,11 @@ async function apiPut(path, body, config) {
   return unwrapResponse(response.data);
 }
 
+async function apiPatch(path, body, config) {
+  const response = await client.patch(path, body, config);
+  return unwrapResponse(response.data);
+}
+
 async function apiDelete(path, config) {
   const response = await client.delete(path, config);
   return unwrapResponse(response.data);
@@ -235,7 +240,14 @@ function useNotificationsData(refreshKey = 0) {
       apiGet("/api/v1/notifications/preferences").catch(() => null),
     ]);
 
-    return { notifications: notifications || EMPTY_ARRAY, preferences };
+    // Backend returns ApiResponse<Page<AppNotification>>. After unwrapResponse
+    // strips the ApiResponse wrapper, the Page object has a .content array.
+    // Extract .content to get the actual notification list.
+    const items = Array.isArray(notifications)
+      ? notifications
+      : (notifications?.content || EMPTY_ARRAY);
+
+    return { notifications: items, preferences };
   }, [refreshKey]);
 }
 
@@ -2110,18 +2122,18 @@ export function LearnerNotificationsPage() {
   const notifications = data?.notifications || [];
   const preferences = data?.preferences || null;
 
-  async function markNotification(notification) {
-    try {
-      await apiPut(`/api/v1/notifications/${notification.id}/read`);
-      setRefreshKey((value) => value + 1);
-    } catch (markError) {
-      window.console.error(markError);
-    }
+async function markNotification(notification) {
+  try {
+    await apiPatch(`/api/v1/notifications/${notification.id}/read`);
+    setRefreshKey((value) => value + 1);
+  } catch (markError) {
+    window.console.error(markError);
   }
+}
 
   async function markAllRead() {
     try {
-      await apiPut("/api/v1/notifications/mark-all-read");
+      await apiPatch("/api/v1/notifications/read-all");
       setRefreshKey((value) => value + 1);
     } catch (markError) {
       window.console.error(markError);

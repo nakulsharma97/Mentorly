@@ -46,11 +46,10 @@ public class ServiceGlobalExceptionHandler {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "MEETING_PROVIDER_ERROR", ex.getMessage());
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Map<String, Object>>> handleGeneric(Exception ex) {
-        log.error("Unhandled service exception: {}", ex.getMessage(), ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred");
-    }
+    // Note: @ExceptionHandler(Exception.class) is intentionally omitted here.
+    // GlobalExceptionHandler (HIGHEST_PRECEDENCE) already handles generic
+    // exceptions, so adding it here at LOWEST_PRECEDENCE would be dead code.
+    // All specific exceptions (ResourceNotFoundException, etc.) are handled above.
 
     private ResponseEntity<ApiResponse<Map<String, Object>>> build(HttpStatus status, String code, String message) {
         Map<String, Object> error = new LinkedHashMap<>();

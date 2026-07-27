@@ -133,15 +133,18 @@
 .wallet-search input {
   flex: 1;
   border: 0;
-  outline: none;
   background: transparent;
   color: var(--md-text, #111827);
   font-size: 0.92rem;
   font-family: inherit;
 }
+.wallet-search input:focus-visible {
+  outline: 3px solid var(--focus-ring, rgba(14, 116, 144, 0.42));
+  outline-offset: 2px;
+}
 
 .wallet-search input::placeholder {
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
 }
 
 /* Filters */
@@ -163,9 +166,12 @@
 }
 
 .wallet-filter:focus {
-  outline: none;
   border-color: var(--md-primary, #0F9D8A);
   box-shadow: 0 0 0 3px rgba(15, 157, 138, 0.10);
+}
+.wallet-filter:focus-visible {
+  outline: 3px solid var(--focus-ring, rgba(14, 116, 144, 0.42));
+  outline-offset: 2px;
 }
 
 /* Table */
@@ -192,7 +198,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   background: rgba(15, 157, 138, 0.05);
   font-weight: 700;
 }
@@ -220,7 +226,7 @@
 
 .wallet-row-meta {
   margin-top: 4px;
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   font-size: 0.78rem;
 }
 
@@ -248,12 +254,12 @@
 }
 
 .wallet-pill--neutral {
-  color: #0f172a;
+  color: #334155;
   background: rgba(148, 163, 184, 0.14);
 }
 
 [data-theme="dark"] .wallet-pill--neutral {
-  color: #94A3B8;
+  color: #cbd5e1;
   background: rgba(148, 163, 184, 0.12);
 }
 
@@ -262,7 +268,7 @@
 .wallet-empty-state {
   padding: 32px 0;
   text-align: center;
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   font-size: 0.9rem;
 }
 
@@ -396,7 +402,7 @@
 }
 
 .wallet-withdraw-card__input::placeholder {
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   opacity: 0.5;
 }
 
@@ -434,7 +440,7 @@
   border-radius: 12px;
   border: 1.5px solid var(--md-card-border, #E5E7EB);
   background: var(--md-card, #FFFFFF);
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -499,7 +505,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
-  color: var(--md-text-muted, #9CA3AF);
+  color: var(--md-text-muted, #6B7280);
   font-size: 0.82rem;
   font-weight: 700;
   text-transform: uppercase;

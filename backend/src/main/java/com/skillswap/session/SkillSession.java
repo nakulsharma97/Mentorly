@@ -1,5 +1,6 @@
 package com.skillswap.session;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.skillswap.user.User;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -20,6 +21,7 @@ public class SkillSession {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "mentor_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User mentor;
 
     @Column(nullable = false)
@@ -72,6 +74,7 @@ public class SkillSession {
 
     @ManyToOne
     @JoinColumn(name = "created_by")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User createdBy;
 
     @Column(name = "created_at", nullable = false)
