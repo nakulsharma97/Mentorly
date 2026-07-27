@@ -113,9 +113,7 @@ jobs:
             cd "$COMPOSE_DIR"
 
             chmod +x scripts/deploy.sh
-            bash scripts/deploy.sh \
-              --tag "$IMAGE_TAG" \
-              ${{ inputs.skip_health_check && '--no-rollback' || '' }}
+            bash scripts/deploy.sh --tag "$IMAGE_TAG"
 
       # ── Post-deployment smoke tests ──────────────────────
       - name: Smoke test — Health endpoint
