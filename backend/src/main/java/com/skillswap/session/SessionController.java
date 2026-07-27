@@ -48,6 +48,13 @@ public class SessionController {
         throw new IllegalArgumentException("User role not permitted to view sessions");
     }
 
+    @GetMapping("/{id}")
+    public ApiResponse<SkillSession> get(@PathVariable Long id) {
+        SkillSession session = sessionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+        return new ApiResponse<>("Session fetched", session);
+    }
+
     @GetMapping("/mentor/{mentorId}")
     public ApiResponse<List<SkillSession>> listMentorSessions(@PathVariable Long mentorId) {
         List<SkillSession> sessions = sessionRepository
