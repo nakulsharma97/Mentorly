@@ -1180,50 +1180,7 @@ export default function MessagesPage({ profile, notify }) {
                       </p>
                     </div>
                   </div>
-                  <div className="msg-chat-tools">
-                    <button
-                      type="button"
-                      className="msg-icon-btn"
-                      title="Start video call"
-                      aria-label="Start video call"
-                      onClick={() => notifyComingSoon("Video calls")}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        aria-hidden="true"
-                      >
-                        videocam
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="msg-icon-btn"
-                      title="Start voice call"
-                      aria-label="Start voice call"
-                      onClick={() => notifyComingSoon("Voice calls")}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        aria-hidden="true"
-                      >
-                        call
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="msg-icon-btn"
-                      title="More options"
-                      aria-label="More options"
-                      onClick={() => notifyComingSoon("More options")}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        aria-hidden="true"
-                      >
-                        more_horiz
-                      </span>
-                    </button>
-                  </div>
+                  {/* Action buttons removed — only avatar, name, and status shown */}
                 </header>
 
                 {wsStatusBanner ? (

@@ -79,6 +79,15 @@ test.describe("Notification Center – UI", () => {
     const token = await fetchAuthToken(request, "learner@test.com");
     test.skip(!token, "Skipping – could not obtain auth token.");
 
+    // Mock the unread count to be > 0 so the badge is guaranteed to render
+    await page.route("**/api/v1/notifications/unread-count", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: 3 }),
+      });
+    });
+
     await injectToken(page, token);
 
     await page.goto("/learner/dashboard", { waitUntil: "load" });

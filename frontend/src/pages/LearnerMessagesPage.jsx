@@ -1001,8 +1001,6 @@ export default function LearnerMessagesPage({ profile }) {
                   </span>
                 </div>
                 <div className="ms-chat__hdr-actions">
-                  <button type="button" className="ms-icon-btn" title="Video call"><Icon name="videocam" /></button>
-                  <button type="button" className="ms-icon-btn" title="Voice call"><Icon name="call" /></button>
                   <button type="button" className={`ms-icon-btn${showProfile ? " is-active" : ""}`} title="Info" onClick={() => setShowProfile((v) => !v)}>
                     <Icon name="info" />
                   </button>

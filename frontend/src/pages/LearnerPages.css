@@ -11273,7 +11273,6 @@ ld-ring {
   .ms-mobile-thread .ms-profile { display: none; }
 
   .ms-chat__back { display: grid; }
-  .ms-chat__hdr-actions .ms-icon-btn:nth-child(3) { display: none; }
 }
 
 @media (max-width: 480px) {
