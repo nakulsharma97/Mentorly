@@ -79,7 +79,7 @@ function loadRazorpayScript() {
   });
 }
 
-export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel }) {
+export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel, bookingData }) {
   const [step, setStep] = useState(1);
   const [session, setSession] = useState(null);
   const [availability, setAvailability] = useState([]);
@@ -173,8 +173,14 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
     setBookingError('');
 
     try {
-      // Step 1: Create the booking
-      const bookingResponse = await client.post('/api/v1/bookings', { sessionId: session.id });
+      // Step 1: Create the booking with user's selected date/time/duration
+      const bookingPayload = {
+        sessionId: session.id,
+        ...(bookingData?.date && { preferredDate: bookingData.date }),
+        ...(bookingData?.slot && { preferredTime: bookingData.slot }),
+        ...(bookingData?.duration && { preferredDuration: Number(bookingData.duration) }),
+      };
+      const bookingResponse = await client.post('/api/v1/bookings', bookingPayload);
       const newBooking = bookingResponse?.data?.data;
       const bookingId = newBooking?.id;
 
@@ -183,8 +189,9 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       }
 
       setCreatedBookingId(bookingId);
+      const displayDate = bookingData?.date ? new Date(bookingData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : formatDateTime(session?.startTime);
       setBookingSuccessMessage(
-        `Booking confirmed! Your session with ${session?.mentor?.fullName || 'your mentor'} is scheduled for ${formatDateTime(session?.startTime)}.`,
+        `Booking confirmed for ${displayDate} at ${bookingData?.slot || formatDateTime(session?.startTime)}!`,
       );
 
       // Step 2: Create a payment order via the selected gateway (default: wallet/razorpay)
@@ -428,10 +435,9 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
 
       {step === 1 && session && (
         <div>
-          <h2 style={{ marginTop: 0 }}>Review Session Details</h2>
+          <h2 style={{ marginTop: 0 }}>Review Your Booking</h2>
           <div style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 16, background: 'var(--card-bg)' }}>
-            <h3 style={{ margin: '0 0 12px 0' }}>{session.title}</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               {session?.mentor?.profileImageUrl ? (
                 <img src={session.mentor.profileImageUrl} alt={session?.mentor?.fullName || 'Mentor'} style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} />
               ) : (
@@ -441,40 +447,47 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
               )}
               <div>
                 <div style={{ fontWeight: 700 }}>{session?.mentor?.fullName || 'Mentor'}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{session.sessionType}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{session.sessionType || '1:1 Mentoring'}</div>
               </div>
             </div>
 
-            <p style={{ margin: '8px 0', color: 'var(--text)' }}>
-              {formatDateTime(session.startTime)} to {formatDateTime(session.endTime)}
-            </p>
-            <p style={{ margin: '8px 0', color: 'var(--muted)' }}>Duration: {getDurationLabel(session.startTime, session.endTime)}</p>
-            <p style={{ margin: '8px 0', color: 'var(--text)', fontWeight: 700 }}>Price: {formatCredits(session.priceAmount)}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {bookingData?.date && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--bg)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>DATE</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{new Date(bookingData.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                </div>
+              )}
+              {bookingData?.slot && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--bg)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>TIME</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{bookingData.slot}</div>
+                </div>
+              )}
+              {bookingData?.duration && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--bg)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>DURATION</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{bookingData.duration} min</div>
+                </div>
+              )}
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--bg)' }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>PRICE</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{formatCredits(session.priceAmount)}</div>
+              </div>
+            </div>
 
-            {mentorSkills.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                {mentorSkills.map((skill) => (
-                  <span
-                    key={skill}
-                    style={{
-                      border: '1px solid var(--line)',
-                      borderRadius: 999,
-                      padding: '4px 10px',
-                      fontSize: 12,
-                      color: 'var(--muted)',
-                      background: 'var(--bg)',
-                    }}
-                  >
-                    {skill}
-                  </span>
-                ))}
+            {bookingData?.date && (
+              <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, background: 'var(--accent-soft, rgba(15,157,138,0.06))', fontSize: 12, color: 'var(--muted)' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text)' }}>Session:</span> {session.title || 'Mentoring Session'} with {session?.mentor?.fullName || 'mentor'}
               </div>
             )}
 
-            {availability.length > 0 && (
-              <p style={{ marginTop: 12, color: 'var(--muted)', fontSize: 13 }}>
-                Mentor has {availability.filter((slot) => slot?.active).length} active availability slots.
-              </p>
+            {mentorSkills.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {mentorSkills.map((skill) => (
+                  <span key={skill} style={{ border: '1px solid var(--line)', borderRadius: 999, padding: '3px 8px', fontSize: 11, color: 'var(--muted)', background: 'var(--bg)' }}>{skill}</span>
+                ))}
+              </div>
             )}
           </div>
 
@@ -482,11 +495,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
             <button type="button" onClick={onCancel} style={{ border: '1px solid var(--line)', background: 'var(--card-bg, #fff)', padding: '10px 14px', borderRadius: 10 }}>
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleNextToPayment}
-              style={{ background: 'var(--accent)', color: 'var(--button-text, #fff)', border: 'none', padding: '10px 14px', borderRadius: 10 }}
-            >
+            <button type="button" onClick={handleNextToPayment} style={{ background: 'var(--accent)', color: 'var(--button-text, #fff)', border: 'none', padding: '10px 14px', borderRadius: 10 }}>
               Next: Confirm payment →
             </button>
           </div>
@@ -568,7 +577,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
               <p style={{ color: 'var(--success-text, #166534)', marginTop: 0 }}>{bookingSuccessMessage}</p>
               <button
                 type="button"
-                onClick={onBookingComplete}
+                onClick={() => onBookingComplete?.({ bookingId: createdBookingId, mentorName: session?.mentor?.fullName, date: bookingData?.date, time: bookingData?.slot, duration: bookingData?.duration })}
                 style={{ background: 'var(--accent)', color: 'var(--button-text, #fff)', border: 'none', padding: '10px 14px', borderRadius: 10 }}
               >
                 Go to My Sessions →

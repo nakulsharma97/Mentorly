@@ -97,16 +97,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String resolveAccessToken(HttpServletRequest request) {
+        // The Authorization Bearer header takes priority over cookies because
+        // it carries the most recently issued token (e.g. after an account switch).
+        // Cookies are checked as a fallback for WebSocket connections or OAuth
+        // flows that may not include an explicit Bearer header.
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7).trim();
+        }
+
         String cookieToken = resolveTokenFromCookie(request);
         if (cookieToken != null && !cookieToken.isBlank()) {
             return cookieToken;
         }
 
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return null;
-        }
-        return authHeader.substring(7).trim();
+        return null;
     }
 
     private String resolveTokenFromCookie(HttpServletRequest request) {

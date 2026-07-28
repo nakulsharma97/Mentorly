@@ -83,6 +83,79 @@ function normalizeDirectConv(c) {
   };
 }
 
+/* ── Copy/Delete message bubble ── */
+function MessageBubbleInline({ msg, mine, isLast, pending, failed, fmtTime, onCopy, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  return (
+    <div className={`ms-msg${mine ? " is-me" : ""}${pending ? " is-pending" : ""}${failed ? " is-failed" : ""}${menuOpen ? " is-menu-open" : ""}`}>
+      <div className="ms-msg__content">
+        <p>{msg.content}</p>
+        <button
+          type="button"
+          className="ms-msg__actions-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen((prev) => !prev);
+          }}
+          aria-label="Message actions"
+          title="More actions"
+        >
+          <Icon name="more_horiz" />
+        </button>
+        {menuOpen && (
+          <div className="ms-msg__menu" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="ms-msg__menu-item"
+              onClick={() => {
+                onCopy(msg.content);
+                setMenuOpen(false);
+              }}
+            >
+              <Icon name="content_copy" />
+              Copy
+            </button>
+            {mine && !pending && !failed && (
+              <button
+                type="button"
+                className="ms-msg__menu-item ms-msg__menu-item--danger"
+                onClick={() => {
+                  onDelete(msg);
+                  setMenuOpen(false);
+                }}
+              >
+                <Icon name="delete" />
+                Delete
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {isLast && (
+        <span className="ms-msg__meta">
+          {failed ? <span className="ms-msg__fail"><Icon name="error" /> Not sent</span> : (
+            <>{fmtTime(msg.createdAt)}{mine && <Icon name={pending ? "schedule" : "done_all"} />}</>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+
 /* ───────────── main ───────────── */
 
 export default function LearnerMessagesPage({ profile }) {
@@ -571,13 +644,22 @@ export default function LearnerMessagesPage({ profile }) {
     setSending(true);
     setTimeout(() => scrollDown(), 50);
     try {
+      let created = null;
       if (selConv.kind === "booking") {
-        await apiPost(`/api/v1/chat/booking/${selConv.bookingId}`, { content });
+        const r = await apiPost(`/api/v1/chat/booking/${selConv.bookingId}`, { content });
+        created = r?.data || r;
       } else {
-        await apiPost(`/api/v1/chat/direct/${selConv.conversationId}/messages`, { content });
+        const r = await apiPost(`/api/v1/chat/direct/${selConv.conversationId}/messages`, { content });
+        created = r?.data || r;
       }
+      // Remove the optimistic pending message
       setPending((l) => l.filter((p) => p.id !== tid));
-      setRefreshKey((k) => k + 1);
+      // Add the server-confirmed message directly to threadData so it
+      // appears immediately. Don't use setRefreshKey — it re-fetches
+      // ALL conversations and causes a hard re-mount (white flash).
+      if (created && created.id) {
+        setThreadData((prev) => [...prev, created]);
+      }
     } catch {
       setPending((l) => l.map((p) => (p.id === tid ? { ...p, failed: true, pending: false } : p)));
     } finally {
@@ -603,9 +685,9 @@ export default function LearnerMessagesPage({ profile }) {
     setSelId(conv.id);
     setSelKind(conv.kind);
     setMobileView("thread");
-    if (conv.kind === "direct") {
-      navigate(`/learner/messages/${conv.conversationId}`, { replace: true });
-    }
+    // Don't navigate here — URL changes with key={routeTransitionKey} in App.jsx
+    // cause the entire lazy-loaded component to unmount/remount (white flash).
+    // The conversationId from useParams is only used for the initial page load.
   }
 
   // ── New Chat: mentor search ──
@@ -1026,16 +1108,36 @@ export default function LearnerMessagesPage({ profile }) {
                         )}
                         <div className="ms-chat__stack">
                           {run.msgs.map((m, mi) => (
-                            <div key={m.id || mi} className={`ms-msg${run.mine ? " is-me" : ""}${m.pending ? " is-pending" : ""}${m.failed ? " is-failed" : ""}`}>
-                              <p>{m.content}</p>
-                              {mi === run.msgs.length - 1 && (
-                                <span className="ms-msg__meta">
-                                  {m.failed ? <span className="ms-msg__fail"><Icon name="error" /> Not sent</span> : (
-                                    <>{fmtTime(m.createdAt)}{run.mine && <Icon name={m.pending ? "schedule" : "done_all"} />}</>
-                                  )}
-                                </span>
-                              )}
-                            </div>
+                            <MessageBubbleInline
+                              key={m.id || mi}
+                              msg={m}
+                              mine={run.mine}
+                              isLast={mi === run.msgs.length - 1}
+                              fmtTime={fmtTime}
+                              pending={m.pending}
+                              failed={m.failed}
+                              onCopy={(text) => {
+                                navigator.clipboard.writeText(text).catch(() => {});
+                              }}
+                              onDelete={(msgObj) => {
+                                // Optimistically remove from local state
+                                setThreadData((prev) =>
+                                  prev.filter((x) => String(x.id) !== String(msgObj.id))
+                                );
+                                // Attempt backend delete
+                                const convId = selConv?.kind === 'direct'
+                                  ? selConv.conversationId
+                                  : selConv?.bookingId;
+                                if (convId) {
+                                  const endpoint = selConv.kind === 'direct'
+                                    ? `/api/v1/chat/direct/${convId}/messages/${msgObj.id}`
+                                    : `/api/v1/chat/booking/${convId}/messages/${msgObj.id}`;
+                                  client.delete(endpoint).catch(() => {
+                                    // Silently ignore — message reappears on reload
+                                  });
+                                }
+                              }}
+                          />
                           ))}
                         </div>
                       </div>

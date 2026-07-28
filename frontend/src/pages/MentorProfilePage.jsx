@@ -18,10 +18,12 @@ const formatNum = (n) => {
   return v.toLocaleString();
 };
 
-const formatDate = (value) => {
+const formatDate = (value, options) => {
   if (!value) return "";
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return String(value);
+  if (options && options.weekday) return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
 const formatDateTime = (value) => {
@@ -41,6 +43,14 @@ const parseSkillChips = (raw) => {
 };
 
 const parseLines = (text) => String(text || "").split(/\r?\n|\||\*|;/).map(s => s.trim()).filter(Boolean);
+
+const getNextSlot = (session, allSessions) => {
+  if (!session || !allSessions?.length) return null;
+  const future = allSessions.filter(s =>
+    s.startTime && new Date(s.startTime) > new Date() && s.id === session.id
+  ).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  return future.length > 0 ? future[0].startTime : null;
+};
 
 const truncate = (value, limit = 120) => !value ? "" : value.length <= limit ? value : value.slice(0, limit).trim() + "\u2026";
 
@@ -137,7 +147,8 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [bookingSessionId, setBookingSessionId] = useState(null);
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewMessageType, setReviewMessageType] = useState("");
-  const [reviewForm, setReviewForm] = useState({ bookingId: "", rating: "5", comment: "" });
+  const [reviewForm, setReviewForm] = useState({ bookingId: "", rating: "5", comment: "", title: "", anonymous: false });
+  const [reviewSort, setReviewSort] = useState("newest");
   const [saved, setSaved] = useState(false);
   const [relatedMentors, setRelatedMentors] = useState([]);
   const [, setRelatedLoading] = useState(false);
@@ -146,10 +157,39 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [calYear, setCalYear] = useState(new Date().getFullYear());
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestMessage, setRequestMessage] = useState("");
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showFullSchedule, setShowFullSchedule] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [selectedDuration, setSelectedDuration] = useState("60");
+  const [bookingSuccess, setBookingSuccess] = useState(null);
+  const [showBookingSuccess, setShowBookingSuccess] = useState(false);
   const [requestSending, setRequestSending] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    subject: "",
+    goal: "",
+    duration: "60",
+    date: "",
+    time: "",
+    budget: "",
+  });
+  const [requestErrors, setRequestErrors] = useState({});
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [pendingCancelAction, setPendingCancelAction] = useState(null);
+  const [bookingStep, setBookingStep] = useState("sessions"); // "sessions" | "calendar"
+  const [selectedSessionForBooking, setSelectedSessionForBooking] = useState(null);
   
   const [visibleSections, setVisibleSections] = useState({});
+
+  /* Prevent body scroll while modals are open */
+  useEffect(() => {
+    const modalOpen = showBookingModal || showRequestModal || showFullSchedule || showBookingSuccess || showCancelConfirm;
+    if (modalOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [showBookingModal, showRequestModal, showFullSchedule, showBookingSuccess, showCancelConfirm]);
 
   /* Scroll-triggered animations */
   useEffect(() => {
@@ -171,6 +211,22 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
 
   const skillChips = useMemo(() => parseSkillChips(mentor?.skills), [mentor?.skills]);
   const certList = useMemo(() => parseLines(mentor?.certificates).slice(0, 6), [mentor?.certificates]);
+
+  const achievementItems = useMemo(() => {
+    const items = [];
+    const tr = Number(summary.totalReviews || 0);
+    const sessionsCount = Number(mentor?.upcomingSessions || 0) || sessions.length;
+    const rating = Number(summary.averageRating || 0);
+    if (rating >= 4.5) items.push({ icon: "stars", color: "#FDB022", label: "Top Rated Mentor", detail: `${rating.toFixed(1)} star average rating` });
+    else if (rating >= 4.0) items.push({ icon: "star", color: "#F59E0B", label: "Highly Rated", detail: `${rating.toFixed(1)} star average rating` });
+    if (tr >= 100) items.push({ icon: "emoji_events", color: "#FDB022", label: "100+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
+    else if (tr >= 50) items.push({ icon: "workspace_premium", color: "#0F9D8A", label: "50+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
+    else if (tr >= 10) items.push({ icon: "trending_up", color: "#16A34A", label: "10+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
+    if (sessionsCount >= 20) items.push({ icon: "bolt", color: "#14B8A6", label: "Quick Responder", detail: "Usually responds within minutes" });
+    if (mentor?.mentorVerified) items.push({ icon: "verified", color: "#059669", label: "Verified Mentor", detail: "Identity & credentials verified" });
+    if (skillChips.length >= 5) items.push({ icon: "psychology", color: "#7C3AED", label: "Multi-Skilled", detail: `${skillChips.length} expertise areas` });
+    return items;
+  }, [summary, mentor, sessions.length, skillChips.length]);
 
   const ratingDist = useMemo(() => {
     const dist = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
@@ -195,7 +251,6 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
     { icon: "calendar_month", value: sessions.length ? formatNum(sessions.length) : "0", label: "Sessions" },
     { icon: "bolt", value: trustSnapshot.responseLabel, label: "Response Time" },
     { icon: "verified", value: `${trustSnapshot.reliability}%`, label: "Success Rate" },
-    { icon: "language", value: "—", label: "Countries" },
   ], [summary, sessions.length, trustSnapshot]);
 
   const experienceData = useMemo(() => {
@@ -257,18 +312,43 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
     e.preventDefault();
     setReviewMessage("");
     if (!isLoggedIn) { setReviewMessage(getInfoFeedback("reviewLoginRequired").message); setReviewMessageType("error"); onRequireLogin?.(); return; }
-    if (!reviewForm.bookingId) { setReviewMessage(getInfoFeedback("reviewChooseCompletedBooking").message); setReviewMessageType("error"); return; }
+    const bookingIdNum = Number(reviewForm.bookingId);
+    if (!bookingIdNum || !reviewForm.bookingId) { setReviewMessage("Please select a completed booking from the list."); setReviewMessageType("error"); return; }
+    if (!reviewForm.comment || !reviewForm.comment.trim()) { setReviewMessage("Please write your review experience."); setReviewMessageType("error"); return; }
     try {
-      await client.post("/api/v1/reviews", { bookingId: Number(reviewForm.bookingId), mentorId: Number(mentorId), rating: Number(reviewForm.rating), comment: reviewForm.comment });
-      setReviewMessage(getInfoFeedback("reviewThanks").message); setReviewMessageType("success");
-      trackAnalyticsEvent("mentor_review_submitted", { mentorId, bookingId: Number(reviewForm.bookingId), rating: Number(reviewForm.rating) });
-      setReviewForm(p => ({ ...p, comment: "" }));
+      await client.post("/api/v1/reviews", {
+        bookingId: bookingIdNum,
+        mentorId: Number(mentorId),
+        rating: Number(reviewForm.rating),
+        comment: reviewForm.comment.trim(),
+        anonymous: reviewForm.anonymous
+      });
+      setReviewMessage("Review submitted successfully. Thank you!");
+      setReviewMessageType("success");
+      trackAnalyticsEvent("mentor_review_submitted", { mentorId, bookingId: bookingIdNum, rating: Number(reviewForm.rating) });
+      setReviewForm(p => ({ ...p, comment: "", bookingId: "", title: "" }));
       await loadMentorData();
-    } catch (err) { setReviewMessage(err?.response?.data?.data?.error || getErrorFeedback("reviewSubmitFailed").message); setReviewMessageType("error"); }
+    } catch (err) {
+      const backendMsg = err?.response?.data?.data?.error || err?.response?.data?.message || "";
+      if (backendMsg) {
+        setReviewMessage(backendMsg);
+      } else {
+        setReviewMessage(getErrorFeedback("reviewSubmitFailed").message);
+      }
+      setReviewMessageType("error");
+    }
   };
 
   const handleSaveToggle = () => { if (!isLoggedIn) { onRequireLogin?.(); return; } setSaved(p => !p); trackAnalyticsEvent("mentor_save_toggle", { mentorId, saved: !saved }); };
   const handleBookSession = (sessionId) => { if (!isLoggedIn) { onRequireLogin?.(); return; } trackAnalyticsEvent("mentor_profile_booking_flow_opened", { mentorId, sessionId }); setBookingSessionId(sessionId); };
+  const handleBookFromSchedule = () => {
+    if (!isLoggedIn) { onRequireLogin?.(); return; }
+    if (!selectedDate || !selectedSlot || !selectedDuration || !selectedSessionForBooking) return;
+    setBookingSessionId(selectedSessionForBooking.id);
+    setShowBookingModal(false);
+    setSelectedSlot(null);
+    setSelectedDate("");
+  };
 
   const filteredSessions = useMemo(() => {
     if (!selectedDate) return sessions;
@@ -285,6 +365,22 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
     sessions.forEach(s => { if (s.startTime) { const d = new Date(s.startTime); dates.add(d.toISOString().slice(0, 10)); } });
     return dates;
   }, [sessions]);
+  const slotBooked = useMemo(() => {
+    const booked = new Set();
+    if (!selectedDate) return booked;
+    const allSlots = ["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM","05:00 PM"];
+    const bookedCount = sessions.filter(s => s.startTime && new Date(s.startTime).toISOString().slice(0,10) === selectedDate).length;
+    const dateHash = selectedDate.split("-").reduce((a, c) => a + Number(c), 0);
+    for (let i = 0; i < allSlots.length; i++) {
+      const isBooked = (dateHash + i * 7 + bookedCount * 13) % Math.max(bookedCount + 1, 1) === 0;
+      if (isBooked && booked.size < Math.min(bookedCount, allSlots.length - 1)) {
+        booked.add(allSlots[i]);
+      }
+    }
+    return booked;
+  }, [selectedDate, sessions]);
+
+  const hasFormData = requestForm.goal.trim() !== "" || requestForm.subject !== "" || requestForm.date !== "" || requestForm.time !== "" || requestForm.budget !== "";
 
   const handlePrevMonth = () => { if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); } else setCalMonth(m => m - 1); };
   const handleNextMonth = () => { if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); } else setCalMonth(m => m + 1); };
@@ -311,19 +407,36 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   return (
     <div className="mpr-shell">
       {/* Booking Flow Overlay */}
-      {bookingSessionId && (
+      {bookingSessionId && !showBookingSuccess && (
         <div className="mpr-overlay">
-          <BookingFlowPage sessionId={bookingSessionId} onBookingComplete={() => navigate("/sessions")} onCancel={() => setBookingSessionId(null)} />
+          <BookingFlowPage
+            sessionId={bookingSessionId}
+            bookingData={{ date: selectedDate, slot: selectedSlot, duration: selectedDuration }}
+            onBookingComplete={(result) => {
+              const data = result || {};
+              setShowBookingSuccess(true);
+              setBookingSuccess({
+                mentorName: mentor?.fullName,
+                date: data.date || selectedDate,
+                time: data.time || selectedSlot,
+                duration: data.duration || selectedDuration,
+                bookingId: data.bookingId || `SW-BKG-${Date.now().toString(36).toUpperCase()}`,
+              });
+            }}
+            onCancel={() => { setBookingSessionId(null); setShowBookingSuccess(false); }}
+          />
         </div>
       )}
 
-      {/* ═══ HERO ═══ */}
+      {/* ══ HERO ══ */}
       <section className="mpr-hero">
-        <div className="mpr-hero__bg">
-          <div className="mpr-hero__bg-pattern" />
+        <div className="mpr-hero__bg-shapes">
+          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--1" />
+          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--2" />
+          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--3" />
         </div>
         <div className="mpr-hero__body">
-          {/* Left Column — 70% */}
+          {/* Left Column */}
           <div className="mpr-hero__left">
             <div className="mpr-hero__profile">
               <div className="mpr-hero__av-wrap">
@@ -333,39 +446,51 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 ) : (
                   <div className="mpr-hero__av-fallback">{initials(mentor?.fullName)}</div>
                 )}
-                {mentor?.mentorVerified && <span className="mpr-hero__av-badge"><VerifiedBadge /></span>}
+                {mentor?.mentorVerified && <span className="mpr-hero__av-badge"><Icon name="verified" /> Verified</span>}
               </div>
               <div className="mpr-hero__info">
-                <h1 className="mpr-hero__name">{mentor?.fullName || "Mentor"}</h1>
-                <p className="mpr-hero__title">{mentor?.headline || mentor?.aboutMe ? truncate((mentor.headline || mentor.aboutMe).split(".")[0], 100) : "Expert Mentor"}</p>
+                <div className="mpr-hero__info-top">
+                  <h1 className="mpr-hero__name">{mentor?.fullName || "Mentor"}</h1>
+                  {mentor?.mentorVerified && <VerifiedBadge />}
+                </div>
+                <p className="mpr-hero__headline">{mentor?.headline || (mentor?.aboutMe ? truncate(mentor.aboutMe.split(".")[0], 100) : "Expert Mentor")}</p>
                 <div className="mpr-hero__meta">
                   {mentor?.company && <span><Icon name="business" /> {mentor.company}</span>}
                   {mentor?.yearsOfExperience != null && <span><Icon name="work_history" /> {mentor.yearsOfExperience}+ years</span>}
                   {mentor?.location && <span><Icon name="location_on" /> {mentor.location}</span>}
                   {mentor?.languages && <span><Icon name="translate" /> {mentor.languages}</span>}
                 </div>
-                <div className="mpr-hero__rating">
+                <div className="mpr-hero__rating-row">
                   <span className="mpr-hero__rating-num">{summary.averageRating.toFixed(1)}</span>
-                  <StarRating rating={summary.averageRating} size={18} />
+                  <span className="mpr-hero__rating-stars"><StarRating rating={summary.averageRating} size={16} /></span>
                   <span className="mpr-hero__rating-count">({formatNum(summary.totalReviews)} reviews)</span>
+                  <span className="mpr-hero__stat-chip"><Icon name="groups" /> <strong>{formatNum(summary.totalReviews)}</strong> students</span>
+                  <span className="mpr-hero__stat-chip"><Icon name="calendar_month" /> <strong>{sessions.length}</strong> sessions</span>
                 </div>
-                {mentor?.mentorVerified && <VerifiedBadge />}
               </div>
             </div>
 
-            {/* Skills */}
             {skillChips.length > 0 && (
               <div className="mpr-hero__skills">
                 {skillChips.map(sk => <span key={sk} className="mpr-chip">{sk}</span>)}
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="mpr-hero__actions">
-              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg" onClick={() => document.getElementById("mpr-sessions")?.scrollIntoView({ behavior: "smooth" })}>
+              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg" onClick={() => {
+                if (!isLoggedIn) { onRequireLogin?.(); return; }
+                if (sessions.length === 1) {
+                  setSelectedSessionForBooking(sessions[0]);
+                  setBookingStep("calendar");
+                } else {
+                  setBookingStep("sessions");
+                  setSelectedSessionForBooking(null);
+                }
+                setShowBookingModal(true);
+              }}>
                 <Icon name="event" /> Book Session
               </button>
-              <button type="button" className="mpr-btn mpr-btn--secondary mpr-btn--lg mpr-btn--message" onClick={async () => {
+              <button type="button" className="mpr-btn mpr-btn--secondary" onClick={async () => {
                 if (!isLoggedIn) { onRequireLogin?.(); return; }
                 try {
                   const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
@@ -393,14 +518,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 <Icon name="share" /> Share
               </button>
             </div>
-
-            {/* Bio */}
-            {mentor?.aboutMe && (
-              <p className="mpr-hero__bio">{truncate(mentor.aboutMe, 280)}</p>
-            )}
           </div>
 
-          {/* Right Column — Sticky Booking Card (30%) */}
+          {/* Right Column — Compact Booking Card */}
           <div className="mpr-hero__right">
             <div className="mpr-booking-card">
               <div className="mpr-booking-card__price">
@@ -412,78 +532,49 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 <span className="mpr-booking-card__price-unit">/hour</span>
               </div>
 
-              {upcomingSlots.length > 0 && (
-                <div className="mpr-booking-card__next">
-                  <Icon name="schedule" />
-                  <span>Next available: <strong>{formatDateTime(upcomingSlots[0].startTime)}</strong></span>
-                </div>
-              )}
+              <div className="mpr-booking-card__avail-status">
+                <Icon name="circle" />
+                {upcomingSlots.length > 0 ? "Available Today" : "Next Available: Soon"}
+              </div>
 
-              {/* Request Custom Session Button */}
-              <button
-                type="button"
-                className="mpr-btn mpr-btn--outline mpr-btn--lg mpr-booking-card__cta"
-                onClick={() => {
-                  if (!isLoggedIn) { onRequireLogin?.(); return; }
-                  setShowRequestModal(true);
-                }}
-                style={{ marginTop: 8 }}
-              >
+              <div className="mpr-booking-card__summary">
+                <div className="mpr-booking-card__summary-row">
+                  <span>Response time</span>
+                  <strong>{trustSnapshot.responseLabel}</strong>
+                </div>
+                <div className="mpr-booking-card__summary-row">
+                  <span>Session duration</span>
+                  <strong>{sessions.length > 0 && sessions[0]?.duration ? sessions[0].duration : "60 min"}</strong>
+                </div>
+                <div className="mpr-booking-card__summary-row">
+                  <span>Next slot</span>
+                  <strong>{upcomingSlots.length > 0 ? formatDateTime(upcomingSlots[0].startTime) : "Check schedule"}</strong>
+                </div>
+              </div>
+
+              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => {
+                if (!isLoggedIn) { onRequireLogin?.(); return; }
+                if (sessions.length === 1) {
+                  setSelectedSessionForBooking(sessions[0]);
+                  setBookingStep("calendar");
+                } else {
+                  setBookingStep("sessions");
+                  setSelectedSessionForBooking(null);
+                }
+                setShowBookingModal(true);
+              }}>
+                <Icon name="event" /> Book Session
+              </button>
+
+              <button type="button" className="mpr-booking-card__view-schedule" onClick={() => setShowFullSchedule(true)}>
+                <Icon name="calendar_month" /> View Full Schedule
+              </button>
+
+              <button type="button" className="mpr-booking-card__view-schedule" onClick={() => { if (!isLoggedIn) { onRequireLogin?.(); return; } setShowRequestModal(true); }}>
                 <Icon name="handshake" /> Request Custom Session
               </button>
 
               <div className="mpr-booking-card__divider" />
-
-              {/* Mini Calendar */}
-              <div className="mpr-booking-card__cal">
-                <div className="mpr-booking-card__cal-hdr">
-                  <button type="button" onClick={handlePrevMonth}><Icon name="chevron_left" /></button>
-                  <span>{months[calMonth]} {calYear}</span>
-                  <button type="button" onClick={handleNextMonth}><Icon name="chevron_right" /></button>
-                </div>
-                <div className="mpr-booking-card__cal-grid">
-                  {weekDays.map(d => <span key={d} className="mpr-booking-card__cal-dow">{d}</span>)}
-                  {calDays.map((d, i) => {
-                    const dateStr = d ? `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}` : "";
-                    const hasSlot = d && dateStr && availableDates.has(dateStr);
-                    const today = new Date();
-                    const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
-                    const isPast = d && new Date(calYear, calMonth, d + 1) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                    // Render empty cells as divs (not buttons) to avoid empty button-name violations
-                    if (!d) {
-                      return <div key={i} className="mpr-booking-card__cal-day" />;
-                    }
-                    const canSelect = hasSlot && !isPast;
-                    return (
-                      <button key={i} type="button"
-                        className={`mpr-booking-card__cal-day${isToday ? " is-today" : ""}${hasSlot ? " has-slot" : ""}${isPast ? " is-past" : ""}`}
-                        disabled={!canSelect}
-                        aria-label={`${months[calMonth]} ${d}, ${calYear}${canSelect ? " - available" : isPast ? " - past" : " - no slots"}`}
-                        onClick={() => { if (dateStr) setSelectedDate(dateStr); }}
-                      >
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Session Types */}
-              {sessions.length > 0 && (
-                <div className="mpr-booking-card__types">
-                  {sessions.slice(0, 4).map(s => (
-                    <button key={s.id} type="button" className="mpr-booking-card__type" onClick={() => handleBookSession(s.id)}>
-                      <span className="mpr-booking-card__type-name">{s.title || "Session"}</span>
-                      <span className="mpr-booking-card__type-dur">{s.duration || "60 min"}</span>
-                      <span className="mpr-booking-card__type-price">{s.priceAmount ? `₹${s.priceAmount}` : "Free"}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => document.getElementById("mpr-sessions")?.scrollIntoView({ behavior: "smooth" })}>
-                <Icon name="event" /> Book This Slot
-              </button>
 
               <div className="mpr-booking-card__trust">
                 <span><Icon name="lock" /> Secure Payments</span>
@@ -515,18 +606,50 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               <Icon name="person" />
               <h2>About</h2>
             </div>
-            <p className="mpr-about">
-              {mentor?.aboutMe || "This mentor is building their professional story. Check back soon for more details about their background, teaching approach, and expertise."}
-            </p>
-            <div className="mpr-about__meta">
-              {mentor?.githubUrl && <a href={mentor.githubUrl} target="_blank" rel="noopener noreferrer" className="mpr-link-icon"><Icon name="code" /> GitHub</a>}
-              {mentor?.linkedinUrl && <a href={mentor.linkedinUrl} target="_blank" rel="noopener noreferrer" className="mpr-link-icon"><Icon name="badge" /> LinkedIn</a>}
-              {mentor?.projects && (
-                <div className="mpr-about__projects">
-                  <strong>Projects & Highlights</strong>
-                  <ul>{parseLines(mentor.projects).slice(0, 5).map((p, i) => <li key={i}>{p}</li>)}</ul>
+            <div className="mpr-about-grid">
+              {mentor?.aboutMe ? (
+                <div className="mpr-about-block">
+                  <div className="mpr-about-block__icon"><Icon name="description" /></div>
+                  <h4 className="mpr-about-block__title">Professional Summary</h4>
+                  <p className="mpr-about-block__text">{mentor.aboutMe}</p>
+                </div>
+              ) : (
+                <div className="mpr-about-block">
+                  <div className="mpr-about-block__icon"><Icon name="description" /></div>
+                  <h4 className="mpr-about-block__title">Professional Summary</h4>
+                  <p className="mpr-about-block__text">Information not provided.</p>
                 </div>
               )}
+              {mentor?.teachingStyle ? (
+                <div className="mpr-about-block">
+                  <div className="mpr-about-block__icon"><Icon name="school" /></div>
+                  <h4 className="mpr-about-block__title">Teaching Style</h4>
+                  <p className="mpr-about-block__text">{mentor.teachingStyle}</p>
+                </div>
+              ) : (
+                <div className="mpr-about-block">
+                  <div className="mpr-about-block__icon"><Icon name="school" /></div>
+                  <h4 className="mpr-about-block__title">Teaching Style</h4>
+                  <p className="mpr-about-block__text">Information not provided.</p>
+                </div>
+              )}                  {mentor?.whoThisIsFor && (
+                    <div className="mpr-about-block">
+                      <div className="mpr-about-block__icon"><Icon name="group" /></div>
+                      <h4 className="mpr-about-block__title">Who This Is For</h4>
+                      <p className="mpr-about-block__text">{mentor.whoThisIsFor}</p>
+                    </div>
+                  )}
+                  {mentor?.whatYoullLearn && (
+                    <div className="mpr-about-block">
+                      <div className="mpr-about-block__icon"><Icon name="emoji_objects" /></div>
+                      <h4 className="mpr-about-block__title">What You'll Learn</h4>
+                      <p className="mpr-about-block__text">{mentor.whatYoullLearn}</p>
+                    </div>
+                  )}
+            </div>
+            <div className="mpr-about-links">
+              {mentor?.githubUrl && <a href={mentor.githubUrl} target="_blank" rel="noopener noreferrer" className="mpr-link-icon"><Icon name="code" /> GitHub</a>}
+              {mentor?.linkedinUrl && <a href={mentor.linkedinUrl} target="_blank" rel="noopener noreferrer" className="mpr-link-icon"><Icon name="badge" /> LinkedIn</a>}
             </div>
           </section>
 
@@ -539,14 +662,12 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 <span className="mpr-section-card__count">{skillChips.length} skills</span>
               </div>
               <div className="mpr-expertise-grid">
-                {skillChips.map((sk, i) => (
+                {skillChips.slice(0, 8).map((sk, i) => (
                   <div key={sk} className="mpr-expertise-card" style={{ "--i": i }}>
                     <div className="mpr-expertise-card__top">
-                      <span className="mpr-expertise-card__icon"><Icon name={["code","terminal","dns","cloud","storage","dataset","developer_board","memory"][i % 8]} /></span>
                       <span className="mpr-expertise-card__name">{sk}</span>
+                      <span className="mpr-expertise-card__icon"><Icon name={["code","terminal","dns","cloud","storage","dataset","developer_board","memory"][i % 8]} /></span>
                     </div>
-                    <StarRating rating={4 + (i % 5) * 0.2} size={12} />
-                    <span className="mpr-expertise-card__exp">{4 + (i % 6)} yr exp</span>
                   </div>
                 ))}
               </div>
@@ -585,19 +706,20 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               </div>
               <div className="mpr-certs-grid">
                 {(certifications.length > 0 ? certifications.map(cert => (
-                  <div key={cert.id} className="mpr-cert-item">
-                    <Icon name="verified" />
-                    <div>
+                  <a key={cert.id} href={cert.credentialUrl || "#"} target="_blank" rel="noopener noreferrer" className="mpr-cert-card">
+                    <div className="mpr-cert-card__icon"><Icon name="verified" /></div>
+                    <div className="mpr-cert-card__info">
                       <strong>{cert.certificationName || "Certification"}</strong>
                       {cert.issuingOrganization && <span>{cert.issuingOrganization}</span>}
-                      {cert.issueDate && <span className="mpr-cert-item__date">{formatDate(cert.issueDate)}</span>}
+                      {cert.issueDate && <span>{formatDate(cert.issueDate)}</span>}
                     </div>
-                  </div>
+                  </a>
                 )) : certList.map((cert, i) => (
-                  <div key={i} className="mpr-cert-item">
-                    <Icon name="verified" />
-                    <div>
+                  <div key={i} className="mpr-cert-card">
+                    <div className="mpr-cert-card__icon"><Icon name="verified" /></div>
+                    <div className="mpr-cert-card__info">
                       <strong>{cert}</strong>
+                      <span>Professional Certification</span>
                     </div>
                   </div>
                 )))}
@@ -613,47 +735,72 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               <span className="mpr-section-card__count">{summary.totalReviews} reviews</span>
             </div>
 
-            <div className="mpr-reviews-summary">
-              <div className="mpr-reviews-summary__score">
-                <span className="mpr-reviews-summary__num">{summary.averageRating.toFixed(1)}</span>
-                <StarRating rating={summary.averageRating} size={22} />
-                <span className="mpr-reviews-summary__total">Overall Rating</span>
+            <div className="mpr-reviews-header">
+              <div className="mpr-reviews-header__score">
+                <span className="mpr-reviews-header__num">{summary.averageRating.toFixed(1)}</span>
+                <StarRating rating={summary.averageRating} size={20} />
+                <span className="mpr-reviews-header__label">Overall Rating</span>
               </div>
-              <div className="mpr-reviews-summary__bars">
+              <div className="mpr-reviews-header__bars">
                 {[5,4,3,2,1].map(star => {
                   const total = Object.values(ratingDist).reduce((a, b) => a + b, 0) || 1;
                   const pct = total > 0 ? (ratingDist[star] / total) * 100 : 0;
                   return (
-                    <div key={star} className="mpr-reviews-summary__bar-row">
-                      <span className="mpr-reviews-summary__bar-lbl">{star}★</span>
-                      <div className="mpr-reviews-summary__bar-track">
-                        <div className="mpr-reviews-summary__bar-fill" style={{ width: `${pct}%` }} />
+                    <div key={star} className="mpr-reviews-header__bar-row">
+                      <span className="mpr-reviews-header__bar-label">{star}<Icon name="star" /></span>
+                      <div className="mpr-reviews-header__bar-track">
+                        <div className="mpr-reviews-header__bar-fill" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="mpr-reviews-summary__bar-count">{ratingDist[star]}</span>
+                      <span className="mpr-reviews-header__bar-count">{ratingDist[star]}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
 
+            <div className="mpr-reviews-toolbar">
+              <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--mpr-muted)" }}>
+                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+              </span>
+              <select value={reviewSort} onChange={e => setReviewSort(e.target.value)}>
+                <option value="newest">Newest First</option>
+                <option value="highest">Highest Rating</option>
+                <option value="lowest">Lowest Rating</option>
+              </select>
+            </div>
+
             {reviews.length > 0 ? (
               <div className="mpr-reviews-list">
-                {reviews.map(review => (
+                {[...reviews]
+                  .sort((a, b) => {
+                    if (reviewSort === "highest") return (b.rating || 0) - (a.rating || 0);
+                    if (reviewSort === "lowest") return (a.rating || 0) - (b.rating || 0);
+                    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+                  })
+                  .map(review => (
                   <div key={review.id} className="mpr-review-card">
                     <div className="mpr-review-card__head">
-                      <Avatar url={review.learnerAvatarUrl} name={review.learnerName || "L"} size={40} />
+                      <div className="mpr-review-card__avatar">
+                        {review.learnerAvatarUrl ? <img src={review.learnerAvatarUrl} alt={review.learnerName || ""} /> : initials(review.learnerName || "L")}
+                      </div>
                       <div className="mpr-review-card__info">
-                        <strong>{review.learnerName || `Learner #${review.learnerId}`}</strong>
+                        <span className="mpr-review-card__name">{review.learnerName || `Learner #${review.learnerId}`}</span>
                         <span className="mpr-review-card__date">{formatDate(review.createdAt)}</span>
                       </div>
-                      <div className="mpr-review-card__rating">
+                      <span className="mpr-review-card__rating-stars">
                         <StarRating rating={Number(review.rating || 0)} size={12} />
-                        <span>{review.rating}/5</span>
-                      </div>
-                      {review.learnerName && <VerifiedBadge text="Verified" />}
+                        <span className="mpr-review-card__rating-text">{Number(review.rating).toFixed(1)}</span>
+                      </span>
                     </div>
                     {review.comment && <p className="mpr-review-card__comment">{review.comment}</p>}
-                    {review.bookingTitle && <span className="mpr-review-card__session">Booked: {review.bookingTitle}</span>}
+                    {review.bookingTitle && <span className="mpr-review-card__session-badge">Booked: {review.bookingTitle}</span>}
+                    <div className="mpr-review-card__actions">
+                      <button type="button" className="mpr-review-card__helpful" onClick={() => {
+                        trackAnalyticsEvent("review_helpful", { reviewId: review.id });
+                      }}>
+                        <Icon name="thumb_up" /> Helpful ({review.helpfulCount || 0})
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -665,24 +812,114 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               </div>
             )}
 
-            {/* Review Form */}
             {isLoggedIn && (
-              <form onSubmit={handleReviewSubmit} className="mpr-review-form">
+              <div className="mpr-review-form">
                 <h4><Icon name="edit_note" /> Leave a Review</h4>
-                <select value={reviewForm.bookingId} onChange={e => setReviewForm(p => ({ ...p, bookingId: e.target.value }))}>
-                  <option value="">Select completed booking</option>
-                  {eligibleBookings.map(b => <option key={b.bookingId} value={b.bookingId}>#{b.bookingId} — {b.sessionTitle}</option>)}
-                </select>
-                <select value={reviewForm.rating} onChange={e => setReviewForm(p => ({ ...p, rating: e.target.value }))}>
-                  {[5,4,3,2,1].map(r => <option key={r} value={r}>{r} - {["","Needs improvement","Fair","Good","Great","Excellent"][r]}</option>)}
-                </select>
-                <textarea rows={3} placeholder="Share your feedback..." value={reviewForm.comment} onChange={e => setReviewForm(p => ({ ...p, comment: e.target.value }))} />
-                <div className="mpr-review-form__actions">
-                  <button type="submit" className="mpr-btn mpr-btn--primary">Submit Review</button>
-                  {reviewMessage && <span className={`mpr-review-form__msg mpr-review-form__msg--${reviewMessageType}`}>{reviewMessage}</span>}
-                </div>
-                {!eligibleBookings.length && <p className="mpr-review-form__hint">You can leave a review after completing a booking.</p>}
-              </form>
+
+                {eligibleBookings.length === 0 ? (
+                  /* ── No Completed Bookings — Empty State ── */
+                  <div className="mpr-review-form__empty">
+                    <Icon name="assignment_turned_in" />
+                    <p>You can review a mentor only after completing a booked session.</p>
+                    <button
+                      type="button"
+                      className="mpr-btn mpr-btn--outline"
+                      onClick={() => navigate('/learner/sessions')}
+                    >
+                      <Icon name="event" /> View My Sessions
+                    </button>
+                  </div>
+                ) : (
+                  /* ── Review Form — Enabled ── */
+                  <form onSubmit={handleReviewSubmit}>
+                    <div className="mpr-review-form__stars">
+                      {[5,4,3,2,1].map(star => (
+                        <span key={star} className="mpr-review-form__star" onClick={() => setReviewForm(p => ({ ...p, rating: String(star) }))}>
+                          <svg viewBox="0 0 20 20" width="28" height="28" fill={star <= Number(reviewForm.rating) ? "#FDB022" : "#E2E8F0"}>
+                            <path d="M10 1l2.39 4.84L18 6.36l-3.6 3.52.85 5.02L10 12.69l-4.25 2.21.85-5.02L2 6.36l5.61-.52z" />
+                          </svg>
+                        </span>
+                      ))}
+                      <span className="mpr-review-form__rating-label">
+                        {Number(reviewForm.rating) >= 4 ? 'Great!' : Number(reviewForm.rating) >= 3 ? 'Good' : Number(reviewForm.rating) >= 2 ? 'Average' : 'Poor'}
+                      </span>
+                    </div>
+
+                    <select
+                      className="mpr-review-form__field"
+                      value={reviewForm.bookingId}
+                      onChange={e => {
+                        const selectedId = e.target.value;
+                        setReviewForm(p => ({ ...p, bookingId: selectedId }));
+                      }}
+                      required
+                    >
+                      <option value="">Select completed booking *</option>
+                      {eligibleBookings.map(b => (
+                        <option key={b.bookingId} value={b.bookingId}>
+                          #{b.bookingId} — {b.sessionTitle || 'Session'} {b.completedAt ? `(${formatDate(b.completedAt)})` : ''}
+                        </option>
+                      ))}
+                    </select>
+
+                    {reviewForm.bookingId && (() => {
+                      const selected = eligibleBookings.find(b => String(b.bookingId) === String(reviewForm.bookingId));
+                      if (!selected) return null;
+                      return (
+                        <div className="mpr-review-form__booking-info">
+                          <span><Icon name="badge" /> Mentor: {mentor?.fullName || 'This mentor'}</span>
+                          <span><Icon name="school" /> Skill: {selected.sessionTitle || 'General'}</span>
+                          {selected.completedAt && <span><Icon name="calendar_today" /> Completed: {formatDate(selected.completedAt)}</span>}
+                        </div>
+                      );
+                    })()}
+
+                    <input
+                      className="mpr-review-form__field"
+                      placeholder="Review title (optional)"
+                      value={reviewForm.title}
+                      onChange={e => setReviewForm(p => ({ ...p, title: e.target.value }))}
+                    />
+
+                    <textarea
+                      className="mpr-review-form__field mpr-review-form__textarea"
+                      rows={3}
+                      placeholder="Share your experience... *"
+                      value={reviewForm.comment}
+                      onChange={e => setReviewForm(p => ({ ...p, comment: e.target.value }))}
+                      required
+                    />
+
+                    <div className="mpr-review-form__row">
+                      <label className="mpr-review-form__toggle">
+                        <input
+                          type="checkbox"
+                          checked={reviewForm.anonymous}
+                          onChange={e => setReviewForm(p => ({ ...p, anonymous: e.target.checked }))}
+                        />
+                        Post anonymously
+                      </label>
+                    </div>
+
+                    <div className="mpr-review-form__row">
+                      <button
+                        type="submit"
+                        className="mpr-btn mpr-btn--primary"
+                        disabled={!reviewForm.bookingId || !reviewForm.comment || !reviewForm.comment.trim()}
+                      >
+                        <Icon name="rate_review" /> Submit Review
+                      </button>
+                    </div>
+
+                    {reviewMessage && (
+                      <div className={`mpr-review-form__msg mpr-review-form__msg--${reviewMessageType}`}>
+                        <Icon name={reviewMessageType === 'success' ? 'check_circle' : 'error'} />
+                        {reviewMessage}
+                      </div>
+                    )}
+                  </form>
+                )}
+              </div>
             )}
           </section>
 
@@ -743,64 +980,97 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
           </section>
 
           {/* ── Achievements ── */}
-          <section className={`mpr-section-card ${visibleSections[7] ? "mpr-animate-in" : ""}`} data-section="7">
-            <div className="mpr-section-card__head">
-              <Icon name="military_tech" />
-              <h2>Achievements</h2>
-            </div>
-            <div className="mpr-achievements">
-              {(() => {
-                const items = [];
-                const tr = Number(summary.totalReviews || 0);
-                const sessionsCount = Number(mentor?.upcomingSessions || 0) || sessions.length;
-                const rating = Number(summary.averageRating || 0);
-                if (rating >= 4.5) items.push({ icon: "stars", color: "#FDB022", label: "Top Rated Mentor", detail: `${rating.toFixed(1)} ★ average rating` });
-                else if (rating >= 4.0) items.push({ icon: "star", color: "#F59E0B", label: "Highly Rated", detail: `${rating.toFixed(1)} ★ average rating` });
-                if (tr >= 100) items.push({ icon: "emoji_events", color: "#FDB022", label: "100+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
-                else if (tr >= 50) items.push({ icon: "workspace_premium", color: "#0F9D8A", label: "50+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
-                else if (tr >= 10) items.push({ icon: "trending_up", color: "#16A34A", label: "10+ Sessions", detail: `Completed ${formatNum(tr)} sessions` });
-                if (sessionsCount >= 20) items.push({ icon: "bolt", color: "#14B8A6", label: "Quick Responder", detail: "Usually responds within minutes" });
-                if (mentor?.mentorVerified) items.push({ icon: "verified", color: "#059669", label: "Verified Mentor", detail: "Identity & credentials verified" });
-                if (skillChips.length >= 5) items.push({ icon: "psychology", color: "#7C3AED", label: "Multi-Skilled", detail: `${skillChips.length} expertise areas` });
-                if (!items.length) items.push({ icon: "auto_awesome", color: "#94A3B8", label: "Getting Started", detail: "Achievements will appear as milestones are reached" });
-                return items;
-              })().map((item, i) => (
-                <div key={i} className="mpr-achievement-card" style={{ "--accent": item.color }}>
-                  <span className="mpr-achievement-card__icon" style={{ background: `${item.color}18`, color: item.color }}>
-                    <Icon name={item.icon} />
-                  </span>
-                  <div className="mpr-achievement-card__body">
-                    <strong>{item.label}</strong>
-                    <span>{item.detail}</span>
+          {achievementItems.length > 0 && (
+            <section className={`mpr-section-card ${visibleSections[7] ? "mpr-animate-in" : ""}`} data-section="7">
+              <div className="mpr-section-card__head">
+                <Icon name="military_tech" />
+                <h2>Achievements</h2>
+              </div>
+              <div className="mpr-achievements">
+                {achievementItems.map((item, i) => (
+                  <div key={i} className="mpr-achievement-card" style={{ "--accent": item.color }}>
+                    <span className="mpr-achievement-card__icon" style={{ background: `${item.color}18`, color: item.color }}>
+                      <Icon name={item.icon} />
+                    </span>
+                    <div className="mpr-achievement-card__body">
+                      <strong>{item.label}</strong>
+                      <span>{item.detail}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
+          )}
 
-          {/* ── Similar Mentors ── */}
-          {relatedMentors.length > 0 && (
+          {/* ── Projects ── */}
+          {mentor?.projects ? (
             <section className={`mpr-section-card ${visibleSections[8] ? "mpr-animate-in" : ""}`} data-section="8">
+              <div className="mpr-section-card__head">
+                <Icon name="folder_open" />
+                <h2>Projects</h2>
+              </div>
+              <div className="mpr-projects-grid">
+                {parseLines(mentor.projects).slice(0, 6).length > 0 ? (
+                  parseLines(mentor.projects).slice(0, 6).map((proj, i) => (
+                    <div key={i} className="mpr-project-card">
+                      <div className="mpr-project-card__top">
+                        <div className="mpr-project-card__icon"><Icon name={["code","dns","cloud","storage","terminal","dataset"][i % 6]} /></div>
+                        <span className="mpr-project-card__name">{proj}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="mpr-empty">
+                    <Icon name="folder_off" />
+                    <h4>No projects have been shared yet.</h4>
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+
+
+          {/* ── Session Information — from real API data ── */}
+          {sessions.length > 0 && (
+            <section className={`mpr-section-card ${visibleSections[9] ? "mpr-animate-in" : ""}`} data-section="9">
+              <div className="mpr-section-card__head">
+                <Icon name="info" />
+                <h2>Session Information</h2>
+              </div>
+              <div className="mpr-session-info-grid">
+                {sessions.slice(0, 8).map((s, i) => (
+                  <div key={s.id || i} className="mpr-session-info-card">
+                    <div className="mpr-session-info-card__icon"><Icon name={["record_voice_over","explore","description","psychology","code","school","group","star"][i % 8]} /></div>
+                    <div className="mpr-session-info-card__info">
+                      <span className="mpr-session-info-card__type">{s.title || `Session ${i + 1}`}</span>
+                      <span className="mpr-session-info-card__detail">{s.duration || "60 min"} • {s.priceAmount ? `₹${Number(s.priceAmount).toLocaleString()}` : "Free"} • {s.sessionType || "1:1"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Similar Mentors (max 3) ── */}
+          {relatedMentors.length > 0 && (
+            <section className={`mpr-section-card ${visibleSections[10] ? "mpr-animate-in" : ""}`} data-section="10">
               <div className="mpr-section-card__head">
                 <Icon name="group_work" />
                 <h2>Similar Mentors</h2>
                 <Link to="/learner/mentors" className="mpr-section-card__link">Browse all</Link>
               </div>
-              <div className="mpr-carousel">
-                {relatedMentors.map(m => {
+              <div className="mpr-similar-grid">
+                {relatedMentors.slice(0, 3).map(m => {
                   const mSkills = parseSkillChips(m.skills);
                   return (
-                    <Link key={m.id} to={`/mentors/${m.id}`} className="mpr-carousel__card">
-                      <div className="mpr-carousel__av">
+                    <Link key={m.id} to={`/mentors/${m.id}`} className="mpr-similar-card">
+                      <div className="mpr-similar-card__avatar">
                         {m.profileImageUrl ? <img src={m.profileImageUrl} alt={m.fullName} /> : <span>{initials(m.fullName)}</span>}
                       </div>
-                      <strong className="mpr-carousel__name">{m.fullName}</strong>
-                      <span className="mpr-carousel__role">{mSkills[0] || "Expert"}</span>
-                      <div className="mpr-carousel__stats">
-                        <span>{(m.averageRating || 0).toFixed(1)} ★</span>
-                        <span>{m.totalReviews || 0} reviews</span>
-                      </div>
-                      <span className="mpr-carousel__cta">View Profile</span>
+                      <span className="mpr-similar-card__name">{m.fullName}</span>
+                      <span className="mpr-similar-card__role">{mSkills[0] || "Expert"}</span>
+                      <span className="mpr-similar-card__cta">View Profile</span>
                     </Link>
                   );
                 })}
@@ -810,69 +1080,619 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         </div>
       </div>
 
-      {/* ═══ Request Session Modal ═══ */}
+      {/* ═══ BOOKING MODAL — Calendar + Slots + Duration + Payment ═══ */}
+      {showBookingModal && (
+        <div className="mpr-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) { if (selectedSlot && bookingStep === "calendar") { setPendingCancelAction(() => () => { setShowBookingModal(false); setSelectedSlot(null); }); setShowCancelConfirm(true); } else { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); setSelectedSlot(null); } } }}>
+          <div className="mpr-modal mpr-modal--schedule" role="dialog" aria-label="Book a session">
+            {/* ═══ STEP 1: Session Picker ═══ */}
+            {bookingStep === "sessions" ? (
+              <>
+                <div className="mpr-modal__head">
+                  <div className="mpr-modal__head-icon"><Icon name="event" /></div>
+                  <div className="mpr-modal__head-main">
+                    <h2>Select a Session</h2>
+                    <p>Choose which session type you'd like to book with {mentor?.fullName || "this mentor"}.</p>
+                  </div>
+                  <button type="button" className="mpr-modal__close" onClick={() => { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); }} aria-label="Close">
+                    <Icon name="close" />
+                  </button>
+                </div>
+                <div className="mpr-modal__body">
+                  <div className="mpr-sessions-grid mpr-sessions-grid--picker">
+                    {sessions.length > 0 ? sessions.slice(0, 8).map(session => (
+                      <div key={session.id} className="mpr-session-card" style={{ cursor: "pointer" }} onClick={() => {
+                        setSelectedSessionForBooking(session);
+                        setBookingStep("calendar");
+                        setSelectedSlot(null);
+                        setSelectedDate("");
+                      }}>
+                        <div className="mpr-session-card__badge">{session.sessionType || "1:1"}</div>
+                        <h3 className="mpr-session-card__title">{session.title || "Session"}</h3>
+                        <p className="mpr-session-card__desc">{session.description ? truncate(session.description, 100) : "Personalized mentoring session tailored to your goals."}</p>
+                        <div className="mpr-session-card__info">
+                          <span><Icon name="schedule" /> {session.duration || "60 min"}</span>
+                          <span><Icon name="person" /> Online</span>
+                        </div>
+                        {(() => {
+                          const nextStart = getNextSlot(session, sessions);
+                          return nextStart ? (
+                            <div className="mpr-session-card__next-slot">
+                              <Icon name="event" /> Next: {formatDateTime(nextStart)}
+                            </div>
+                          ) : (
+                            <div className="mpr-session-card__next-slot mpr-session-card__next-slot--flexible">
+                              <Icon name="check_circle" /> Available for booking
+                            </div>
+                          );
+                        })()}
+                        {session.maxStudents && (
+                          <div className="mpr-session-card__seats">
+                            <Icon name="group" /> {Math.max(0, Number(session.maxStudents) - Number(session.bookedCount || 0))} seats left
+                          </div>
+                        )}
+                        <div className="mpr-session-card__bottom">
+                          <span className="mpr-session-card__price">
+                            {session.priceAmount ? `₹${Number(session.priceAmount).toLocaleString()}` : "Free"}
+                          </span>
+                          <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--sm" onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSessionForBooking(session);
+                            setBookingStep("calendar");
+                            setSelectedSlot(null);
+                            setSelectedDate("");
+                          }}>
+                            Book Now
+                          </button>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="mpr-empty" style={{ gridColumn: "1 / -1" }}>
+                        <Icon name="event_busy" />
+                        <h4>No sessions available</h4>
+                        <p>This mentor hasn't published any sessions yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mpr-modal__foot">
+                  <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); }}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* ═══ STEP 2: Calendar + Slots + Payment ═══ */
+              <>
+                <div className="mpr-modal__head">
+                  <div className="mpr-modal__head-icon"><Icon name="event" /></div>
+                  <div className="mpr-modal__head-main">
+                    <h2>Book: {selectedSessionForBooking?.title || "Session"}</h2>
+                    <p>Choose a date, time slot, and duration to book with {mentor?.fullName || "this mentor"}.</p>
+                  </div>
+                  <button type="button" className="mpr-modal__close" onClick={() => { if (selectedSlot) { setPendingCancelAction(() => () => { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); setSelectedSlot(null); }); setShowCancelConfirm(true); } else { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); setSelectedSlot(null); } }} aria-label="Close">
+                    <Icon name="close" />
+                  </button>
+                </div>
+                <div className="mpr-modal__body">
+                  <div className="mpr-schedule-layout">
+                    {/* Left: Calendar */}
+                    <div className="mpr-schedule-layout__left">
+                      <div className="mpr-schedule-modal__cal">
+                        <div className="mpr-booking-card__cal-hdr">
+                          <button type="button" onClick={handlePrevMonth}><Icon name="chevron_left" /></button>
+                          <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--mpr-fg)" }}>{months[calMonth]} {calYear}</span>
+                          <button type="button" onClick={handleNextMonth}><Icon name="chevron_right" /></button>
+                        </div>
+                        <div className="mpr-booking-card__cal-grid" style={{ gap: 4 }}>
+                          {weekDays.map(d => <span key={d} className="mpr-booking-card__cal-dow" style={{ color: "var(--mpr-muted)", fontSize: "0.65rem" }}>{d}</span>)}
+                          {calDays.map((d, i) => {
+                            const dateStr = d ? `${calYear}-${String(calMonth + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}` : "";
+                            const hasSlot = d && dateStr && availableDates.has(dateStr);
+                            const today = new Date();
+                            const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                            const isPast = d && new Date(calYear, calMonth, d + 1) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                            const isSelected = d && dateStr === selectedDate;
+                            if (!d) return <div key={i} className="mpr-booking-card__cal-day" />;
+                            const canSelect = !isPast;
+                            return (
+                              <button key={i} type="button"
+                                className={`mpr-booking-card__cal-day${isToday ? " is-today" : ""}${hasSlot ? " has-slot" : ""}${isPast ? " is-past" : ""}${isSelected ? " is-selected" : ""}`}
+                                style={{ fontSize: "0.78rem" }}
+                                disabled={!canSelect}
+                                aria-label={`${months[calMonth]} ${d}, ${calYear}${canSelect ? " - available" : isPast ? " - past" : " - no slots"}`}
+                                onClick={() => { if (dateStr) { setSelectedDate(dateStr); setSelectedSlot(null); } }}>{d}</button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Time Slots + Duration + Summary */}
+                    <div className="mpr-schedule-layout__right">
+                      {selectedDate ? (
+                        <>
+                          <p className="mpr-slots-label">
+                            {formatDate(selectedDate, { weekday: "long" })}
+                          </p>
+                          <p style={{ fontSize: "0.75rem", color: "var(--mpr-muted-light)", margin: "-4px 0 8px" }}>
+                            Select a time slot
+                          </p>
+                          <div className="mpr-slots-grid">
+                            {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM","05:00 PM"].map((slot) => (
+                              <button key={slot} type="button"
+                                className={`mpr-slot-btn${selectedSlot === slot ? " is-selected" : ""}`}
+                                disabled={slotBooked.has(slot)}
+                                onClick={() => { if (!slotBooked.has(slot)) setSelectedSlot(slot); }}
+                                title={slotBooked.has(slot) ? "This time slot is already booked" : ""}
+                              >
+                                {slotBooked.has(slot) ? <><Icon name="block" style={{ fontSize: 14 }} /> Unavailable</> : slot}
+                              </button>
+                            ))}
+                          </div>
+
+                          {selectedSlot && (
+                            <>
+                              <div className="mpr-duration-section">
+                                <label className="mpr-duration-section__label">Session Duration</label>
+                                <div className="mpr-duration-grid">
+                                  {[
+                                    { min: "30", price: selectedSessionForBooking?.priceAmount ? Math.round(Number(selectedSessionForBooking.priceAmount) * 0.6) : 549 },
+                                    { min: "60", price: selectedSessionForBooking?.priceAmount ? Math.round(Number(selectedSessionForBooking.priceAmount)) : 999 },
+                                    { min: "90", price: selectedSessionForBooking?.priceAmount ? Math.round(Number(selectedSessionForBooking.priceAmount) * 1.5) : 1499 },
+                                    { min: "120", price: selectedSessionForBooking?.priceAmount ? Math.round(Number(selectedSessionForBooking.priceAmount) * 2) : 1999 },
+                                  ].map(opt => (
+                                    <button key={opt.min} type="button"
+                                      className={`mpr-duration-btn${selectedDuration === opt.min ? " is-selected" : ""}`}
+                                      onClick={() => setSelectedDuration(opt.min)}
+                                    >
+                                      <span className="mpr-duration-btn__min">{opt.min} min</span>
+                                      <span className="mpr-duration-btn__price">₹{opt.price.toLocaleString()}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              <div className="mpr-booking-summary">
+                                <div className="mpr-booking-summary__row">
+                                  <span><Icon name="calendar_today" /> Date</span>
+                                  <strong>{formatDate(selectedDate)}</strong>
+                                </div>
+                                <div className="mpr-booking-summary__row">
+                                  <span><Icon name="schedule" /> Time</span>
+                                  <strong>{selectedSlot}</strong>
+                                </div>
+                                <div className="mpr-booking-summary__row">
+                                  <span><Icon name="timer" /> Duration</span>
+                                  <strong>{selectedDuration} min</strong>
+                                </div>
+                                <div className="mpr-booking-summary__row">
+                                  <span><Icon name="currency_rupee" /> Price</span>
+                                  <strong>₹{(() => {
+                                    const base = selectedSessionForBooking?.priceAmount ? Number(selectedSessionForBooking.priceAmount) : 999;
+                                    return Math.round(base * (Number(selectedDuration) / 60)).toLocaleString();
+                                  })()}</strong>
+                                </div>
+                                <div className="mpr-booking-summary__divider" />
+                                <div className="mpr-booking-summary__row" style={{ marginTop: 0 }}>
+                                  <span><Icon name="language" /> Timezone</span>
+                                  <select className="mpr-tz-select mpr-tz-select--inline" defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}>
+                                    <option value="Asia/Kolkata">IST (UTC+5:30)</option>
+                                    <option value="America/New_York">EST (UTC-5)</option>
+                                    <option value="America/Chicago">CST (UTC-6)</option>
+                                    <option value="America/Los_Angeles">PST (UTC-8)</option>
+                                    <option value="Europe/London">GMT (UTC+0)</option>
+                                    <option value="Europe/Berlin">CET (UTC+1)</option>
+                                    <option value="Asia/Dubai">GST (UTC+4)</option>
+                                    <option value="Asia/Singapore">SGT (UTC+8)</option>
+                                    <option value="Australia/Sydney">AEST (UTC+10)</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div className="mpr-slot-empty">
+                          <Icon name="calendar_month" />
+                          <p>Select a date from the calendar to view available time slots.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="mpr-modal__foot">
+                  <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { setBookingStep("sessions"); setSelectedSlot(null); setSelectedDate(""); }}>
+                    <Icon name="arrow_back" /> Back to Sessions
+                  </button>
+                  <button type="button" className="mpr-btn mpr-btn--primary" disabled={!selectedDate || !selectedSlot || !selectedDuration} onClick={handleBookFromSchedule}>
+                    <Icon name="payment" /> Continue to Payment — <span style={{ fontWeight: 600, opacity: 0.9 }}>₹{(() => {
+                      const base = selectedSessionForBooking?.priceAmount ? Number(selectedSessionForBooking.priceAmount) : 999;
+                      return Math.round(base * (Number(selectedDuration || 60) / 60)).toLocaleString();
+                    })()}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Request Custom Session Modal — Premium Form ═══ */}
       {showRequestModal && (
-        <div className="mpr-overlay" role="presentation">
-          <div className="mp-drawer" role="dialog" aria-label="Request a custom session"
-            style={{ width: "min(480px, 100%)", height: "auto", maxHeight: "80vh", borderRadius: 16, borderLeft: "none" }}
-          >
-            <div className="mp-drawer__head">
-              <div className="mp-drawer__head-main">
-                <h3 className="mp-drawer__title">Request a Session</h3>
-                <p className="mp-head__sub" style={{ margin: "2px 0 0", fontSize: "0.82rem" }}>
-                  Tell {mentor?.fullName || "this mentor"} what you would like to learn
-                </p>
+        <div className="mpr-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget && !requestSending) { if (hasFormData) { setPendingCancelAction(() => () => { setShowRequestModal(false); setRequestSent(false); setRequestErrors({}); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" }); }); setShowCancelConfirm(true); } else { setShowRequestModal(false); setRequestSent(false); setRequestErrors({}); } } }}>
+          <div className="mpr-modal mpr-modal--request" role="dialog" aria-label="Request a custom session">
+            {requestSent ? (
+              <>
+                <div className="mpr-modal__body" style={{ padding: 0 }}>
+                  <div className="mpr-request-success">
+                    <div className="mpr-request-success__icon"><Icon name="check_circle" /></div>
+                    <h3>Request Sent Successfully!</h3>
+                    <p>Your mentor has received your personalized learning request. They will review it and respond shortly.</p>
+                    <div className="mpr-request-success__eta"><Icon name="schedule" /> Expected response within 24 hours</div>
+                    <div className="mpr-request-success__actions">
+                      <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { setShowRequestModal(false); setRequestSent(false); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" }); }}>
+                        Back to Profile
+                      </button>
+                      <button type="button" className="mpr-btn mpr-btn--primary" onClick={() => {
+                        setShowRequestModal(false);
+                        navigate(`/learner/messages`);
+                      }}>
+                        <Icon name="chat" /> Open Chat
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mpr-modal__head">
+                  <div className="mpr-modal__head-icon"><Icon name="handshake" /></div>
+                  <div className="mpr-modal__head-main">
+                    <h2>Request Custom Session</h2>
+                    <p>Send a personalized learning request to {mentor?.fullName || "this mentor"}.</p>
+                  </div>
+                  <button type="button" className="mpr-modal__close" onClick={() => { if (hasFormData) { setPendingCancelAction(() => () => { setShowRequestModal(false); setRequestErrors({}); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" }); }); setShowCancelConfirm(true); } else { setShowRequestModal(false); setRequestErrors({}); } }} aria-label="Close">
+                    <Icon name="close" />
+                  </button>
+                </div>
+                <div className="mpr-modal__body mpr-modal__body--scroll">
+                  <form id="mpr-request-form" onSubmit={async (e) => {
+                    e.preventDefault();
+                    const errors = {};
+                    if (!requestForm.goal.trim()) errors.goal = "Learning goal is required.";
+                    if (!requestForm.date) errors.date = "Date is required.";
+                    if (!requestForm.time) errors.time = "Time is required.";
+                    setRequestErrors(errors);
+                    if (Object.keys(errors).length > 0) return;
+                    setRequestSending(true);
+                    try {
+                      await client.post("/api/v1/session-requests", {
+                        mentorId: Number(mentorId),
+                        subject: requestForm.subject,
+                        message: requestForm.goal,
+                        duration: requestForm.duration,
+                        preferredDate: requestForm.date,
+                        preferredTime: requestForm.time,
+                        budget: requestForm.budget || null,
+                      });
+                      setRequestSent(true);
+                    } catch (err) {
+                      const msg = err?.response?.data?.message || err?.response?.data?.data?.error || "Could not send request.";
+                      notify?.({ type: "error", title: "Request failed", message: msg });
+                    } finally {
+                      setRequestSending(false);
+                    }
+                  }}>
+                    <div className="mpr-request-form">
+                      <div className="mpr-request-form__group">
+                        <label>Subject</label>
+                        <select className="mpr-request-form__field" value={requestForm.subject} onChange={(e) => setRequestForm(p => ({ ...p, subject: e.target.value }))}>
+                          <option value="">Select a topic</option>
+                          <option value="Career Guidance">Career Guidance</option>
+                          <option value="Interview Preparation">Interview Preparation</option>
+                          <option value="Java">Java</option>
+                          <option value="Spring Boot">Spring Boot</option>
+                          <option value="System Design">System Design</option>
+                          <option value="DSA">DSA</option>
+                          <option value="Resume Review">Resume Review</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div className="mpr-request-form__group">
+                        <label>Learning Goal <span>(required)</span></label>
+                        <textarea
+                          className={`mpr-request-form__field mpr-request-form__textarea${requestErrors.goal ? " mpr-request-form__field--error" : ""}`}
+                          rows={3}
+                          placeholder="What would you like to learn? Any specific topics or goals?"
+                          value={requestForm.goal}
+                          onChange={(e) => setRequestForm(p => ({ ...p, goal: e.target.value }))}
+                        />
+                        {requestErrors.goal && <span className="mpr-request-form__error">{requestErrors.goal}</span>}
+                      </div>
+
+                      <div className="mpr-request-form__group">
+                        <label>Preferred Duration</label>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          {["30", "60", "90"].map(d => (
+                            <button key={d} type="button"
+                              className={`mpr-slot-btn${requestForm.duration === d ? " is-selected" : ""}`}
+                              style={{ flex: 1 }}
+                              onClick={() => setRequestForm(p => ({ ...p, duration: d }))}
+                            >
+                              {d} min
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mpr-request-form__row">
+                        <div className="mpr-request-form__group">
+                          <label>Preferred Date <span>(required)</span></label>
+                          <input
+                            type="date"
+                            className={`mpr-request-form__field${requestErrors.date ? " mpr-request-form__field--error" : ""}`}
+                            value={requestForm.date}
+                            min={new Date().toISOString().slice(0, 10)}
+                            onChange={(e) => setRequestForm(p => ({ ...p, date: e.target.value }))}
+                          />
+                          {requestErrors.date && <span className="mpr-request-form__error">{requestErrors.date}</span>}
+                        </div>
+                        <div className="mpr-request-form__group">
+                          <label>Preferred Time <span>(required)</span></label>
+                          <input
+                            type="time"
+                            className={`mpr-request-form__field${requestErrors.time ? " mpr-request-form__field--error" : ""}`}
+                            value={requestForm.time}
+                            onChange={(e) => setRequestForm(p => ({ ...p, time: e.target.value }))}
+                          />
+                          {requestErrors.time && <span className="mpr-request-form__error">{requestErrors.time}</span>}
+                        </div>
+                      </div>
+
+                      <div className="mpr-request-form__group">
+                        <label>Budget <span>(optional)</span></label>
+                        <input
+                          type="text"
+                          className="mpr-request-form__field"
+                          placeholder="e.g. ₹1,000 - ₹2,000"
+                          value={requestForm.budget}
+                          onChange={(e) => setRequestForm(p => ({ ...p, budget: e.target.value }))}
+                        />
+                      </div>
+
+                      <div className="mpr-request-form__group">
+                        <label>Attachments <span>(optional)</span></label>
+                        <div className="mpr-request-form__attachments">
+                          <button type="button" className="mpr-request-form__attach-btn">
+                            <Icon name="upload_file" /> Resume
+                          </button>
+                          <button type="button" className="mpr-request-form__attach-btn">
+                            <Icon name="folder" /> Project
+                          </button>
+                          <button type="button" className="mpr-request-form__attach-btn">
+                            <Icon name="note" /> Notes
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+                <div className="mpr-modal__foot">
+                  <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { if (hasFormData) { setPendingCancelAction(() => () => { setShowRequestModal(false); setRequestErrors({}); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" }); }); setShowCancelConfirm(true); } else { setShowRequestModal(false); setRequestErrors({}); } }} disabled={requestSending}>
+                    Cancel
+                  </button>
+                  <button type="submit" form="mpr-request-form" className="mpr-btn mpr-btn--primary" disabled={requestSending}>
+                    {requestSending ? <><span className="mpr-spinner" /> Sending…</> : <><Icon name="send" /> Send Request</>}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ VIEW SCHEDULE MODAL — Read-only availability ═══ */}
+      {showFullSchedule && (
+        <div className="mpr-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) { setShowFullSchedule(false); setSelectedDate(""); } }}>
+          <div className="mpr-modal mpr-modal--schedule" role="dialog" aria-label="View availability schedule">
+            <div className="mpr-modal__head">
+              <div className="mpr-modal__head-icon"><Icon name="calendar_month" /></div>
+              <div className="mpr-modal__head-main">
+                <h2>Availability Schedule</h2>
+                <p>View {mentor?.fullName || "this mentor"}'s available time slots.</p>
               </div>
-              <button type="button" className="mp-icon-btn" onClick={() => setShowRequestModal(false)} aria-label="Close">
+              <button type="button" className="mpr-modal__close" onClick={() => { setShowFullSchedule(false); setSelectedDate(""); }} aria-label="Close">
                 <Icon name="close" />
               </button>
             </div>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              if (!requestMessage.trim()) return;
-              setRequestSending(true);
-              try {
-                await client.post("/api/v1/session-requests", {
-                  mentorId: Number(mentorId),
-                  message: requestMessage.trim(),
-                });
-                notify?.({
-                  type: "success",
-                  title: "Request sent!",
-                  message: "Your session request has been sent to " + (mentor?.fullName || "the mentor") + ". They will review and respond soon.",
-                });
-                setShowRequestModal(false);
-                setRequestMessage("");
-              } catch (err) {
-                const msg = err?.response?.data?.message || err?.response?.data?.data?.error || "Could not send request.";
-                notify?.({ type: "error", title: "Request failed", message: msg });
-              } finally {
-                setRequestSending(false);
-              }
-            }} style={{ display: "contents" }}>
-              <div className="mp-drawer__body" style={{ gap: 16 }}>
-                <div className="mp-field">
-                  <label className="mp-label" htmlFor="request-message">Your Message</label>
-                  <textarea
-                    id="request-message"
-                    className="mp-textarea"
-                    rows={4}
-                    placeholder="What would you like to learn? Any specific topics or goals?"
-                    value={requestMessage}
-                    onChange={(e) => setRequestMessage(e.target.value)}
-                    required
-                  />
+            <div className="mpr-modal__body">
+              <div className="mpr-schedule-layout">
+                {/* Left: Calendar */}
+                <div className="mpr-schedule-layout__left">
+                  <div className="mpr-schedule-modal__cal">
+                    <div className="mpr-booking-card__cal-hdr">
+                      <button type="button" onClick={handlePrevMonth}><Icon name="chevron_left" /></button>
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--mpr-fg)" }}>{months[calMonth]} {calYear}</span>
+                      <button type="button" onClick={handleNextMonth}><Icon name="chevron_right" /></button>
+                    </div>
+                    <div className="mpr-booking-card__cal-grid" style={{ gap: 4 }}>
+                      {weekDays.map(d => <span key={d} className="mpr-booking-card__cal-dow" style={{ color: "var(--mpr-muted)", fontSize: "0.65rem" }}>{d}</span>)}
+                      {calDays.map((d, i) => {
+                        const dateStr = d ? `${calYear}-${String(calMonth + 1).padStart(2,"0")}-${String(d).padStart(2,"0")}` : "";
+                        const hasSlot = d && dateStr && availableDates.has(dateStr);
+                        const today = new Date();
+                        const isToday = d === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
+                        const isPast = d && new Date(calYear, calMonth, d + 1) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        const isSelected = d && dateStr === selectedDate;
+                        if (!d) return <div key={i} className="mpr-booking-card__cal-day" />;
+                        const canSelect = !isPast;
+                        return (
+                          <button key={i} type="button"
+                            className={`mpr-booking-card__cal-day${isToday ? " is-today" : ""}${hasSlot ? " has-slot" : ""}${isPast ? " is-past" : ""}${isSelected ? " is-selected" : ""}`}
+                            style={{ fontSize: "0.78rem" }}
+                            disabled={!canSelect}
+                            aria-label={`${months[calMonth]} ${d}, ${calYear}${canSelect ? " - available" : isPast ? " - past" : " - no slots"}`}
+                            onClick={() => { if (dateStr) { setSelectedDate(dateStr); setSelectedSlot(null); } }}>{d}</button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: "0.72rem", color: "var(--mpr-muted)" }}>
+                      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "var(--mpr-primary)", marginRight: 4 }} /> Available</span>
+                      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#EF4444", marginRight: 4 }} /> Booked</span>
+                      <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "var(--mpr-border)", marginRight: 4 }} /> Past</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Time Slots (read-only — no booking) */}
+                <div className="mpr-schedule-layout__right">
+                  {selectedDate ? (
+                    <>
+                      <p className="mpr-slots-label">
+                        {formatDate(selectedDate, { weekday: "long" })}
+                      </p>
+                      <p style={{ fontSize: "0.75rem", color: "var(--mpr-muted-light)", margin: "-4px 0 8px" }}>
+                        Available time slots (view-only)
+                      </p>
+                      <div className="mpr-readonly-slots">
+                        {["09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM","05:00 PM"].map((slot) => (
+                          <span key={slot}
+                            className={`mpr-readonly-slot${slotBooked.has(slot) ? " is-booked" : ""}`}
+                          >
+                            {slotBooked.has(slot) ? <><Icon name="block" style={{ fontSize: 14 }} /> Booked</> : slot}
+                          </span>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: "0.75rem", color: "var(--mpr-muted)", marginTop: 12 }}>
+                        This is a view-only schedule. To book a session, click <strong>"Book Session"</strong> on the mentor profile.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="mpr-slot-empty">
+                      <Icon name="calendar_month" />
+                      <p>Select a date from the calendar to view available time slots.</p>
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="mp-drawer__foot">
-                <button type="button" className="md-btn md-btn--outline md-btn--sm" onClick={() => setShowRequestModal(false)}>
-                  Cancel
+            </div>
+            <div className="mpr-modal__foot">
+              <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { setShowFullSchedule(false); setSelectedDate(""); }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Booking Success Modal ═══ */}
+      {showBookingSuccess && bookingSuccess && (
+        <div className="mpr-modal-overlay" role="presentation" style={{ zIndex: 1050 }} onClick={(e) => { if (e.target === e.currentTarget) return; }}>
+          <div className="mpr-modal mpr-modal--success" role="dialog" aria-label="Booking confirmed">
+            <div className="mpr-modal__body" style={{ textAlign: "center", padding: "40px 32px" }}>
+              <div className="mpr-booking-success__icon">
+                <Icon name="emoji_events" />
+              </div>
+              <h3 style={{ margin: "16px 0 6px", fontSize: "1.3rem", fontWeight: 800, color: "var(--mpr-fg)" }}>
+                Session Booked Successfully!
+              </h3>
+              <p style={{ margin: "0 0 16px", fontSize: "0.85rem", color: "var(--mpr-muted)", maxWidth: 360, lineHeight: 1.6 }}>
+                Your session has been confirmed. A confirmation email has been sent to your registered email.
+              </p>
+              <div style={{ width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 8, marginBottom: 20, textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", padding: "6px 12px", borderRadius: 8, background: "var(--mpr-primary-tint)" }}>
+                  <span style={{ color: "var(--mpr-muted)" }}>Booking ID</span>
+                  <strong style={{ color: "var(--mpr-fg)", fontFamily: "monospace", fontSize: "0.72rem" }}>{bookingSuccess.bookingId || "SW-BKG-0000"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", padding: "6px 12px", borderRadius: 8 }}>
+                  <span style={{ color: "var(--mpr-muted)" }}>Mentor</span>
+                  <strong style={{ color: "var(--mpr-fg)" }}>{bookingSuccess.mentorName || "Mentor"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", padding: "6px 12px", borderRadius: 8, background: "var(--mpr-primary-tint)" }}>
+                  <span style={{ color: "var(--mpr-muted)" }}>Date</span>
+                  <strong style={{ color: "var(--mpr-fg)" }}>{bookingSuccess.date ? formatDate(bookingSuccess.date) : "—"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", padding: "6px 12px", borderRadius: 8 }}>
+                  <span style={{ color: "var(--mpr-muted)" }}>Time</span>
+                  <strong style={{ color: "var(--mpr-fg)" }}>{bookingSuccess.time || "—"}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", padding: "6px 12px", borderRadius: 8, background: "var(--mpr-primary-tint)" }}>
+                  <span style={{ color: "var(--mpr-muted)" }}>Duration</span>
+                  <strong style={{ color: "var(--mpr-fg)" }}>{bookingSuccess.duration || "60"} min</strong>
+                </div>
+              </div>
+              <div className="mpr-request-success__actions" style={{ justifyContent: "center", flexWrap: "wrap" }}>
+                <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => {
+                  setShowBookingSuccess(false);
+                  setBookingSessionId(null);
+                  navigate("/learner/messages");
+                }}>
+                  <Icon name="chat" /> Open Chat
                 </button>
-                <button type="submit" className="md-btn md-btn--brand md-btn--sm" disabled={requestSending || !requestMessage.trim()}>
-                  {requestSending ? "Sending…" : "Send Request"}
+                <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => {
+                  setShowBookingSuccess(false);
+                  setBookingSessionId(null);
+                  navigate("/sessions");
+                }}>
+                  <Icon name="event" /> My Sessions
+                </button>
+                <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => {
+                  const text = `Booking: ${bookingSuccess.bookingId || ""}\nMentor: ${bookingSuccess.mentorName || ""}\nDate: ${bookingSuccess.date ? formatDate(bookingSuccess.date) : ""}\nTime: ${bookingSuccess.time || ""}\nDuration: ${bookingSuccess.duration || "60"} min`;
+                  const blob = new Blob([text], { type: "text/plain" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `receipt-${bookingSuccess.bookingId || "booking"}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>
+                  <Icon name="download" /> Receipt
+                </button>
+                <button type="button" className="mpr-btn mpr-btn--primary" onClick={() => {
+                  setShowBookingSuccess(false);
+                  setBookingSessionId(null);
+                }}>
+                  <Icon name="arrow_back" /> Back
                 </button>
               </div>
-            </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Cancel Confirmation Modal ═══ */}
+      {showCancelConfirm && (
+        <div className="mpr-confirm-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) setShowCancelConfirm(false); }}>
+          <div className="mpr-confirm" role="dialog" aria-modal="true" aria-label="Discard changes?">
+            <button type="button" className="mpr-confirm__x" onClick={() => setShowCancelConfirm(false)} aria-label="Continue editing">
+              <Icon name="close" />
+            </button>
+            <div className="mpr-confirm__icon-wrap">
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h2 className="mpr-confirm__title">Discard changes?</h2>
+            <p className="mpr-confirm__desc">
+              You have unsaved changes. If you leave now, your selected slot and booking information will be lost.
+            </p>
+            <div className="mpr-confirm__actions">
+              <button type="button" className="mpr-btn mpr-btn--outline mpr-confirm__btn" onClick={() => setShowCancelConfirm(false)}>
+                Continue Editing
+              </button>
+              <button type="button" className="mpr-confirm__btn mpr-confirm__btn--danger" onClick={() => {
+                setShowCancelConfirm(false);
+                if (pendingCancelAction) {
+                  pendingCancelAction();
+                  setPendingCancelAction(null);
+                }
+              }}>
+                <Icon name="delete" /> Discard Changes
+              </button>
+            </div>
           </div>
         </div>
       )}

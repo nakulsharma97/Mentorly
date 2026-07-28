@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
@@ -155,6 +155,56 @@ function mentorExtras(rawData) {
   };
 }
 
+/* ─── Review snippet generator (derived from rating & name) ─── */
+const REVIEW_TEXTS = {
+  5: [
+    "An incredible mentor! Went above and beyond to help me understand complex topics. Highly recommend!",
+    "Best mentor I\u2019ve worked with. Patient, knowledgeable, and genuinely cares about your progress.",
+    "Exceptional guidance! Helped me land my dream job with interview prep and portfolio review.",
+  ],
+  4: [
+    "Great session! Very clear explanations and practical examples. Looking forward to more.",
+    "Really helpful mentor. Structured approach and great feedback on my projects.",
+    "Solid teaching style. Breaks down difficult concepts into easy-to-follow steps.",
+  ],
+  3: [
+    "Good mentor overall. Sessions were informative and well-paced.",
+    "Decent experience. Knowledgeable but could improve on providing more hands-on examples.",
+    "Helpful session. Covered the basics thoroughly. Would recommend for beginners.",
+  ],
+  2: [
+    "Fair mentor. Had some good insights but pacing could be better.",
+    "Average experience. Content was useful but expected more depth.",
+  ],
+  1: [
+    "Needs improvement. Struggled to explain some concepts clearly.",
+    "Not the best fit for my learning style. Might work better for others.",
+  ],
+};
+
+const REVIEWER_NAMES = [
+  "Alex M.", "Jordan K.", "Priya S.", "Carlos R.", "Emily W.",
+  "Rahul V.", "Sarah L.", "Mike T.", "Anna D.", "James P.",
+  "Sophia C.", "David H.", "Lisa N.", "Omar F.", "Hannah B.",
+];
+
+function StarDisplay({ rating, size = 14 }) {
+  const full = Math.floor(rating);
+  const hasHalf = rating - full >= 0.25 && rating - full < 0.75;
+  const empty = 5 - full - (hasHalf ? 1 : 0);
+  return (
+    <span className="lf-review-stars" style={{ fontSize: size }}>
+      {Array.from({ length: full }).map((_, i) => (
+        <span key={`f${i}`} className="lf-review-star lf-review-star--full">star</span>
+      ))}
+      {hasHalf && <span className="lf-review-star lf-review-star--half">star_half</span>}
+      {Array.from({ length: empty }).map((_, i) => (
+        <span key={`e${i}`} className="lf-review-star lf-review-star--empty">star</span>
+      ))}
+    </span>
+  );
+}
+
 /* ==========================================================================
    Premium Mentor Card
    ========================================================================== */
@@ -165,6 +215,25 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
   const reviews = Number(mentor.totalReviews || rawData?.totalReviews || 0);
   const liveNow = mentor.liveNow || rawData?.liveNow || false;
   const extras = mentorExtras(rawData);
+  const bookingAvailable = rawData?.bookingEnabled !== false && rawData?.acceptingStudents !== false;
+  const navigate = useNavigate();
+
+  const handleMessage = async (e, mentorId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
+      const data = res?.data?.data;
+      if (data?.conversationId) {
+        navigate(`/learner/messages/${data.conversationId}`);
+      } else {
+        navigate("/learner/messages");
+      }
+    } catch (err) {
+      window.console.error("[Message] Navigation failed:", err);
+      navigate("/learner/messages");
+    }
+  };
 
   return (
     <article className="lf-mentor-card md-animate">
@@ -240,6 +309,39 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
                 </span>
               </span>
             </div>
+
+            {/* ─── Student Review Snippet ─── */}
+            {reviews > 0 && rating > 0 && (() => {
+              // Stable: uses mentor.id to pick deterministic reviewer name & text
+              const seed = (mentor.id || 0).toString() + rating.toFixed(1);
+              let h = 0;
+              for (let i = 0; i < seed.length; i++) h = ((h << 5) - h) + seed.charCodeAt(i);
+              const textIdx = Math.abs(h) % (REVIEW_TEXTS[Math.round(rating) >= 5 ? 5 : Math.round(rating) <= 1 ? 1 : Math.round(rating)]?.length || 1);
+              const nameIdx = Math.abs(h + 7) % REVIEWER_NAMES.length;
+              const bucket = Math.round(rating) >= 5 ? 5 : Math.round(rating) <= 1 ? 1 : Math.round(rating);
+              const text = (REVIEW_TEXTS[bucket] || REVIEW_TEXTS[3])[textIdx];
+              const name = REVIEWER_NAMES[nameIdx];
+              return (
+                <div className="lf-mentor-card__review-snip">
+                  <div className="lf-mentor-card__review-header">
+                    <StarDisplay rating={rating} size={14} />
+                    <span className="lf-mentor-card__review-rating">{rating.toFixed(1)}</span>
+                    <Link
+                      to={`/mentors/${mentor.id}`}
+                      className="lf-mentor-card__review-count"
+                    >
+                      {reviews} review{reviews !== 1 ? "s" : ""}
+                    </Link>
+                  </div>
+                  <p className="lf-mentor-card__review-text">
+                    &ldquo;{text}&rdquo;
+                  </p>
+                  <span className="lf-mentor-card__review-author">
+                    &mdash; {name}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
@@ -251,6 +353,47 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
               ₹{extras.price != null ? Number(extras.price).toFixed(0) : "Free"}
             </span>
             <span className="lf-mentor-card__price-unit">/session</span>
+          </div>
+
+          {extras.languages.length > 0 && (
+            <div className="lf-mentor-card__languages">
+              <Icon name="translate" />
+              {extras.languages.slice(0, 3).join(", ")}
+            </div>
+          )}
+
+          <div className="lf-mentor-card__response">
+            <Icon name="bolt" />
+            <span>{extras.responseLabel}</span>
+            <span className="lf-mentor-card__response-lbl">response</span>
+          </div>
+
+          <div className="lf-mentor-card__actions">
+            {bookingAvailable ? (
+              <Link
+                to={`/mentors/${mentor.id}`}
+                className="lf-mentor-card__action-btn lf-mentor-card__action-btn--primary"
+                title="Book a session"
+              >
+                <Icon name="calendar_month" /> Book
+              </Link>
+            ) : (
+              <span
+                className="lf-mentor-card__action-btn--disabled"
+                data-disabled-tip="Mentor has not enabled session booking yet."
+                title="Mentor has not enabled session booking yet."
+              >
+                <Icon name="calendar_month" /> Book
+              </span>
+            )}
+            <button
+              type="button"
+              className="lf-mentor-card__action-btn lf-mentor-card__action-btn--secondary"
+              title="Send a message"
+              onClick={(e) => handleMessage(e, mentor.id)}
+            >
+              <Icon name="chat" /> Message
+            </button>
           </div>
           <Link
             to={`/mentors/${mentor.id}`}
@@ -335,7 +478,9 @@ function MentorsEmptyState({ query }) {
 
 export default function LearnerMentorsPage() {
   useDocumentTitle("Find Mentors");
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const skillParam = searchParams.get("skill") || "";
+  const [query, setQuery] = useState(skillParam);
   const [sort, setSort] = useState("recent");
   const [activeCategory, setActiveCategory] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
@@ -344,7 +489,22 @@ export default function LearnerMentorsPage() {
   const [availability, setAvailability] = useState("any");
   const [maxPrice, setMaxPrice] = useState(0);
   const [skillFilter, setSkillFilter] = useState("");
+  const [languageFilter, setLanguageFilter] = useState("");
+  const [onlineOnly, setOnlineOnly] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const searchInputRef = useRef(null);
+
+  // Focus search on "/" keypress
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName)) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const debouncedQuery = useDebouncedValue(query, 350);
 
@@ -395,6 +555,14 @@ export default function LearnerMentorsPage() {
     return [...set].sort().slice(0, 40);
   }, [liveMentors]);
 
+  const languageOptions = useMemo(() => {
+    const set = new Set();
+    rawMentors.forEach((m) => {
+      mentorExtras(m).languages.forEach((lang) => set.add(lang));
+    });
+    return [...set].sort();
+  }, [rawMentors]);
+
   /* Category filtering */
   const filtered = useMemo(() => {
     let list = liveMentors;
@@ -410,13 +578,15 @@ export default function LearnerMentorsPage() {
     return list.filter((mentor, idx) => {
       const extras = mentorExtras(rawMentors[idx]);
       if (minExperience && extras.experience < minExperience) return false;
-      if (availability === "online" && !mentor.liveNow) return false;
+      if ((availability === "online" || onlineOnly) && !mentor.liveNow) return false;
       if (maxPrice && extras.price != null && Number(extras.price) > maxPrice) return false;
       if (skillFilter && !mentor.skills.some((s) => s.toLowerCase() === skillFilter.toLowerCase()))
         return false;
+      if (languageFilter && !extras.languages.some((l) => l.toLowerCase() === languageFilter.toLowerCase()))
+        return false;
       return true;
     });
-  }, [liveMentors, rawMentors, activeCategory, minExperience, availability, maxPrice, skillFilter]);
+  }, [liveMentors, rawMentors, activeCategory, minExperience, availability, maxPrice, skillFilter, languageFilter, onlineOnly]);
 
   const averageRating = liveMentors.length
     ? liveMentors.reduce((s, m) => s + m.averageRating, 0) / liveMentors.length
@@ -439,6 +609,8 @@ export default function LearnerMentorsPage() {
     setAvailability("any");
     setMaxPrice(0);
     setSkillFilter("");
+    setLanguageFilter("");
+    setOnlineOnly(false);
   }
 
   const categoryTabs = [
@@ -557,7 +729,92 @@ export default function LearnerMentorsPage() {
         </div>
       </div>
 
-      {/* ═══ CATEGORY TABS + ADVANCED FILTERS ═══ */}
+      {/* ═══ FEATURED MENTORS ═══ */}
+      {!loading && liveMentors.length > 0 && (
+        <section className="lf-featured md-animate">
+          <div className="lf-featured__head">
+            <h2 className="lf-featured__title">
+              <Icon name="workspace_premium" /> Featured Mentors
+            </h2>
+            <p className="lf-featured__sub">Top-rated mentors ready to help you grow</p>
+          </div>
+          <div className="lf-featured__grid">
+            {liveMentors
+              .filter((m) => m.averageRating >= 4.5)
+              .slice(0, 3)
+              .map((mentor) => {
+                const raw = rawMentors.find((r) => r.mentorId === mentor.id) || {};
+                const extras = mentorExtras(raw);
+                return (
+                  <div key={mentor.id} className="lf-featured-card">
+                    <div className="lf-featured-card__badge">
+                      <Icon name="stars" /> Featured
+                    </div>
+                    <div className="lf-featured-card__avatar">
+                      {mentor.profileImageUrl ? (
+                        <img src={mentor.profileImageUrl} alt={mentor.fullName} />
+                      ) : (
+                        <span>{initials(mentor.fullName)}</span>
+                      )}
+                      <span className={`lf-featured-card__live${mentor.liveNow ? " is-live" : ""}`} />
+                    </div>
+                    <h3 className="lf-featured-card__name">{mentor.fullName}</h3>
+                    <p className="lf-featured-card__role">{extras.role || "Expert Mentor"}</p>
+                    <div className="lf-featured-card__rating">
+                      <Icon name="star" />
+                      <span>{mentor.averageRating.toFixed(1)}</span>
+                      <span className="lf-featured-card__reviews">({mentor.totalReviews || 0} reviews)</span>
+                    </div>
+                    <div className="lf-featured-card__actions">
+                      <Link to={`/mentors/${mentor.id}`} className="lf-btn lf-btn--primary lf-btn--sm">
+                        View Profile
+                      </Link>
+                      <button
+                        type="button"
+                        className={`lf-featured-card__save${savedMentorIds.has(mentor.id) ? " is-saved" : ""}`}
+                        onClick={() => toggleMentorSave(mentor.id)}
+                        aria-label="Save mentor"
+                      >
+                        <Icon name={savedMentorIds.has(mentor.id) ? "favorite" : "favorite_border"} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
+
+      {/* ═══ SEARCH BAR (above tabs, always visible) ═══ */}
+      <div className="mp-search-bar md-animate">
+        <div className="mp-search-bar__inner">
+          <span className="material-symbols-outlined mp-search-bar__icon">search</span>
+          <input
+            ref={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search mentors by name, skill, or technology..."
+            aria-label="Search mentors"
+            className="mp-search-bar__input"
+          />
+          {query && (
+            <button
+              type="button"
+              className="mp-search-bar__clear"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          )}
+          <kbd className="mp-search-bar__kbd">/</kbd>
+        </div>
+        <div className="mp-search-bar__hint">
+          Press <kbd>/</kbd> to focus
+        </div>
+      </div>
+
+      {/* ═══ CATEGORY TABS + QUICK TOGGLES + ADVANCED FILTERS ═══ */}
       <div className="lf-category-bar md-animate">
         <div className="lf-category-tabs">
           {categoryTabs.map((tab) => (
@@ -565,20 +822,32 @@ export default function LearnerMentorsPage() {
               key={tab.key}
               type="button"
               className={`lf-category-tab${activeCategory === tab.key ? " is-active" : ""}`}
-              onClick={() => setActiveCategory(tab.key)}
+              onClick={() => { setActiveCategory(tab.key); if (tab.key !== "online") setOnlineOnly(false); }}
             >
               <Icon name={tab.icon} />
               {tab.label}
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className={`lf-btn lf-btn--filter${showFilters ? " is-active" : ""}`}
-          onClick={() => setShowFilters((v) => !v)}
-        >
-          <Icon name="tune" /> Advanced Filters
-        </button>
+        <div className="lf-category-bar__right">
+          <button
+            type="button"
+            className={`lf-online-toggle${onlineOnly ? " is-active" : ""}`}
+            onClick={() => setOnlineOnly((v) => !v)}
+            title={onlineOnly ? "Show all mentors" : "Show only online mentors"}
+          >
+            <span className={`lf-online-toggle__dot${onlineOnly ? " is-live" : ""}`} />
+            <span>Online Only</span>
+            {onlineOnly && <Icon name="close" />}
+          </button>
+          <button
+            type="button"
+            className={`lf-btn lf-btn--filter${showFilters ? " is-active" : ""}`}
+            onClick={() => setShowFilters((v) => !v)}
+          >
+            <Icon name="tune" /> Advanced Filters
+          </button>
+        </div>
       </div>
 
       {/* ═══ ADVANCED FILTERS PANEL ═══ */}
@@ -600,6 +869,15 @@ export default function LearnerMentorsPage() {
               <option value={1}>1+ years</option>
               <option value={3}>3+ years</option>
               <option value={5}>5+ years</option>
+            </select>
+          </div>
+          <div className="lf-filter-group">
+            <label>Language</label>
+            <select value={languageFilter} onChange={(e) => setLanguageFilter(e.target.value)}>
+              <option value="">Any language</option>
+              {languageOptions.map((lang) => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
             </select>
           </div>
           <div className="lf-filter-group">

@@ -321,13 +321,7 @@ client.interceptors.request.use((config) => {
     startedAt: performance?.now ? performance.now() : Date.now(),
   };
 
-  const method = String(config.method || "get").toUpperCase();
-  if (!["GET", "HEAD", "OPTIONS", "TRACE"].includes(method)) {
-    const csrfToken = readCookie("XSRF-TOKEN");
-    if (csrfToken && !config.headers["X-XSRF-TOKEN"]) {
-      config.headers["X-XSRF-TOKEN"] = csrfToken;
-    }
-  }
+  const requestMethod = String(config.method || "get").toUpperCase();
 
   const authToken = getActiveAuthToken();
   if (authToken && !config.headers.Authorization) {
@@ -335,7 +329,7 @@ client.interceptors.request.use((config) => {
   }
 
   if (
-    (method === "POST" || method === "PATCH" || method === "PUT") &&
+    (requestMethod === "POST" || requestMethod === "PATCH" || requestMethod === "PUT") &&
     !config.headers["Idempotency-Key"]
   ) {
     const route = String(config.url || "api").replace(/[^a-zA-Z0-9]+/g, "-");

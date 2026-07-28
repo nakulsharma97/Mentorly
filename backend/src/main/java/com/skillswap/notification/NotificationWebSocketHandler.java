@@ -80,15 +80,16 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         try {
             String token = null;
 
-            // Try Cookie header first
-            String cookieHeader = session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE);
-            if (cookieHeader != null) {
-                token = extractAccessTokenFromCookie(cookieHeader);
-            }
+            // Query parameter token takes priority (newly issued after login);
+            // fall back to cookie for environments where query params are stripped.
+            token = extractTokenFromQuery(session);
 
-            // Fallback: extract token from query parameter (for proxy environments)
+            // Fallback: extract token from Cookie header
             if (token == null) {
-                token = extractTokenFromQuery(session);
+                String cookieHeader = session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE);
+                if (cookieHeader != null) {
+                    token = extractAccessTokenFromCookie(cookieHeader);
+                }
             }
 
             if (token == null) return null;

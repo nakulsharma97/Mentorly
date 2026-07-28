@@ -4,19 +4,10 @@ export async function trackAnalyticsEvent(name, payload = {}) {
   }
 
   try {
-    const csrfCookie = document.cookie
-      .split(";")
-      .map((part) => part.trim())
-      .find((part) => part.startsWith("XSRF-TOKEN="));
-    const csrfToken = csrfCookie
-      ? decodeURIComponent(csrfCookie.substring("XSRF-TOKEN=".length))
-      : "";
-
     await fetch("/api/v1/analytics/events", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(csrfToken ? { "X-XSRF-TOKEN": csrfToken } : {}),
       },
       keepalive: true,
       credentials: "include",

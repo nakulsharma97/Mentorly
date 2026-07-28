@@ -902,6 +902,108 @@
   font-weight: 500;
 }
 
+/* ---------- Message Actions (Copy/Delete) ---------- */
+.msg-bubble-content {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.msg-bubble-content > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.msg-bubble-actions-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--m-border);
+  background: var(--m-surface);
+  color: var(--m-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  box-shadow: var(--sh-xs);
+}
+
+.msg-bubble:hover .msg-bubble-actions-btn,
+.msg-bubble-menu-open .msg-bubble-actions-btn {
+  display: inline-flex;
+}
+
+.msg-bubble-actions-btn:hover {
+  background: var(--m-soft);
+  color: var(--m-text);
+  transform: translateY(-1px);
+}
+
+.msg-bubble-actions-btn .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.msg-bubble-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  box-shadow: var(--sh-lg);
+  animation: msg-pop-in 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.msg-bubble-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--m-text-2);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+  text-align: left;
+}
+
+.msg-bubble-menu-item:hover {
+  background: var(--m-soft);
+  color: var(--m-text);
+}
+
+.msg-bubble-menu-item .material-symbols-outlined {
+  font-size: 1.1rem;
+}
+
+.msg-bubble-menu-item-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+[data-theme="dark"] .msg-bubble-menu {
+  background: #2a2b30;
+  border-color: #3d3e45;
+}
+
+[data-theme="dark"] .msg-bubble-menu-item-danger:hover {
+  background: rgba(220, 38, 38, 0.15);
+  color: #f87171;
+}
+
 /* ---------- Thread ---------- */
 .msg-thread {
   flex: 1;

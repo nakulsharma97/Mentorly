@@ -63,13 +63,14 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
 
         String email;
         try {
-            // Try cookie first, then fall back to query parameter (for proxy environments)
-            String token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
+            // Query parameter token takes priority (newly issued after login);
+            // fall back to cookie for environments where query params are stripped.
+            String token = extractTokenFromQuery(session);
             if (token == null) {
-                token = extractTokenFromQuery(session);
+                token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
             }
             if (token == null) {
-                log.warn("Booking chat auth failed: no token found in cookie or query param for bookingId={}", bookingIdRaw);
+                log.warn("Booking chat auth failed: no token found in query param or cookie for bookingId={}", bookingIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
                 return;
             }

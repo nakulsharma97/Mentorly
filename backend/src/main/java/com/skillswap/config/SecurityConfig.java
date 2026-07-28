@@ -21,7 +21,6 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -41,7 +40,6 @@ public class SecurityConfig {
         private final EndpointRateLimitFilter endpointRateLimitFilter;
         private final RequestTraceFilter requestTraceFilter;
         private final MaintenanceModeFilter maintenanceModeFilter;
-        private final CsrfCookieFilter csrfCookieFilter;
         private final UserDetailsService userDetailsService;
         private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
         private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
@@ -59,38 +57,14 @@ public class SecurityConfig {
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 return http
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                                .csrf(csrf -> csrf
-                                                // CookieCsrfTokenRepository.withHttpOnlyFalse() is intentional:
-                                                // The HttpOnly=false flag allows the frontend JavaScript (Axios interceptor
-                                                // in client.js) to read the XSRF-TOKEN cookie via document.cookie and
-                                                // include it as the X-XSRF-TOKEN request header. This is the standard
-                                                // Double Submit Cookie pattern for SPAs. The HttpOnly=true alternative
-                                                // would prevent JavaScript access, requiring a separate endpoint to
-                                                // fetch the token — adding latency and complexity.
-                                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()).ignoringRequestMatchers(
-																new AntPathRequestMatcher("/api/v1/auth/login", "POST"),
-																new AntPathRequestMatcher("/api/v1/auth/signup",
-																                "POST"),
-																new AntPathRequestMatcher("/api/v1/auth/refresh",
-																                "POST"),
-																new AntPathRequestMatcher("/api/v1/auth/logout",
-																                "POST"),
-																new AntPathRequestMatcher("/oauth2/**"),
-																new AntPathRequestMatcher("/login/oauth2/**"),
-																new AntPathRequestMatcher("/api/v1/health"),
-																new AntPathRequestMatcher("/actuator/**"),
-																new AntPathRequestMatcher("/swagger-ui/**"),
-																new AntPathRequestMatcher("/v3/api-docs/**"),
-																new AntPathRequestMatcher("/ws/**"),
-																new AntPathRequestMatcher("/api/v1/chat/**"),
-																new AntPathRequestMatcher("/api/v1/payments/**"),
-																new AntPathRequestMatcher("/api/v1/wallet/**"),
-																new AntPathRequestMatcher("/api/v1/users/me/ping", "POST"),
-																new AntPathRequestMatcher("/api/v1/sessions/**"),
-																new AntPathRequestMatcher("/api/v1/session-requests/**"),
-																new AntPathRequestMatcher("/api/v1/availability/**"),
-																new AntPathRequestMatcher("/api/v1/notifications/**"),
-																new AntPathRequestMatcher("/api/v1/bookings/**")))
+                                // CSRF is disabled because this is a JWT-based SPA where authentication
+                                // is handled via the Authorization: Bearer header (never auto-sent by the
+                                // browser on cross-origin requests). Since the frontend and backend run
+                                // on different origins in dev (and sometimes in prod via Docker Compose),
+                                // SameSite=Lax on CSRF cookies would block POST/PUT/DELETE requests.
+                                // The JWT Bearer token is the authoritative auth mechanism, making CSRF
+                                // protection redundant. See DESIGN_DECISIONS.md for more context.
+                                .csrf(csrf -> csrf.disable())
                                 .headers(headers -> headers
                                                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                                                                 "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:"))
@@ -138,8 +112,6 @@ public class SecurityConfig {
                                 .authenticationProvider(authenticationProvider())
                                 .addFilterBefore(requestTraceFilter, SecurityContextHolderFilter.class)
                                 .addFilterBefore(endpointRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                                .addFilterAfter(csrfCookieFilter,
-                                                org.springframework.security.web.csrf.CsrfFilter.class)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                                 .addFilterAfter(maintenanceModeFilter, JwtAuthenticationFilter.class)
                                 .build();

@@ -5,6 +5,7 @@ import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.notification.NotificationService;
+import com.skillswap.payment.PaymentStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/reviews")
@@ -78,6 +80,10 @@ public class ReviewController {
     public ApiResponse<List<EligibleBookingResponse>> eligibleBookingsForReview(
             @AuthenticationPrincipal User learner,
             @PathVariable Long mentorId) {
+        Set<PaymentStatus> successStatuses = Set.of(
+                PaymentStatus.ESCROWED,
+                PaymentStatus.RELEASED,
+                PaymentStatus.COMPLETED);
         List<EligibleBookingResponse> eligible = bookingRepository
                 .findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(
                         learner.getId(),
@@ -85,6 +91,7 @@ public class ReviewController {
                         BookingStatus.COMPLETED)
                 .stream()
                 .filter(booking -> !mentorReviewRepository.existsByBookingId(booking.getId()))
+                .filter(booking -> booking.getPaymentStatus() != null && successStatuses.contains(booking.getPaymentStatus()))
                 .map(EligibleBookingResponse::from)
                 .toList();
 

@@ -208,7 +208,7 @@ export default function SessionManagementPage({ notify }) {
                 </div>
                 <div className="admin-stat" style={{ padding: 12 }}>
                   <span>Avg Rating</span>
-                  <strong>{drawerData.averageRating?.toFixed(1) || '—'} ★</strong>
+                  <strong>{drawerData.averageRating?.toFixed(1) || '—'}</strong> <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#FDB022', verticalAlign: 'middle' }}>star_rate</span>
                 </div>
                 <div className="admin-stat" style={{ padding: 12 }}>
                   <span>Price</span>

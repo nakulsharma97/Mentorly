@@ -4769,6 +4769,89 @@
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
+/* ═══ Online Only Toggle ═══ */
+.lf-category-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lf-online-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--md-border-soft);
+  background: var(--panel);
+  color: var(--md-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.lf-online-toggle:hover {
+  border-color: var(--brand);
+  color: var(--md-ink);
+}
+
+.lf-online-toggle.is-active {
+  background: color-mix(in srgb, #10b981 10%, var(--panel));
+  border-color: #10b981;
+  color: #059669;
+}
+
+.lf-online-toggle.is-active:hover {
+  background: color-mix(in srgb, #10b981 16%, var(--panel));
+}
+
+.lf-online-toggle__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #D1D5DB;
+  flex-shrink: 0;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.lf-online-toggle__dot.is-live {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.20);
+}
+
+.lf-online-toggle .md__icon {
+  font-size: 0.9rem;
+}
+
+[data-theme="dark"] .lf-online-toggle {
+  background: rgba(30, 41, 59, 0.50);
+  border-color: #334155;
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .lf-online-toggle:hover {
+  border-color: #10b981;
+  color: #F1F5F9;
+}
+
+[data-theme="dark"] .lf-online-toggle.is-active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: #10b981;
+  color: #34D399;
+}
+
+[data-theme="dark"] .lf-online-toggle__dot {
+  background: #4B5563;
+}
+
+[data-theme="dark"] .lf-online-toggle__dot.is-live {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
 .lf-category-tab .md__icon {
   font-size: 1rem;
 }
@@ -9899,10 +9982,50 @@ ld-ring {
 }
 
 .sk-card__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--md-border-soft);
+  flex-wrap: wrap;
+}
+
+/* Explore Roadmap — plain link, never shrinks */
+.sk-card__actions .sk-card__roadmap-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.15s;
+  line-height: 1;
+}
+
+.sk-card__actions .sk-card__roadmap-link:hover {
+  color: #0c8a79;
+  text-decoration: underline;
+}
+
+.sk-card__actions .sk-card__roadmap-link .md__icon {
+  font-size: 1rem;
+}
+
+/* Find Mentor — primary button, fixed min-width */
+.sk-card__actions .sk-card__mentor-btn {
+  min-width: 120px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sk-card__body .sk-card__meta,
+.sk-card__body .sk-card__badges {
+  flex-shrink: 0;
 }
 
 /* --------------------------------------------------- learning paths */
@@ -10819,6 +10942,104 @@ ld-ring {
   background: color-mix(in srgb, var(--brand) 5%, var(--panel));
   border: 1px solid var(--md-border-soft);
   animation: ms-msg-in 0.2s ease;
+}
+
+/* ── Message Actions (Copy/Delete) ── */
+.ms-msg__content {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.ms-msg__content p {
+  flex: 1;
+  min-width: 0;
+}
+
+.ms-msg__actions-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--md-border-soft);
+  background: var(--panel);
+  color: var(--md-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.ms-msg:hover .ms-msg__actions-btn,
+.ms-msg.is-menu-open .ms-msg__actions-btn {
+  display: inline-flex;
+}
+
+.ms-msg.is-me .ms-msg__actions-btn {
+  border-color: rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.8);
+}
+
+.ms-msg__actions-btn:hover {
+  transform: translateY(-1px);
+}
+
+.ms-msg.is-me .ms-msg__actions-btn:hover {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.ms-msg__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--md-border-soft);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.15);
+  animation: ms-pop-in 0.15s ease;
+}
+
+.ms-msg__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--md-text-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+  text-align: left;
+}
+
+.ms-msg__menu-item:hover {
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+  color: var(--md-text);
+}
+
+.ms-msg__menu-item--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+@keyframes ms-pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .ms-msg.is-me {
@@ -11903,4 +12124,302 @@ ld-ring {
 .ms-chat__placeholder h3 {
   font-family: "Sora", "Manrope", sans-serif;
   font-weight: 700;
+}
+
+/* =====================================================================
+   SKILLS PAGE — Prerequisites, Difficulty Levels, Related Skills, Badges
+   ===================================================================== */
+
+/* ── Card badges (difficulty + time) ── */
+.sk-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.sk-card__diff,
+.sk-card__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sk-card__diff .md__icon,
+.sk-card__time .md__icon {
+  font-size: 0.82rem;
+}
+
+.sk-card__time {
+  background: var(--mp-primary-lighter);
+  color: var(--mp-text-secondary);
+}
+
+/* ── Difficulty filter pills ── */
+.sk-pills--diff {
+  margin-top: 4px;
+}
+
+.sk-pill--diff {
+  background: var(--mp-primary-lighter);
+  color: var(--mp-text-secondary);
+  border-color: transparent;
+}
+
+.sk-pill--diff.is-active {
+  background: var(--mp-primary-light);
+  color: var(--mp-primary);
+  border-color: var(--mp-primary);
+}
+
+.sk-pill--diff:hover {
+  background: var(--mp-primary-light);
+  color: var(--mp-primary);
+}
+
+/* ── Prerequisites Grid ── */
+.sk-prereq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  animation: mp-fade-in 0.35s ease;
+}
+
+.sk-prereq-card {
+  background: var(--mp-card);
+  border: 1px solid var(--mp-card-border);
+  border-radius: var(--mp-radius-lg);
+  padding: 20px;
+  box-shadow: var(--mp-shadow-sm);
+  transition: all var(--mp-transition-slow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sk-prereq-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--mp-shadow-lg);
+  border-color: var(--mp-primary);
+}
+
+.sk-prereq-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sk-prereq-card__icon .md__icon {
+  font-size: 1.3rem;
+}
+
+.sk-prereq-card__title {
+  margin: 0;
+  font-family: var(--mp-font-display);
+  font-size: 0.97rem;
+  font-weight: 700;
+  color: var(--mp-text);
+}
+
+.sk-prereq-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sk-prereq-card__label {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mp-text-muted);
+}
+
+.sk-prereq-card__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sk-prereq-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--mp-success-light);
+  color: #047857;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid rgba(16, 185, 129, 0.12);
+}
+
+.sk-prereq-chip .md__icon {
+  font-size: 0.82rem;
+}
+
+.sk-prereq-card__diff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--mp-card-border-soft);
+}
+
+/* ── Related Skills ── */
+.sk-related-card {
+  flex: 0 0 260px;
+  border-radius: var(--mp-radius-lg);
+  border: 1px solid var(--mp-card-border);
+  background: var(--mp-card);
+  box-shadow: var(--mp-shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all var(--mp-transition-slow);
+}
+
+.sk-related-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--mp-shadow-lg);
+  border-color: var(--mp-primary);
+}
+
+.sk-related-card__head {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.sk-related-card__head .md__icon {
+  font-size: 1.2rem;
+}
+
+.sk-related-card__head-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.sk-related-card__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.sk-related-card__title {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--mp-text-secondary);
+  line-height: 1.4;
+}
+
+.sk-related-card__title strong {
+  color: var(--mp-text);
+}
+
+.sk-related-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sk-related-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--mp-radius);
+  border: 1px solid var(--mp-card-border-soft);
+  background: var(--mp-primary-lighter);
+  cursor: pointer;
+  transition: all var(--mp-transition);
+  text-align: left;
+  font-family: inherit;
+}
+
+.sk-related-chip:hover {
+  background: var(--mp-primary-light);
+  border-color: var(--mp-primary);
+  transform: translateX(3px);
+}
+
+.sk-related-chip__name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--mp-text);
+}
+
+.sk-related-chip__diff {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Dark mode overrides ── */
+[data-theme="dark"] .sk-card__time {
+  background: rgba(148, 163, 184, 0.10);
+  color: var(--mp-text-secondary);
+}
+
+[data-theme="dark"] .sk-pill--diff {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--mp-text-secondary);
+}
+
+[data-theme="dark"] .sk-pill--diff.is-active {
+  background: var(--mp-primary-light);
+  color: var(--mp-primary);
+  border-color: var(--mp-primary);
+}
+
+[data-theme="dark"] .sk-prereq-chip {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="dark"] .sk-prereq-card__diff {
+  border-top-color: var(--mp-card-border-soft);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .sk-prereq-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  .sk-related-card {
+    flex: 0 0 220px;
+  }
+}
+
+@media (max-width: 640px) {
+  .sk-prereq-grid {
+    grid-template-columns: 1fr;
+  }
+  .sk-related-card {
+    flex: 0 0 200px;
+  }
 }

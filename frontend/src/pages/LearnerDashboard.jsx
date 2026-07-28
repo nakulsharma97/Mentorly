@@ -894,7 +894,7 @@ export default function LearnerDashboard({ profile, onLogout }) {
                     <p className="ld-mentor-row__role">{mentor.headline || mentor.title || "Expert mentor"}</p>
                   </div>
                   <span className="ld-mentor-row__rating">
-                    \u2605 {Number(mentor.averageRating || mentor.rating || 0).toFixed(1)}
+                    <SsIcon name="star_rate" size={14} /> {Number(mentor.averageRating || mentor.rating || 0).toFixed(1)}
                   </span>
                   <Link to={`/mentors/${mentor.id}`} className="ss-btn ss-btn--secondary ss-btn--sm">
                     View Profile

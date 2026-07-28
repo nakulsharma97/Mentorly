@@ -387,22 +387,58 @@ export default function ProfileSetup({
       resetProjectEditor();
       setProjectModalOpen(false);
     } catch (err) {
-      // Extract backend error message — works for both validation errors and general API errors
-      const backendMsg = err?.response?.data?.data?.error;
-      // For field-level validation errors, extract the first one
-      const validationErrors = err?.response?.data?.data?.errors;
-      const firstFieldError =
-        validationErrors &&
-        typeof validationErrors === "object" &&
-        Object.values(validationErrors).find(Boolean);
-      const networkError = !err?.response
-        ? "Unable to connect to the server. Please check your connection and try again."
-        : null;
+      // Extract backend error message from various possible response formats
+      const extractErrorMessage = () => {
+        const res = err?.response;
+        if (!res) {
+          return "Unable to connect to the server. Please check your connection and try again.";
+        }
 
-      setProjectError(
-        backendMsg || firstFieldError || networkError ||
-          "Unable to save project. Verify required fields and try again.",
-      );
+        // 1. Standard ApiResponse format: { message, data: { error, errors } }
+        const dataObj = res.data?.data;
+        if (dataObj) {
+          // Single error string
+          if (dataObj.error) return dataObj.error;
+          // Field-level validation errors map
+          if (dataObj.errors && typeof dataObj.errors === "object") {
+            const firstValue = Object.values(dataObj.errors).find(Boolean);
+            if (firstValue) return firstValue;
+          }
+        }
+
+        // 2. Top-level ApiResponse message (skip the generic "Request failed" wrapper)
+        //    Actual error details are already covered by #1 above.
+        // 3. Spring Boot default error format: { error, message, status }
+
+        // 3. Spring Boot default error format: { error, message, status }
+        if (res.data?.error && typeof res.data.error === "string") {
+          return res.data.error;
+        }
+        if (res.data?.message && typeof res.data.message === "string") {
+          return res.data.message;
+        }
+
+        // 4. HTTP status-based fallback
+        const statusMessages = {
+          400: "Invalid request. Please check your inputs and try again.",
+          401: "Your session has expired. Please log in again.",
+          403: "You do not have permission to perform this action.",
+          404: "The requested resource was not found.",
+          409: "A conflict occurred. Please try again.",
+          422: "Unprocessable entity. Please check your inputs.",
+          500: "Server error. Please try again later.",
+          503: "Service temporarily unavailable. Please try again later.",
+        };
+        if (statusMessages[res.status]) return statusMessages[res.status];
+
+        return "Unable to save project. Verify required fields and try again.";
+      };
+
+      setProjectError(extractErrorMessage());
+      // Log the full error for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.debug("[ProfileSetup] saveProject error:", err);
+      }
     }
   };
 

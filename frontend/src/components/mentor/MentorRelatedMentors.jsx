@@ -54,7 +54,7 @@ export default function MentorRelatedMentors({ mentors, loading }) {
                 <strong>{mentor.fullName}</strong>
                 <span>{parseFirstSkill(mentor.skills) || "Expert mentor"}</span>
                 <div className="mentor-related-meta">
-                  <span>{mentor.averageRating?.toFixed(1) || "0.0"} ★</span>
+                  <span>{mentor.averageRating?.toFixed(1) || "0.0"} <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#FDB022', verticalAlign: 'middle' }}>star_rate</span></span>
                   <span>{mentor.totalReviews || 0} reviews</span>
                 </div>
               </div>

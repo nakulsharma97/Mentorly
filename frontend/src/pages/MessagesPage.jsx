@@ -125,6 +125,87 @@ function Avatar({ name, online, size = 44 }) {
   );
 }
 
+function MessageBubble({ msg, isLast, mine, formatTime, onCopy, onDelete }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  return (
+    <div className={`msg-bubble${menuOpen ? " msg-bubble-menu-open" : ""}`}>
+      <div className="msg-bubble-content">
+        <span>{msg.content}</span>
+        <button
+          type="button"
+          className="msg-bubble-actions-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen((prev) => !prev);
+          }}
+          aria-label="Message actions"
+          title="More actions"
+        >
+          <span className="material-symbols-outlined">more_horiz</span>
+        </button>
+        {menuOpen && (
+          <div className="msg-bubble-menu" ref={menuRef} onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="msg-bubble-menu-item"
+              onClick={() => {
+                onCopy(msg.content);
+                setMenuOpen(false);
+              }}
+            >
+              <span className="material-symbols-outlined">content_copy</span>
+              Copy
+            </button>
+            {mine && (
+              <button
+                type="button"
+                className="msg-bubble-menu-item msg-bubble-menu-item-danger"
+                onClick={() => {
+                  onDelete(msg.id);
+                  setMenuOpen(false);
+                }}
+              >
+                <span className="material-symbols-outlined">delete</span>
+                Delete
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {isLast ? (
+        <span className="msg-bubble-meta">
+          {formatTime(msg.createdAt)}
+          {mine && msg.readByRecipient ? (
+            <span
+              className="msg-read"
+              title="Read"
+              aria-label="Read"
+            >
+              <span className="material-symbols-outlined">
+                done_all
+              </span>
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export default function MessagesPage({ profile, notify }) {
   const [bookingConvs, setBookingConvs] = useState([]);
   const [directConvs, setDirectConvs] = useState([]);
@@ -1242,25 +1323,41 @@ export default function MessagesPage({ profile, notify }) {
                                     const isLast =
                                       msgIdx === run.messages.length - 1;
                                     return (
-                                      <div key={msg.id} className="msg-bubble">
-                                        {msg.content}
-                                        {isLast ? (
-                                          <span className="msg-bubble-meta">
-                                            {formatMessageTime(msg.createdAt)}
-                                            {mine && msg.readByRecipient ? (
-                                              <span
-                                                className="msg-read"
-                                                title="Read"
-                                                aria-label="Read"
-                                              >
-                                                <span className="material-symbols-outlined">
-                                                  done_all
-                                                </span>
-                                              </span>
-                                            ) : null}
-                                          </span>
-                                        ) : null}
-                                      </div>
+                                      <MessageBubble
+                                        key={msg.id}
+                                        msg={msg}
+                                        isLast={isLast}
+                                        mine={mine}
+                                        formatTime={formatMessageTime}
+                                        onCopy={(text) => {
+                                          navigator.clipboard.writeText(text).catch(() => {});
+                                          notify?.({
+                                            type: "success",
+                                            title: "Copied",
+                                            message: "Message copied to clipboard.",
+                                          });
+                                        }}
+                                        onDelete={(msgId) => {
+                                          // Optimistically remove from local state
+                                          setMessages((prev) =>
+                                            prev.filter((m) => String(m.id) !== String(msgId))
+                                          );
+                                          // Attempt backend delete — if it fails, the message
+                                          // will reappear on the next thread reload.
+                                          const endpoint =
+                                            selConv.kind === "booking"
+                                              ? `/api/v1/chat/booking/${selConv.convId}/messages/${msgId}`
+                                              : `/api/v1/chat/direct/${selConv.convId}/messages/${msgId}`;
+                                          client.delete(endpoint).catch(() => {
+                                            // Silently ignore — message reappears on reload
+                                          });
+                                          notify?.({
+                                            type: "success",
+                                            title: "Deleted",
+                                            message: "Message has been removed.",
+                                          });
+                                        }}
+                                      />
                                     );
                                   })}
                                 </div>

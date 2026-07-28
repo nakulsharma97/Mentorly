@@ -39,6 +39,9 @@ const AdminApiDocsPage = lazy(() => import("../pages/AdminApiDocsPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LearnerMentorsPage = lazy(() => import("../pages/LearnerMentorsPage"));
 const LearnerSkillsPage = lazy(() => import("../pages/LearnerSkillsPage"));
+const SkillDetailPage = lazy(() => import("../pages/SkillDetailPage"));
+const RoadmapDetailPage = lazy(() => import("../pages/RoadmapDetailPage"));
+const CareerDetailPage = lazy(() => import("../pages/CareerDetailPage"));
 const LearnerLearningPage = lazy(() => import("../pages/LearnerLearningPage"));
 const LearnerSessionsPage = lazy(() => import("../pages/LearnerSessionsPage"));
 const LearnerCertificatesPage = lazy(() => import("../pages/LearnerCertificatesPage"));
@@ -183,6 +186,9 @@ export default function AppRoutes({
         <Route path="dashboard" element={rc("learner-dashboard", <LearnerDashboard profile={profile} onLogout={handleLogout} />)} />
         <Route path="mentors" element={rc("learner-mentors", <LearnerMentorsPage />)} />
         <Route path="skills" element={rc("learner-skills", <LearnerSkillsPage />)} />
+        <Route path="skills/:skillId" element={rc("learner-skill-detail", <SkillDetailPage />)} />
+        <Route path="roadmaps/:roadmapId" element={rc("learner-roadmap-detail", <RoadmapDetailPage />)} />
+        <Route path="careers/:careerId" element={rc("learner-career-detail", <CareerDetailPage />)} />
         <Route path="learning" element={rc("learner-learning", <LearnerLearningPage />)} />
         <Route path="sessions" element={rc("learner-sessions", <LearnerSessionsPage />)} />
         <Route path="requests" element={rc("learner-requests", <LearnerSessionRequestsPage />)} />

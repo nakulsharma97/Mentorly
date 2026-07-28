@@ -3,9 +3,8 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
-import StatsCard from "../modules/common/dashboard/StatsCard";
-import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
+import "../modules/mentor/reviews-page.css";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -32,13 +31,28 @@ const DATE_RANGE_OPTIONS = [
 ];
 
 const EXPORT_OPTIONS = [
-  { value: "csv", label: "Export as CSV" },
-  { value: "xlsx", label: "Export as Excel" },
-  { value: "pdf", label: "Export as PDF" },
+  { value: "csv", label: "Export as CSV", icon: "table_chart" },
+  { value: "xlsx", label: "Export as Excel", icon: "grid_on" },
+  { value: "pdf", label: "Export as PDF", icon: "picture_as_pdf" },
+];
+
+const TOP_SKILLS = [
+  { name: "Communication", pct: 92, color: "teal" },
+  { name: "Knowledge", pct: 88, color: "blue" },
+  { name: "Problem Solving", pct: 85, color: "purple" },
+  { name: "Interview Guidance", pct: 80, color: "pink" },
+  { name: "Projects", pct: 78, color: "orange" },
+];
+
+const IMPROVEMENTS = [
+  "Provide more assignments",
+  "Increase session duration",
+  "Share notes after sessions",
+  "Improve microphone quality",
 ];
 
 function formatDate(value) {
-  if (!value) return "—";
+  if (!value) return "\u2014";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(undefined, {
@@ -50,6 +64,103 @@ function formatDate(value) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Animated counter that counts up from 0 to the target value.
+ */
+function useAnimatedCounter(target, duration = 800, decimals = 0) {
+  const [display, setDisplay] = useState(0);
+  const prevTarget = useRef(0);
+  const frameRef = useRef(null);
+
+  useEffect(() => {
+    const startVal = prevTarget.current;
+    const endVal = Number(target) || 0;
+    if (startVal === endVal) {
+      setDisplay(endVal);
+      return;
+    }
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = startVal + (endVal - startVal) * eased;
+      setDisplay(decimals > 0 ? current : Math.round(current));
+      if (progress < 1) {
+        frameRef.current = requestAnimationFrame(animate);
+      }
+    };
+    prevTarget.current = endVal;
+    frameRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (frameRef.current) cancelAnimationFrame(frameRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, duration]);
+
+  return decimals > 0 ? display.toFixed(decimals) : String(display);
+}
+
+/**
+ * Render star rating (supports whole numbers 0-5).
+ * Uses inline SVG stars to avoid any Unicode rendering issues.
+ */
+function StarRating({ rating, size = "md" }) {
+  const starSize = size === "sm" ? "0.8rem" : "0.95rem";
+  return (
+    <span className="rpx-review-card__rating" style={{ fontSize: starSize }} aria-label={`${rating} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <span
+          key={star}
+          className={`rpx-star ${star <= rating ? "rpx-star--filled" : ""}`}
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 20 20" width="1em" height="1em" fill="currentColor">
+            <path d="M10 1l2.39 4.84L18 6.36l-3.6 3.52.85 5.02L10 12.69l-4.25 2.21.85-5.02L2 6.36l5.61-.52z" />
+          </svg>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * Circular progress chart component
+ */
+function CircularChart({ value, label, size = 110, strokeWidth = 6 }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const pct = Math.min(value / 5, 1);
+  const offset = circumference * (1 - pct);
+
+  return (
+    <div className="rpx-circular-chart" style={{ width: size, height: size }}>
+      <svg viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          className="rpx-circular-chart__bg"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+        />
+        <circle
+          className="rpx-circular-chart__fill"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeDasharray={circumference}
+          strokeDashoffset={0}
+          style={{ strokeDashoffset: offset }}
+        />
+      </svg>
+      <div className="rpx-circular-chart__center">
+        <span className="rpx-circular-chart__value">{value}</span>
+        <span className="rpx-circular-chart__label">{label}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function MentorReviewsPage({ notify }) {
@@ -318,6 +429,11 @@ export default function MentorReviewsPage({ notify }) {
     }));
   }, [summary]);
 
+  const animatedAvgRating = useAnimatedCounter(summary.averageRating, 1000, 1);
+  const animatedTotalReviews = useAnimatedCounter(summary.totalReviews, 1000);
+  const animatedRecRate = useAnimatedCounter(summary.recommendationRate, 1000);
+  const animatedFiveStar = useAnimatedCounter(summary.fiveStarReviews, 1000);
+
   const openReview = (review) => {
     setSelectedReview(review);
     setReplyDraft(review.replyText || "");
@@ -506,32 +622,16 @@ export default function MentorReviewsPage({ notify }) {
     }
   };
 
-  const stats = [
-    {
-      title: "Average Rating",
-      value: summary.averageRating.toFixed(1),
-      subtitle: "Based on all reviews",
-      icon: "star_rate",
-    },
-    {
-      title: "Total Reviews",
-      value: summary.totalReviews,
-      subtitle: `${Math.max(0, summary.totalReviews - 2)}+ this month`,
-      icon: "forum",
-    },
-    {
-      title: "Recommendation Rate",
-      value: `${summary.recommendationRate}%`,
-      subtitle: "Learners recommend you",
-      icon: "thumb_up",
-    },
-    {
-      title: "Five Star Reviews",
-      value: summary.fiveStarReviews,
-      subtitle: `${summary.totalReviews ? Math.round((summary.fiveStarReviews / summary.totalReviews) * 100) : 0}% of all reviews`,
-      icon: "workspace_premium",
-    },
-  ];
+  const hasActiveFilters =
+    filters.rating !== "all" ||
+    filters.recommendation !== "all" ||
+    filters.skill !== "all" ||
+    filters.session !== "all" ||
+    filters.dateRange !== "all" ||
+    filters.sort !== "newest" ||
+    filters.verifiedOnly ||
+    filters.pendingReply ||
+    filters.search.trim() !== "";
 
   const renderResultCount = () => {
     if (loading || error) return null;
@@ -540,275 +640,366 @@ export default function MentorReviewsPage({ notify }) {
     if (total === 0) return null;
     if (showing === total) {
       return (
-        <span className="mp-toolbar__count">
+        <span className="rpx-filters__count">
           {total} review{total !== 1 ? "s" : ""}
         </span>
       );
     }
     return (
-      <span className="mp-toolbar__count">
+      <span className="rpx-filters__count">
         Showing {showing} of {total}
       </span>
     );
   };
 
   return (
-    <main className="md md-page">
-      <div className="md-shell md-animate">
-        <MentorPageHero
-          eyebrow="Reputation"
-          icon="reviews"
-          title="Reviews & Ratings"
-          sub="Track your teaching reputation, monitor learner satisfaction, and improve your mentoring quality."
-        >
-          <button
-            className="md-btn md-btn--outline md-btn--sm"
-            type="button"
-            onClick={refreshReviews}
-            disabled={refreshing}
-          >
-            <Icon name="refresh" /> {refreshing ? "Refreshing..." : "Refresh"}
-          </button>
-          <button
-            className="md-btn md-btn--outline md-btn--sm"
-            type="button"
-            onClick={() =>
-              document
-                .querySelector(".mp-toolbar")
-                ?.scrollIntoView({ behavior: "smooth" })
-            }
-          >
-            <Icon name="filter_alt" /> Filter
-          </button>
-          <div className="mp-export-group">
-            <button
-              className="md-btn md-btn--brand md-btn--sm"
-              type="button"
-              onClick={() => setExportMenuOpen((open) => !open)}
-            >
-              <Icon name="download" /> Export Reviews
-            </button>
-            {exportMenuOpen && (
-              <div className="mp-dropdown-menu">
-                {EXPORT_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    className="mp-dropdown-item"
-                    type="button"
-                    onClick={() => handleExport(option.value)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+    <main className="md md-page rpx-root">
+      <div className="rpx-container">
+        {/* ═══════════════════════════════════════════════════════
+            PREMIUM HERO SECTION with embedded stats
+            ═══════════════════════════════════════════════════════ */}
+        <section className="rpx-hero" aria-label="Reviews overview">
+          {/* Background blobs */}
+          <div className="rpx-hero__bg" aria-hidden="true">
+            <div className="rpx-hero__blob rpx-hero__blob--1" />
+            <div className="rpx-hero__blob rpx-hero__blob--2" />
+            <div className="rpx-hero__blob rpx-hero__blob--3" />
           </div>
-        </MentorPageHero>
 
-        <section
-          className="md-stats md-animate"
-          style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
-        >
-          {stats.map((stat) => (
-            <StatsCard
-              key={stat.title}
-              label={stat.title}
-              value={stat.value}
-              description={stat.subtitle}
-              icon={stat.icon}
-            />
-          ))}
+          {/* Geometric pattern */}
+          <div className="rpx-hero__pattern" aria-hidden="true">
+            <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+              <circle cx="360" cy="40" r="100" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
+              <circle cx="280" cy="160" r="140" stroke="currentColor" strokeWidth="0.5" opacity="0.10" />
+              <rect x="320" y="80" width="50" height="50" rx="10" stroke="currentColor" strokeWidth="0.5" opacity="0.12" />
+              <circle cx="60" cy="30" r="60" stroke="currentColor" strokeWidth="0.5" opacity="0.10" />
+            </svg>
+          </div>
+
+          {/* Floating illustration */}
+          <div className="rpx-hero__illustration" aria-hidden="true">
+            <Icon name="reviews" />
+            <div className="rpx-hero__illustration-stars" aria-hidden="true">
+              <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" />
+            </div>
+          </div>
+
+          {/* Top row: title + actions */}
+          <div className="rpx-hero__top">
+            <div className="rpx-hero__left">
+              <div className="rpx-hero__eyebrow">
+                <Icon name="star" /> Reputation
+              </div>
+              <h1 className="rpx-hero__title">Reviews &amp; Ratings</h1>
+              <p className="rpx-hero__sub">
+                Track your teaching reputation, monitor learner satisfaction,
+                and improve your mentoring quality.
+              </p>
+            </div>
+            <div className="rpx-hero__right">
+              <button
+                className="rpx-hero__btn"
+                type="button"
+                onClick={refreshReviews}
+                disabled={refreshing}
+              >
+                <Icon name="refresh" />
+                {refreshing ? "Refreshing..." : "Refresh"}
+              </button>
+              <div className="rpx-export-group">
+                <button
+                  className="rpx-hero__btn rpx-hero__btn--primary"
+                  type="button"
+                  onClick={() => setExportMenuOpen((open) => !open)}
+                >
+                  <Icon name="download" />
+                  Export
+                </button>
+                {exportMenuOpen && (
+                  <div className="rpx-export-menu">
+                    {EXPORT_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        className="rpx-export-menu__item"
+                        type="button"
+                        onClick={() => handleExport(option.value)}
+                      >
+                        <Icon name={option.icon} />
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stats row inside hero */}
+          <div className="rpx-hero-stats">
+            <div className="rpx-hero-stat">
+              <div className="rpx-hero-stat__icon">
+                <Icon name="star_rate" />
+              </div>
+              <div className="rpx-hero-stat__info">
+                <span className="rpx-hero-stat__value">
+                  {animatedAvgRating}
+                </span>
+                <span className="rpx-hero-stat__label">
+                  Average Rating
+                </span>
+              </div>
+            </div>
+            <div className="rpx-hero-stat">
+              <div className="rpx-hero-stat__icon">
+                <Icon name="forum" />
+              </div>
+              <div className="rpx-hero-stat__info">
+                <span className="rpx-hero-stat__value">
+                  {animatedTotalReviews}
+                </span>
+                <span className="rpx-hero-stat__label">
+                  Total Reviews
+                </span>
+              </div>
+            </div>
+            <div className="rpx-hero-stat">
+              <div className="rpx-hero-stat__icon">
+                <Icon name="thumb_up" />
+              </div>
+              <div className="rpx-hero-stat__info">
+                <span className="rpx-hero-stat__value">
+                  {animatedRecRate}%
+                </span>
+                <span className="rpx-hero-stat__label">
+                  Recommendation Rate
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section className="mp-toolbar md-animate">
-          <label className="mp-search">
-            <Icon name="search" />
-            <input
-              value={filters.search}
-              placeholder="Search reviews by learner, skill, or comment…"
+        {/* ═══════════════════════════════════════════════════════
+            FILTERS CARD
+            ═══════════════════════════════════════════════════════ */}
+        <div className="rpx-filters">
+          <div className="rpx-filters__row">
+            <label className="rpx-search">
+              <Icon name="search" />
+              <input
+                value={filters.search}
+                placeholder="Search reviews by learner, skill, or comment\u2026"
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, search: event.target.value }))
+                }
+              />
+            </label>
+            <select
+              className="rpx-select"
+              value={filters.rating}
               onChange={(event) =>
-                setFilters((prev) => ({ ...prev, search: event.target.value }))
+                setFilters((prev) => ({ ...prev, rating: event.target.value }))
               }
-            />
-          </label>
-          <select
-            className="mp-select"
-            value={filters.rating}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, rating: event.target.value }))
-            }
-            aria-label="Filter by rating"
-          >
-            <option value="all">All ratings</option>
-            <option value="5">5 stars</option>
-            <option value="4">4 stars</option>
-            <option value="3">3 stars</option>
-            <option value="2">2 stars</option>
-            <option value="1">1 star</option>
-          </select>
-          <select
-            className="mp-select"
-            value={filters.recommendation}
-            onChange={(event) =>
-              setFilters((prev) => ({
-                ...prev,
-                recommendation: event.target.value,
-              }))
-            }
-            aria-label="Filter by recommendation"
-          >
-            <option value="all">All recommendations</option>
-            <option value="recommended">Recommended</option>
-            <option value="notRecommended">Not recommended</option>
-          </select>
-          <select
-            className="mp-select"
-            value={filters.skill}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, skill: event.target.value }))
-            }
-            aria-label="Filter by skill"
-          >
-            <option value="all">All skills</option>
-            {skillOptions.map((skill) => (
-              <option key={skill} value={skill}>
-                {skill}
-              </option>
-            ))}
-          </select>
-          <select
-            className="mp-select"
-            value={filters.session}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, session: event.target.value }))
-            }
-            aria-label="Filter by session"
-          >
-            <option value="all">All sessions</option>
-            {sessionOptions.map((session) => (
-              <option key={session} value={session}>
-                {session}
-              </option>
-            ))}
-          </select>
-          <select
-            className="mp-select"
-            value={filters.dateRange}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, dateRange: event.target.value }))
-            }
-            aria-label="Filter by date range"
-          >
-            {DATE_RANGE_OPTIONS.map((range) => (
-              <option key={range.value} value={range.value}>
-                {range.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="mp-select"
-            value={filters.sort}
-            onChange={(event) =>
-              setFilters((prev) => ({ ...prev, sort: event.target.value }))
-            }
-            aria-label="Sort by"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="highest">Highest rating</option>
-            <option value="lowest">Lowest rating</option>
-            <option value="mostHelpful">Most helpful</option>
-            <option value="leastHelpful">Least helpful</option>
-          </select>
-          <label className="mp-toggle">
-            <input
-              type="checkbox"
-              checked={filters.verifiedOnly}
-              onChange={() =>
+              aria-label="Filter by rating"
+            >
+              <option value="all">All ratings</option>
+              <option value="5">5 stars</option>
+              <option value="4">4 stars</option>
+              <option value="3">3 stars</option>
+              <option value="2">2 stars</option>
+              <option value="1">1 star</option>
+            </select>
+            <select
+              className="rpx-select"
+              value={filters.recommendation}
+              onChange={(event) =>
                 setFilters((prev) => ({
                   ...prev,
-                  verifiedOnly: !prev.verifiedOnly,
+                  recommendation: event.target.value,
                 }))
               }
-            />
-            <span>Only verified</span>
-          </label>
-          <label className="mp-toggle">
-            <input
-              type="checkbox"
-              checked={filters.pendingReply}
-              onChange={() =>
-                setFilters((prev) => ({
-                  ...prev,
-                  pendingReply: !prev.pendingReply,
-                }))
+              aria-label="Filter by recommendation"
+            >
+              <option value="all">Recommendation</option>
+              <option value="recommended">Recommended</option>
+              <option value="notRecommended">Not recommended</option>
+            </select>
+            <select
+              className="rpx-select"
+              value={filters.skill}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, skill: event.target.value }))
               }
-            />
-            <span>Pending reply</span>
-          </label>
-          {renderResultCount()}
-        </section>
+              aria-label="Filter by skill"
+            >
+              <option value="all">All skills</option>
+              {skillOptions.map((skill) => (
+                <option key={skill} value={skill}>
+                  {skill}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rpx-select"
+              value={filters.session}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, session: event.target.value }))
+              }
+              aria-label="Filter by session"
+            >
+              <option value="all">All sessions</option>
+              {sessionOptions.map((session) => (
+                <option key={session} value={session}>
+                  {session}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="rpx-filters__row">
+            <select
+              className="rpx-select"
+              value={filters.dateRange}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, dateRange: event.target.value }))
+              }
+              aria-label="Filter by date range"
+            >
+              {DATE_RANGE_OPTIONS.map((range) => (
+                <option key={range.value} value={range.value}>
+                  {range.label}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rpx-select"
+              value={filters.sort}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, sort: event.target.value }))
+              }
+              aria-label="Sort by"
+            >
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="highest">Highest rating</option>
+              <option value="lowest">Lowest rating</option>
+              <option value="mostHelpful">Most helpful</option>
+              <option value="leastHelpful">Least helpful</option>
+            </select>
+            <label className={`rpx-toggle ${filters.verifiedOnly ? "rpx-toggle--active" : ""}`}>
+              <input
+                type="checkbox"
+                checked={filters.verifiedOnly}
+                onChange={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    verifiedOnly: !prev.verifiedOnly,
+                  }))
+                }
+              />
+              <span>Verified</span>
+            </label>
+            <label className={`rpx-toggle ${filters.pendingReply ? "rpx-toggle--active" : ""}`}>
+              <input
+                type="checkbox"
+                checked={filters.pendingReply}
+                onChange={() =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    pendingReply: !prev.pendingReply,
+                  }))
+                }
+              />
+              <span>Pending reply</span>
+            </label>
+            <div className="rpx-filters__actions">
+              {hasActiveFilters && (
+                <button
+                  className="rpx-clear-btn"
+                  type="button"
+                  onClick={() => setFilters(INITIAL_FILTERS)}
+                >
+                  <Icon name="close" />
+                  Clear filters
+                </button>
+              )}
+              {renderResultCount()}
+            </div>
+          </div>
+        </div>
 
-        <div className="mp-reviews-layout">
-          <section className="mp-feed">
+        {/* ═══════════════════════════════════════════════════════
+            MAIN LAYOUT: Review Feed + Sidebar
+            ═══════════════════════════════════════════════════════ */}
+        <div className="rpx-layout">
+          {/* ── LEFT COLUMN: Review Feed ── */}
+          <section className="rpx-feed">
             {loading ? (
-              <div className="mp-skeleton-list mp-animate-stagger">
+              <div className="rpx-skeleton-list rpx-animate-stagger">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div
                     key={index}
-                    className="mp-review-card mp-review-card--loading"
+                    className="rpx-skeleton-card"
                   />
                 ))}
               </div>
             ) : error ? (
-              <div className="md-empty">
-                <div className="md-empty__icon">
+              <div className="rpx-error">
+                <div className="rpx-error__icon">
                   <Icon name="error" />
                 </div>
-                <p className="md-empty__title">
+                <p className="rpx-error__title">
                   Reviews are temporarily unavailable
                 </p>
-                <p className="md-empty__desc">
+                <p className="rpx-error__desc">
                   Try refreshing to fetch the latest mentor feedback.
                 </p>
                 <button
                   type="button"
-                  className="md-btn md-btn--outline md-btn--sm"
-                  style={{ marginTop: 6 }}
+                  className="rpx-empty__btn rpx-empty__btn--outline"
+                  style={{ marginTop: 4 }}
                   onClick={() => loadReviews()}
                 >
                   <Icon name="refresh" /> Retry
                 </button>
               </div>
             ) : sortedReviews.length === 0 ? (
-              <div className="md-empty">
-                <div className="md-empty__icon">
+              <div className="rpx-empty">
+                <div className="rpx-empty__illustration">
                   <Icon name="reviews" />
+                  <div className="rpx-empty__illustration-stars" aria-hidden="true">
+                    <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" />
+                  </div>
                 </div>
-                <p className="md-empty__title">
+                <p className="rpx-empty__title">
                   {reviews.length === 0
                     ? "No reviews yet"
                     : "No reviews match your filters"}
                 </p>
-                <p className="md-empty__desc">
+                <p className="rpx-empty__desc">
                   {reviews.length === 0
-                    ? "Once learners complete sessions, they can leave feedback about their experience."
+                    ? "Once learners complete sessions, they can leave feedback about their experience. Create a session to get started."
                     : "Try adjusting your filters to find what you're looking for."}
                 </p>
                 {reviews.length === 0 ? (
-                  <button
-                    type="button"
-                    className="md-btn md-btn--outline md-btn--sm"
-                    style={{ marginTop: 6 }}
-                    onClick={() => navigate("/mentor/calendar")}
-                  >
-                    <Icon name="add" /> Create a Session
-                  </button>
+                  <div className="rpx-empty__actions">
+                    <button
+                      type="button"
+                      className="rpx-empty__btn rpx-empty__btn--primary"
+                      onClick={() => navigate("/mentor/calendar")}
+                    >
+                      <Icon name="add" /> Create a Session
+                    </button>
+                    <button
+                      type="button"
+                      className="rpx-empty__btn rpx-empty__btn--outline"
+                      onClick={() => navigate("/mentor/settings")}
+                    >
+                      <Icon name="share" /> Share Profile
+                    </button>
+                  </div>
                 ) : (
                   <button
                     type="button"
-                    className="md-btn md-btn--outline md-btn--sm"
-                    style={{ marginTop: 6 }}
+                    className="rpx-empty__btn rpx-empty__btn--outline"
                     onClick={() => setFilters(INITIAL_FILTERS)}
                   >
                     Clear filters
@@ -817,108 +1008,150 @@ export default function MentorReviewsPage({ notify }) {
               </div>
             ) : (
               <>
-                {sortedReviews.map((review) => (
+                {sortedReviews.map((review, index) => (
                   <article
                     key={review.id}
-                    className="mp-review-card"
+                    className="rpx-review-card"
                     onClick={() => openReview(review)}
+                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
-                    <div className="mp-review-card__head">
-                      <div className="mp-review-card__user">
-                        <div className="mp-review-card__avatar">
+                    {/* Card Header */}
+                    <div className="rpx-review-card__head">
+                      <div className="rpx-review-card__user">
+                        <div className="rpx-review-card__avatar">
                           {(review.learnerName || "L").charAt(0)}
                         </div>
-                        <div>
-                          <p className="mp-review-card__name">
+                        <div className="rpx-review-card__info">
+                          <div className="rpx-review-card__name">
                             {review.learnerName || "Learner"}
-                          </p>
-                          <p className="mp-review-card__meta">
-                            {review.learnerVerified
-                              ? "Verified learner"
-                              : "Learner"}{" "}
-                            • {formatDate(review.createdAt)}
-                          </p>
+                            {review.learnerVerified && (
+                              <span className="rpx-badge-verified">
+                                <Icon name="verified" /> Verified
+                              </span>
+                            )}
+                          </div>
+                          <div className="rpx-review-card__meta">
+                            <span>{formatDate(review.createdAt)}</span>
+                            <span aria-hidden="true">•</span>
+                            <span className={
+                              `rpx-badge-rec ${
+                                isReviewRecommended(review)
+                                  ? "rpx-badge-rec--yes"
+                                  : "rpx-badge-rec--no"
+                              }`
+                            }>
+                              <Icon name={
+                                isReviewRecommended(review)
+                                  ? "check_circle"
+                                  : "info"
+                              } />
+                              {reviewRecommendationLabel(review)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="mp-review-card__rating">
-                        {"★".repeat(review.rating || 0)}
-                      </div>
+                      <StarRating rating={review.rating || 0} />
                     </div>
-                    <div className="mp-review-card__body">
-                      <div className="mp-review-card__pill-row">
-                        <span className="mp-pill mp-pill--completed">
-                          {review.skillName || "General"}
-                        </span>
-                        <span className="mp-pill mp-pill--active">
-                          {review.sessionTitle || "Session"}
-                        </span>
+
+                    {/* Card Body */}
+                    <div className="rpx-review-card__body">
+                      <div className="rpx-review-card__tags">
+                        {review.skillName && (
+                          <span className="rpx-tag">
+                            <Icon name="local_police" />
+                            {review.skillName}
+                          </span>
+                        )}
+                        {review.sessionTitle && (
+                          <span className="rpx-tag">
+                            <Icon name="event_note" />
+                            {review.sessionTitle}
+                          </span>
+                        )}
                       </div>
-                      <h3 className="mp-review-card__title">
+                      <h3 className="rpx-review-card__title">
                         {review.title || "Learner feedback"}
                       </h3>
-                      <p className="mp-review-card__text">
+                      <p className="rpx-review-card__text">
                         {review.comment || "No written feedback provided."}
                       </p>
-                      <div className="mp-review-card__footer">
-                        <span className="mp-review-card__helpful">
-                          Helpful • {review.helpfulCount || 0}
-                        </span>
-                        <div className="mp-review-card__actions">
-                          <button
-                            className="mp-icon-btn"
-                            type="button"
-                            title="Reply to this review"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              openReview(review);
-                            }}
-                          >
-                            <Icon name="reply" />
-                          </button>
-                          <button
-                            className="mp-icon-btn"
-                            type="button"
-                            title="View student"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              navigate(`/mentor/students`);
-                            }}
-                          >
-                            <Icon name="person" />
-                          </button>
-                          <button
-                            className="mp-icon-btn"
-                            type="button"
-                            title="Go to teaching page"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              navigate(`/mentor/teach`);
-                            }}
-                          >
-                            <Icon name="event_note" />
-                          </button>
+
+                      {/* Mentor reply preview */}
+                      {review.replyText && (
+                        <div className="rpx-review-card__reply">
+                          <div className="rpx-review-card__reply-label">
+                            <Icon name="reply" /> Your reply
+                          </div>
+                          <p className="rpx-review-card__reply-text">
+                            {review.replyText}
+                          </p>
                         </div>
+                      )}
+                    </div>
+
+                    {/* Card Footer */}
+                    <div className="rpx-review-card__footer">
+                      <span className="rpx-review-card__helpful">
+                        <Icon name="thumb_up" />
+                        Helpful • {review.helpfulCount || 0}
+                      </span>
+                      <div className="rpx-review-card__actions">
+                        <button
+                          className="rpx-icon-btn"
+                          type="button"
+                          title="Reply to this review"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openReview(review);
+                          }}
+                        >
+                          <Icon name="reply" />
+                        </button>
+                        <button
+                          className="rpx-icon-btn"
+                          type="button"
+                          title="View student"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/mentor/students`);
+                          }}
+                        >
+                          <Icon name="person" />
+                        </button>
+                        <button
+                          className="rpx-icon-btn"
+                          type="button"
+                          title="Go to teaching page"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            navigate(`/mentor/teach`);
+                          }}
+                        >
+                          <Icon name="event_note" />
+                        </button>
                       </div>
                     </div>
                   </article>
                 ))}
-                <div className="mp-pagination">
+
+                {/* Pagination */}
+                <div className="rpx-pagination">
                   <button
-                    className="md-btn md-btn--outline md-btn--sm"
+                    className="rpx-pagination__btn"
                     type="button"
                     disabled={reviewPage <= 0}
                     onClick={() =>
                       setReviewPage((page) => Math.max(0, page - 1))
                     }
                   >
-                    Previous
+                    <Icon name="chevron_left" /> Previous
                   </button>
-                  <span>
+                  <span className="rpx-pagination__info">
                     Page {Math.min(reviewPage + 1, totalPages || 1)} of{" "}
                     {Math.max(totalPages, 1)}
                   </span>
                   <button
-                    className="md-btn md-btn--outline md-btn--sm"
+                    className="rpx-pagination__btn"
                     type="button"
                     disabled={reviewPage >= totalPages - 1}
                     onClick={() =>
@@ -927,88 +1160,129 @@ export default function MentorReviewsPage({ notify }) {
                       )
                     }
                   >
-                    Next
+                    Next <Icon name="chevron_right" />
                   </button>
                 </div>
               </>
             )}
           </section>
 
-          <aside className="mp-insights">
-            <div className="mp-insight-card">
-              <div className="mp-insight-card__head">
-                <h2>Overall Rating</h2>
-                <div className="mp-score-ring">
-                  <span>{summary.averageRating.toFixed(1)}</span>
-                </div>
+          {/* ── RIGHT COLUMN: Sticky Sidebar ── */}
+          <aside className="rpx-sidebar">
+            {/* Overall Rating */}
+            <div className="rpx-sidebar-card">
+              <div className="rpx-sidebar-card__head">
+                <h2 className="rpx-sidebar-card__title">
+                  <Icon name="star_rate" /> Overall Rating
+                </h2>
               </div>
-              <div className="mp-rating-bars">
+              <div className="rpx-overall-rating">
+                <CircularChart
+                  value={Number(summary.averageRating).toFixed(1)}
+                  label="out of 5"
+                />
+              </div>
+              <div className="rpx-rating-dist">
                 {ratingBreakdown.map((item) => (
-                  <div key={item.star} className="mp-rating-row">
-                    <span>{"★".repeat(item.star)}</span>
-                    <div className="mp-rating-track">
+                  <div key={item.star} className="rpx-rating-row">
+                    <span className="rpx-rating-row__label">
+                      {Array.from({ length: item.star }, (_, i) => (
+                        <Icon key={i} name="star_rate" />
+                      ))}
+                    </span>
+                    <div className="rpx-rating-row__track">
                       <div
-                        className="mp-rating-fill"
+                        className="rpx-rating-row__fill"
                         style={{ width: `${item.width}%` }}
                       />
                     </div>
-                    <strong>{item.count}</strong>
+                    <span className="rpx-rating-row__count">{item.count}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="mp-insight-card">
-              <h3>Most Appreciated Skills</h3>
-              <div className="mp-chip-list">
-                {[
-                  "Communication",
-                  "Knowledge",
-                  "Problem Solving",
-                  "Interview Guidance",
-                  "Projects",
-                  "Teaching Style",
-                  "Patience",
-                ].map((skill) => (
-                  <span key={skill} className="mp-chip-pill">
-                    {skill}
-                  </span>
+            {/* Most Appreciated Skills */}
+            <div className="rpx-sidebar-card">
+              <div className="rpx-sidebar-card__head">
+                <h2 className="rpx-sidebar-card__title">
+                  <Icon name="workspace_premium" /> Top Skills
+                </h2>
+              </div>
+              <div className="rpx-skills-list">
+                {TOP_SKILLS.map((skill) => (
+                  <div key={skill.name} className="rpx-skill-item">
+                    <div className="rpx-skill-item__info">
+                      <span className="rpx-skill-item__name">{skill.name}</span>
+                      <div className="rpx-skill-item__bar">
+                        <div
+                          className="rpx-skill-item__fill"
+                          style={{ width: `${skill.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                    <span className="rpx-skill-item__pct">{skill.pct}%</span>
+                  </div>
                 ))}
+              </div>
+              <div style={{ marginTop: 12 }}>
+                <div className="rpx-skill-pills">
+                  {TOP_SKILLS.map((skill) => (
+                    <span
+                      key={skill.name}
+                      className={`rpx-skill-pill rpx-skill-pill--${skill.color}`}
+                    >
+                      {skill.name}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="mp-insight-card">
-              <h3>Improvement Suggestions</h3>
-              <ul className="mp-tip-list">
-                <li>Provide more assignments</li>
-                <li>Increase session duration</li>
-                <li>Share notes after sessions</li>
-                <li>Improve microphone quality</li>
-              </ul>
+            {/* Improvement Suggestions */}
+            <div className="rpx-sidebar-card">
+              <div className="rpx-sidebar-card__head">
+                <h2 className="rpx-sidebar-card__title">
+                  <Icon name="lightbulb" /> Improvement Suggestions
+                </h2>
+              </div>
+              <div className="rpx-suggestions">
+                {IMPROVEMENTS.map((suggestion, index) => (
+                  <div key={index} className="rpx-suggestion-item">
+                    <div className="rpx-suggestion-item__icon">
+                      <Icon name="lightbulb" />
+                    </div>
+                    <p className="rpx-suggestion-item__text">{suggestion}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </aside>
         </div>
       </div>
 
+      {/* ═══════════════════════════════════════════════════════
+          DRAWER: Review Detail + Reply Form
+          ═══════════════════════════════════════════════════════ */}
       {selectedReview && (
         <div
-          className="mp-overlay"
+          className="rpx-overlay"
           onClick={() => setSelectedReview(null)}
           role="presentation"
         >
           <div
-            className="mp-drawer"
+            className="rpx-drawer"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mp-drawer__head">
-              <div className="mp-drawer__head-main">
-                <h3 className="mp-drawer__title">Review details</h3>
-                <p className="mp-drawer__sub">
+            <div className="rpx-drawer__head">
+              <div className="rpx-drawer__head-main">
+                <h3 className="rpx-drawer__title">Review details</h3>
+                <p className="rpx-drawer__sub">
                   {selectedReview.learnerName || "Learner"}
                 </p>
               </div>
               <button
-                className="mp-icon-btn"
+                className="rpx-drawer__close"
                 type="button"
                 onClick={() => setSelectedReview(null)}
                 title="Close"
@@ -1016,56 +1290,69 @@ export default function MentorReviewsPage({ notify }) {
                 <Icon name="close" />
               </button>
             </div>
-            <div className="mp-drawer__body">
-              <div className="mp-kv">
-                <div className="mp-kv__item">
-                  <p className="mp-kv__k">Skill</p>
-                  <p className="mp-kv__v">
+            <div className="rpx-drawer__body">
+              {/* Info Grid */}
+              <div className="rpx-drawer-info">
+                <div className="rpx-drawer-info__item">
+                  <p className="rpx-drawer-info__key">Skill</p>
+                  <p className="rpx-drawer-info__value">
                     {selectedReview.skillName || "General"}
                   </p>
                 </div>
-                <div className="mp-kv__item">
-                  <p className="mp-kv__k">Session</p>
-                  <p className="mp-kv__v">
+                <div className="rpx-drawer-info__item">
+                  <p className="rpx-drawer-info__key">Session</p>
+                  <p className="rpx-drawer-info__value">
                     {selectedReview.sessionTitle || "Session"}
                   </p>
                 </div>
-                <div className="mp-kv__item">
-                  <p className="mp-kv__k">Date</p>
-                  <p className="mp-kv__v">
+                <div className="rpx-drawer-info__item">
+                  <p className="rpx-drawer-info__key">Date</p>
+                  <p className="rpx-drawer-info__value">
                     {formatDate(selectedReview.createdAt)}
                   </p>
                 </div>
-                <div className="mp-kv__item">
-                  <p className="mp-kv__k">Rating</p>
-                  <p className="mp-kv__v">{selectedReview.rating}/5</p>
+                <div className="rpx-drawer-info__item">
+                  <p className="rpx-drawer-info__key">Rating</p>
+                  <p className="rpx-drawer-info__value">
+                    <StarRating rating={selectedReview.rating || 0} size="sm" />
+                  </p>
                 </div>
               </div>
-              <div className="mp-block">
-                <p className="mp-block__label">Learner feedback</p>
-                <p className="mp-block__text">
+
+              {/* Learner feedback */}
+              <div className="rpx-drawer-block">
+                <span className="rpx-drawer-block__label">
+                  <Icon name="chat" /> Learner feedback
+                </span>
+                <p className="rpx-drawer-block__text">
                   {selectedReview.comment || "No written feedback provided."}
                 </p>
               </div>
-              <div className="mp-block">
-                <p className="mp-block__label">Mentor reply</p>
-                <p className="mp-block__text">
+
+              {/* Mentor reply */}
+              <div className="rpx-drawer-block">
+                <span className="rpx-drawer-block__label">
+                  <Icon name="reply" /> Mentor reply
+                </span>
+                <p className="rpx-drawer-block__text">
                   {selectedReview.replyText || "No reply yet."}
                 </p>
               </div>
-              <form className="mp-reply-form" onSubmit={submitReply}>
+
+              {/* Reply form */}
+              <form className="rpx-reply-form" onSubmit={submitReply}>
                 <textarea
-                  className="mp-textarea"
+                  className="rpx-reply-form__textarea"
                   value={replyDraft}
                   onChange={(event) => setReplyDraft(event.target.value)}
-                  placeholder="Write a thoughtful reply to this learner"
+                  placeholder="Write a thoughtful reply to this learner\u2026"
                 />
                 <button
-                  className="md-btn md-btn--brand"
+                  className="rpx-reply-form__btn"
                   type="submit"
                   disabled={replying}
                 >
-                  {replying ? "Saving..." : "Reply to review"}
+                  {replying ? "Saving\u2026" : "Reply to review"}
                 </button>
               </form>
             </div>
