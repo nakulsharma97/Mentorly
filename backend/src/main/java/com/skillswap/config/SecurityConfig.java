@@ -66,10 +66,17 @@ public class SecurityConfig {
                                 // protection redundant. See DESIGN_DECISIONS.md for more context.
                                 .csrf(csrf -> csrf.disable())
                                 .headers(headers -> headers
+                                                // CSP uses 'unsafe-inline' because this is a client-side
+                                                // rendered React SPA where inline scripts/styles are
+                                                // injected by Vite at build time. A nonce-based approach
+                                                // would require server-side rendering (SSR) which is
+                                                // not part of the current architecture.
                                                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                                                                 "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:"))
                                                 .frameOptions(frame -> frame.deny())
-                                                .xssProtection(xss -> {})
+                                                // X-XSS-Protection is omitted because modern browsers
+                                                // have deprecated this header. CSP configured above is
+                                                // the effective XSS defense.
                                                 .contentTypeOptions(content -> {})
                                                 .httpStrictTransportSecurity(hsts -> hsts
                                                                 .includeSubDomains(true)

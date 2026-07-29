@@ -36,15 +36,14 @@ vi.mock("../modules/common/dashboard/Icon", () => ({
 }));
 
 vi.mock("../modules/common/dashboard/SectionCard", () => ({
-  default: ({ title, icon, children, actionLabel, actionTo, onAction, className }) => (
+  default: ({ title, children, actionLabel, onAction, className }) => (
     <div data-testid="section-card" className={className}>
       <h3>{title}</h3>
-      {icon && <span>{icon}</span>}
       {children}
       {actionLabel && <button type="button" onClick={onAction}>{actionLabel}</button>}
     </div>
   ),
-  EmptyState: ({ icon, title, description, actionLabel, onAction }) => (
+  EmptyState: ({ title, description, actionLabel, onAction }) => (
     <div data-testid="empty-state">
       <span>{title}</span>
       <p>{description}</p>
@@ -54,7 +53,7 @@ vi.mock("../modules/common/dashboard/SectionCard", () => ({
 }));
 
 vi.mock("../modules/common/dashboard/StatsCard", () => ({
-  default: ({ icon, label, value, description }) => (
+  default: ({ label, value, description }) => (
     <div data-testid="stats-card">
       <span>{label}</span>
       <strong>{value}</strong>

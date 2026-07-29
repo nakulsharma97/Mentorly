@@ -9,6 +9,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -81,7 +82,7 @@ public class PayPalAdapter implements PaymentGateway {
                     paymentId, orderId, verified);
 
             return verified;
-        } catch (Exception e) {
+        } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
             log.error("PayPal signature verification failed", e);
             return false;
         }

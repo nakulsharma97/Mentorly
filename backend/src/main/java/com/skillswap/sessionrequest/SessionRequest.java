@@ -3,6 +3,8 @@ package com.skillswap.sessionrequest;
 import com.skillswap.user.User;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -18,13 +20,15 @@ public class SessionRequest {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "learner_id", nullable = false)
+    @Fetch(FetchMode.JOIN)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User learner;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "mentor_id", nullable = false)
+    @Fetch(FetchMode.JOIN)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
     private User mentor;
 
