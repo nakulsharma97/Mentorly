@@ -67,7 +67,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             String userEmail = jwtService.extractUsername(jwt);
 
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (userEmail != null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
                 if (jwtService.isTokenValid(jwt, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -80,12 +80,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Uses a direct UPDATE query instead of loading + saving the
                     // full User entity, which avoids SELECT overhead, entity
                     // hydration, and cascading flushes on every request.
-                    if (userEmail != null) {
-                        try {
-                            userRepository.updateLastActiveAt(userEmail, OffsetDateTime.now());
-                        } catch (Exception ignored) {
-                            log.debug("Failed to update lastActiveAt for {}", userEmail, ignored);
-                        }
+                    try {
+                        userRepository.updateLastActiveAt(userEmail, OffsetDateTime.now());
+                    } catch (Exception ignored) {
+                        log.debug("Failed to update lastActiveAt for {}", userEmail, ignored);
                     }
                 }
             }

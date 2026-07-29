@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import client, {
   clearAuthSessionState,
@@ -31,6 +31,9 @@ export function useAuthProfile({ notify }) {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
+  // Generation counter for syncCurrentUser to prevent stale responses
+  // from overwriting newer profile data after login switching.
+  const syncGenerationRef = useRef(0);
 
   // Maintenance mode listener
   useEffect(() => {
@@ -53,6 +56,7 @@ export function useAuthProfile({ notify }) {
   }, []);
 
   const syncCurrentUser = useCallback(async () => {
+    const generation = ++syncGenerationRef.current;
     resetProfileState();
     const activeToken = getActiveAuthToken();
     if (!activeToken) {
@@ -60,6 +64,9 @@ export function useAuthProfile({ notify }) {
         const maybe = await client.get("/api/v1/users/me");
         const maybeProfile = maybe?.data?.data || null;
         if (maybeProfile?.id) {
+          if (generation !== syncGenerationRef.current) {
+            return null;
+          }
           setProfile(maybeProfile);
           setProfileChecked(true);
           return maybeProfile;
@@ -68,6 +75,9 @@ export function useAuthProfile({ notify }) {
         // ignore
       }
       clearAuthSessionState();
+      if (generation !== syncGenerationRef.current) {
+        return null;
+      }
       setProfile(null);
       setProfileChecked(true);
       return null;
@@ -99,6 +109,10 @@ export function useAuthProfile({ notify }) {
         return null;
       }
 
+      if (generation !== syncGenerationRef.current) {
+        // A newer syncCurrentUser call started — discard this stale result
+        return null;
+      }
       setProfile(nextProfile);
       setProfileChecked(true);
       return nextProfile;
@@ -113,6 +127,9 @@ export function useAuthProfile({ notify }) {
 
       try {
         await client.post("/api/v1/auth/refresh");
+        if (generation !== syncGenerationRef.current) {
+          return null;
+        }
         const retry = await client.get("/api/v1/users/me");
         const refreshedProfile = retry?.data?.data || null;
         if (!refreshedProfile?.id) {
@@ -126,6 +143,9 @@ export function useAuthProfile({ notify }) {
           clearAuthSessionState();
           setProfile(null);
           setProfileChecked(true);
+          return null;
+        }
+        if (generation !== syncGenerationRef.current) {
           return null;
         }
         setProfile(refreshedProfile);
@@ -144,6 +164,13 @@ export function useAuthProfile({ notify }) {
       }
     }
   }, [resetProfileState]);
+
+  // Expose syncGenerationRef so external callers (App.jsx) can bump it
+  // before triggering a new sync, ensuring stale in-flight responses
+  // from the mount effect are discarded.
+  const bumpSyncGeneration = useCallback(() => {
+    syncGenerationRef.current += 1;
+  }, []);
 
   const isLoggedIn = Boolean(profile);
   const needsProfileSetup =
@@ -316,6 +343,7 @@ export function useAuthProfile({ notify }) {
     unreadNotifications,
     setUnreadNotifications,
     syncCurrentUser,
+    bumpSyncGeneration,
     handleLogout,
     handleSelectAuthMode,
   };

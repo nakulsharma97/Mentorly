@@ -194,6 +194,9 @@ export default function App() {
             onLoggedIn={async (loggedMode, authResponse) => {
               auth.setAuthMode(null);
               auth.setOauthError("");
+              // Bump the sync generation so any in-flight stale syncCurrentUser
+              // call (e.g. from the mount effect) is discarded.
+              auth.bumpSyncGeneration();
               const nextToken = persistAuthSession(authResponse);
               if (!nextToken) {
                 notify({

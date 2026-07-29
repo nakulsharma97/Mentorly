@@ -5,9 +5,12 @@ import com.skillswap.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import static com.skillswap.auth.AuthDtos.*;
@@ -59,12 +62,21 @@ public class AuthController {
     public ApiResponse<LogoutResponse> logout(
             @CookieValue(value = AuthCookieService.ACCESS_TOKEN_COOKIE, required = false) String accessTokenCookie,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader,
+            HttpServletRequest request,
             HttpServletResponse response) {
         String accessToken = resolveAccessToken(accessTokenCookie, authorizationHeader);
         LogoutResponse logoutResponse = accessToken == null || accessToken.isBlank()
                 ? new LogoutResponse(0)
                 : authService.logoutCurrentSession(accessToken);
         authCookieService.clearAuthCookies(response);
+        // Invalidate the HTTP session to clear the stale SecurityContext so the
+        // next request does not accidentally authenticate as the previous user
+        // via SecurityContextHolderFilter restoring from the session.
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
         return new ApiResponse<>("Logged out", logoutResponse);
     }
 

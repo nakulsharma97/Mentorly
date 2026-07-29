@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import client, {
   API_BASE_URL,
+  clearAuthSessionState,
   resolveAuthResponsePayload,
 } from "../api/client";
 import { t } from "../utils/i18n";
@@ -72,6 +73,13 @@ export default function AuthModal({
               referralCode: searchParams.get("ref")?.trim() || undefined,
             };
 
+      // Clear any stale auth state (Authorization header, localStorage tokens,
+      // cookies) before making the login/signup request. This prevents old
+      // tokens/cookies from interfering with the new authentication, which
+      // could otherwise cause syncCurrentUser to fetch the wrong user profile
+      // after login.
+      clearAuthSessionState();
+
       const response = await client.post(endpoint, payload);
       const authResponse = resolveAuthResponsePayload(response.data);
       trackAnalyticsEvent(
@@ -83,51 +91,61 @@ export default function AuthModal({
       );
       onLoggedIn(mode, authResponse);
     } catch (err) {
+      const status = Number(err?.response?.status || 0);
       const backendError = err?.response?.data?.data?.error;
+
+      // 1) Backend returned a structured JSON error → show the real reason
       if (backendError) {
         trackAnalyticsEvent(
           mode === "login" ? "auth_login_failed" : "auth_signup_failed",
-          {
-            reason: "backend_error",
-          },
+          { reason: "backend_error" },
         );
         setError(backendError);
-        notify?.({
-          type: "error",
-          title: "Authentication failed",
-          message: backendError,
-        });
+        notify?.({ type: "error", title: "Authentication failed", message: backendError });
         return;
       }
+
+      // 2) Proxy error (502/503) — backend is unreachable through the Vite proxy
+      if (status === 502 || status === 503) {
+        trackAnalyticsEvent(
+          mode === "login" ? "auth_login_failed" : "auth_signup_failed",
+          { reason: "proxy_error" },
+        );
+        setError("Backend server is not responding. Make sure the backend is running on port 8080 and refresh.");
+        notify?.({ type: "error", title: "Backend unreachable", message: "Start the backend (mvn spring-boot:run) and hard refresh (Ctrl+Shift+R)." });
+        return;
+      }
+
+      // 3) Frontend cannot reach the server at all
       if (err?.code === "ERR_NETWORK") {
         trackAnalyticsEvent(
           mode === "login" ? "auth_login_failed" : "auth_signup_failed",
-          {
-            reason: "network_error",
-          },
+          { reason: "network_error" },
         );
-        setError(
-          "Backend is unreachable. Start backend on http://localhost:8080 and retry.",
-        );
-        notify?.({
-          type: "error",
-          title: "Server unreachable",
-          message: "Start backend on port 8080, then try again.",
-        });
+        setError("Cannot connect to the server. Check your internet connection and ensure the backend is running.");
+        notify?.({ type: "error", title: "Server unreachable", message: "Start backend on port 8080, then try again." });
         return;
       }
+
+      // 4) Backend rejected the request but error format is unrecognised
+      if (status >= 400) {
+        const httpError = err?.response?.statusText || `HTTP ${status}`;
+        trackAnalyticsEvent(
+          mode === "login" ? "auth_login_failed" : "auth_signup_failed",
+          { reason: `http_${status}` },
+        );
+        setError(`Server error (${httpError}). Please try again.`);
+        notify?.({ type: "error", title: "Request failed", message: `Backend returned ${status}. Check the server logs.` });
+        return;
+      }
+
+      // 5) Catch-all for unexpected errors
       trackAnalyticsEvent(
         mode === "login" ? "auth_login_failed" : "auth_signup_failed",
-        {
-          reason: "unknown_error",
-        },
+        { reason: "unknown_error" },
       );
       setError("Authentication failed. Verify credentials and try again.");
-      notify?.({
-        type: "error",
-        title: "Could not authenticate",
-        message: "Please verify email/password and try again.",
-      });
+      notify?.({ type: "error", title: "Could not authenticate", message: "Please verify email/password and try again." });
     } finally {
       setSubmitting(false);
     }
