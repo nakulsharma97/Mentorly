@@ -114,7 +114,8 @@ class SessionRequestServiceTest {
             return req;
         });
 
-        SessionRequest result = sessionRequestService.createRequest(learner, mentor.getId(), "I want to learn React");
+        SessionRequest result = sessionRequestService.createRequest(learner, mentor.getId(), "I want to learn React",
+                null, null, null, null, null);
 
         assertNotNull(result);
         assertEquals(SessionRequestStatus.PENDING, result.getStatus());
@@ -129,7 +130,8 @@ class SessionRequestServiceTest {
     @Test
     void createRequestThrowsWhenLearnerRequestsSelf() {
         assertThrows(IllegalArgumentException.class,
-                () -> sessionRequestService.createRequest(learner, learner.getId(), "test"));
+                () -> sessionRequestService.createRequest(learner, learner.getId(), "test",
+                        null, null, null, null, null));
     }
 
     @Test
@@ -141,7 +143,8 @@ class SessionRequestServiceTest {
         when(userRepository.findById(anotherLearner.getId())).thenReturn(Optional.of(anotherLearner));
 
         assertThrows(IllegalArgumentException.class,
-                () -> sessionRequestService.createRequest(learner, anotherLearner.getId(), "test"));
+                () -> sessionRequestService.createRequest(learner, anotherLearner.getId(), "test",
+                        null, null, null, null, null));
     }
 
     @Test
@@ -151,7 +154,8 @@ class SessionRequestServiceTest {
                 learner.getId(), mentor.getId(), SessionRequestStatus.PENDING)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class,
-                () -> sessionRequestService.createRequest(learner, mentor.getId(), "duplicate"));
+                () -> sessionRequestService.createRequest(learner, mentor.getId(), "duplicate",
+                        null, null, null, null, null));
     }
 
     @Test
@@ -166,11 +170,13 @@ class SessionRequestServiceTest {
                 admin.getId(), mentor.getId(), SessionRequestStatus.PENDING)).thenReturn(false);
         when(sessionRequestRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        assertDoesNotThrow(() -> sessionRequestService.createRequest(admin, mentor.getId(), "admin request"));
+        assertDoesNotThrow(() -> sessionRequestService.createRequest(admin, mentor.getId(), "admin request",
+                null, null, null, null, null));
 
         // MENTOR should be rejected
         assertThrows(IllegalArgumentException.class,
-                () -> sessionRequestService.createRequest(mentor, learner.getId(), "mentor trying"));
+                () -> sessionRequestService.createRequest(mentor, learner.getId(), "mentor trying",
+                        null, null, null, null, null));
     }
 
     // ═══════════════════════════════════════════════════════

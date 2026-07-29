@@ -32,7 +32,10 @@ public class SessionRequestController {
     public ApiResponse<SessionRequest> create(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody CreateRequest req) {
-        SessionRequest created = sessionRequestService.createRequest(currentUser, req.mentorId(), req.message());
+        SessionRequest created = sessionRequestService.createRequest(
+                currentUser, req.mentorId(), req.message(),
+                req.subject(), req.preferredDate(), req.preferredTime(),
+                req.preferredDuration(), req.budget());
         return new ApiResponse<>("Session request sent", created);
     }
 
@@ -117,7 +120,14 @@ public class SessionRequestController {
         return new ApiResponse<>("Session created from request", session);
     }
 
-    public record CreateRequest(@NotNull Long mentorId, String message) {
+    public record CreateRequest(
+            @NotNull Long mentorId,
+            String message,
+            String subject,
+            String preferredDate,
+            String preferredTime,
+            Integer preferredDuration,
+            String budget) {
     }
 
     public record AcceptRequest(String message) {

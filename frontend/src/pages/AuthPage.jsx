@@ -178,6 +178,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     }
   ];
 
+  const FAQ_MAX_HEIGHT = 320;
+
 
   const navLinkClass = (sectionId) =>
     activeSection === sectionId
@@ -682,30 +684,39 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             </p>
           </div>
           <div className="landing-faq-grid">
-            {faqItems.map((item, idx) => (
-              <article
-                key={idx}
-                className={`landing-faq-item landing-reveal${openFaq === idx ? ' is-open' : ''}`}
-              >
-                <button
-                  className="landing-faq-question"
-                  type="button"
-                  onClick={() => toggleFaq(idx)}
-                  aria-expanded={openFaq === idx}
-                  aria-controls={`faq-answer-${idx}`}
+            {faqItems.map((item, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <article
+                  key={idx}
+                  className={`landing-faq-item landing-reveal${isOpen ? ' is-open' : ''}`}
                 >
-                  <span>{item.q}</span>
-                  <span className="landing-faq-question-icon" aria-hidden="true">+</span>
-                </button>
-                <div
-                  id={`faq-answer-${idx}`}
-                  className={`landing-faq-answer${openFaq === idx ? ' is-open' : ''}`}
-                  role="region"
-                >
-                  <p>{item.a}</p>
-                </div>
-              </article>
-            ))}
+                  <button
+                    className="landing-faq-question"
+                    type="button"
+                    onClick={() => toggleFaq(idx)}
+                    aria-expanded={isOpen}
+                    aria-controls={`faq-answer-${idx}`}
+                  >
+                    <span>{item.q}</span>
+                    <span className="landing-faq-question-icon" aria-hidden="true">{isOpen ? '−' : '+'}</span>
+                  </button>
+                  <div
+                    id={`faq-answer-${idx}`}
+                    className={`landing-faq-answer${isOpen ? ' is-open' : ''}`}
+                    role="region"
+                    style={{
+                      maxHeight: isOpen ? FAQ_MAX_HEIGHT : 0,
+                      opacity: isOpen ? 1 : 0,
+                      overflow: 'hidden',
+                      transition: 'max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease',
+                    }}
+                  >
+                    <p>{item.a}</p>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
 

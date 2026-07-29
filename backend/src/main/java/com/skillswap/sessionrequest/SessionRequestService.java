@@ -34,7 +34,10 @@ public class SessionRequestService {
      * Learner sends a session request to a mentor.
      */
     @Transactional
-    public SessionRequest createRequest(User learner, Long mentorId, String message) {
+    public SessionRequest createRequest(User learner, Long mentorId, String message,
+                                         String subject, String preferredDate,
+                                         String preferredTime, Integer preferredDuration,
+                                         String budget) {
         if (learner.getRole() != UserRole.LEARNER && learner.getRole() != UserRole.ADMIN) {
             throw new IllegalArgumentException("Only learners can request sessions");
         }
@@ -61,6 +64,11 @@ public class SessionRequestService {
         request.setLearner(learner);
         request.setMentor(mentor);
         request.setMessage(message != null ? message.trim() : "");
+        request.setSubject(subject);
+        request.setPreferredDate(preferredDate);
+        request.setPreferredTime(preferredTime);
+        request.setPreferredDuration(preferredDuration);
+        request.setBudget(budget);
         request.setStatus(SessionRequestStatus.PENDING);
         request.setCreatedAt(OffsetDateTime.now());
         request.setUpdatedAt(OffsetDateTime.now());

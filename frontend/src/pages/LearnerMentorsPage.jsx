@@ -404,8 +404,19 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
           <button
             type="button"
             className={`lf-mentor-card__save${saved ? " is-saved" : ""}`}
-            onClick={() => onSaveToggle(mentor.id)}
-            aria-label={saved ? "Remove saved mentor" : "Save mentor"}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onSaveToggle(mentor.id);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.stopPropagation();
+                e.preventDefault();
+                onSaveToggle(mentor.id);
+              }
+            }}
+            aria-label={saved ? "Remove mentor from wishlist" : "Add mentor to wishlist"}
           >
             <Icon name={saved ? "favorite" : "favorite_border"} />
           </button>
@@ -449,7 +460,7 @@ function MentorSkeletonCard() {
    Premium Empty State
    ========================================================================== */
 
-function MentorsEmptyState({ query }) {
+function MentorsEmptyState({ query, apiReturnedEmpty }) {
   return (
     <div className="lf-empty-state md-animate">
       <div className="lf-empty-state__icon-wrap">
@@ -462,11 +473,19 @@ function MentorsEmptyState({ query }) {
         <p className="lf-empty-state__desc">
           {query
             ? "Try a different keyword, adjust your filters, or browse all available mentors."
-            : "No mentors match your current filters. Try widening your search criteria."}
+            : apiReturnedEmpty
+              ? "No mentors are available right now. Check back soon for new mentors joining the marketplace."
+              : "No mentors match your current filters. Try widening your search criteria."}
         </p>
-        <Link to="/learner/skills" className="lf-btn lf-btn--primary">
-          <Icon name="auto_stories" /> Explore Skills
-        </Link>
+        {apiReturnedEmpty ? (
+          <Link to="/learner/skills" className="lf-btn lf-btn--primary">
+            <Icon name="auto_stories" /> Explore Skills
+          </Link>
+        ) : (
+          <button type="button" className="lf-btn lf-btn--outline" onClick={() => window.location.reload()}>
+            <Icon name="refresh" /> Refresh
+          </button>
+        )}
       </div>
     </div>
   );
@@ -563,7 +582,16 @@ export default function LearnerMentorsPage() {
     return [...set].sort();
   }, [rawMentors]);
 
-  /* Category filtering */
+  /* ── Build a mentorId → rawData lookup map for O(1) access ── */
+  const rawMentorMap = useMemo(() => {
+    const map = new Map();
+    rawMentors.forEach((r) => {
+      if (r && r.mentorId != null) map.set(r.mentorId, r);
+    });
+    return map;
+  }, [rawMentors]);
+
+  /* Category + advanced filtering */
   const filtered = useMemo(() => {
     let list = liveMentors;
 
@@ -575,8 +603,9 @@ export default function LearnerMentorsPage() {
       list = list.filter((_, idx) => idx < 10);
     }
 
-    return list.filter((mentor, idx) => {
-      const extras = mentorExtras(rawMentors[idx]);
+    return list.filter((mentor) => {
+      const raw = rawMentorMap.get(mentor.id) || {};
+      const extras = mentorExtras(raw);
       if (minExperience && extras.experience < minExperience) return false;
       if ((availability === "online" || onlineOnly) && !mentor.liveNow) return false;
       if (maxPrice && extras.price != null && Number(extras.price) > maxPrice) return false;
@@ -586,7 +615,7 @@ export default function LearnerMentorsPage() {
         return false;
       return true;
     });
-  }, [liveMentors, rawMentors, activeCategory, minExperience, availability, maxPrice, skillFilter, languageFilter, onlineOnly]);
+  }, [liveMentors, rawMentorMap, activeCategory, minExperience, availability, maxPrice, skillFilter, languageFilter, onlineOnly]);
 
   const averageRating = liveMentors.length
     ? liveMentors.reduce((s, m) => s + m.averageRating, 0) / liveMentors.length
@@ -772,8 +801,19 @@ export default function LearnerMentorsPage() {
                       <button
                         type="button"
                         className={`lf-featured-card__save${savedMentorIds.has(mentor.id) ? " is-saved" : ""}`}
-                        onClick={() => toggleMentorSave(mentor.id)}
-                        aria-label="Save mentor"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          toggleMentorSave(mentor.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            toggleMentorSave(mentor.id);
+                          }
+                        }}
+                        aria-label={savedMentorIds.has(mentor.id) ? "Remove mentor from wishlist" : "Add mentor to wishlist"}
                       >
                         <Icon name={savedMentorIds.has(mentor.id) ? "favorite" : "favorite_border"} />
                       </button>
@@ -953,21 +993,18 @@ export default function LearnerMentorsPage() {
         </div>
       ) : filtered.length > 0 ? (
         <div className="lf-grid md-animate">
-          {filtered.map((mentor) => {
-            const idx = liveMentors.indexOf(mentor);
-            return (
-              <PremiumMentorCard
-                key={mentor.id}
-                mentor={mentor}
-                rawData={rawMentors[idx]}
-                saved={savedMentorIds.has(mentor.id)}
-                onSaveToggle={toggleMentorSave}
-              />
-            );
-          })}
+          {filtered.map((mentor) => (
+            <PremiumMentorCard
+              key={mentor.id}
+              mentor={mentor}
+              rawData={rawMentorMap.get(mentor.id) || null}
+              saved={savedMentorIds.has(mentor.id)}
+              onSaveToggle={toggleMentorSave}
+            />
+          ))}
         </div>
       ) : (
-        <MentorsEmptyState query={debouncedQuery} />
+        <MentorsEmptyState query={debouncedQuery} apiReturnedEmpty={rawMentors.length === 0} />
       )}
     </div>
   );

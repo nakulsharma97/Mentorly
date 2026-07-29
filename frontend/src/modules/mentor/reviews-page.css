@@ -1007,12 +1007,14 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  padding: 0;
   border-radius: var(--rpx-radius);
   border: none;
   background: transparent;
   color: var(--rpx-text-muted);
   cursor: pointer;
   transition: all var(--rpx-transition);
+  flex-shrink: 0;
 }
 
 .rpx-icon-btn:hover {

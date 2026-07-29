@@ -315,6 +315,37 @@ body {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ICON BUTTON — Universal Icon Alignment Fix
+   ═══════════════════════════════════════════════════════════════
+   Root cause: material-symbols-outlined (and other font icons) use
+   the default line-height: normal (~1.2x), which adds 3-5px of extra
+   vertical space. When placed inside a flex/grid button container,
+   the browser centers the *entire line box* — not just the glyph —
+   making the icon appear shifted and causing asymmetrical hover
+   backgrounds on circular icon buttons.
+
+   The SsIcon component already sets line-height: 1, display: inline-flex,
+   align-items: center, and justify-content: center. This universal rule
+   applies the same fix to inline icon usage in all icon buttons.
+
+   Font icons get full centering treatment; SVGs only get vertical-align
+   to avoid altering SVG-internal layout behavior.
+   ===================================================================== */
+[class*="icon-btn"] .material-symbols-outlined,
+[class*="icon-btn"] .md__icon,
+.footer-theme-toggle .material-symbols-outlined {
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+[class*="icon-btn"] svg {
+  vertical-align: middle;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floating-nav,
   .home-orb-a,
@@ -645,6 +676,7 @@ body,
   display: inline-flex;
   height: 32px;
   width: 32px;
+  padding: 0;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
@@ -653,6 +685,7 @@ body,
   color: var(--text, #182028);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
 }
 .site-navbar-icon-btn:hover {
   background: var(--hover-bg, #f0f5f8);
@@ -684,6 +717,7 @@ body,
   display: inline-flex;
   height: 32px;
   width: 32px;
+  padding: 0;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
@@ -692,6 +726,7 @@ body,
   overflow: hidden;
   cursor: pointer;
   transition: border-color 0.15s;
+  flex-shrink: 0;
 }
 .site-navbar-avatar:hover {
   border-color: var(--muted, #94a3b8);
@@ -705,6 +740,12 @@ body,
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--text, #182028);
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
 }
 
 .site-navbar-logout {

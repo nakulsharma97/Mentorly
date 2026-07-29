@@ -1266,11 +1266,14 @@
 }
 
 .landing-faq-answer {
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
 }
 
 .landing-faq-answer.is-open {
-  display: block;
+  max-height: 320px;
+  opacity: 1;
 }
 
 .landing-faq-answer p {

@@ -35,6 +35,8 @@ const formatDateTime = (value) => {
 const parseSkillChips = (raw) => {
   const value = String(raw || "").trim();
   if (!value) return [];
+  // Empty JSON arrays "[]" or "[ ]" should not produce chips
+  if (/^\s*\[\s*\]\s*$/.test(value)) return [];
   if (value.startsWith("[") && value.includes('"name"')) {
     const m = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)].map(x => x[1].trim()).filter(Boolean);
     if (m.length) return [...new Set(m)].slice(0, 12);
@@ -453,12 +455,12 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                   <h1 className="mpr-hero__name">{mentor?.fullName || "Mentor"}</h1>
                   {mentor?.mentorVerified && <VerifiedBadge />}
                 </div>
-                <p className="mpr-hero__headline">{mentor?.headline || (mentor?.aboutMe ? truncate(mentor.aboutMe.split(".")[0], 100) : "Expert Mentor")}</p>
+                <p className="mpr-hero__headline">{mentor?.headline || (mentor?.aboutMe ? mentor.aboutMe.split(".")[0].slice(0, 100) : "Expert Mentor")}</p>
                 <div className="mpr-hero__meta">
                   {mentor?.company && <span><Icon name="business" /> {mentor.company}</span>}
                   {mentor?.yearsOfExperience != null && <span><Icon name="work_history" /> {mentor.yearsOfExperience}+ years</span>}
                   {mentor?.location && <span><Icon name="location_on" /> {mentor.location}</span>}
-                  {mentor?.languages && <span><Icon name="translate" /> {mentor.languages}</span>}
+                  {mentor?.languages && !/^\s*\[\s*\]\s*$/.test(String(mentor.languages)) && <span><Icon name="translate" /> {mentor.languages}</span>}
                 </div>
                 <div className="mpr-hero__rating-row">
                   <span className="mpr-hero__rating-num">{summary.averageRating.toFixed(1)}</span>
@@ -1461,20 +1463,6 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                         />
                       </div>
 
-                      <div className="mpr-request-form__group">
-                        <label>Attachments <span>(optional)</span></label>
-                        <div className="mpr-request-form__attachments">
-                          <button type="button" className="mpr-request-form__attach-btn">
-                            <Icon name="upload_file" /> Resume
-                          </button>
-                          <button type="button" className="mpr-request-form__attach-btn">
-                            <Icon name="folder" /> Project
-                          </button>
-                          <button type="button" className="mpr-request-form__attach-btn">
-                            <Icon name="note" /> Notes
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   </form>
                 </div>

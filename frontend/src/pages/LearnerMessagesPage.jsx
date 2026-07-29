@@ -84,6 +84,49 @@ function normalizeDirectConv(c) {
 }
 
 /* ── Copy/Delete message bubble ── */
+function MessageContent({ content }) {
+  if (!content) return null;
+  // Check if this is a file message: "📎 filename\nurl"
+  if (content.startsWith('📎 ')) {
+    const lines = content.split('\n');
+    const filename = lines[0].replace('📎 ', '');
+    const fileUrl = lines.slice(1).join('\n').trim();
+    if (fileUrl) {
+      const isAudio = /voice|audio|\.(webm|mp3|wav|ogg|m4a)/i.test(filename);
+      const isImage = /\.(jpg|jpeg|png|gif|svg|webp|bmp)/i.test(filename) || /image/i.test(filename);
+      return (
+        <div className="ms-msg-file">
+          <span className="ms-msg-file-icon"><Icon name={isAudio ? "mic" : isImage ? "image" : "attach_file"} /></span>
+          <div className="ms-msg-file-info">
+            <strong>{filename}</strong>
+            {isAudio && <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40, marginTop: 4 }} preload="none">Your browser does not support audio.</audio>}
+            {isImage && <img src={fileUrl} alt={filename} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, marginTop: 4, display: 'block' }} />}
+            <a href={fileUrl} target="_blank" rel="noreferrer" className="ms-msg-file-link" download={!isAudio && !isImage}>{isAudio || isImage ? 'Open' : 'Download'} <Icon name="open_in_new" /></a>
+          </div>
+        </div>
+      );
+    }
+  }
+  // Check if this is a voice message: "🎤 Voice message\nurl"
+  if (content.startsWith('🎤 ')) {
+    const lines = content.split('\n');
+    const fileUrl = lines.slice(1).join('\n').trim();
+    if (fileUrl) {
+      return (
+        <div className="ms-msg-file">
+          <span className="ms-msg-file-icon"><Icon name="mic" /></span>
+          <div className="ms-msg-file-info">
+            <strong>Voice message</strong>
+            <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40 }} preload="none">Your browser does not support audio.</audio>
+          </div>
+        </div>
+      );
+    }
+  }
+  // Default: plain text
+  return <p>{content}</p>;
+}
+
 function MessageBubbleInline({ msg, mine, isLast, pending, failed, fmtTime, onCopy, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -102,7 +145,7 @@ function MessageBubbleInline({ msg, mine, isLast, pending, failed, fmtTime, onCo
   return (
     <div className={`ms-msg${mine ? " is-me" : ""}${pending ? " is-pending" : ""}${failed ? " is-failed" : ""}${menuOpen ? " is-menu-open" : ""}`}>
       <div className="ms-msg__content">
-        <p>{msg.content}</p>
+        <MessageContent content={msg.content} />
         <button
           type="button"
           className="ms-msg__actions-btn"
@@ -198,6 +241,16 @@ export default function LearnerMessagesPage({ profile }) {
   const [creatingConv, setCreatingConv] = useState(false);
   const [createError, setCreateError] = useState(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileError, setFileError] = useState(null);
+  // Voice recording state
+  const [recording, setRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordedBlob, setRecordedBlob] = useState(null);
+  const [recordingError, setRecordingError] = useState(null);
+
   const threadRef = useRef(null);
   const wsRef = useRef(null);
   const stopReconnectRef = useRef(false);
@@ -205,6 +258,13 @@ export default function LearnerMessagesPage({ profile }) {
   const typingTimeoutRef = useRef(null);
   const typingSeenTimeoutsRef = useRef({});
   const isMountedRef = useRef(false);
+  const fileInputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordingTimerRef = useRef(null);
+  const recordingChunksRef = useRef([]);
+
+  const COMMON_EMOJIS = ['😀','😁','😂','🤣','😊','😍','🥰','😎','🤩','😢','😤','😡','🥺','🤔','🙄','👍','👎','👏','🙌','🔥','💯','💪','🎉','❤️','💔','💀','✅','❌','⭐','🌈','🍕','☕','🚀','✨','💡','📚','🎯','🏆','💼','🤝'];
 
   const currentUserEmail = String(profile?.email || "").toLowerCase();
   const currentUserId = profile?.id;
@@ -623,6 +683,161 @@ export default function LearnerMessagesPage({ profile }) {
     setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
   }
 
+  // ── Emoji picker outside click ──
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmojiPicker]);
+
+  // ── File upload ──
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selConv) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('File size must be under 10 MB');
+      setTimeout(() => setFileError(null), 3000);
+      return;
+    }
+    setUploadingFile(file);
+    setUploadProgress(0);
+    setFileError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await apiPost('/api/v1/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (p) => {
+          if (p.total) setUploadProgress(Math.round((p.loaded * 100) / p.total));
+        },
+      });
+      const fileUrl = uploadRes?.url || '';
+      if (fileUrl) {
+        const endpoint = selConv.kind === 'booking'
+          ? `/api/v1/chat/booking/${selConv.bookingId}`
+          : `/api/v1/chat/direct/${selConv.conversationId}/messages`;
+        await apiPost(endpoint, { content: `📎 ${file.name}\n${fileUrl}` });
+        setRefreshKey((k) => k + 1);
+      } else {
+        setFileError('File upload failed: no URL returned');
+        setTimeout(() => setFileError(null), 3000);
+      }
+    } catch (err) {
+      setFileError(err?.message || 'File upload failed');
+      setTimeout(() => setFileError(null), 3000);
+    } finally {
+      setUploadingFile(null);
+      setUploadProgress(0);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  // ── Voice recording ──
+  function startRecording() {
+    setRecordingError(null);
+    setRecordedBlob(null);
+    setRecordingTime(0);
+    recordingChunksRef.current = [];
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        mediaRecorderRef.current = recorder;
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+        };
+        recorder.onstop = () => {
+          stream.getTracks().forEach((t) => t.stop());
+          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+          setRecordedBlob(blob);
+        };
+        recorder.onerror = () => {
+          setRecordingError('Recording failed. Please try again.');
+          setRecording(false);
+          stream.getTracks().forEach((t) => t.stop());
+        };
+        recorder.start(250);
+        setRecording(true);
+        let sec = 0;
+        recordingTimerRef.current = setInterval(() => {
+          sec += 1;
+          setRecordingTime(sec);
+          if (sec >= 300) stopRecording(); // 5 min max
+        }, 1000);
+      })
+      .catch((err) => {
+        const msg = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? 'Microphone access denied. Please allow microphone permissions.'
+          : 'Microphone not available. Please check your device.';
+        setRecordingError(msg);
+        setTimeout(() => setRecordingError(null), 4000);
+      });
+  }
+
+  function stopRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+  }
+
+  function cancelRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setRecording(false);
+    setRecordedBlob(null);
+    setRecordingTime(0);
+    recordingChunksRef.current = [];
+  }
+
+  async function sendVoiceMessage() {
+    if (!recordedBlob || !selConv) return;
+    setSending(true);
+    try {
+      const formData = new FormData();
+      const fileName = `voice-${Date.now()}.webm`;
+      formData.append('file', recordedBlob, fileName);
+      const uploadRes = await apiPost('/api/v1/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const fileUrl = uploadRes?.url || '';
+      if (fileUrl) {
+        const endpoint = selConv.kind === 'booking'
+          ? `/api/v1/chat/booking/${selConv.bookingId}`
+          : `/api/v1/chat/direct/${selConv.conversationId}/messages`;
+        await apiPost(endpoint, { content: `🎤 Voice message\n${fileUrl}` });
+        setRefreshKey((k) => k + 1);
+      }
+    } catch {
+      setRecordingError('Could not send voice message. Please try again.');
+      setTimeout(() => setRecordingError(null), 3000);
+    } finally {
+      setSending(false);
+      setRecordedBlob(null);
+      setRecordingTime(0);
+      recordingChunksRef.current = [];
+    }
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+
   // ── send ──
   async function sendMsg(e) {
     e.preventDefault();
@@ -658,7 +873,10 @@ export default function LearnerMessagesPage({ profile }) {
       // appears immediately. Don't use setRefreshKey — it re-fetches
       // ALL conversations and causes a hard re-mount (white flash).
       if (created && created.id) {
-        setThreadData((prev) => [...prev, created]);
+        setThreadData((prev) => {
+          if (prev.some((m) => String(m.id) === String(created.id))) return prev;
+          return [...prev, created];
+        });
       }
     } catch {
       setPending((l) => l.map((p) => (p.id === tid ? { ...p, failed: true, pending: false } : p)));
@@ -668,7 +886,7 @@ export default function LearnerMessagesPage({ profile }) {
   }
 
   function handleKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMsg(e); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!recording && !recordedBlob) sendMsg(e); }
     // Send WebSocket typing indicator
     if (!selConv || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     if (typingTimeoutRef.current) return;
@@ -1164,25 +1382,104 @@ export default function LearnerMessagesPage({ profile }) {
 
               {/* Composer */}
               <form className="ms-composer" onSubmit={sendMsg}>
-                <button type="button" className="ms-icon-btn" title="Attach"><Icon name="attach_file" /></button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  className="ms-icon-btn"
+                  title="Attach file"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!!uploadingFile || recording}
+                >
+                  <Icon name="attach_file" />
+                </button>
                 <div className="ms-composer__input-wrap">
-                  <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleKey}
-                    placeholder="Write a message…"
-                    ref={(el) => { if (el) el.focus(); }}
-                  />
+                  {recording ? (
+                    <div className="ms-recording-bar">
+                      <span className="ms-recording-dot" />
+                      <span className="ms-recording-time">{formatTime(recordingTime)}</span>
+                      <span className="ms-recording-label">Recording…</span>
+                    </div>
+                  ) : recordedBlob ? (
+                    <div className="ms-recording-bar">
+                      <Icon name="mic" />
+                      <span className="ms-recording-time">{formatTime(recordingTime)}</span>
+                      <button type="button" className="ms-recording-btn" onClick={sendVoiceMessage} disabled={sending}>
+                        <Icon name="send" /> Send
+                      </button>
+                      <button type="button" className="ms-recording-btn ms-recording-btn--cancel" onClick={cancelRecording}>
+                        <Icon name="close" /> Discard
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={handleKey}
+                      placeholder="Write a message…"
+                    />
+                  )}
                 </div>
-                <button type="button" className="ms-icon-btn" title="Emoji"><Icon name="mood" /></button>
-                {draft.trim() ? (
-                  <button type="submit" className="ms-btn ms-btn--primary ms-btn--sm" disabled={sending}>
+                <div style={{ position: 'relative' }} ref={emojiPickerRef}>
+                  <button
+                    type="button"
+                    className={`ms-icon-btn${showEmojiPicker ? ' is-active' : ''}`}
+                    title="Emoji"
+                    onClick={() => setShowEmojiPicker((p) => !p)}
+                    disabled={recording}
+                  >
+                    <Icon name="mood" />
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="ms-emoji-picker">
+                      {COMMON_EMOJIS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          className="ms-emoji-btn"
+                          onClick={() => {
+                            setDraft((prev) => prev + emoji);
+                            setShowEmojiPicker(false);
+                          }}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {draft.trim() && !recording && !recordedBlob ? (
+                  <button type="submit" className="ms-btn ms-btn--primary ms-btn--sm" disabled={sending || !!uploadingFile}>
                     <Icon name="send" /> {sending ? "Sending…" : "Send"}
                   </button>
-                ) : (
-                  <button type="button" className="ms-icon-btn" title="Voice"><Icon name="mic" /></button>
-                )}
+                ) : !recording && !recordedBlob ? (
+                  <button
+                    type="button"
+                    className="ms-icon-btn"
+                    title="Voice"
+                    onClick={startRecording}
+                    disabled={!!uploadingFile}
+                  >
+                    <Icon name="mic" />
+                  </button>
+                ) : null}
               </form>
+              {uploadingFile && (
+                <div className="ms-upload-progress">
+                  <span>📎 {uploadingFile.name}</span>
+                  <span className="ms-upload-bar">
+                    <span className="ms-upload-fill" style={{ width: `${uploadProgress}%` }} />
+                  </span>
+                  <span className="ms-upload-pct">{uploadProgress}%</span>
+                </div>
+              )}
+              {fileError && <div className="ms-composer-error">{fileError}</div>}
+              {recordingError && <div className="ms-composer-error">{recordingError}</div>}
             </>
           ) : (
             <div className="ms-chat__placeholder">

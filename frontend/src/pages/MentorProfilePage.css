@@ -293,7 +293,6 @@
               radial-gradient(ellipse at 90% 70%, rgba(20,184,166,0.10) 0%, transparent 40%),
               linear-gradient(160deg, #0C1B2E 0%, #132A3A 40%, #1A3645 100%);
   box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-  max-height: 720px;
 }
 
 .mpr-hero__bg-shapes {
@@ -340,7 +339,7 @@
 
 .mpr-hero__profile {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
 }
 
@@ -406,15 +405,12 @@
 .mpr-hero__info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
+  width: 100%;
+  overflow: visible;
 }
 .mpr-hero__info-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
   display: flex;
   align-items: center;
   gap: 10px;
@@ -425,8 +421,11 @@
   font-size: 1.4rem;
   font-weight: 800;
   color: #f8fafc;
-  line-height: 1.15;
+  line-height: 1.25;
   letter-spacing: -0.02em;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 .mpr-hero__headline {
   margin: 0;
@@ -456,7 +455,7 @@
 .mpr-hero__rating-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 .mpr-hero__rating-num {
@@ -469,6 +468,7 @@
 .mpr-hero__rating-count {
   font-size: 0.72rem;
   color: rgba(255,255,255,0.6);
+  white-space: nowrap;
 }
 .mpr-hero__stat-chip {
   display: inline-flex;
@@ -480,6 +480,7 @@
   border: 1px solid rgba(255,255,255,0.08);
   font-size: 0.68rem;
   color: rgba(255,255,255,0.7);
+  white-space: nowrap;
 }
 .mpr-hero__stat-chip .material-symbols-outlined { font-size: 12px; }
 .mpr-hero__stat-chip strong { color: #f8fafc; font-weight: 700; }
@@ -1149,33 +1150,6 @@ div.mpr-sessions-grid--picker {
   font-weight: 600;
 }
 
-/* Attachments */
-.mpr-request-form__attachments {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.mpr-request-form__attach-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1.5px dashed var(--mpr-border);
-  background: transparent;
-  font-size: 0.78rem;
-  font-weight: 700;
-  font-family: inherit;
-  color: var(--mpr-muted);
-  cursor: pointer;
-  transition: all var(--mpr-transition);
-}
-.mpr-request-form__attach-btn:hover {
-  border-color: var(--mpr-primary);
-  color: var(--mpr-primary);
-  background: var(--mpr-primary-tint);
-}
-.mpr-request-form__attach-btn .material-symbols-outlined { font-size: 18px; }
 
 /* Success Screen */
 .mpr-request-success {

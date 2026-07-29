@@ -985,12 +985,14 @@
   place-items: center;
   width: 34px;
   height: 34px;
+  padding: 0;
   border-radius: 9px;
   border: none;
   background: transparent;
   color: var(--mp-text-muted);
   cursor: pointer;
   transition: all var(--mp-transition);
+  flex-shrink: 0;
 }
 
 .mp-icon-btn:hover {
@@ -2959,28 +2961,45 @@
 }
 
 .lf-featured-card__save {
+  position: relative;
+  z-index: 10;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 36px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: 9999px;
   border: 1px solid var(--mp-border);
-  background: var(--mp-surface);
+  background: var(--mp-surface, var(--panel));
   color: var(--mp-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
+  pointer-events: auto;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .lf-featured-card__save:hover {
-  color: #e11d48;
-  border-color: rgba(225,29,72,0.3);
+  transform: scale(1.08);
+  color: #dc2626;
+  border-color: rgba(220,38,38,0.35);
+  background: var(--mp-surface, var(--panel));
+  box-shadow: 0 4px 12px rgba(220,38,38,0.18);
+}
+
+.lf-featured-card__save:focus-visible {
+  outline: 2px solid var(--mp-primary, #0f766e);
+  outline-offset: 3px;
 }
 
 .lf-featured-card__save.is-saved {
-  color: #e11d48;
-  border-color: rgba(225,29,72,0.3);
-  background: rgba(225,29,72,0.06);
+  color: #dc2626;
+  border-color: rgba(220,38,38,0.35);
+  background: var(--mp-surface, var(--panel));
+  box-shadow: 0 2px 8px rgba(220,38,38,0.15);
+}
+
+.lf-featured-card__save.is-saved:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(220,38,38,0.25);
 }
 
 /* ═══ Find Mentors - Card Enhancements ═══ */
@@ -3246,7 +3265,15 @@
 }
 
 [data-theme="dark"] .lf-featured-card__save {
-  border-color: #334155;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .lf-featured-card__save:hover {
+  box-shadow: 0 4px 12px rgba(220,38,38,0.30);
+}
+
+[data-theme="dark"] .lf-featured-card__save.is-saved {
+  box-shadow: 0 2px 8px rgba(220,38,38,0.25);
 }
 
 /* ==========================================================================

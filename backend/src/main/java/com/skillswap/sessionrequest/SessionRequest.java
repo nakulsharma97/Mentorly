@@ -31,6 +31,21 @@ public class SessionRequest {
     @Column(columnDefinition = "TEXT")
     private String message;
 
+    @Column
+    private String subject;
+
+    @Column(name = "preferred_date")
+    private String preferredDate;
+
+    @Column(name = "preferred_time")
+    private String preferredTime;
+
+    @Column(name = "preferred_duration")
+    private Integer preferredDuration;
+
+    @Column
+    private String budget;
+
     @Column(name = "decline_reason", columnDefinition = "TEXT")
     private String declineReason;
 

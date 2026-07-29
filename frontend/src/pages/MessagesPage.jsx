@@ -234,6 +234,11 @@ export default function MessagesPage({ profile, notify }) {
   const [creatingConv, setCreatingConv] = useState(false);
   const [createError, setCreateError] = useState(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileError, setFileError] = useState(null);
+
   const wsRef = useRef(null);
   const isMountedRef = useRef(false);
   const stopReconnectRef = useRef(false);
@@ -244,6 +249,8 @@ export default function MessagesPage({ profile, notify }) {
   const typingSeenTimeoutsRef = useRef({});
   const searchInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const emojiPickerRef = useRef(null);
 
   const currentUserId = profile?.id;
   const currentUserEmail = String(profile?.email || "").toLowerCase();
@@ -760,6 +767,61 @@ export default function MessagesPage({ profile, notify }) {
     }, 2000);
   };
 
+  // ── File upload ──
+  const COMMON_EMOJIS = ['😀','😁','😂','🤣','😊','😍','🥰','😎','🤩','😢','😤','😡','🥺','🤔','🙄','👍','👎','👏','🙌','🔥','💯','💪','🎉','❤️','💔','💀','✅','❌','⭐','🌈','🍕','☕','🚀','✨','💡','📚','🎯','🏆','💼','🤝'];
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selConv) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setFileError('File size must be under 10 MB');
+      setTimeout(() => setFileError(null), 3000);
+      return;
+    }
+    setUploadingFile(file);
+    setUploadProgress(0);
+    setFileError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploadRes = await client.post('/api/v1/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (p) => {
+          if (p.total) setUploadProgress(Math.round((p.loaded * 100) / p.total));
+        },
+      });
+      const fileUrl = uploadRes?.data?.data?.url || '';
+      if (fileUrl) {
+        const endpoint = selConv.kind === 'booking'
+          ? `/api/v1/chat/booking/${selConv.convId}`
+          : `/api/v1/chat/direct/${selConv.convId}/messages`;
+        await client.post(endpoint, { content: `📎 ${file.name}\n${fileUrl}` });
+      } else {
+        setFileError('File upload failed: no URL returned');
+        setTimeout(() => setFileError(null), 3000);
+      }
+    } catch (err) {
+      setFileError(err?.message || 'File upload failed');
+      setTimeout(() => setFileError(null), 3000);
+    } finally {
+      setUploadingFile(null);
+      setUploadProgress(0);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  // ── Emoji picker outside click ──
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showEmojiPicker]);
+
   const handleSendMessage = async (event) => {
     event.preventDefault();
     const content = chatInput.trim();
@@ -774,8 +836,11 @@ export default function MessagesPage({ profile, notify }) {
           : `/api/v1/chat/direct/${selConv.convId}/messages`;
       const response = await client.post(endpoint, { content });
       const created = response?.data?.data;
-      if (created) {
-        setMessages((prev) => [...prev, created]);
+      if (created && created.id) {
+        setMessages((prev) => {
+          if (prev.some((m) => String(m.id) === String(created.id))) return prev;
+          return [...prev, created];
+        });
       }
       setChatInput("");
       notify?.({
@@ -1389,12 +1454,20 @@ export default function MessagesPage({ profile, notify }) {
 
                 {/* Composer */}
                 <form className="msg-composer" onSubmit={handleSendMessage}>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                    aria-hidden="true"
+                  />
                   <button
                     type="button"
                     className="msg-icon-btn"
                     title="Attach a file"
                     aria-label="Attach a file"
-                    onClick={() => notifyComingSoon("Attachments")}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!!uploadingFile}
                   >
                     <span
                       className="material-symbols-outlined"
@@ -1415,29 +1488,53 @@ export default function MessagesPage({ profile, notify }) {
                       event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
                     }}
                   />
-                  <button
-                    type="button"
-                    className="msg-icon-btn"
-                    title="Add emoji"
-                    aria-label="Add emoji"
-                    onClick={() => notifyComingSoon("Emoji picker")}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      aria-hidden="true"
+                  <div className="msg-composer-actions" ref={emojiPickerRef}>
+                    <button
+                      type="button"
+                      className={`msg-icon-btn${showEmojiPicker ? ' is-active' : ''}`}
+                      title="Add emoji"
+                      aria-label="Add emoji"
+                      onClick={() => setShowEmojiPicker((p) => !p)}
                     >
-                      mood
-                    </span>
-                  </button>
+                      <span className="material-symbols-outlined" aria-hidden="true">mood</span>
+                    </button>
+                    {showEmojiPicker && (
+                      <div className="msg-emoji-picker">
+                        {COMMON_EMOJIS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="msg-emoji-btn"
+                            onClick={() => {
+                              setChatInput((prev) => prev + emoji);
+                              setShowEmojiPicker(false);
+                            }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     type="submit"
                     className="msg-send-btn"
-                    disabled={!chatInput.trim()}
+                    disabled={!chatInput.trim() || !!uploadingFile}
                     aria-label="Send message"
                   >
                     <span className="material-symbols-outlined">send</span>
                   </button>
                 </form>
+                {uploadingFile && (
+                  <div className="msg-upload-progress">
+                    <span>📎 {uploadingFile.name}</span>
+                    <span className="msg-upload-bar">
+                      <span className="msg-upload-fill" style={{ width: `${uploadProgress}%` }} />
+                    </span>
+                    <span className="msg-upload-pct">{uploadProgress}%</span>
+                  </div>
+                )}
+                {fileError && <div className="msg-error" role="alert"><span className="material-symbols-outlined">error</span>{fileError}</div>}
               </>
             )}
           </section>

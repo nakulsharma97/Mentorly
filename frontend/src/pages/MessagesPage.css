@@ -872,12 +872,14 @@
   justify-content: center;
   width: 40px;
   height: 40px;
+  padding: 0;
   border-radius: var(--r-md);
   border: 1px solid transparent;
   background: transparent;
   color: var(--m-muted);
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  flex-shrink: 0;
 }
 
 .msg-icon-btn:hover {
@@ -903,6 +905,105 @@
 }
 
 /* ---------- Message Actions (Copy/Delete) ---------- */
+/* ---------- File upload progress ---------- */
+.msg-upload-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--m-soft);
+  border-top: 1px solid var(--m-border);
+  font-size: 0.84rem;
+  color: var(--m-text-2);
+  animation: msg-fade-up 0.2s ease both;
+}
+.msg-upload-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--m-border);
+  overflow: hidden;
+  max-width: 120px;
+}
+.msg-upload-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--m-grad);
+  transition: width 0.3s ease;
+}
+.msg-upload-pct {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--m-accent);
+  white-space: nowrap;
+}
+
+/* ---------- Emoji picker ---------- */
+.msg-composer-actions {
+  position: relative;
+}
+.msg-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  width: 220px;
+  padding: 8px;
+  border-radius: var(--r-md);
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  box-shadow: var(--sh-lg);
+  animation: msg-pop-in 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.msg-emoji-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+  padding: 0;
+}
+.msg-emoji-btn:hover {
+  background: var(--m-soft);
+  transform: scale(1.2);
+}
+
+/* ---------- File messages in chat ---------- */
+.msg-bubble-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.msg-bubble-file .material-symbols-outlined {
+  font-size: 1.4rem;
+  color: var(--m-accent);
+}
+.msg-bubble-row.mine .msg-bubble-file .material-symbols-outlined {
+  color: rgba(255,255,255,0.85);
+}
+.msg-bubble-file a {
+  color: inherit;
+  text-decoration: underline;
+  word-break: break-all;
+  font-size: 0.88rem;
+}
+.msg-bubble-file a:hover {
+  opacity: 0.85;
+}
+
 .msg-bubble-content {
   position: relative;
   display: flex;
@@ -913,6 +1014,14 @@
 .msg-bubble-content > span {
   flex: 1;
   min-width: 0;
+}
+
+.composer-error {
+  padding: var(--sp-2) var(--sp-4);
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.82rem;
+  border-top: 1px solid #fecaca;
 }
 
 .msg-bubble-actions-btn {

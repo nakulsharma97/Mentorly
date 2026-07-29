@@ -22,6 +22,7 @@ const formatDate = (value) => {
 
 export default function LearnerSessionRequestsPage() {
   const [searchParams] = useSearchParams();
+
   const highlightRequestId = searchParams.get("requestId");
   const highlightRef = useRef(null);
   const [requests, setRequests] = useState([]);
@@ -32,6 +33,11 @@ export default function LearnerSessionRequestsPage() {
   const [replyMessage, setReplyMessage] = useState("");
   const [replySending, setReplySending] = useState(false);
   const replyTextareaRef = useRef(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payingRequest, setPayingRequest] = useState(null);
+  const [paymentSending, setPaymentSending] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -233,9 +239,25 @@ export default function LearnerSessionRequestsPage() {
                           </button>
                         )}
                         {req.sessionId && (
-                          <Link to="/learner/sessions" className="md-btn md-btn--ghost md-btn--sm">
-                            View Session
-                          </Link>
+                          <>
+                            {req.status === "ACCEPTED" && (
+                              <button
+                                type="button"
+                                className="md-btn md-btn--brand md-btn--sm"
+                                onClick={() => {
+                                  setPayingRequest(req);
+                                  setPaymentError("");
+                                  setPaymentSuccess("");
+                                  setShowPaymentModal(true);
+                                }}
+                              >
+                                Pay Now
+                              </button>
+                            )}
+                            <Link to="/learner/sessions" className="md-btn md-btn--ghost md-btn--sm">
+                              View Session
+                            </Link>
+                          </>
                         )}
                         {req.status === "DECLINED" && req.declineReason && (
                           <span style={{ fontSize: "0.78rem", color: "var(--mp-text-muted, #94a3b8)" }}>
@@ -251,6 +273,212 @@ export default function LearnerSessionRequestsPage() {
           </div>
         )}
       </div>
+
+      {/* ─── Payment Modal ─── */}
+      {showPaymentModal && payingRequest && (
+        <div
+          className="mp-overlay mp-overlay--center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPaymentModal(false); }}
+        >
+          <div
+            className="mp-drawer"
+            style={{
+              width: "min(480px, 100%)",
+              height: "auto",
+              maxHeight: "80vh",
+              borderRadius: "var(--mp-radius-xl)",
+              borderLeft: "none",
+            }}
+          >
+            <div className="mp-drawer__head">
+              <div className="mp-drawer__head-main">
+                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                  Complete Payment
+                </p>
+                <h3 className="mp-drawer__title">Pay for Your Session</h3>
+              </div>
+              <button
+                type="button"
+                className="mp-icon-btn"
+                onClick={() => setShowPaymentModal(false)}
+                aria-label="Close"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+
+            <div className="mp-drawer__body" style={{ gap: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="mp-cell-user__avatar">
+                    {payingRequest.mentor?.profileImageUrl ? (
+                      <img src={payingRequest.mentor.profileImageUrl} alt={payingRequest.mentor.fullName} />
+                    ) : (
+                      <span>{String(payingRequest.mentor?.fullName || "?").charAt(0)}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: 700, margin: 0 }}>{payingRequest.mentor?.fullName || "Mentor"}</p>
+                    <p style={{ fontSize: "0.78rem", color: "var(--mp-text-muted, #94a3b8)", margin: "2px 0 0" }}>
+                      Custom session request
+                    </p>
+                  </div>
+                </div>
+
+                {payingRequest.subject && (
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(15, 118, 110, 0.06)", fontSize: "0.84rem" }}>
+                    <span style={{ fontWeight: 600 }}>Topic:</span> {payingRequest.subject}
+                  </div>
+                )}
+
+                <div style={{ borderTop: "1px solid var(--mp-line, #e2e8f0)", paddingTop: 12 }}>
+                  <p style={{ fontSize: "0.82rem", color: "var(--mp-text-muted, #94a3b8)", margin: "0 0 4px" }}>
+                    Complete your payment to confirm the session. Your payment is secure and protected.
+                  </p>
+                </div>
+
+                {paymentSuccess && (
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(22, 163, 74, 0.08)", color: "#16A34A", fontSize: "0.84rem" }}>
+                    ✅ {paymentSuccess}
+                  </div>
+                )}
+
+                {paymentError && (
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(239, 68, 68, 0.08)", color: "#EF4444", fontSize: "0.84rem" }}>
+                    ❌ {paymentError}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mp-drawer__foot">
+              <button
+                type="button"
+                className="md-btn md-btn--outline md-btn--sm"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="md-btn md-btn--brand md-btn--sm"
+                disabled={paymentSending || !!paymentSuccess}
+                onClick={async () => {
+                  setPaymentSending(true);
+                  setPaymentError("");
+                  try {
+                    // 1. Find the booking for this session
+                    const bookingsRes = await client.get("/api/v1/bookings");
+                    const allBookings = bookingsRes?.data?.data || [];
+                    const booking = allBookings.find(
+                      b => String(b.session?.id) === String(payingRequest.sessionId) ||
+                           String(b.sessionId) === String(payingRequest.sessionId)
+                    );
+                    if (!booking) {
+                      setPaymentError("Could not find booking. Please contact support.");
+                      setPaymentSending(false);
+                      return;
+                    }
+
+                    // 2. Get the price from the session
+                    let priceAmount = 0;
+                    try {
+                      const sessionRes = await client.get(`/api/v1/sessions/${payingRequest.sessionId}`);
+                      priceAmount = Number(sessionRes?.data?.data?.priceAmount || 0);
+                    } catch {
+                      priceAmount = 0;
+                    }
+
+                    if (priceAmount <= 0) {
+                      setPaymentError("This session is free — no payment needed. You can view it in your sessions.");
+                      setPaymentSending(false);
+                      return;
+                    }
+
+                    // 3. Create payment intent
+                    const idempotencyKey = `request_pay_${payingRequest.id}_${Date.now()}`;
+                    const paymentRes = await client.post("/api/v1/payments/intent", {
+                      bookingId: booking.id,
+                      amount: priceAmount,
+                      gateway: "razorpay",
+                    }, {
+                      headers: { "Idempotency-Key": idempotencyKey },
+                    });
+                    const payment = paymentRes?.data?.data;
+
+                    if (!payment?.gatewayResponse?.id) {
+                      setPaymentError("Payment gateway not available. Please try again.");
+                      setPaymentSending(false);
+                      return;
+                    }
+
+                    // 4. Load and open Razorpay
+                    if (!window.Razorpay) {
+                      await new Promise((resolve, reject) => {
+                        const script = document.createElement("script");
+                        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                        script.async = true;
+                        script.onload = resolve;
+                        script.onerror = () => reject(new Error("Failed to load Razorpay"));
+                        document.body.appendChild(script);
+                      });
+                    }
+
+                    const razorpayOrderId = payment.gatewayResponse.id;
+                    const amountPaise = payment.gatewayResponse.amount || priceAmount * 100;
+
+                    const rzpOptions = {
+                      key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_xxxxxxxxxxxx",
+                      amount: amountPaise,
+                      currency: payment.gatewayResponse.currency || "INR",
+                      name: "Skill Swapper",
+                      description: `Payment for session with ${payingRequest.mentor?.fullName || "mentor"}`,
+                      order_id: razorpayOrderId,
+                      theme: { color: "#0f766e" },
+                      handler: async (response) => {
+                        try {
+                          await client.post("/api/v1/payments/verify", {
+                            paymentId: payment.id,
+                            gatewayPaymentId: response.razorpay_payment_id,
+                            signature: response.razorpay_signature,
+                            extraParams: { razorpay_order_id: response.razorpay_order_id },
+                          });
+                          setPaymentSuccess("Payment successful! Your session is confirmed.");
+                        } catch {
+                          setPaymentSuccess("Booking confirmed! Payment verification may be pending.");
+                        }
+                        loadRequests();
+                      },
+                      modal: { confirm_close: true },
+                    };
+
+                    const rzp = new window.Razorpay(rzpOptions);
+                    rzp.on("payment.failed", (resp) => {
+                      setPaymentError(resp.error?.description || "Payment failed. Please try again.");
+                    });
+                    rzp.open();
+                  } catch (err) {
+                    const msg = err?.response?.data?.message || err?.message || "Payment could not be processed.";
+                    setPaymentError(msg);
+                  } finally {
+                    setPaymentSending(false);
+                  }
+                }}
+              >
+                {paymentSending ? (
+                  <>                            <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite", verticalAlign: "middle", marginRight: 4 }} />
+                            Processing…
+                  </>
+                ) : paymentSuccess ? (
+                  "✓ Paid"
+                ) : (
+                  <>                  <Icon name="lock" /> Pay Now — Secure Payment</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Reply Modal ─── */}
       {replyModalId && (

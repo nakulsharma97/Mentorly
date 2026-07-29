@@ -305,8 +305,34 @@ function SessionRequestsSection({ notify, highlightRequestId }) {
                     </div>
                   </div>
                 </div>
+                {/* Extra fields: subject, date, time, duration, budget */}
+                <div className="mp-mini-row" style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {req.subject && (
+                    <span className="mp-chip">{req.subject}</span>
+                  )}
+                  {req.preferredDate && (
+                    <span className="mp-chip" style={{ background: "rgba(15,157,138,0.08)", color: "var(--mp-primary, #0f766e)" }}>
+                      📅 {new Date(req.preferredDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                  {req.preferredTime && (
+                    <span className="mp-chip" style={{ background: "rgba(99,102,241,0.08)", color: "#6366F1" }}>
+                      🕐 {req.preferredTime}
+                    </span>
+                  )}
+                  {req.preferredDuration && (
+                    <span className="mp-chip" style={{ background: "rgba(217,119,6,0.08)", color: "#D97706" }}>
+                      ⏱ {req.preferredDuration} min
+                    </span>
+                  )}
+                  {req.budget && !isNaN(Number(req.budget)) && (
+                    <span className="mp-chip" style={{ background: "rgba(22,163,74,0.08)", color: "#16A34A" }}>
+                      💰 ₹{Number(req.budget).toLocaleString()}
+                    </span>
+                  )}
+                </div>
                 {req.message && (
-                  <p className="mp-mini-row__m" style={{ marginTop: 8, fontStyle: "italic", fontSize: "0.84rem" }}>
+                  <p className="mp-mini-row__m" style={{ marginTop: 6, fontStyle: "italic", fontSize: "0.84rem" }}>
                     "{req.message}"
                   </p>
                 )}
