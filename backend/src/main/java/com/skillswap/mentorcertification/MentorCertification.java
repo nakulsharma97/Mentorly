@@ -30,26 +30,29 @@ public class MentorCertification {
     @Column(name = "issuing_organization", nullable = false, length = 500)
     private String issuingOrganization;
 
-    @Column(name = "credential_id")
+    @Column(name = "credential_id", length = 500)
     private String credentialId;
+
+    @Column(name = "credential_url", length = 1000)
+    private String credentialUrl;
 
     @Column(name = "issue_date", nullable = false)
     private LocalDate issueDate;
 
-    @Column(name = "expiry_date")
-    private LocalDate expiryDate;
+    @Column(name = "expiration_date")
+    private LocalDate expirationDate;
 
-    @Column(name = "certificate_url", length = 1000)
-    private String certificateUrl;
+    @Column(name = "does_not_expire", nullable = false)
+    private boolean doesNotExpire = false;
 
-    @Column(name = "verification_url", length = 1000)
-    private String verificationUrl;
+    @Column(name = "skills_covered", columnDefinition = "TEXT")
+    private String skillsCovered;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Column(name = "certificate_image", length = 1000)
     private String certificateImage;
-
-    @Column(name = "description", columnDefinition = "TEXT")
-    private String description;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();

@@ -7,6 +7,7 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.user.User;
+import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -107,6 +108,7 @@ public class ReviewController {
                         review.getMentor().getId(),
                         review.getLearner().getId(),
                         review.getMentor().getFullName(),
+                        review.getMentor().getUsername(),
                         review.getRating(),
                         review.getComment(),
                         null,
@@ -258,6 +260,7 @@ public class ReviewController {
             Long mentorId,
             Long learnerId,
             String learnerName,
+            String learnerUsername,
             Integer rating,
             String comment,
             String replyText,
@@ -268,6 +271,7 @@ public class ReviewController {
                     review.getMentor().getId(),
                     review.getLearner().getId(),
                     review.getLearner().getFullName(),
+                    review.getLearner().getUsername(),
                     review.getRating(),
                     review.getComment(),
                     review.getReplyText(),

@@ -586,6 +586,11 @@ export default function MentorDashboard({ profile }) {
           <h1 className="ss-hero__title">
             {getGreeting()}, {firstName} <span role="img" aria-label="wave">👋</span>
           </h1>
+          {profile?.username && (
+            <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.6)", marginTop: -4, marginBottom: 0 }}>
+              @{profile.username}
+            </p>
+          )}
           <p className="ss-hero__desc">
             Welcome back to your mentoring workspace. Here's your overview for today.
           </p>
@@ -711,6 +716,7 @@ export default function MentorDashboard({ profile }) {
                       <p className="mdash2-timeline-item__student">
                         <SsIcon name="user" size={16} style={{ marginRight: 4 }} />
                         {s?.learner?.fullName || "Learner"}
+                        {s?.learner?.username && <span style={{ marginLeft: 6, opacity: 0.6, fontSize: "0.75rem" }}>(@{s.learner.username})</span>}
                         {s?.duration && <span style={{ marginLeft: 8, opacity: 0.7 }}>· {s.duration} min</span>}
                         <span style={{ marginLeft: 8, opacity: 0.7 }}>· {formatTime(s.startTime)} – {formatTime(s.endTime)}</span>
                       </p>
@@ -785,6 +791,7 @@ export default function MentorDashboard({ profile }) {
                   <div className="mdash2-request-card__info">
                     <p className="mdash2-request-card__name">
                       {b?.learner?.fullName || "Unknown Learner"}
+                      {b?.learner?.username && <span style={{ marginLeft: 6, fontWeight: 400, fontSize: "0.75rem", color: "var(--ss-text-muted)" }}>(@{b.learner.username})</span>}
                     </p>
                     <p className="mdash2-request-card__skill">
                       {b?.session?.skill?.name || b?.session?.title || "Session"}
@@ -862,7 +869,10 @@ export default function MentorDashboard({ profile }) {
                     {initials(s.name)}
                   </div>
                   <div className="mdash2-student-card__info">
-                    <p className="mdash2-student-card__name">{s.name}</p>
+                    <p className="mdash2-student-card__name">
+                      {s.name}
+                      {s.username && <span style={{ marginLeft: 6, fontWeight: 400, fontSize: "0.75rem", color: "var(--ss-text-muted)" }}>(@{s.username})</span>}
+                    </p>
                     {s.skill && (
                       <p className="mdash2-student-card__skill">{s.skill}</p>
                     )}

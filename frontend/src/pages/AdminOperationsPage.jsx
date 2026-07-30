@@ -86,6 +86,8 @@ export default function AdminOperationsPage({ notify }) {
   const [paymentSearch, setPaymentSearch] = useState('');
   const [refundingId, setRefundingId] = useState(null);
   const [paymentExporting, setPaymentExporting] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState(null);
 
   // ── Loaders ──
   const loadVerificationQueue = useCallback(async () => {
@@ -303,6 +305,25 @@ export default function AdminOperationsPage({ notify }) {
       notify?.({ type: 'error', title: 'Refund failed', message: msg });
     } finally {
       setRefundingId(null);
+    }
+  };
+
+  const handleCertMigration = async () => {
+    setMigrating(true);
+    setMigrationResult(null);
+    try {
+      const res = await client.post('/api/v1/admin/migrations/certificates-to-structured');
+      setMigrationResult(res?.data?.data || null);
+      notify?.({
+        type: 'success',
+        title: 'Migration complete',
+        message: `${res?.data?.data?.certsCreated || 0} certifications migrated.`
+      });
+    } catch (err) {
+      const msg = err?.response?.data?.data?.error || err?.response?.data?.message || 'Migration failed';
+      notify?.({ type: 'error', title: 'Migration failed', message: msg });
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -814,6 +835,84 @@ export default function AdminOperationsPage({ notify }) {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <>
+          {/* ── Certification Migration Card ── */}
+          <section className="admin-panel">
+            <div className="admin-section-heading">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="admin-eyebrow" style={{ margin: 0 }}>
+                  <Icon name="workspace_premium" /> Data Migration
+                </span>
+              </div>
+            </div>
+            <div style={{ color: '#475569', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: 14 }}>
+              <p style={{ margin: 0 }}>
+                Migrate existing text-field certification data into structured certification entities.
+                This scans all mentors who have free-text certifications and creates structured
+                <code style={{ background: '#f1f5f9', padding: '1px 5px', borderRadius: 4, fontSize: '0.8rem' }}>MentorCertification</code>
+                records. Users who already have structured certifications are skipped.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="admin-refresh-btn"
+                onClick={handleCertMigration}
+                disabled={migrating}
+                style={{
+                  padding: '10px 20px',
+                  background: migrating ? '#94a3b8' : 'linear-gradient(135deg, #0f766e, #14b8a6)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  cursor: migrating ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'opacity 0.2s',
+                }}
+              >
+                {migrating ? (
+                  <>
+                    <span className="material-symbols-outlined migrate-spinner">sync</span>
+                    Migrating...
+                  </>
+                ) : (
+                  <>
+                    <Icon name="upload" />
+                    Migrate Certifications
+                  </>
+                )}
+              </button>
+
+              {migrating && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#0f766e', fontSize: '0.85rem', fontWeight: 600 }}>
+                  <div className="migration-progress-bar">
+                    <div className="migration-progress-fill" />
+                  </div>
+                  Processing...
+                </div>
+              )}
+
+              {migrationResult && !migrating && (
+                <div style={{
+                  display: 'flex', gap: 10, flexWrap: 'wrap', padding: '12px 16px',
+                  background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, fontSize: '0.82rem',
+                }}>
+                  <span style={{ fontWeight: 700, color: '#065f46' }}>✅ Migration Complete</span>
+                  <MigrationStat label="Users processed" value={migrationResult.usersProcessed} color="#0f766e" />
+                  <MigrationStat label="Certs created" value={migrationResult.certsCreated} color="#059669" />
+                  <MigrationStat label="Skipped (no text)" value={migrationResult.usersSkippedNoText} color="#64748b" />
+                  <MigrationStat label="Skipped (already migrated)" value={migrationResult.usersSkippedAlreadyMigrated} color="#64748b" />
+                  {migrationResult.parseErrors > 0 && (
+                    <MigrationStat label="Parse errors" value={migrationResult.parseErrors} color="#dc2626" />
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+
           {/* ── Referral Summary Widget ── */}
           {referralAnalytics && (
             <section className="admin-panel">
@@ -876,6 +975,19 @@ export default function AdminOperationsPage({ notify }) {
       {activeTab === 'payments' && renderPaymentsTab()}
       {activeTab === 'referral' && renderReferralTab()}
     </main>
+  );
+}
+
+function MigrationStat({ label, value, color }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span style={{
+        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+        background: color || '#64748b',
+      }} />
+      <strong style={{ fontSize: '0.9rem' }}>{value}</strong>
+      <span style={{ color: '#64748b' }}>{label}</span>
+    </span>
   );
 }
 

@@ -103,7 +103,7 @@ public class AuthController {
 
     private AuthSessionResponse sanitize(AuthResponse authResponse) {
         return new AuthSessionResponse(authResponse.email(), authResponse.role(), authResponse.token(),
-                authResponse.refreshToken());
+                authResponse.refreshToken(), authResponse.username());
     }
 
     private static String resolveClientIp(String xForwardedFor) {

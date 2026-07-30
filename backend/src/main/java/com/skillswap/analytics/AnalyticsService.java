@@ -270,12 +270,15 @@ public class AnalyticsService {
                                         && booking.getSession().getMentor().getFullName() != null
                                                         ? booking.getSession().getMentor().getFullName().trim()
                                                         : "Mentor";
+                        String mentorUsername = booking.getSession() != null && booking.getSession().getMentor() != null
+                                        ? booking.getSession().getMentor().getUsername()
+                                        : "";
                         String mentorKey = booking.getSession() != null && booking.getSession().getMentor() != null
                                         && booking.getSession().getMentor().getId() != null
                                                         ? String.valueOf(booking.getSession().getMentor().getId())
                                                         : mentorName;
 
-                        history.computeIfAbsent(mentorKey, key -> new MutableMentorHistory(mentorKey, mentorName));
+                        history.computeIfAbsent(mentorKey, key -> new MutableMentorHistory(mentorKey, mentorName, mentorUsername));
                         mentorByBookingId.put(booking.getId(), mentorKey);
 
                         if ("COMPLETED".equalsIgnoreCase(String.valueOf(booking.getBookingStatus()))) {
@@ -313,6 +316,7 @@ public class AnalyticsService {
                                 .map(row -> new AnalyticsDtos.MentorHistoryDto(
                                                 row.id,
                                                 row.name,
+                                                row.username,
                                                 row.sessionsAttended,
                                                 round1(row.totalHours),
                                                 round1(row.totalSpend)))
@@ -454,13 +458,15 @@ public class AnalyticsService {
         private static final class MutableMentorHistory {
                 private final String id;
                 private final String name;
+                private final String username;
                 private int sessionsAttended;
                 private double totalHours;
                 private double totalSpend;
 
-                private MutableMentorHistory(String id, String name) {
+                private MutableMentorHistory(String id, String name, String username) {
                         this.id = id;
                         this.name = name;
+                        this.username = username;
                         this.sessionsAttended = 0;
                         this.totalHours = 0;
                         this.totalSpend = 0;

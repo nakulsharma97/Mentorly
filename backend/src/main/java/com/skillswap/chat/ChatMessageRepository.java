@@ -20,6 +20,23 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     ChatMessage findTopByBookingIdOrderByCreatedAtDesc(Long bookingId);
 
+    /**
+     * Batch-fetch the last message for each booking in a single query.
+     * Uses a subquery to find the max (latest) message id per booking.
+     *
+     * @param bookingIds list of booking IDs to fetch last messages for
+     * @return list of last messages per booking (one per booking)
+     */
+    @Query("""
+            SELECT m FROM ChatMessage m
+            WHERE m.id IN (
+                SELECT MAX(m2.id) FROM ChatMessage m2
+                WHERE m2.booking.id IN :bookingIds
+                GROUP BY m2.booking.id
+            )
+            """)
+    List<ChatMessage> findLastMessagesByBookingIds(@Param("bookingIds") List<Long> bookingIds);
+
     long countByBookingIdAndSenderEmailNotAndReadByRecipientFalse(Long bookingId, String readerEmail);
 
     @Modifying

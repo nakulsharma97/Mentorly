@@ -59,18 +59,15 @@ public class MentorCertificationService {
 
     private void ensureUnique(User owner, MentorCertificationDto request, Long excludeId) {
         String normalizedName = normalize(request.getCertificationName());
-        String normalizedOrganization = normalize(request.getIssuingOrganization());
-        if (normalizedName == null || normalizedOrganization == null) {
-            return;
-        }
+        String normalizedOrg = normalize(request.getIssuingOrganization());
+        if (normalizedName == null || normalizedOrg == null) return;
 
-        boolean duplicate = certificationRepository.findByMentorIdOrderByIssueDateDesc(owner.getId()).stream()
+        boolean duplicate = certificationRepository.findByMentorIdOrderByIssueDateDesc(owner.getId())
+                .stream()
                 .anyMatch(item -> {
-                    if (excludeId != null && excludeId.equals(item.getId())) {
-                        return false;
-                    }
+                    if (excludeId != null && excludeId.equals(item.getId())) return false;
                     return normalize(item.getCertificationName()).equals(normalizedName)
-                            && normalize(item.getIssuingOrganization()).equals(normalizedOrganization);
+                            && normalize(item.getIssuingOrganization()).equals(normalizedOrg);
                 });
 
         if (duplicate) {
@@ -82,14 +79,15 @@ public class MentorCertificationService {
         certification.setCertificationName(trimToNull(request.getCertificationName()));
         certification.setIssuingOrganization(trimToNull(request.getIssuingOrganization()));
         certification.setCredentialId(trimToNull(request.getCredentialId()));
+        certification.setCredentialUrl(trimToNull(request.getCredentialUrl()));
         certification.setIssueDate(request.getIssueDate());
-        certification.setExpiryDate(request.getExpiryDate());
-        certification.setCertificateUrl(trimToNull(request.getCertificateUrl()));
-        certification.setVerificationUrl(trimToNull(request.getVerificationUrl()));
+        certification.setExpirationDate(request.isDoesNotExpire() ? null : request.getExpirationDate());
+        certification.setDoesNotExpire(request.isDoesNotExpire());
+        certification.setSkillsCovered(trimToNull(request.getSkillsCovered()));
+        certification.setDescription(trimToNull(request.getDescription()));
         if (request.getCertificateImage() != null) {
             certification.setCertificateImage(trimToNull(request.getCertificateImage()));
         }
-        certification.setDescription(trimToNull(request.getDescription()));
     }
 
     private MentorCertificationDto toDto(MentorCertification certification) {
@@ -99,12 +97,13 @@ public class MentorCertificationService {
         dto.setCertificationName(certification.getCertificationName());
         dto.setIssuingOrganization(certification.getIssuingOrganization());
         dto.setCredentialId(certification.getCredentialId());
+        dto.setCredentialUrl(certification.getCredentialUrl());
         dto.setIssueDate(certification.getIssueDate());
-        dto.setExpiryDate(certification.getExpiryDate());
-        dto.setCertificateUrl(certification.getCertificateUrl());
-        dto.setVerificationUrl(certification.getVerificationUrl());
-        dto.setCertificateImage(certification.getCertificateImage());
+        dto.setExpirationDate(certification.getExpirationDate());
+        dto.setDoesNotExpire(certification.isDoesNotExpire());
+        dto.setSkillsCovered(certification.getSkillsCovered());
         dto.setDescription(certification.getDescription());
+        dto.setCertificateImage(certification.getCertificateImage());
         dto.setCreatedAt(certification.getCreatedAt());
         dto.setUpdatedAt(certification.getUpdatedAt());
         return dto;
@@ -120,23 +119,27 @@ public class MentorCertificationService {
         if (request.getIssueDate() == null) {
             throw new IllegalArgumentException("Issue date is required");
         }
-        if (request.getExpiryDate() != null && request.getExpiryDate().isBefore(request.getIssueDate())) {
-            throw new IllegalArgumentException("Expiry date must be after the issue date");
+        if (!request.isDoesNotExpire() && request.getExpirationDate() != null
+                && request.getExpirationDate().isBefore(request.getIssueDate())) {
+            throw new IllegalArgumentException("Expiration date must be after the issue date");
+        }
+        // Validate credential URL format if provided
+        if (request.getCredentialUrl() != null && !request.getCredentialUrl().trim().isEmpty()) {
+            String url = request.getCredentialUrl().trim().toLowerCase(Locale.ROOT);
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                throw new IllegalArgumentException("Credential URL must start with http:// or https://");
+            }
         }
     }
 
     private static String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 
     private static String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }

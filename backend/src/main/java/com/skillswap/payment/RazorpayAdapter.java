@@ -1,5 +1,6 @@
 package com.skillswap.payment;
 
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,20 @@ public class RazorpayAdapter implements PaymentGateway {
 
     @Value("${app.payment.razorpay.key-secret:rzp_test_secret}")
     private String keySecret;
+
+    @PostConstruct
+    void validateKeys() {
+        if (keyId == null || keyId.isBlank()
+                || "rzp_test_xxxxxxxxxxxx".equals(keyId)) {
+            log.warn("⚠ Razorpay key-id is using the default/test placeholder! "
+                    + "Set APP_PAYMENT_RAZORPAY_KEY_ID in production.");
+        }
+        if (keySecret == null || keySecret.isBlank()
+                || "rzp_test_secret".equals(keySecret)) {
+            log.warn("⚠ Razorpay key-secret is using the default/test placeholder! "
+                    + "Set APP_PAYMENT_RAZORPAY_KEY_SECRET in production.");
+        }
+    }
 
     @Override
     public Map<String, Object> createOrder(String orderId, BigDecimal amount, String currency) {
@@ -101,6 +116,43 @@ public class RazorpayAdapter implements PaymentGateway {
         // In production: use RazorpayClient.Payments.fetch()
         log.info("Razorpay payment status fetched: paymentId={}", paymentId);
         return "captured";
+    }
+
+    @Override
+    public boolean verifyWebhookSignature(String rawPayload, String signatureHeader) {
+        // Razorpay sends the signature in the "x-razorpay-signature" header.
+        // The HMAC is computed over the raw request body using the key secret.
+        if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
+            log.warn("Razorpay webhook signature header missing or empty");
+            return false;
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(keySecret.getBytes("UTF-8"), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] hmacBytes = mac.doFinal(rawPayload.getBytes("UTF-8"));
+
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hmacBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+
+            String expectedSignature = hexString.toString();
+            // Razorpay sends base64-encoded signatures, while our simulation uses hex.
+            // Compare against both formats for compatibility.
+            boolean verified = expectedSignature.equals(signatureHeader)
+                    || java.util.Base64.getEncoder().encodeToString(
+                            java.util.HexFormat.of().parseHex(expectedSignature))
+                            .equals(signatureHeader);
+
+            log.info("Razorpay webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            return verified;
+        } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
+            log.error("Razorpay webhook signature verification failed", e);
+            return false;
+        }
     }
 
     @Override

@@ -283,8 +283,18 @@ public class UserController {
         if (!hasValue(user.getLinkedinUrl())) {
             missing.add("LinkedIn");
         }
+        if (!hasValue(user.getPastTeachingSessions())) {
+            missing.add("Experience");
+        }
+        if (!hasValue(user.getCertificates())) {
+            missing.add("Certifications");
+        }
+        if (!hasValue(user.getProjects())
+                && (user.getProjectsList() == null || user.getProjectsList().isEmpty())) {
+            missing.add("Projects");
+        }
 
-        int total = 4;
+        int total = 7;
         int completed = total - missing.size();
         int percent = Math.round((completed / (float) total) * 100);
 
@@ -315,9 +325,63 @@ public class UserController {
             @Size(max = 6000) String pastTeachingSessions) {
     }
 
+    @GetMapping("/me/check-username")
+    public ApiResponse<UsernameAvailabilityResponse> checkUsername(@RequestParam String username) {
+        String normalized = username.toLowerCase().trim();
+        boolean available = !RESERVED_USERNAMES.contains(normalized)
+                && !userRepository.existsByUsername(normalized);
+        String suggestion = available ? null : generateSuggestion(normalized);
+        return new ApiResponse<>("Username check", new UsernameAvailabilityResponse(available, suggestion));
+    }
+
+    private static final java.util.Set<String> RESERVED_USERNAMES = java.util.Set.of(
+            "admin", "support", "login", "register", "signup", "mentor", "learner",
+            "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
+            "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
+
+    private static final java.util.regex.Pattern USERNAME_PATTERN =
+            java.util.regex.Pattern.compile("^[a-z0-9_]{3,20}$");
+
+    private String generateSuggestion(String base) {
+        for (int i = 1; i < 100; i++) {
+            String suggestion = base + i;
+            if (!RESERVED_USERNAMES.contains(suggestion)
+                    && !userRepository.existsByUsername(suggestion)) {
+                return suggestion;
+            }
+        }
+        return base + System.currentTimeMillis() % 10000;
+    }
+
+    public record UsernameAvailabilityResponse(boolean available, String suggestion) {}
+
+    @PutMapping("/me/username")
+    public ApiResponse<UserProfileResponse> updateUsername(
+            @AuthenticationPrincipal User user,
+            @RequestBody @jakarta.validation.Valid UsernameUpdateRequest req) {
+        String normalized = req.username().toLowerCase(java.util.Locale.ROOT).trim();
+        if (!USERNAME_PATTERN.matcher(normalized).matches()) {
+            throw new IllegalArgumentException(
+                    "Username must be 3\u201320 characters: lowercase letters, numbers, and underscores only.");
+        }
+        if (RESERVED_USERNAMES.contains(normalized)) {
+            throw new IllegalArgumentException("This username is reserved.");
+        }
+        if (userRepository.existsByUsername(normalized)) {
+            throw new IllegalArgumentException("Username already exists. Please choose another one.");
+        }
+        user.setUsername(normalized);
+        userRepository.save(user);
+        return new ApiResponse<>("Username updated", UserProfileResponse.from(user));
+    }
+
+    public record UsernameUpdateRequest(
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 3, max = 20) String username) {}
+
     public record UserProfileResponse(
             Long id,
             String email,
+            String username,
             String fullName,
             String role,
             String walletAddress,
@@ -338,6 +402,7 @@ public class UserController {
             return new UserProfileResponse(
                     user.getId(),
                     user.getEmail(),
+                    user.getUsername(),
                     user.getFullName(),
                     user.getRole().name(),
                     user.getWalletAddress(),
@@ -360,6 +425,7 @@ public class UserController {
             Long id,
             String createdAt,
             String fullName,
+            String username,
             String skills,
             String aboutMe,
             String githubUrl,
@@ -382,6 +448,7 @@ public class UserController {
                     mentor.getId(),
                     mentor.getCreatedAt() == null ? null : mentor.getCreatedAt().toString(),
                     mentor.getFullName(),
+                    mentor.getUsername(),
                     mentor.getSkills(),
                     mentor.getAboutMe(),
                     mentor.getGithubUrl(),
@@ -401,6 +468,7 @@ public class UserController {
     public record LiveMentorResponse(
             Long id,
             String fullName,
+            String username,
             String skills,
             String profileImageUrl,
             Double averageRating,
@@ -415,6 +483,7 @@ public class UserController {
             return new LiveMentorResponse(
                     mentor.getId(),
                     mentor.getFullName(),
+                    mentor.getUsername(),
                     mentor.getSkills(),
                     mentor.getProfileImageUrl(),
                     averageRating,

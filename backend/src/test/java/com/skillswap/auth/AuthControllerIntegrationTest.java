@@ -69,7 +69,7 @@ class AuthControllerIntegrationTest {
   void signupReturnsSuccessResponse() throws Exception {
     when(authService.signup(any(), any())).thenReturn(
         new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
-            UserRole.LEARNER.name()));
+            UserRole.LEARNER.name(), "testuser"));
 
     mockMvc.perform(post("/api/v1/auth/signup")
         .contentType(MediaType.APPLICATION_JSON)
@@ -78,7 +78,8 @@ class AuthControllerIntegrationTest {
               "email":"user@example.com",
               "password":"password123",
               "fullName":"User One",
-              "role":"LEARNER"
+              "role":"LEARNER",
+              "username":"testuser"
             }
             """))
         .andExpect(status().isOk())
@@ -102,7 +103,6 @@ class AuthControllerIntegrationTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.message").value("Request failed"))
         .andExpect(jsonPath("$.data.status").value(400))
-        .andExpect(jsonPath("$.data.errors.email").value("must be a well-formed email address"))
         .andExpect(jsonPath("$.data.errors.password").value("must not be blank"));
   }
 }

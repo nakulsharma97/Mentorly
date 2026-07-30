@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../../context/ThemeContext";
+import client from "../../../api/client";
 import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
 import NotificationCenter from "../../../components/NotificationCenter";
@@ -29,9 +30,16 @@ export default function WorkspaceTopbar({
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const menuRef = useRef(null);
   const searchInputRef = useRef(null);
+  const searchDropdownRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  const isMentor = profile?.role === "MENTOR";
 
   const segment = location.pathname.split("/").filter(Boolean)[1] || "dashboard";
   const meta = pageMeta[segment] || { title: "Dashboard", search: "Search..." };
@@ -68,26 +76,65 @@ export default function WorkspaceTopbar({
     };
   }, []);
 
-  // Global keyboard shortcut: press / to focus search
+  // Close search dropdown on click outside
   useEffect(() => {
-    const onKey = (event) => {
+    const onClick = (e) => {
       if (
-        event.key === "/" &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        document.activeElement?.tagName !== "INPUT" &&
-        document.activeElement?.tagName !== "TEXTAREA"
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(e.target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.closest(".ws-top__search")?.contains(e.target)
       ) {
-        event.preventDefault();
-        searchInputRef.current?.focus();
+        setShowSearchDropdown(false);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  // Debounced search API call
+  const runSearch = useCallback(async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const response = await client.get("/api/v1/search/users", {
+        params: { q: query.trim(), size: 10 },
+      });
+      const users = response?.data?.data || [];
+      // Filter by role: mentors see all, learners see mentors only
+      const filtered = isMentor
+        ? users
+        : users.filter((u) => u.role === "MENTOR");
+      setSearchResults(filtered);
+      setShowSearchDropdown(filtered.length > 0 || query.trim().length >= 2);
+    } catch {
+      setSearchResults([]);
+      setShowSearchDropdown(true); // show empty state
+    } finally {
+      setSearchLoading(false);
+    }
+  }, [isMentor]);
+
   const handleSearchChange = (event) => {
-    setSearchValue(event.target.value);
+    const value = event.target.value;
+    setSearchValue(value);
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    if (value.trim().length >= 2) {
+      searchDebounceRef.current = setTimeout(() => {
+        runSearch(value);
+      }, 300);
+    } else {
+      setSearchResults([]);
+      setShowSearchDropdown(false);
+    }
   };
 
   const handleSearchKeyDown = (event) => {
@@ -100,7 +147,31 @@ export default function WorkspaceTopbar({
       } else if (location.pathname.startsWith("/learner")) {
         navigate(`/learner/messages?q=${q}`);
       }
+      setShowSearchDropdown(false);
       searchInputRef.current?.blur();
+    }
+    if (event.key === "Escape") {
+      setShowSearchDropdown(false);
+      searchInputRef.current?.blur();
+    }
+  };
+
+  const handleSearchResultClick = (user) => {
+    setShowSearchDropdown(false);
+    setSearchValue("");
+    setSearchResults([]);
+    // Navigate to the appropriate page based on role
+    if (user.role === "MENTOR") {
+      navigate(`/mentors/${user.userId}`);
+    } else {
+      // Navigate to learner profile or messages
+      navigate(`/learner/messages`);
+    }
+  };
+
+  const handleSearchFocus = () => {
+    if (searchResults.length > 0 || (searchValue.trim().length >= 2 && !searchLoading)) {
+      setShowSearchDropdown(true);
     }
   };
 
@@ -133,20 +204,69 @@ export default function WorkspaceTopbar({
         </div>
       </div>
 
-      <label className="ws-top__search" htmlFor="ws-search">
-        <SsIcon name="search" size={20} />
-        <input
-          ref={searchInputRef}
-          id="ws-search"
-          type="search"
-          value={searchValue}
-          onChange={handleSearchChange}
-          onKeyDown={handleSearchKeyDown}
-          placeholder={meta.search}
-          aria-label="Search"
-        />
-        <kbd className="ws-top__kbd">/</kbd>
-      </label>
+      <div className="ws-top__search-wrap" ref={searchDropdownRef}>
+        <label className="ws-top__search" htmlFor="ws-search">
+          <SsIcon name="search" size={20} />
+          <input
+            ref={searchInputRef}
+            id="ws-search"
+            type="search"
+            value={searchValue}
+            onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
+            onFocus={handleSearchFocus}
+            placeholder={meta.search}
+            aria-label="Search"
+            autoComplete="off"
+          />
+          {searchLoading && (
+            <span className="ws-top__search-spinner" aria-label="Searching">
+              <SsIcon name="loader" size={16} />
+            </span>
+          )}
+          <kbd className="ws-top__kbd">/</kbd>
+        </label>
+
+        {/* Search Results Dropdown */}
+        {showSearchDropdown && (
+          <div className="ws-top__search-dropdown" role="listbox" aria-label="Search results">
+            {searchLoading ? (
+              <div className="ws-top__search-dropdown-item ws-top__search-dropdown-item--empty">
+                <SsIcon name="loader" size={18} />
+                <span>Searching...</span>
+              </div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((user) => (
+                <button
+                  key={user.userId}
+                  type="button"
+                  className="ws-top__search-dropdown-item"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => handleSearchResultClick(user)}
+                >
+                  <span className="ws-top__search-avatar">
+                    {user.profileImageUrl ? (
+                      <img src={user.profileImageUrl} alt={user.fullName} />
+                    ) : (
+                      initials(user.fullName || "U")
+                    )}
+                  </span>
+                  <span className="ws-top__search-name">{user.fullName}</span>
+                  <span className={`ws-top__search-role ws-top__search-role--${user.role.toLowerCase()}`}>
+                    {user.role === "MENTOR" ? "Mentor" : "Learner"}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="ws-top__search-dropdown-item ws-top__search-dropdown-item--empty">
+                <SsIcon name="search" size={18} />
+                <span>No users found for &ldquo;{searchValue}&rdquo;</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="ws-top__right">
         <NotificationCenter
@@ -177,6 +297,11 @@ export default function WorkspaceTopbar({
             </span>
             <span className="ws-top__profile-copy">
               <strong>{fullName}</strong>
+              {profile?.username && (
+                <span style={{ fontSize: "0.72rem", color: "var(--muted)", fontWeight: 500, lineHeight: 1.2 }}>
+                  @{profile.username}
+                </span>
+              )}
               <span className="ws-top__status">
                 <i className="ws-top__dot" /> Online
               </span>

@@ -1,5 +1,6 @@
 package com.skillswap.payment;
 
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,20 @@ public class PayPalAdapter implements PaymentGateway {
 
     @Value("${app.payment.paypal.client-secret:test_client_secret}")
     private String clientSecret;
+
+    @PostConstruct
+    void validateKeys() {
+        if (clientId == null || clientId.isBlank()
+                || "test_client_id".equals(clientId)) {
+            log.warn("⚠ PayPal client-id is using the default/test placeholder! "
+                    + "Set APP_PAYMENT_PAYPAL_CLIENT_ID in production.");
+        }
+        if (clientSecret == null || clientSecret.isBlank()
+                || "test_client_secret".equals(clientSecret)) {
+            log.warn("⚠ PayPal client-secret is using the default/test placeholder! "
+                    + "Set APP_PAYMENT_PAYPAL_CLIENT_SECRET in production.");
+        }
+    }
 
     @Override
     public Map<String, Object> createOrder(String orderId, BigDecimal amount, String currency) {
@@ -104,6 +119,38 @@ public class PayPalAdapter implements PaymentGateway {
         // In production: use PayPal Orders API getOrder()
         log.info("PayPal payment status fetched: paymentId={}", paymentId);
         return "COMPLETED";
+    }
+
+    @Override
+    public boolean verifyWebhookSignature(String rawPayload, String signatureHeader) {
+        // PayPal uses a webhook verification API (POST /v1/notifications/verify-webhook-signature)
+        // with the webhook ID, the raw payload, and headers.
+        // In this simulation, we use HMAC-SHA256 with the client secret as a simplified check.
+        if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
+            log.warn("PayPal webhook signature header missing or empty");
+            return false;
+        }
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(clientSecret.getBytes("UTF-8"), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] hmacBytes = mac.doFinal(rawPayload.getBytes("UTF-8"));
+
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hmacBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+
+            boolean verified = hexString.toString().equals(signatureHeader);
+            // In production: call PayPal's /v1/notifications/verify-webhook-signature
+            log.info("PayPal webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            return verified;
+        } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
+            log.error("PayPal webhook signature verification failed", e);
+            return false;
+        }
     }
 
     @Override

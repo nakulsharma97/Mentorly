@@ -148,15 +148,13 @@ public class ChatService {
     }
 
     private ChatMessage saveMessage(User sender, Booking booking, String content) {
-        String normalized = content == null ? "" : content.trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Message cannot be empty");
-        }
+        String sanitized = ChatInputSanitizer.sanitize(content);
+        ChatInputSanitizer.validate(sanitized);
 
         ChatMessage message = new ChatMessage();
         message.setBooking(booking);
         message.setSender(sender);
-        message.setContent(normalized);
+        message.setContent(sanitized);
         ChatMessage saved = chatMessageRepository.save(message);
 
         Long learnerId = booking.getLearner().getId();
@@ -209,6 +207,7 @@ public class ChatService {
                 booking.getSession().getTitle(),
                 participant.getId(),
                 participant.getFullName(),
+                participant.getUsername(),
                 participant.getRole().name(),
                 participant.getSkills() == null ? "" : participant.getSkills(),
                 participant.getProfileImageUrl(),
@@ -251,6 +250,7 @@ public class ChatService {
                 message.getSender().getId(),
                 message.getSender().getEmail(),
                 message.getSender().getFullName(),
+                message.getSender().getUsername(),
                 message.getSender().getRole().name(),
                 message.getSender().getProfileImageUrl(),
                 message.getSender().isMentorVerified(),
@@ -284,6 +284,7 @@ public class ChatService {
                     dc.getId(),
                     target.getId(),
                     target.getFullName(),
+                    target.getUsername(),
                     target.getRole().name(),
                     target.getSkills() == null ? "" : target.getSkills(),
                     target.getProfileImageUrl(),
@@ -315,6 +316,7 @@ public class ChatService {
                 saved.getId(),
                 target.getId(),
                 target.getFullName(),
+                target.getUsername(),
                 target.getRole().name(),
                 target.getSkills() == null ? "" : target.getSkills(),
                 target.getProfileImageUrl(),
@@ -388,15 +390,13 @@ public class ChatService {
             throw new IllegalArgumentException("Access denied");
         }
 
-        String normalized = content == null ? "" : content.trim();
-        if (normalized.isEmpty()) {
-            throw new IllegalArgumentException("Message cannot be empty");
-        }
+        String sanitized = ChatInputSanitizer.sanitize(content);
+        ChatInputSanitizer.validate(sanitized);
 
         DirectMessage message = new DirectMessage();
         message.setConversation(conversation);
         message.setSender(currentUser);
-        message.setContent(normalized);
+        message.setContent(sanitized);
         DirectMessage saved = directMessageRepository.save(message);
 
         // Update conversation timestamp
@@ -441,6 +441,7 @@ public class ChatService {
                             dc.getId(),
                             participant.getId(),
                             participant.getFullName(),
+                            participant.getUsername(),
                             participant.getRole().name(),
                             participant.getSkills() == null ? "" : participant.getSkills(),
                             participant.getProfileImageUrl(),
@@ -466,6 +467,7 @@ public class ChatService {
                 message.getSender().getId(),
                 message.getSender().getEmail(),
                 message.getSender().getFullName(),
+                message.getSender().getUsername(),
                 message.getSender().getRole().name(),
                 message.getSender().getProfileImageUrl(),
                 message.getContent(),
@@ -478,6 +480,7 @@ public class ChatService {
             String sessionTitle,
             Long participantId,
             String participantName,
+            String participantUsername,
             String participantRole,
             String participantSkills,
             String participantProfileImageUrl,
@@ -493,6 +496,7 @@ public class ChatService {
             Long conversationId,
             Long participantId,
             String participantName,
+            String participantUsername,
             String participantRole,
             String participantSkills,
             String participantProfileImageUrl,
@@ -545,6 +549,7 @@ public class ChatService {
                 conversation.getId(),
                 participant.getId(),
                 participant.getFullName(),
+                participant.getUsername(),
                 participant.getRole().name(),
                 participant.getSkills() == null ? "" : participant.getSkills(),
                 participant.getProfileImageUrl(),
@@ -558,6 +563,7 @@ public class ChatService {
             Long conversationId,
             Long participantId,
             String participantName,
+            String participantUsername,
             String participantRole,
             String participantSkills,
             String participantProfileImageUrl,
@@ -573,6 +579,7 @@ public class ChatService {
             Long senderId,
             String senderEmail,
             String senderName,
+            String senderUsername,
             String senderRole,
             String senderProfileImageUrl,
             String content,
@@ -586,6 +593,7 @@ public class ChatService {
             Long senderId,
             String senderEmail,
             String senderName,
+            String senderUsername,
             String senderRole,
             String senderProfileImageUrl,
             boolean senderVerified,

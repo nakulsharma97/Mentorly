@@ -1,5 +1,7 @@
 package com.skillswap.payment;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -122,30 +124,92 @@ public class PaymentController {
         return new ApiResponse<>("Refund processed", refunded);
     }
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     /**
      * Process a gateway webhook event.
+     *
+     * <p>Verifies the webhook signature using the gateway's adapter before
+     * processing the payload. The raw request body is consumed as a String to
+     * preserve the exact bytes for HMAC verification.
      */
     @PostMapping("/webhook/{gateway}")
-    public ApiResponse<Payment> handleWebhook(@PathVariable @NotBlank String gateway,
-            @RequestBody Map<String, Object> webhookPayload) {
-        // Extract common webhook fields - adapters may parse differently
-        String eventType = (String) webhookPayload.getOrDefault("event", "unknown");
-        // In production, extract payment_id from gateway-specific payload location
-        Object rawEventData = webhookPayload.getOrDefault("data", Map.of());
-        Map<String, Object> eventData;
-        if (rawEventData instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> cast = (Map<String, Object>) rawEventData;
-            eventData = cast;
-        } else {
-            eventData = Map.of();
-        }
-        String gatewayPaymentId = (String) eventData.getOrDefault("payment_id",
-                webhookPayload.getOrDefault("payment_id", "").toString());
+    public ApiResponse<Payment> handleWebhook(
+            @PathVariable @NotBlank String gateway,
+            @RequestHeader(value = "X-Webhook-Signature", required = false, defaultValue = "") String signatureHeader,
+            @RequestBody String rawBody) {
 
-        Payment processed = paymentVerificationService.processWebhookEvent(gateway, eventType,
-                gatewayPaymentId, webhookPayload);
+        // Resolve the gateway adapter for this webhook
+        PaymentGateway gatewayAdapter = paymentService.resolveGateway(gateway);
+
+        // Verify webhook signature — reject forged events before any processing
+        if (!gatewayAdapter.verifyWebhookSignature(rawBody, signatureHeader)) {
+            log.warn("Webhook signature verification FAILED for gateway={}", gateway);
+            throw new IllegalArgumentException("Invalid webhook signature");
+        }
+        log.info("Webhook signature verified for gateway={}", gateway);
+
+        // Parse the raw JSON body to a Map with proper type safety
+        Map<String, Object> webhookPayload;
+        try {
+            webhookPayload = OBJECT_MAPPER.readValue(rawBody,
+                    new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse webhook payload JSON for gateway={}", gateway, e);
+            throw new IllegalArgumentException("Invalid webhook payload format");
+        }
+
+        // Extract common webhook fields with type-safe access
+        String eventType = safeStringCast(webhookPayload.get("event"), "unknown");
+        String gatewayPaymentId = extractGatewayPaymentId(webhookPayload);
+
+        log.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}",
+                gateway, eventType, gatewayPaymentId);
+
+        Payment processed = paymentVerificationService.processWebhookEvent(
+                gateway, eventType, gatewayPaymentId, webhookPayload);
         return new ApiResponse<>("Webhook processed", processed);
+    }
+
+    /**
+     * Safely extract a string value from an unknown-typed map entry,
+     * falling back to the default if null or not a string.
+     */
+    private static String safeStringCast(Object value, String defaultValue) {
+        if (value instanceof String s) {
+            return s;
+        }
+        return defaultValue;
+    }
+
+    /**
+     * Extract a gateway payment ID from the webhook payload.
+     * Different gateways place it at different locations.
+     */
+    private static String extractGatewayPaymentId(Map<String, Object> payload) {
+        // Check common locations: data.payment_id, payment_id, data.object.id
+        Object dataObj = payload.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            // Direct key lookup instead of iterating all entries
+            Object paymentIdVal = dataMap.get("payment_id");
+            if (paymentIdVal instanceof String s) {
+                return s;
+            }
+            // Check data.object.id (common in Stripe webhooks)
+            Object objectObj = dataMap.get("object");
+            if (objectObj instanceof Map<?, ?> objectMap) {
+                Object idVal = objectMap.get("id");
+                if (idVal instanceof String s) {
+                    return s;
+                }
+            }
+        }
+        // Fallback to top-level payment_id
+        Object topLevelId = payload.get("payment_id");
+        if (topLevelId instanceof String s) {
+            return s;
+        }
+        return "";
     }
 
     // --- Request DTOs ---

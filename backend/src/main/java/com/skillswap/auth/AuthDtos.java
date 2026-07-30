@@ -10,20 +10,21 @@ public class AuthDtos {
                         @Email String email,
                         @NotBlank String password,
                         @NotBlank String fullName,
+                        @NotBlank String username,
                         UserRole role,
                         String walletAddress,
                         String referralCode) {
         }
 
         public record LoginRequest(
-                        @Email String email,
+                        String email,
                         @NotBlank String password) {
         }
 
-        public record AuthResponse(String token, String refreshToken, String email, String role) {
+        public record AuthResponse(String token, String refreshToken, String email, String role, String username) {
         }
 
-        public record AuthSessionResponse(String email, String role, String token, String refreshToken) {
+        public record AuthSessionResponse(String email, String role, String token, String refreshToken, String username) {
         }
 
         public record RefreshTokenRequest(

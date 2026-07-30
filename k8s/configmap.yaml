@@ -9,8 +9,10 @@ data:
   # Non-sensitive configuration values
   SPRING_DATASOURCE_URL: "jdbc:mysql://skillswap-mysql:3306/skill_swap?useSSL=true&requireSSL=true&serverTimezone=UTC"
   SPRING_DATASOURCE_USERNAME: "skill_swap"
-  CORS_ALLOWED_ORIGINS: "https://app.yourdomain.com"
-  OAUTH2_REDIRECT_URL: "https://app.yourdomain.com/oauth/callback"
+  # 🔧 CHANGE_ME: Replace with your actual domain (e.g. https://skillswap.example.com)
+  CORS_ALLOWED_ORIGINS: "https://CHANGE_ME.example.com"
+  # 🔧 CHANGE_ME: Replace with your actual domain
+  OAUTH2_REDIRECT_URL: "https://CHANGE_ME.example.com/oauth/callback"
   APP_RATE_LIMIT_AUTH_PER_MINUTE: "12"
   APP_RATE_LIMIT_PAYMENT_PER_MINUTE: "20"
   SPRING_PROFILES_ACTIVE: "prod"
@@ -26,11 +28,11 @@ metadata:
 type: Opaque
 stringData:
   # IMPORTANT: Replace these with your actual secrets
-  JWT_SECRET: "replace-with-your-jwt-secret"
-  SPRING_DATASOURCE_PASSWORD: "replace-with-db-password"
-  GOOGLE_CLIENT_ID: "replace-me"
-  GOOGLE_CLIENT_SECRET: "replace-me"
-  GITHUB_CLIENT_ID: "replace-me"
-  GITHUB_CLIENT_SECRET: "replace-me"
-  STRIPE_SECRET_KEY: "replace-me"
+  JWT_SECRET: "CHANGE_ME-to-a-base64-encoded-32-byte-secret"
+  SPRING_DATASOURCE_PASSWORD: "CHANGE_ME-to-your-database-password"
+  GOOGLE_CLIENT_ID: "CHANGE_ME-google-client-id"
+  GOOGLE_CLIENT_SECRET: "CHANGE_ME-google-client-secret"
+  GITHUB_CLIENT_ID: "CHANGE_ME-github-client-id"
+  GITHUB_CLIENT_SECRET: "CHANGE_ME-github-client-secret"
+  STRIPE_SECRET_KEY: "CHANGE_ME-stripe-secret-key"
   SENTRY_DSN: ""

@@ -27,6 +27,8 @@ public class LiveSessionResponse {
 
     private String mentorName;
 
+    private String mentorUsername;
+
     private String title;
 
     private String description;

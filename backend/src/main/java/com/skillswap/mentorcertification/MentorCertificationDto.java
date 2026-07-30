@@ -22,18 +22,20 @@ public class MentorCertificationDto {
 
     private String credentialId;
 
+    private String credentialUrl;
+
     @NotNull(message = "Issue date is required")
     private LocalDate issueDate;
 
-    private LocalDate expiryDate;
+    private LocalDate expirationDate;
 
-    private String certificateUrl;
+    private boolean doesNotExpire;
 
-    private String verificationUrl;
-
-    private String certificateImage;
+    private String skillsCovered;
 
     private String description;
+
+    private String certificateImage;
 
     private OffsetDateTime createdAt;
 

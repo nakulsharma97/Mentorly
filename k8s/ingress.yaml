@@ -13,10 +13,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - app.yourdomain.com
+        - CHANGE_ME.example.com
       secretName: skillswap-tls
   rules:
-    - host: app.yourdomain.com
+    - host: CHANGE_ME.example.com
       http:
         paths:
           - path: /

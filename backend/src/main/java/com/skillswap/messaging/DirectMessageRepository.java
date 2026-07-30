@@ -13,6 +13,23 @@ public interface DirectMessageRepository extends JpaRepository<DirectMessage, Lo
 
     Optional<DirectMessage> findTopByConversationIdOrderByCreatedAtDesc(Long conversationId);
 
+    /**
+     * Batch-fetch the last message for each direct conversation in a single query.
+     * Uses a subquery to find the max (latest) message id per conversation.
+     *
+     * @param conversationIds list of conversation IDs to fetch last messages for
+     * @return list of last messages per conversation (one per conversation)
+     */
+    @Query("""
+            SELECT m FROM DirectMessage m
+            WHERE m.id IN (
+                SELECT MAX(m2.id) FROM DirectMessage m2
+                WHERE m2.conversation.id IN :conversationIds
+                GROUP BY m2.conversation.id
+            )
+            """)
+    List<DirectMessage> findLastMessagesByConversationIds(@Param("conversationIds") List<Long> conversationIds);
+
     long countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(Long conversationId, String senderEmail);
 
     @Modifying

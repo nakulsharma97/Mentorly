@@ -22,6 +22,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         Optional<User> findByEmail(String email);
 
+        Optional<User> findByUsername(String username);
+
+        boolean existsByUsername(String username);
+
         Optional<User> findByReferralCodeIgnoreCase(String referralCode);
 
         Optional<User> findByPasswordResetToken(String passwordResetToken);
@@ -75,10 +79,41 @@ public interface UserRepository extends JpaRepository<User, Long> {
                 + "(:role IS NULL OR u.role = :role) "
                 + "AND (:q IS NULL OR :q = '' "
                 + "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')) "
-                + "OR LOWER(u.email) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')))")
+                + "OR LOWER(u.email) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')) "
+                + "OR LOWER(u.username) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')))")
         Page<User> findByFilters(@Param("role") UserRole role,
                                  @Param("q") String q,
                                  Pageable pageable);
+
+        /**
+         * Backend-driven mentor search with keyword matching, price / rating /
+         * experience filters, "online now" and "saved by learner" scopes, and a
+         * server-side {@code sort} switch. Every filter is optional: pass
+         * {@code null} (or 0) to disable it. Sorting is resolved entirely in SQL so
+         * the frontend never re-orders results.
+         *
+         * <p>Supported {@code sort} values: {@code rating}, {@code experience},
+         * {@code price}, {@code availability}, {@code newest}. Any other value
+         * (including {@code recent}) falls back to most-recently-active first.
+         */
+        /**
+         * Search users (both MENTOR and LEARNER) by name, email, or about_me.
+         * Used by the global topbar search to find people quickly.
+         */
+        @Query(value = """
+                        SELECT DISTINCT u.* FROM users u
+                        WHERE u.enabled = true
+                          AND (
+                                LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                          )
+                        ORDER BY
+                          CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,
+                          u.last_active_at DESC
+                        LIMIT :limit
+                        """, nativeQuery = true)
+        List<User> searchUsersByName(@Param("keyword") String keyword, @Param("limit") int limit);
 
         /**
          * Backend-driven mentor search with keyword matching, price / rating /

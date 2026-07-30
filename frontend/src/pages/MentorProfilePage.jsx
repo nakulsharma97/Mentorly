@@ -275,7 +275,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         client.get(`/api/v1/users/mentors/${mentorId}`),
         client.get(`/api/v1/sessions/mentor/${mentorId}`),
         client.get(`/api/v1/reviews/mentor/${mentorId}`),
-        client.get(`/api/mentor/certifications/${mentorId}`),
+        client.get(`/api/v1/mentor/certifications/${mentorId}`),
       ]);
       if (profileRes.status !== "fulfilled") throw profileRes.reason;
       setMentor(profileRes.value?.data?.data || null);
@@ -453,6 +453,11 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               <div className="mpr-hero__info">
                 <div className="mpr-hero__info-top">
                   <h1 className="mpr-hero__name">{mentor?.fullName || "Mentor"}</h1>
+                  {mentor?.username && (
+                    <p style={{ margin: "4px 0 0", fontSize: "0.9rem", color: "rgba(255,255,255,0.6)" }}>
+                      @{mentor.username}
+                    </p>
+                  )}
                   {mentor?.mentorVerified && <VerifiedBadge />}
                 </div>
                 <p className="mpr-hero__headline">{mentor?.headline || (mentor?.aboutMe ? mentor.aboutMe.split(".")[0].slice(0, 100) : "Expert Mentor")}</p>
@@ -699,33 +704,89 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
             </section>
           )}
 
-          {/* ── Certifications ── */}
+          {/* ── Certifications (Structured) ── */}
           {(certifications.length > 0 || certList.length > 0) && (
             <section className={`mpr-section-card ${visibleSections[4] ? "mpr-animate-in" : ""}`} data-section="4">
               <div className="mpr-section-card__head">
                 <Icon name="workspace_premium" />
                 <h2>Certifications</h2>
+                <span className="mpr-section-card__count">
+                  {certifications.length > 0 ? certifications.length : certList.length} certification{certifications.length + certList.length !== 1 ? 's' : ''}
+                </span>
               </div>
-              <div className="mpr-certs-grid">
-                {(certifications.length > 0 ? certifications.map(cert => (
-                  <a key={cert.id} href={cert.credentialUrl || "#"} target="_blank" rel="noopener noreferrer" className="mpr-cert-card">
-                    <div className="mpr-cert-card__icon"><Icon name="verified" /></div>
-                    <div className="mpr-cert-card__info">
-                      <strong>{cert.certificationName || "Certification"}</strong>
-                      {cert.issuingOrganization && <span>{cert.issuingOrganization}</span>}
-                      {cert.issueDate && <span>{formatDate(cert.issueDate)}</span>}
+
+              {/* Structured certifications from API */}
+              {certifications.length > 0 && (
+                <div className="mpr-certs-grid">
+                  {certifications.map((cert) => {
+                    const skills = (cert.skillsCovered || '').split(',').map(s => s.trim()).filter(Boolean);
+                    const issueYear = cert.issueDate ? new Date(cert.issueDate).getFullYear() : '';
+                    const expYear = cert.expirationDate && !cert.doesNotExpire ? new Date(cert.expirationDate).getFullYear() : '';
+                    return (
+                      <div key={cert.id} className="mpr-cert-card mpr-cert-card--rich">
+                        <div className="mpr-cert-card__icon">
+                          {cert.certificateImage ? (
+                            <img
+                              src={cert.certificateImage}
+                              alt={cert.issuingOrganization || ''}
+                              className="mpr-cert-card__logo"
+                              onError={(e) => { e.target.style.display='none'; e.target.nextElementSibling.style.display='flex'; }}
+                            />
+                          ) : null}
+                          <span className="material-symbols-outlined" style={{ display: cert.certificateImage ? 'none' : 'inline', fontSize: 24 }}>verified</span>
+                        </div>
+                        <div className="mpr-cert-card__info">
+                          <strong>{cert.certificationName}</strong>
+                          <span className="mpr-cert-card__org">{cert.issuingOrganization}</span>
+                          <span className="mpr-cert-card__date">
+                            Issued {issueYear}
+                            {expYear ? ` · Expires ${expYear}` : cert.doesNotExpire ? ' · No expiration' : ''}
+                          </span>
+                          {cert.credentialId && (
+                            <span className="mpr-cert-card__id">{cert.credentialId}</span>
+                          )}
+                          {skills.length > 0 && (
+                            <div className="mpr-cert-card__skills">
+                              {skills.slice(0, 4).map(sk => (
+                                <span key={sk} className="mpr-chip mpr-chip--xs">{sk}</span>
+                              ))}
+                              {skills.length > 4 && <span className="mpr-chip mpr-chip--xs">+{skills.length - 4}</span>}
+                            </div>
+                          )}
+                          {cert.credentialUrl && (
+                            <a
+                              href={cert.credentialUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mpr-cert-card__link"
+                            >
+                              View Credential
+                              <span className="material-symbols-outlined" style={{ fontSize: 12 }}>open_in_new</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Fallback text-field certs (only if no structured certs) */}
+              {certifications.length === 0 && certList.length > 0 && (
+                <div className="mpr-certs-grid">
+                  {certList.map((cert, i) => (
+                    <div key={i} className="mpr-cert-card">
+                      <div className="mpr-cert-card__icon">
+                        <span className="material-symbols-outlined" style={{ fontSize: 24 }}>verified</span>
+                      </div>
+                      <div className="mpr-cert-card__info">
+                        <strong>{cert}</strong>
+                        <span>Professional Certification</span>
+                      </div>
                     </div>
-                  </a>
-                )) : certList.map((cert, i) => (
-                  <div key={i} className="mpr-cert-card">
-                    <div className="mpr-cert-card__icon"><Icon name="verified" /></div>
-                    <div className="mpr-cert-card__info">
-                      <strong>{cert}</strong>
-                      <span>Professional Certification</span>
-                    </div>
-                  </div>
-                )))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 

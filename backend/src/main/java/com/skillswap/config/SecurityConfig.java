@@ -105,8 +105,9 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/mentor/**")
                                                 .permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/mentor/certifications/**")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/mentor/certifications/**")
                                                 .permitAll()
+
                                                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
                                                                 "/swagger-resources/**")
                                                 .permitAll()

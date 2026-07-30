@@ -28,9 +28,13 @@ public class BookingResponse {
 
     private String learnerName;
 
+    private String learnerUsername;
+
     private Long mentorId;
 
     private String mentorName;
+
+    private String mentorUsername;
 
     private BookingStatus bookingStatus;
 

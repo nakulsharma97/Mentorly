@@ -24,6 +24,9 @@ const emptyForm = {
   githubUrl: "",
   linkedinUrl: "",
   profileImageUrl: "",
+  pastTeachingSessions: "",
+  certificates: "",
+  projects: "",
 };
 
 const emptyProject = {
@@ -222,10 +225,17 @@ export default function ProfileSetup({
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [touchedFields, setTouchedFields] = useState({});
+  const [structuredCertsCount, setStructuredCertsCount] = useState(0);
 
   /* ── Refs ── */
   const cardRef = useRef(null);
   const skillInputRef = useRef(null);
+
+  /* ── Certification count callback ── */
+  const handleCertCountChange = useCallback((count) => {
+    setStructuredCertsCount(count);
+  }, []);
 
   /* ── Compute quality score ── */
   const hasAboutMe = Boolean(String(form.aboutMe || "").trim());
@@ -233,10 +243,14 @@ export default function ProfileSetup({
   const hasGithub = /^https?:\/\//i.test(String(form.githubUrl || "").trim());
   const hasLinkedin = /^https?:\/\//i.test(String(form.linkedinUrl || "").trim());
   const hasPortfolio = projects.length > 0;
+  const hasExperience = Boolean(String(form.pastTeachingSessions || "").trim());
+  const hasCertifications = Boolean(String(form.certificates || "").trim()) || structuredCertsCount > 0;
 
   const requiredChecks = [
     { key: "basic", label: "Basic Information", done: hasAboutMe, current: hasAboutMe ? 1 : 0, required: 1 },
     { key: "skills", label: "Skills & Experience", done: hasSkills, current: skillTags.length, required: 1 },
+    { key: "experience", label: "Experience", done: hasExperience, current: hasExperience ? 1 : 0, required: 1 },
+    { key: "certifications", label: "Certifications", done: hasCertifications, current: hasCertifications ? 1 : 0, required: 1 },
     { key: "portfolio", label: "Portfolio / Links", done: hasGithub && hasLinkedin, current: [hasGithub, hasLinkedin, hasPortfolio].filter(Boolean).length, required: 3 },
   ];
   const completedChecks = requiredChecks.filter((c) => c.done).length;
@@ -265,6 +279,9 @@ export default function ProfileSetup({
       githubUrl: initialProfile?.githubUrl || "",
       linkedinUrl: initialProfile?.linkedinUrl || "",
       profileImageUrl: initialProfile?.profileImageUrl || "",
+      pastTeachingSessions: initialProfile?.pastTeachingSessions || "",
+      certificates: initialProfile?.certificates || "",
+      projects: initialProfile?.projects || "",
     });
     setSkillTags(parsedTags);
     if (initialProfile?.id) {
@@ -286,6 +303,10 @@ export default function ProfileSetup({
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleBlur = (e) => {
+    setTouchedFields((prev) => ({ ...prev, [e.target.name]: true }));
   };
 
   /* ── Skill management ── */
@@ -520,13 +541,18 @@ export default function ProfileSetup({
   /* ── Autosave ── */
   useEffect(() => {
     const interval = setInterval(() => {
+      // Autosave: only include fields that have a value to avoid overwriting
+      // previously saved data with empty strings
       const payload = {
         skills: serializeSkillTags(skillTags),
-        aboutMe: form.aboutMe,
-        githubUrl: form.githubUrl,
-        linkedinUrl: form.linkedinUrl,
-        profileImageUrl: form.profileImageUrl,
       };
+      if (form.aboutMe) payload.aboutMe = form.aboutMe;
+      if (form.githubUrl) payload.githubUrl = form.githubUrl;
+      if (form.linkedinUrl) payload.linkedinUrl = form.linkedinUrl;
+      if (form.profileImageUrl) payload.profileImageUrl = form.profileImageUrl;
+      if (form.pastTeachingSessions) payload.pastTeachingSessions = form.pastTeachingSessions;
+      if (form.certificates) payload.certificates = form.certificates;
+      if (form.projects) payload.projects = form.projects;
       saveProfile(payload).catch(() => {});
     }, 30000);
 
@@ -562,10 +588,16 @@ export default function ProfileSetup({
       return;
     }
 
-    const hasValidGithub = /^https?:\/\//i.test(String(form.githubUrl || "").trim());
-    const hasValidLinkedin = /^https?:\/\//i.test(String(form.linkedinUrl || "").trim());
-    if (!hasValidGithub || !hasValidLinkedin) {
-      setError("Please provide full URLs including https:// for GitHub and LinkedIn.");
+    // Optional: validate URL format only if user entered a URL
+    const enteredGithub = String(form.githubUrl || "").trim();
+    const enteredLinkedin = String(form.linkedinUrl || "").trim();
+    if (enteredGithub && !/^https?:\/\//i.test(enteredGithub)) {
+      setError("GitHub URL must start with https://");
+      setCurrentStep(2);
+      return;
+    }
+    if (enteredLinkedin && !/^https?:\/\//i.test(enteredLinkedin)) {
+      setError("LinkedIn URL must start with https://");
       setCurrentStep(2);
       return;
     }
@@ -579,6 +611,9 @@ export default function ProfileSetup({
         githubUrl: form.githubUrl,
         linkedinUrl: form.linkedinUrl,
         profileImageUrl: form.profileImageUrl,
+        pastTeachingSessions: form.pastTeachingSessions,
+        certificates: form.certificates,
+        projects: form.projects,
       };
       const response = await saveProfile(payload, { notifySuccess: true });
       if (response && onCompleted) onCompleted(response);
@@ -633,7 +668,15 @@ export default function ProfileSetup({
   };
 
   const scrollToChecklist = (key) => {
-    const stepIndex = STEPS.findIndex((s) => s.key === key);
+    // Map checklist keys to step indices: basic→0, skills→1, experience/certifications/portfolio→2
+    const keyStepMap = {
+      basic: 0,
+      skills: 1,
+      experience: 2,
+      certifications: 2,
+      portfolio: 2,
+    };
+    const stepIndex = keyStepMap[key] ?? STEPS.findIndex((s) => s.key === key);
     if (stepIndex >= 0) {
       setCurrentStep(stepIndex);
     }
@@ -656,6 +699,22 @@ export default function ProfileSetup({
       current: skillTags.length,
       required: 1,
       onClick: () => scrollToChecklist("skills"),
+    },
+    {
+      key: "experience",
+      label: "Experience",
+      done: hasExperience,
+      current: hasExperience ? 1 : 0,
+      required: 1,
+      onClick: () => scrollToChecklist("experience"),
+    },
+    {
+      key: "certifications",
+      label: "Certifications",
+      done: hasCertifications,
+      current: hasCertifications ? Math.max(1, structuredCertsCount) : 0,
+      required: 1,
+      onClick: () => scrollToChecklist("certifications"),
     },
     {
       key: "portfolio",
@@ -874,8 +933,9 @@ export default function ProfileSetup({
                         placeholder="https://github.com/your-username"
                         value={form.githubUrl}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                       />
-                      {form.githubUrl && !hasGithub && (
+                      {touchedFields.githubUrl && form.githubUrl && !hasGithub && (
                         <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
                           Please enter a full URL starting with https://
                         </p>
@@ -893,13 +953,85 @@ export default function ProfileSetup({
                         placeholder="https://linkedin.com/in/your-profile"
                         value={form.linkedinUrl}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                       />
-                      {form.linkedinUrl && !hasLinkedin && (
+                      {touchedFields.linkedinUrl && form.linkedinUrl && !hasLinkedin && (
                         <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
                           Please enter a full URL starting with https://
                         </p>
                       )}
                     </Field>
+
+                    {/* Experience Section */}
+                    <div style={{ marginTop: 32 }}>
+                      <div className="ps-section-head" style={{ marginBottom: 16 }}>
+                        <h3>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 6 }}>
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                            <circle cx="12" cy="7" r="4" />
+                          </svg>
+                          Experience
+                        </h3>
+                        <p className="ps-helper">Describe your past teaching experience, notable sessions, and professional achievements.</p>
+                      </div>
+                      <Field label="Past Teaching & Session Highlights">
+                        <div style={{ position: "relative" }}>
+                          <textarea
+                            className="ps-textarea"
+                            name="pastTeachingSessions"
+                            placeholder="Describe your past teaching experience, notable sessions, and professional achievements..."
+                            value={form.pastTeachingSessions}
+                            onChange={handleChange}
+                            rows={4}
+                            maxLength={6000}
+                          />
+                          <div className="ps-counter">{form.pastTeachingSessions.length}/6000</div>
+                        </div>
+                      </Field>
+                    </div>
+
+                    {/* Projects & Highlights (free-text) */}
+                    <div style={{ marginTop: 32 }}>
+                      <div className="ps-section-head" style={{ marginBottom: 16 }}>
+                        <h3>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 6 }}>
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                            <line x1="8" y1="21" x2="16" y2="21" />
+                            <line x1="12" y1="17" x2="12" y2="21" />
+                          </svg>
+                          Projects & Highlights
+                        </h3>
+                        <p className="ps-helper">Describe your key projects, outcomes, and links to live demos.</p>
+                      </div>
+                      <Field label="Projects Overview">
+                        <div style={{ position: "relative" }}>
+                          <textarea
+                            className="ps-textarea"
+                            name="projects"
+                            placeholder="Describe your key projects, outcomes, and links to live demos..."
+                            value={form.projects}
+                            onChange={handleChange}
+                            rows={4}
+                            maxLength={6000}
+                          />
+                          <div className="ps-counter">{form.projects.length}/6000</div>
+                        </div>
+                      </Field>
+                    </div>
+
+                    {/* Certifications Section */}
+                    <div style={{ marginTop: 32 }}>
+                      <div className="ps-section-head" style={{ marginBottom: 16 }}>
+                        <h3>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 6 }}>
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
+                          Certifications
+                        </h3>
+                        <p className="ps-helper">Add your professional certifications with structured details — name, issuing organization, dates, skills, and credential proof.</p>
+                      </div>
+                      <MentorCertificationsManager mentorId={initialProfile?.id} notify={notify} onCountChange={handleCertCountChange} />
+                    </div>
 
                     {/* Projects Section */}
                     <div style={{ marginTop: 32 }}>

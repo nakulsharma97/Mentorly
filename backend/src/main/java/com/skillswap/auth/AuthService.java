@@ -16,9 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static com.skillswap.auth.AuthDtos.*;
 
@@ -27,6 +30,13 @@ import static com.skillswap.auth.AuthDtos.*;
 public class AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-z0-9_]{3,20}$");
+
+    private static final Set<String> RESERVED_USERNAMES = Set.of(
+            "admin", "support", "login", "register", "signup", "mentor", "learner",
+            "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
+            "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -64,8 +74,23 @@ public class AuthService {
             throw new IllegalArgumentException("Admin accounts cannot be created via signup. Contact the platform administrator.");
         }
 
+        // ── Username validation ──
+        String normalizedUsername = req.username().toLowerCase(Locale.ROOT).trim();
+        if (!USERNAME_PATTERN.matcher(normalizedUsername).matches()) {
+            throw new IllegalArgumentException(
+                    "Username must be 3\u201320 characters: lowercase letters, numbers, and underscores only.");
+        }
+        if (RESERVED_USERNAMES.contains(normalizedUsername)) {
+            throw new IllegalArgumentException("This username is reserved. Please choose another one.");
+        }
+        if (userRepository.existsByUsername(normalizedUsername)) {
+            incrementCounter("auth.signup.failed", "reason", "duplicate_username");
+            throw new IllegalArgumentException("Username already exists. Please choose another one.");
+        }
+
         User user = new User();
         user.setEmail(normalizedEmail);
+        user.setUsername(normalizedUsername);
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setFullName(req.fullName());
         user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
@@ -84,12 +109,17 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.signup.success");
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
     }
 
     @Transactional
     public AuthResponse login(LoginRequest req, String clientIp) {
-        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+        String loginId = req.email().toLowerCase(Locale.ROOT).trim();
+
+        // Detect if loginId is an email or username
+        boolean isEmail = loginId.contains("@");
+        String normalizedEmail = isEmail ? loginId : null;
+        String normalizedUsername = isEmail ? null : loginId;
 
         // Brute-force protection: check IP-based rate limit with exponential backoff
         if (clientIp != null && !clientIp.isBlank()) {
@@ -120,24 +150,27 @@ public class AuthService {
             }
         }
 
+        // Resolve the user by email or username
+        User user = isEmail
+                ? userRepository.findByEmail(normalizedEmail).orElse(null)
+                : userRepository.findByUsername(normalizedUsername).orElse(null);
+
+        if (user == null) {
+            if (clientIp != null && !clientIp.isBlank()) {
+                recordFailedAttempt(clientIp, isEmail ? normalizedEmail : normalizedUsername);
+            }
+            throw new IllegalArgumentException("Invalid credentials");
+        }
+
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(normalizedEmail, req.password()));
+                    new UsernamePasswordAuthenticationToken(user.getEmail(), req.password()));
         } catch (Exception ex) {
-            // Record failed attempt
             if (clientIp != null && !clientIp.isBlank()) {
-                recordFailedAttempt(clientIp, normalizedEmail);
+                recordFailedAttempt(clientIp, user.getEmail());
             }
             throw ex;
         }
-
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> {
-                    if (clientIp != null && !clientIp.isBlank()) {
-                        recordFailedAttempt(clientIp, normalizedEmail);
-                    }
-                    return new IllegalArgumentException("Invalid credentials");
-                });
 
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
@@ -147,7 +180,7 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.login.success");
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
     }
 
     @Transactional
@@ -157,6 +190,7 @@ public class AuthService {
         User user = userRepository.findByEmail(email).orElseGet(() -> {
             User created = new User();
             created.setEmail(email);
+            created.setUsername(generateUsernameFromEmail(email));
             created.setFullName(extractDisplayName(attributes, email));
             created.setRole(UserRole.LEARNER);
             created.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
@@ -173,7 +207,7 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.oauth.success", "provider", provider.toLowerCase(Locale.ROOT));
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
     }
 
     @Transactional
@@ -214,7 +248,7 @@ public class AuthService {
         String rotatedRefreshToken = jwtService.generateRefreshToken(user, newTokenId);
         persistRefreshSession(user, rotatedRefreshToken);
         incrementCounter("auth.refresh.success");
-        return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(), user.getRole().name());
+        return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
     }
 
     @Transactional
@@ -401,6 +435,13 @@ public class AuthService {
         user.setPasswordResetTokenExpiry(null);
         userRepository.save(user);
 
+        // 🔒 Revoke all existing refresh token sessions — password changed, so
+        // any stolen refresh tokens must be invalidated immediately.
+        int revoked = refreshTokenSessionRepository.revokeAllByUserAndRevokedFalse(user);
+        if (revoked > 0) {
+            log.info("Revoked {} stale refresh sessions for userId={} after password reset", revoked, user.getId());
+        }
+
         incrementCounter("auth.reset_password.success");
         log.info("Password reset successful for userId={}", user.getId());
     }
@@ -470,6 +511,23 @@ public class AuthService {
         } catch (Exception ignored) {
             log.warn("Failed to record forgot-password attempt from ip={}", clientIp, ignored);
         }
+    }
+
+    private String generateUsernameFromEmail(String email) {
+        String base = email.contains("@") ? email.substring(0, email.indexOf('@')) : "user";
+        base = base.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        if (base.length() < 3) base = base + "user";
+        if (base.length() > 20) base = base.substring(0, 20);
+        // Ensure uniqueness
+        String candidate = base;
+        int suffix = 1;
+        while (userRepository.existsByUsername(candidate)
+                || RESERVED_USERNAMES.contains(candidate)) {
+            candidate = base + Math.min(suffix, 99);
+            if (candidate.length() > 20) candidate = candidate.substring(0, 20);
+            suffix++;
+        }
+        return candidate;
     }
 
     private String toCleanString(Object value) {

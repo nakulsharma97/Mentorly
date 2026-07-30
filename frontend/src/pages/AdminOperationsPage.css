@@ -911,3 +911,40 @@
     flex-direction: column;
   }
 }
+
+
+/* ── Certification Migration ── */
+.migrate-spinner {
+  font-size: 18px;
+  animation: migrate-spin 0.8s linear infinite;
+}
+
+@keyframes migrate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.migration-progress-bar {
+  width: 120px;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.migration-progress-fill {
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, #0f766e, #14b8a6);
+  border-radius: 999px;
+  animation: migrate-indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes migrate-indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(150%); }
+  100% { transform: translateX(-100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .migration-progress-fill,
+  [style*="animation: migrate-spin"] {
+    animation: none !important;
+  }
+}

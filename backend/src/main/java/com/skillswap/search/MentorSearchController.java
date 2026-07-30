@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -27,6 +28,47 @@ public class MentorSearchController {
         private final BookingRepository bookingRepository;
         private final MentorReviewRepository mentorReviewRepository;
         private final SessionRepository sessionRepository;
+
+        /**
+         * Search across all enabled users (mentors + learners) by name.
+         * Learners see only mentors; mentors see everyone.
+         */
+        @GetMapping("/users")
+        public ApiResponse<List<UserSearchResult>> searchUsers(
+                        @RequestParam(required = false) String q,
+                        @RequestParam(defaultValue = "10") int size) {
+
+                String normalizedQuery = q == null ? "" : q.trim();
+                int safeSize = Math.max(1, Math.min(size, 20));
+
+                if (normalizedQuery.isBlank()) {
+                        return new ApiResponse<>("Users fetched", List.of());
+                }
+
+                List<User> users = userRepository.searchUsersByName(normalizedQuery, safeSize);
+
+                List<UserSearchResult> results = users.stream()
+                                .map(u -> new UserSearchResult(
+                                                u.getId(),
+                                                u.getFullName(),
+                                                u.getUsername(),
+                                                u.getProfileImageUrl(),
+                                                u.getRole().name()))
+                                .collect(Collectors.toList());
+
+                return new ApiResponse<>("Users fetched", results);
+        }
+
+        /**
+         * Simple search result dto for users.
+         */
+        public record UserSearchResult(
+                        Long userId,
+                        String fullName,
+                        String username,
+                        String profileImageUrl,
+                        String role) {
+        }
 
         @GetMapping("/mentors")
         public ApiResponse<List<MentorSearchResult>> searchMentors(

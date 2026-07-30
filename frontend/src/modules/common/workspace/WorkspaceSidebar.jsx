@@ -84,6 +84,11 @@ export default function WorkspaceSidebar({
             <span className="ws-sb__user-avatar">{initials(fullName)}</span>
             <div className="ws-sb__user-copy">
               <strong>{fullName}</strong>
+              {profile?.username && (
+                <span style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 500, lineHeight: 1.2 }}>
+                  @{profile.username}
+                </span>
+              )}
               <span>{profile?.email || brand?.subtitle}</span>
             </div>
           </div>

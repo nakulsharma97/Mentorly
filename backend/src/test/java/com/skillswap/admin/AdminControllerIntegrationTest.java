@@ -124,6 +124,9 @@ class AdminControllerIntegrationTest {
     private MentorReviewRepository mentorReviewRepository;
 
     @MockitoBean
+    private CertMigrationService certMigrationService;
+
+    @MockitoBean
     private AdminService adminService;
 
     @MockitoBean
@@ -168,6 +171,7 @@ class AdminControllerIntegrationTest {
         learnerUser.setEmail("learner@test.com");
         learnerUser.setFullName("Test Learner");
         learnerUser.setRole(UserRole.LEARNER);
+        learnerUser.setUsername("testlearner");
         learnerUser.setEnabled(true);
         learnerUser.setCreatedAt(OffsetDateTime.now().minusDays(30));
 
@@ -176,6 +180,7 @@ class AdminControllerIntegrationTest {
         mentorUser.setEmail("mentor@test.com");
         mentorUser.setFullName("Test Mentor");
         mentorUser.setRole(UserRole.MENTOR);
+        mentorUser.setUsername("testmentor");
         mentorUser.setMentorVerified(true);
         mentorUser.setEnabled(true);
         mentorUser.setCreatedAt(OffsetDateTime.now().minusDays(60));

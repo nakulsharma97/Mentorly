@@ -22,11 +22,14 @@ export default function AuthModal({
     email: "",
     password: "",
     fullName: "",
+    username: "",
     role: "LEARNER",
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [usernameCheck, setUsernameCheck] = useState({ checking: false, available: null, suggestion: null });
+  const usernameDebounceRef = useRef(null);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
@@ -221,24 +224,127 @@ export default function AuthModal({
 
         <form onSubmit={onSubmit} className="auth-modal-form">
           {mode === "signup" && (
-            <UIField
-              label="Full name"
-              htmlFor="signup-full-name"
-              className="auth-modal-field-group"
-            >
-              <input
-                id="signup-full-name"
-                name="fullName"
-                autoComplete="name"
-                placeholder="Full name"
-                value={form.fullName}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, fullName: e.target.value }))
-                }
-                disabled={submitting}
-                required
-              />
-            </UIField>
+            <>
+              <UIField
+                label="Full name"
+                htmlFor="signup-full-name"
+                className="auth-modal-field-group"
+              >
+                <input
+                  id="signup-full-name"
+                  name="fullName"
+                  autoComplete="name"
+                  placeholder="Full name"
+                  value={form.fullName}
+                  onChange={(e) =>
+                    setForm((s) => ({ ...s, fullName: e.target.value }))
+                  }
+                  disabled={submitting}
+                  required
+                />
+              </UIField>
+
+              <UIField
+                label="Username"
+                htmlFor="signup-username"
+                className="auth-modal-field-group"
+              >
+                <div style={{ position: "relative" }}>
+                  <input
+                    id="signup-username"
+                    name="username"
+                    autoComplete="username"
+                    placeholder="Choose a unique username"
+                    value={form.username}
+                    onChange={(e) => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                      setForm((s) => ({ ...s, username: val }));
+                      setUsernameCheck((prev) => ({ ...prev, checking: true, available: null }));
+                      if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+                      if (val.length >= 3) {
+                        usernameDebounceRef.current = setTimeout(async () => {
+                          try {
+                            const res = await client.get("/api/v1/users/me/check-username", {
+                              params: { username: val },
+                            });
+                            const data = res?.data?.data;
+                            setUsernameCheck({
+                              checking: false,
+                              available: data?.available ?? false,
+                              suggestion: data?.suggestion || null,
+                            });
+                          } catch {
+                            setUsernameCheck({ checking: false, available: null, suggestion: null });
+                          }
+                        }, 400);
+                      } else {
+                        setUsernameCheck({ checking: false, available: null, suggestion: null });
+                      }
+                    }}
+                    disabled={submitting}
+                    required
+                    style={{
+                      paddingRight: 40,
+                      borderColor: usernameCheck.available === false ? "#dc2626" :
+                                    usernameCheck.available === true ? "#16a34a" : undefined,
+                    }}
+                  />
+                  {usernameCheck.checking && (
+                    <span style={{
+                      position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                      color: "var(--muted)", fontSize: "0.75rem",
+                    }}>
+                      Checking...
+                    </span>
+                  )}
+                  {!usernameCheck.checking && usernameCheck.available === true && (
+                    <span style={{
+                      position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                      color: "#16a34a", fontSize: "1rem", fontWeight: 700,
+                    }}>
+                      ✓
+                    </span>
+                  )}
+                  {!usernameCheck.checking && usernameCheck.available === false && (
+                    <span style={{
+                      position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                      color: "#dc2626", fontSize: "1rem", fontWeight: 700,
+                    }}>
+                      ✕
+                    </span>
+                  )}
+                </div>
+                {!usernameCheck.checking && usernameCheck.available === false && (
+                  <span style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                    Username already exists. Please choose another one.
+                    {usernameCheck.suggestion && (
+                      <>
+                        {" "}Try:{" "}
+                        <button
+                          type="button"
+                          style={{
+                            background: "none", border: "none", color: "var(--brand)",
+                            cursor: "pointer", fontWeight: 600, fontSize: "0.78rem",
+                            padding: 0, textDecoration: "underline",
+                          }}
+                          onClick={() => {
+                            setForm((s) => ({ ...s, username: usernameCheck.suggestion }));
+                            setUsernameCheck((prev) => ({ ...prev, available: true, suggestion: null }));
+                          }}
+                        >
+                          {usernameCheck.suggestion}
+                        </button>
+                      </>
+                    )}
+                  </span>
+                )}
+                {form.username.length > 0 && form.username.length < 3 && (
+                  <span style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                    Username must be at least 3 characters
+                  </span>
+                )}
+              </UIField>
+            </>
           )}
 
           <UIField

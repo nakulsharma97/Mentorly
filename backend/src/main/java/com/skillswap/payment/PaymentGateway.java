@@ -58,4 +58,22 @@ public interface PaymentGateway {
      * Unique slug identifier for this gateway (e.g. "razorpay", "stripe", "paypal").
      */
     String getGatewaySlug();
+
+    /**
+     * Verify the authenticity of a webhook event using the gateway-specific
+     * signature scheme (HMAC, webhook secret, or API-based verification).
+     *
+     * <p>Each gateway verifies differently:
+     * <ul>
+     *   <li><b>Stripe:</b> HMAC-SHA256 over the raw payload using the webhook secret</li>
+     *   <li><b>Razorpay:</b> HMAC-SHA256 of {@code order_id|payment_id} using the key secret</li>
+     *   <li><b>PayPal:</b> HMAC-SHA256 over the raw payload using the client secret</li>
+     * </ul>
+     *
+     * @param rawPayload     The raw request body as received from the gateway
+     * @param signatureHeader Value of the webhook signature header
+     *                        (e.g. {@code Stripe-Signature}, {@code x-razorpay-signature})
+     * @return true if the signature is valid and the payload is authentic
+     */
+    boolean verifyWebhookSignature(String rawPayload, String signatureHeader);
 }

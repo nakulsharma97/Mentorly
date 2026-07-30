@@ -67,6 +67,9 @@ export const getProfileQualityScore = (profile) => {
     Boolean(String(profile?.aboutMe || "").trim()),
     Boolean(String(profile?.githubUrl || "").trim()),
     Boolean(String(profile?.linkedinUrl || "").trim()),
+    Boolean(String(profile?.pastTeachingSessions || "").trim()),
+    Boolean(String(profile?.certificates || "").trim()),
+    Boolean(String(profile?.projects || "").trim() || Boolean(profile?.projectsList?.length)),
   ];
 
   const completed = requiredChecks.filter(Boolean).length;

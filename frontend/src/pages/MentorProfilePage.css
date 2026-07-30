@@ -1825,9 +1825,12 @@ div.mpr-sessions-grid--picker {
   background: var(--mpr-primary-tint);
   border: 1px solid var(--mpr-border-light);
   transition: all var(--mpr-transition);
-  cursor: pointer;
+  cursor: default;
   text-decoration: none;
   color: inherit;
+}
+.mpr-cert-card--rich {
+  align-items: flex-start;
 }
 .mpr-cert-card:hover {
   transform: translateY(-2px);
@@ -1857,6 +1860,75 @@ div.mpr-sessions-grid--picker {
   font-size: 0.75rem;
   color: var(--mpr-muted);
   margin-top: 2px;
+}
+
+/* ── Certification Card Rich Elements ── */
+.mpr-cert-card__logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.mpr-cert-card__org {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--mpr-muted, #64748b);
+  margin-top: 1px;
+}
+[data-theme="dark"] .mpr-cert-card__org {
+  color: #94a3b8;
+}
+.mpr-cert-card__date {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--mpr-muted);
+  margin-top: 3px;
+}
+.mpr-cert-card__id {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: rgba(15,118,110,0.08);
+  color: var(--mpr-primary, #0f766e);
+  padding: 1px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  border: 1px solid rgba(15,118,110,0.15);
+}
+.mpr-cert-card__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.mpr-chip--xs {
+  display: inline-flex;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: rgba(15,118,110,0.08);
+  color: var(--mpr-primary, #0f766e);
+}
+[data-theme="dark"] .mpr-chip--xs {
+  background: rgba(15,118,110,0.25);
+  color: #5eead4;
+}
+.mpr-cert-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mpr-primary, #0f766e);
+  text-decoration: none;
+}
+.mpr-cert-card__link:hover {
+  text-decoration: underline;
+}
+[data-theme="dark"] .mpr-cert-card__link {
+  color: #5eead4;
 }
 
 /* ════════════════════════════════════════════════════════════

@@ -44,6 +44,7 @@ public final class AnalyticsDtos {
     public record MentorHistoryDto(
             String id,
             String name,
+            String username,
             int sessionsAttended,
             double totalHours,
             double totalSpend) {

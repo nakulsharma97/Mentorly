@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
@@ -32,12 +32,12 @@ const skillChipsToString = (chips) => chips.join(", ");
 /* ── Tab config ──────────────────────────────────────── */
 
 const TABS = [
-  { key: "personal", label: "Personal", icon: "person", path: "/mentor/professional-profile" },
-  { key: "about", label: "About", icon: "description", path: "/mentor/professional-profile/about" },
-  { key: "skills", label: "Skills", icon: "auto_awesome", path: "/mentor/professional-profile/skills" },
-  { key: "experience", label: "Experience", icon: "work", path: "/mentor/professional-profile/experience" },
-  { key: "certifications", label: "Certifications", icon: "workspace_premium", path: "/mentor/professional-profile/certifications" },
-  { key: "portfolio", label: "Portfolio", icon: "folder_open", path: "/mentor/professional-profile/portfolio" },
+  { key: "personal", label: "Personal", icon: "person" },
+  { key: "about", label: "About", icon: "description" },
+  { key: "skills", label: "Skills", icon: "auto_awesome" },
+  { key: "experience", label: "Experience", icon: "work" },
+  { key: "certifications", label: "Certifications", icon: "workspace_premium" },
+  { key: "portfolio", label: "Portfolio", icon: "folder_open" },
 ];
 
 /* ── SVG Sub-Components ──────────────────────────────── */
@@ -124,8 +124,7 @@ function UrlInput({ label, value, onChange, placeholder }) {
 /* ── Main Component ──────────────────────────────────── */
 
 export default function ProfessionalProfilePage({ profile, notify }) {
-  const location = useLocation();
-  const pathname = location.pathname.replace(/\/+$/, "");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   /* ── State ── */
   const [saving, setSaving] = useState(false);
@@ -144,9 +143,10 @@ export default function ProfessionalProfilePage({ profile, notify }) {
   const [dirty, setDirty] = useState(false);
   const [imgError, setImgError] = useState(false);
 
-  /* ── Active Tab ── */
+  /* ── Active Tab (derived from ?tab= query param) ── */
   const activeTab = (() => {
-    const tab = TABS.find((t) => t.path === pathname || pathname.startsWith(t.path + "/"));
+    const tabKey = searchParams.get("tab") || "personal";
+    const tab = TABS.find((t) => t.key === tabKey);
     return tab?.key || "personal";
   })();
 
@@ -319,6 +319,11 @@ export default function ProfessionalProfilePage({ profile, notify }) {
               </div>
               <div className="pp-hero__text">
                 <h1 className="pp-hero__name">{profile?.fullName || "Your Profile"}</h1>
+                {profile?.username && (
+                  <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "rgba(255,255,255,0.55)" }}>
+                    @{profile.username}
+                  </p>
+                )}
                 <p className="pp-hero__subtitle">
                   Manage your mentor profile, skills, and credentials to build learner trust.
                 </p>
@@ -354,19 +359,29 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
       {/* ── Tabs ── */}
       <nav className="pp-tabs" aria-label="Profile sections">
-        <div className="pp-tabs__track">
+        <div className="pp-tabs__track" role="tablist">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.key;
             return (
-              <Link
+              <button
                 key={tab.key}
-                to={tab.path}
+                type="button"
+                role="tab"
+                id={`pp-tab-${tab.key}`}
                 className={`pp-tab${isActive ? " pp-tab--active" : ""}`}
-                aria-current={isActive ? "page" : undefined}
+                aria-selected={isActive}
+                aria-controls={`pp-panel-${tab.key}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => {
+                  setSearchParams(
+                    tab.key === "personal" ? {} : { tab: tab.key },
+                    { replace: true },
+                  );
+                }}
               >
                 <span className="material-symbols-outlined pp-tab__icon">{tab.icon}</span>
                 <span className="pp-tab__label">{tab.label}</span>
-              </Link>
+              </button>
             );
           })}
         </div>
@@ -376,11 +391,16 @@ export default function ProfessionalProfilePage({ profile, notify }) {
       {saveBar}
 
       {/* ── Tab Content ── */}
-      <div className="pp-content" key={activeTab}>
+      <div className="pp-content">
 
         {/* PERSONAL */}
         {activeTab === "personal" && (
-          <div className="pp-card">
+          <div
+            className="pp-card"
+            role="tabpanel"
+            id="pp-panel-personal"
+            aria-labelledby="pp-tab-personal"
+          >
             <div className="pp-card__head">
               <h3 className="pp-card__title">
                 <span className="material-symbols-outlined">person</span>
@@ -422,7 +442,12 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
         {/* ABOUT */}
         {activeTab === "about" && (
-          <div className="pp-card">
+          <div
+            className="pp-card"
+            role="tabpanel"
+            id="pp-panel-about"
+            aria-labelledby="pp-tab-about"
+          >
             <div className="pp-card__head">
               <h3 className="pp-card__title">
                 <span className="material-symbols-outlined">description</span>
@@ -489,7 +514,12 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
         {/* SKILLS */}
         {activeTab === "skills" && (
-          <div className="pp-card">
+          <div
+            className="pp-card"
+            role="tabpanel"
+            id="pp-panel-skills"
+            aria-labelledby="pp-tab-skills"
+          >
             <div className="pp-card__head">
               <h3 className="pp-card__title">
                 <span className="material-symbols-outlined">auto_awesome</span>
@@ -533,7 +563,12 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
         {/* EXPERIENCE */}
         {activeTab === "experience" && (
-          <div className="pp-card">
+          <div
+            className="pp-card"
+            role="tabpanel"
+            id="pp-panel-experience"
+            aria-labelledby="pp-tab-experience"
+          >
             <div className="pp-card__head">
               <h3 className="pp-card__title">
                 <span className="material-symbols-outlined">work</span>
@@ -557,12 +592,23 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
         {/* CERTIFICATIONS */}
         {activeTab === "certifications" && (
-          <MentorCertificationsManager mentorId={profile?.id} notify={notify} />
+          <div
+            role="tabpanel"
+            id="pp-panel-certifications"
+            aria-labelledby="pp-tab-certifications"
+          >
+            <MentorCertificationsManager mentorId={profile?.id} notify={notify} />
+          </div>
         )}
 
         {/* PORTFOLIO */}
         {activeTab === "portfolio" && (
-          <div className="pp-card">
+          <div
+            className="pp-card"
+            role="tabpanel"
+            id="pp-panel-portfolio"
+            aria-labelledby="pp-tab-portfolio"
+          >
             <div className="pp-card__head">
               <h3 className="pp-card__title">
                 <span className="material-symbols-outlined">folder_open</span>

@@ -19,8 +19,6 @@ import com.skillswap.wallet.WalletService;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.booking.BookingLifecycleService;
-import com.skillswap.referral.ReferralReward;
 import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.chat.ChatMessage;
 import com.skillswap.chat.ChatMessageRepository;
@@ -47,7 +45,16 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -66,15 +73,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminController {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminController.class);
+    /** Logger instance. */
+    private static final Logger LOG = LoggerFactory.getLogger(AdminController.class);
 
     private final UserRepository userRepository;
     private final UserReportRepository reportRepository;
-    private final MentorVerificationRequestRepository mentorVerificationRepository;
+    private final MentorVerificationRequestRepository
+            mentorVerificationRepository;
     private final WalletService walletService;
     private final BookingRepository bookingRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final DirectConversationRepository directConversationRepository;
+    private final DirectConversationRepository
+            directConversationRepository;
     private final DirectMessageRepository directMessageRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
@@ -83,10 +93,12 @@ public class AdminController {
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
     private final AdminSettingRepository adminSettingRepository;
-    private final AdminNotifPreferenceRepository adminNotifPreferenceRepository;
+    private final AdminNotifPreferenceRepository
+            adminNotifPreferenceRepository;
     private final ReferralRewardRepository referralRewardRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final AdminService adminService;
+    private final CertMigrationService certMigrationService;
 
     @GetMapping("/summary")
     public ApiResponse<AdminSummary> summary(@AuthenticationPrincipal User currentUser) {
@@ -263,13 +275,35 @@ public class AdminController {
 
         List<AdminConversationDto> all = new ArrayList<>();
 
-        // Booking conversations
+        // ── Booking conversations (batch-fetch last messages instead of N+1) ──
         if (type == null || "booking".equalsIgnoreCase(type)) {
-            List<Booking> bookings = bookingRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 500)).getContent();
+            List<Booking> bookings = bookingRepository
+                    .findAll(PageRequest.of(0, 500)).getContent();
+
+            // Collect all booking IDs that have sessions
+            List<Long> bookingIds = new ArrayList<>();
+            for (Booking b : bookings) {
+                if (b.getSession() != null) {
+                    bookingIds.add(b.getId());
+                }
+            }
+
+            // Batch-fetch the last message for ALL booking IDs in 1 query
+            Map<Long, ChatMessage> lastMsgByBookingId = new HashMap<>();
+            if (!bookingIds.isEmpty()) {
+                List<ChatMessage> lastMessages = chatMessageRepository
+                        .findLastMessagesByBookingIds(bookingIds);
+                for (ChatMessage msg : lastMessages) {
+                    lastMsgByBookingId.put(msg.getBooking().getId(), msg);
+                }
+            }
+
+            // Build DTOs using the lookup map (no individual queries per booking)
             for (Booking b : bookings) {
                 if (b.getSession() == null) continue;
-                ChatMessage lastMsg = chatMessageRepository.findTopByBookingIdOrderByCreatedAtDesc(b.getId());
-                String participantName = b.getLearner().getFullName() + " & " + b.getSession().getMentor().getFullName();
+                ChatMessage lastMsg = lastMsgByBookingId.get(b.getId());
+                String participantName = b.getLearner().getFullName()
+                        + " & " + b.getSession().getMentor().getFullName();
                 all.add(new AdminConversationDto(
                         "booking-" + b.getId(),
                         "booking",
@@ -281,18 +315,40 @@ public class AdminController {
                         lastMsg == null ? b.getCreatedAt() : lastMsg.getCreatedAt(),
                         b.getLearner().getId(),
                         b.getLearner().getFullName(),
+                        b.getLearner().getUsername(),
                         b.getSession().getMentor().getId(),
-                        b.getSession().getMentor().getFullName()));
+                        b.getSession().getMentor().getFullName(),
+                        b.getSession().getMentor().getUsername()));
             }
         }
 
-        // Direct conversations
+        // ── Direct conversations (same batch pattern) ──
         if (type == null || "direct".equalsIgnoreCase(type)) {
-            List<DirectConversation> directs = directConversationRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 500)).getContent();
+            List<DirectConversation> directs = directConversationRepository
+                    .findAll(PageRequest.of(0, 500)).getContent();
+
+            // Collect all conversation IDs
+            List<Long> convIds = directs.stream()
+                    .map(DirectConversation::getId)
+                    .collect(Collectors.toList());
+
+            // Batch-fetch the last message for ALL conversations in 1 query
+            Map<Long, DirectMessage> lastMsgByConvId = new HashMap<>();
+            if (!convIds.isEmpty()) {
+                List<DirectMessage> lastMessages = directMessageRepository
+                        .findLastMessagesByConversationIds(convIds);
+                for (DirectMessage msg : lastMessages) {
+                    if (msg.getConversation() != null) {
+                        lastMsgByConvId.put(msg.getConversation().getId(), msg);
+                    }
+                }
+            }
+
+            // Build DTOs using the lookup map
             for (DirectConversation dc : directs) {
-                DirectMessage lastMsg = directMessageRepository
-                        .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
-                String participantName = dc.getParticipantOne().getFullName() + " & " + dc.getParticipantTwo().getFullName();
+                DirectMessage lastMsg = lastMsgByConvId.get(dc.getId());
+                String participantName = dc.getParticipantOne().getFullName()
+                        + " & " + dc.getParticipantTwo().getFullName();
                 all.add(new AdminConversationDto(
                         "direct-" + dc.getId(),
                         "direct",
@@ -304,19 +360,24 @@ public class AdminController {
                         lastMsg == null ? dc.getCreatedAt() : lastMsg.getCreatedAt(),
                         dc.getParticipantOne().getId(),
                         dc.getParticipantOne().getFullName(),
+                        dc.getParticipantOne().getUsername(),
                         dc.getParticipantTwo().getId(),
-                        dc.getParticipantTwo().getFullName()));
+                        dc.getParticipantTwo().getFullName(),
+                        dc.getParticipantTwo().getUsername()));
             }
         }
 
+        // Sort by most recent activity
         all.sort((a, b) -> b.lastActivityAt().compareTo(a.lastActivityAt()));
 
+        // Filter by search query
         if (q != null && !q.isBlank()) {
             String lowered = q.toLowerCase();
             all = all.stream()
                     .filter(c -> c.participantName().toLowerCase().contains(lowered)
                             || c.sessionTitle().toLowerCase().contains(lowered)
-                            || (c.lastMessagePreview() != null && c.lastMessagePreview().toLowerCase().contains(lowered)))
+                            || (c.lastMessagePreview() != null
+                                    && c.lastMessagePreview().toLowerCase().contains(lowered)))
                     .collect(Collectors.toList());
         }
 
@@ -332,7 +393,7 @@ public class AdminController {
         List<ChatMessage> messages = chatMessageRepository.findByBookingIdOrderByCreatedAtAsc(bookingId);
         List<AdminMessageDto> dtos = messages.stream()
                 .map(m -> new AdminMessageDto(m.getId(), "booking", bookingId,
-                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getEmail(),
+                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getUsername(), m.getSender().getEmail(),
                         m.getContent(), m.isReadByRecipient(), m.getCreatedAt()))
                 .collect(Collectors.toList());
 
@@ -348,7 +409,7 @@ public class AdminController {
         List<DirectMessage> messages = directMessageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
         List<AdminMessageDto> dtos = messages.stream()
                 .map(m -> new AdminMessageDto(m.getId(), "direct", conversationId,
-                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getEmail(),
+                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getUsername(), m.getSender().getEmail(),
                         m.getContent(), m.isReadByRecipient(), m.getCreatedAt()))
                 .collect(Collectors.toList());
 
@@ -402,17 +463,23 @@ public class AdminController {
             userIdsToFetch.add(p.getMentorId());
         }
         Map<Long, String> userNameMap = new HashMap<>();
+        Map<Long, String> userUsernameMap = new HashMap<>();
         if (!userIdsToFetch.isEmpty()) {
             userRepository.findAllById(userIdsToFetch).forEach(
-                    u -> userNameMap.put(u.getId(), u.getFullName()));
+                    u -> {
+                        userNameMap.put(u.getId(), u.getFullName());
+                        userUsernameMap.put(u.getId(), u.getUsername());
+                    });
         }
 
         List<AdminPaymentDto> filteredPayments = paymentPage.getContent().stream()
                 .map(p -> {
                     String learnerName = userNameMap.getOrDefault(p.getLearnerId(), "Unknown");
+                    String learnerUsername = userUsernameMap.getOrDefault(p.getLearnerId(), "");
                     String mentorName = userNameMap.getOrDefault(p.getMentorId(), "Unknown");
+                    String mentorUsername = userUsernameMap.getOrDefault(p.getMentorId(), "");
                     return new AdminPaymentDto(p.getId(), p.getOrderId(), p.getPaymentId(),
-                            p.getLearnerId(), learnerName, p.getMentorId(), mentorName, p.getSessionId(),
+                            p.getLearnerId(), learnerName, learnerUsername, p.getMentorId(), mentorName, mentorUsername, p.getSessionId(),
                             p.getAmount(), p.getCurrency(), p.getStatus().name(), p.getGateway(), p.getCreatedAt());
                 })
                 .sorted(Comparator.comparing(AdminPaymentDto::createdAt).reversed())
@@ -467,7 +534,7 @@ public class AdminController {
 
         Page<AdminUserDto> dtoPage = userPage.map(u -> {
             BigDecimal walletBalance = walletService.balance(u).balance();
-            return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(), u.getRole().name(),
+            return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(), u.getUsername(), u.getRole().name(),
                     u.isMentorVerified(), u.isEnabled(), u.getSkills(), u.getCreatedAt(),
                     u.getLastActiveAt(), walletBalance, u.getAdminSubRole());
         });
@@ -511,7 +578,7 @@ public class AdminController {
         WalletService.WalletBalance balance = walletService.balance(user);
 
         return new ApiResponse<>("Wallet fetched",
-                new AdminUserWalletDto(user.getId(), user.getFullName(), balance.balance(), balance.currency(), history));
+                new AdminUserWalletDto(user.getId(), user.getFullName(), user.getUsername(), balance.balance(), balance.currency(), history));
     }
 
     // ════════════════════════════════════════════════
@@ -537,6 +604,7 @@ public class AdminController {
             return new AdminSessionDto(s.getId(), s.getTitle(),
                     s.getMentor() != null ? s.getMentor().getId() : null,
                     s.getMentor() != null ? s.getMentor().getFullName() : "Unknown",
+                    s.getMentor() != null ? s.getMentor().getUsername() : null,
                     s.getPriceAmount(), s.getStatus().name(), s.getSessionType(),
                     s.getStartTime(), s.getEndTime(), s.getMaxParticipants(),
                     (int) participantCount, s.getCreatedAt());
@@ -823,10 +891,10 @@ public class AdminController {
         for (Object[] row : topRaw) {
             Long userId = ((Number) row[0]).longValue();
             long count = ((Number) row[1]).longValue();
-            String name = userRepository.findById(userId)
-                    .map(User::getFullName)
-                    .orElse("Deleted User");
-            topReferrers.add(new AdminReferrerDto(rank, userId, name, (int) count, (int) count * 50));
+            User referrerUser = userRepository.findById(userId).orElse(null);
+            String name = referrerUser != null ? referrerUser.getFullName() : "Deleted User";
+            String username = referrerUser != null ? referrerUser.getUsername() : "";
+            topReferrers.add(new AdminReferrerDto(rank, userId, name, username, (int) count, (int) count * 50));
             rank++;
             if (rank > 10) break; // Top 10
         }
@@ -892,7 +960,7 @@ public class AdminController {
             log.setDetails(details);
             auditLogRepository.save(log);
         } catch (Exception ignored) {
-            log.warn("Failed to save audit log", ignored);
+            LOG.warn("Failed to save audit log", ignored);
         }
     }
 
@@ -1034,6 +1102,20 @@ public class AdminController {
         return new ApiResponse<>("Bulk role update complete", Map.of("updatedCount", updated));
     }
 
+    // ════════════════════════════════════════════════
+    //  Admin — Migration: User.certificates text → MentorCertification entities
+    // ════════════════════════════════════════════════
+
+    @PostMapping("/migrations/certificates-to-structured")
+    public ApiResponse<CertMigrationService.MigrationResult> migrateCertificatesToStructured(
+            @AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        CertMigrationService.MigrationResult result = certMigrationService.migrateAll();
+        saveAuditLog(currentUser, "MIGRATE_CERTIFICATES", null, null,
+                "Migrated " + result.certsCreated() + " certs for " + result.usersProcessed() + " users");
+        return new ApiResponse<>("Migration complete", result);
+    }
+
     private static void ensureAdmin(User currentUser, AdminSubRole... requiredSubRole) {
         AdminUtils.ensureAdmin(currentUser, requiredSubRole);
     }
@@ -1113,9 +1195,11 @@ public class AdminController {
     // Conversation DTOs
     public record AdminConversationDto(String id, String kind, Long referenceId, String participantName,
             String sessionTitle, String status, String lastMessagePreview, OffsetDateTime lastActivityAt,
-            Long participantOneId, String participantOneName, Long participantTwoId, String participantTwoName) {}
+            Long participantOneId, String participantOneName, String participantOneUsername,
+            Long participantTwoId, String participantTwoName, String participantTwoUsername) {}
     public record AdminMessageDto(Long id, String kind, Long conversationRefId, Long senderId,
-            String senderName, String senderEmail, String content, boolean readByRecipient, OffsetDateTime createdAt) {}
+            String senderName, String senderUsername, String senderEmail,
+            String content, boolean readByRecipient, OffsetDateTime createdAt) {}
 
     // Payment DTOs
     public record AdminPaymentDashboardDto(BigDecimal totalRevenue, BigDecimal totalEscrowed,
@@ -1123,21 +1207,22 @@ public class AdminController {
             long failedCount, List<AdminPaymentDto> payments,
             int totalElements, int totalPages) {}
     public record AdminPaymentDto(Long id, String orderId, String paymentId, Long learnerId, String learnerName,
-            Long mentorId, String mentorName, Long sessionId, BigDecimal amount, String currency,
+            String learnerUsername, Long mentorId, String mentorName, String mentorUsername,
+            Long sessionId, BigDecimal amount, String currency,
             String status, String gateway, OffsetDateTime createdAt) {}
     public record AdminRefundRequest(String reason) {}
 
     // User DTOs
-    public record AdminUserDto(Long id, String email, String fullName, String role, boolean mentorVerified,
+    public record AdminUserDto(Long id, String email, String fullName, String username, String role, boolean mentorVerified,
             boolean enabled, String skills, OffsetDateTime createdAt, OffsetDateTime lastActiveAt,
             BigDecimal walletBalance, AdminSubRole adminSubRole) {}
     public record AdminRoleUpdateRequest(@NotNull UserRole role) {}
-    public record AdminUserWalletDto(Long userId, String userName, BigDecimal balance,
+    public record AdminUserWalletDto(Long userId, String userName, String username, BigDecimal balance,
             String currency, List<WalletLedgerEntry> history) {}
 
     // Session DTOs
-    public record AdminSessionDto(Long id, String title, Long mentorId, String mentorName, BigDecimal priceAmount,
-            String status, String sessionType, OffsetDateTime startTime, OffsetDateTime endTime,
+    public record AdminSessionDto(Long id, String title, Long mentorId, String mentorName, String mentorUsername,
+            BigDecimal priceAmount, String status, String sessionType, OffsetDateTime startTime, OffsetDateTime endTime,
             Integer maxParticipants, int participantCount, OffsetDateTime createdAt) {}
     public record AdminSessionStatusRequest(@NotNull SessionStatus status) {}
 
@@ -1171,5 +1256,5 @@ public class AdminController {
             List<MonthlyBucket> referralTrend, List<AdminReferrerDto> topReferrers) {}
 
     public record AdminReferrerDto(
-            int rank, Long userId, String name, int referralCount, int creditsEarned) {}
+            int rank, Long userId, String name, String username, int referralCount, int creditsEarned) {}
 }

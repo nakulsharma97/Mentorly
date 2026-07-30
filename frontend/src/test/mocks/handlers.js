@@ -101,7 +101,4 @@ export const handlers = [
   http.post("*/api/v1/certifications/evaluate", () => {
     return HttpResponse.json({ ok: true }, { status: 200 });
   }),
-  http.get("*/api/mentor/certifications/:mentorId", () => {
-    return HttpResponse.json({ message: "Certifications fetched", data: [] });
-  }),
 ];

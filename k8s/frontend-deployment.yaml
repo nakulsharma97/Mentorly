@@ -25,7 +25,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: ghcr.io/your-org/skillswap-frontend:latest
+          # 🔧 CHANGE_ME: Replace with your container registry (e.g. ghcr.io/your-username/skillswap-frontend:latest)
+          image: CHANGE_ME/skillswap-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
