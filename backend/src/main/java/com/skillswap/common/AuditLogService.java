@@ -1,5 +1,6 @@
 package com.skillswap.common;
 
+import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,27 @@ public class AuditLogService {
         log(action, resource, resourceId, null, userId);
     }
 
+    /**
+     * Persists an admin-action audit entry using the admin audit fields
+     * (admin_id / admin_email / entity_type / entity_id) plus the client IP
+     * captured from the request context. The entry records who (admin), what
+     * (action), which target (entityType#entityId), when (createdAt) and from
+     * where (ipAddress) — the five fields surfaced on the Audit Logs page.
+     */
+    public void logAdmin(User admin, String action, String entityType, Long entityId, String details) {
+        AuditLog auditLog = new AuditLog();
+        auditLog.setAdminId(admin.getId());
+        auditLog.setAdminEmail(admin.getEmail());
+        auditLog.setAction(action);
+        auditLog.setEntityType(entityType);
+        auditLog.setEntityId(entityId);
+        auditLog.setDetails(details);
+        auditLog.setIpAddress(extractClientIp());
+        auditLogRepository.save(auditLog);
+        log.info("Audit: {} on {} (id={}) by admin={} from {}", action, entityType, entityId, admin.getEmail(),
+                auditLog.getIpAddress());
+    }
+
     public List<AuditLog> getAuditsByUser(Long userId) {
         return auditLogRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
@@ -44,7 +66,12 @@ public class AuditLogService {
         return auditLogRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
     }
 
-    private String extractClientIp() {
+    /**
+     * Resolves the originating client IP from the current request context,
+     * honoring X-Forwarded-For (first entry) when present. Falls back to
+     * "unknown" when no servlet request is active (e.g. background jobs).
+     */
+    public static String extractClientIp() {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
                     .getRequestAttributes();

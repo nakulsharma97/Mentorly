@@ -421,6 +421,9 @@ describe("ProfileSetup — Skill Input", () => {
   });
 
   it("allows adding a skill again after it was removed", async () => {
+    // This test performs many sequential user interactions and can exceed the
+    // default 5s timeout when the full suite runs in parallel. Give it more room
+    // to avoid flaky CI failures (the test itself is deterministic in isolation).
     const user = userEvent.setup();
     render(<ProfileSetup initialProfile={mockProfile} />);
 
@@ -459,5 +462,5 @@ describe("ProfileSetup — Skill Input", () => {
 
     // Continue should be enabled
     expect(screen.getByRole("button", { name: /Continue/i })).not.toBeDisabled();
-  });
+  }, 15000);
 });

@@ -155,56 +155,6 @@ function mentorExtras(rawData) {
   };
 }
 
-/* ─── Review snippet generator (derived from rating & name) ─── */
-const REVIEW_TEXTS = {
-  5: [
-    "An incredible mentor! Went above and beyond to help me understand complex topics. Highly recommend!",
-    "Best mentor I\u2019ve worked with. Patient, knowledgeable, and genuinely cares about your progress.",
-    "Exceptional guidance! Helped me land my dream job with interview prep and portfolio review.",
-  ],
-  4: [
-    "Great session! Very clear explanations and practical examples. Looking forward to more.",
-    "Really helpful mentor. Structured approach and great feedback on my projects.",
-    "Solid teaching style. Breaks down difficult concepts into easy-to-follow steps.",
-  ],
-  3: [
-    "Good mentor overall. Sessions were informative and well-paced.",
-    "Decent experience. Knowledgeable but could improve on providing more hands-on examples.",
-    "Helpful session. Covered the basics thoroughly. Would recommend for beginners.",
-  ],
-  2: [
-    "Fair mentor. Had some good insights but pacing could be better.",
-    "Average experience. Content was useful but expected more depth.",
-  ],
-  1: [
-    "Needs improvement. Struggled to explain some concepts clearly.",
-    "Not the best fit for my learning style. Might work better for others.",
-  ],
-};
-
-const REVIEWER_NAMES = [
-  "Alex M.", "Jordan K.", "Priya S.", "Carlos R.", "Emily W.",
-  "Rahul V.", "Sarah L.", "Mike T.", "Anna D.", "James P.",
-  "Sophia C.", "David H.", "Lisa N.", "Omar F.", "Hannah B.",
-];
-
-function StarDisplay({ rating, size = 14 }) {
-  const full = Math.floor(rating);
-  const hasHalf = rating - full >= 0.25 && rating - full < 0.75;
-  const empty = 5 - full - (hasHalf ? 1 : 0);
-  return (
-    <span className="lf-review-stars" style={{ fontSize: size }}>
-      {Array.from({ length: full }).map((_, i) => (
-        <span key={`f${i}`} className="lf-review-star lf-review-star--full">star</span>
-      ))}
-      {hasHalf && <span className="lf-review-star lf-review-star--half">star_half</span>}
-      {Array.from({ length: empty }).map((_, i) => (
-        <span key={`e${i}`} className="lf-review-star lf-review-star--empty">star</span>
-      ))}
-    </span>
-  );
-}
-
 /* ==========================================================================
    Premium Mentor Card
    ========================================================================== */
@@ -310,38 +260,6 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
               </span>
             </div>
 
-            {/* ─── Student Review Snippet ─── */}
-            {reviews > 0 && rating > 0 && (() => {
-              // Stable: uses mentor.id to pick deterministic reviewer name & text
-              const seed = (mentor.id || 0).toString() + rating.toFixed(1);
-              let h = 0;
-              for (let i = 0; i < seed.length; i++) h = ((h << 5) - h) + seed.charCodeAt(i);
-              const textIdx = Math.abs(h) % (REVIEW_TEXTS[Math.round(rating) >= 5 ? 5 : Math.round(rating) <= 1 ? 1 : Math.round(rating)]?.length || 1);
-              const nameIdx = Math.abs(h + 7) % REVIEWER_NAMES.length;
-              const bucket = Math.round(rating) >= 5 ? 5 : Math.round(rating) <= 1 ? 1 : Math.round(rating);
-              const text = (REVIEW_TEXTS[bucket] || REVIEW_TEXTS[3])[textIdx];
-              const name = REVIEWER_NAMES[nameIdx];
-              return (
-                <div className="lf-mentor-card__review-snip">
-                  <div className="lf-mentor-card__review-header">
-                    <StarDisplay rating={rating} size={14} />
-                    <span className="lf-mentor-card__review-rating">{rating.toFixed(1)}</span>
-                    <Link
-                      to={`/mentors/${mentor.id}`}
-                      className="lf-mentor-card__review-count"
-                    >
-                      {reviews} review{reviews !== 1 ? "s" : ""}
-                    </Link>
-                  </div>
-                  <p className="lf-mentor-card__review-text">
-                    &ldquo;{text}&rdquo;
-                  </p>
-                  <span className="lf-mentor-card__review-author">
-                    &mdash; {name}
-                  </span>
-                </div>
-              );
-            })()}
           </div>
         </div>
 

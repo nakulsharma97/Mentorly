@@ -26,6 +26,13 @@ public class StatsService {
         long activeUsers = userRepository.countByLastActiveAtAfter(cutoff);
         long skillsOffered = skillRepository.count();
         long completedSwaps = bookingRepository.countByBookingStatus(BookingStatus.COMPLETED);
+        long totalBookings = bookingRepository.count();
+
+        // completion rate: percentage of all bookings that reached COMPLETED
+        double completionRate = 0.0;
+        if (totalBookings > 0) {
+            completionRate = Math.round((completedSwaps * 10000.0) / totalBookings) / 100.0;
+        }
 
         // compute overall average rating across mentor and learner reviews
         double mentorAvg = mentorReviewRepository.sumRating();
@@ -39,6 +46,6 @@ public class StatsService {
         }
 
         return new CommunityStatsDto(totalUsers, activeUsers, skillsOffered, completedSwaps,
-                Math.round(averageRating * 100.0) / 100.0);
+                Math.round(averageRating * 100.0) / 100.0, completionRate);
     }
 }

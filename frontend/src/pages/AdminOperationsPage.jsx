@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
 import StatsCard from '../modules/common/dashboard/StatsCard';
@@ -7,7 +7,7 @@ import SectionCard from '../modules/common/dashboard/SectionCard';
 import TrendChart from '../modules/common/dashboard/TrendChart';
 import './AdminOperationsPage.css';
 
-const statusOptions = ['OPEN', 'IN_REVIEW', 'RESOLVED', 'DISMISSED'];
+const statusOptions = ['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -22,20 +22,30 @@ const formatDate = (value) => {
   }).format(date);
 };
 
-const getMentorSkills = (skills) => {
-  if (Array.isArray(skills)) {
-    return skills.map((item) => String(item || '').trim()).filter(Boolean);
-  }
-  return String(skills || '')
-    .split(/[\n,;|]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
+/** Compact timestamp for list rows (e.g. "Jul 25, 2:05 PM"). */
+const formatTimeShort = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+};
+
+/** Two-letter initials from a participant or sender name for avatar placeholders. */
+const initialsOf = (name) => {
+  if (!name) return '?';
+  const parts = String(name).split(/[\s&]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((part) => part[0].toUpperCase());
+  return letters.join('') || '?';
 };
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'dashboard' },
   { key: 'reports', label: 'Reports', icon: 'flag' },
-  { key: 'verifications', label: 'Mentor Verifications', icon: 'verified' },
   { key: 'conversations', label: 'Conversations', icon: 'forum' },
   { key: 'payments', label: 'Payments', icon: 'payments' },
   { key: 'referral', label: 'Referrals', icon: 'share' },
@@ -44,7 +54,6 @@ const TABS = [
 const PATH_TAB_MAP = {
   dashboard: 'overview',
   reports: 'reports',
-  verifications: 'verifications',
   conversations: 'conversations',
   payments: 'payments',
   referral: 'referral',
@@ -56,23 +65,23 @@ export default function AdminOperationsPage({ notify }) {
   const [activeTab, setActiveTab] = useState(PATH_TAB_MAP[pathSegment] || 'overview');
   const [summary, setSummary] = useState(null);
   const [reports, setReports] = useState([]);
-  const [verifications, setVerifications] = useState([]);
   const [reportStatus, setReportStatus] = useState('OPEN');
   const [loading, setLoading] = useState(true);
-  const [verificationLoading, setVerificationLoading] = useState(true);
-  const [verificationUpdatingId, setVerificationUpdatingId] = useState(null);
-  const [activeRejectId, setActiveRejectId] = useState(null);
-  const [rejectReasonById, setRejectReasonById] = useState({});
-  const [rejectErrorById, setRejectErrorById] = useState({});
 
   // ── Conversations state ──
   const [convs, setConvs] = useState([]);
   const [convsLoading, setConvsLoading] = useState(false);
   const [convSearch, setConvSearch] = useState('');
+  const [convSearchApplied, setConvSearchApplied] = useState(''); // debounced, used in requests
   const [convTypeFilter, setConvTypeFilter] = useState('all');
   const [selectedConv, setSelectedConv] = useState(null);
   const [convMessages, setConvMessages] = useState([]);
   const [convMessagesLoading, setConvMessagesLoading] = useState(false);
+  const [convMessagesError, setConvMessagesError] = useState(false);
+  // Guards against out-of-order responses: only the latest request may update state.
+  const convRequestRef = useRef(0);
+  const msgRequestRef = useRef(0);
+  const messagesEndRef = useRef(null);
 
   // ── Referral state ──
   const [referralAnalytics, setReferralAnalytics] = useState(null);
@@ -90,23 +99,6 @@ export default function AdminOperationsPage({ notify }) {
   const [migrationResult, setMigrationResult] = useState(null);
 
   // ── Loaders ──
-  const loadVerificationQueue = useCallback(async () => {
-    setVerificationLoading(true);
-    try {
-      const verificationResponse = await client.get('/api/v1/verification/mentor/requests?status=PENDING');
-      const queue = verificationResponse?.data?.data || verificationResponse?.data || [];
-      setVerifications(Array.isArray(queue) ? queue : []);
-    } catch {
-      notify?.({
-        type: 'error',
-        title: 'Verification queue unavailable',
-        message: 'Could not load mentor verification requests.'
-      });
-    } finally {
-      setVerificationLoading(false);
-    }
-  }, [notify]);
-
   const loadAdminData = useCallback(async () => {
     setLoading(true);
     try {
@@ -128,19 +120,23 @@ export default function AdminOperationsPage({ notify }) {
   }, [notify, reportStatus]);
 
   const loadConversations = useCallback(async () => {
+    const requestId = ++convRequestRef.current;
     setConvsLoading(true);
     try {
       const params = new URLSearchParams();
       if (convTypeFilter !== 'all') params.set('type', convTypeFilter);
-      if (convSearch.trim()) params.set('q', convSearch.trim());
+      if (convSearchApplied.trim()) params.set('q', convSearchApplied.trim());
       const res = await client.get(`/api/v1/admin/conversations?${params}`);
+      if (requestId !== convRequestRef.current) return; // stale response — ignore
       setConvs(res?.data?.data || []);
-    } catch {
-      notify?.({ type: 'error', title: 'Conversations unavailable', message: 'Could not load conversations.' });
+    } catch (err) {
+      if (requestId !== convRequestRef.current) return;
+      const msg = err?.response?.data?.data?.error || err?.response?.data?.message || 'Could not load conversations.';
+      notify?.({ type: 'error', title: 'Conversations unavailable', message: msg });
     } finally {
-      setConvsLoading(false);
+      if (requestId === convRequestRef.current) setConvsLoading(false);
     }
-  }, [notify, convTypeFilter, convSearch]);
+  }, [notify, convTypeFilter, convSearchApplied]);
 
   const loadReferralAnalytics = useCallback(async () => {
     setReferralLoading(true);
@@ -175,13 +171,22 @@ export default function AdminOperationsPage({ notify }) {
     loadReferralAnalytics(); // Eager load for tab badge
   }, [loadAdminData, loadReferralAnalytics]);
 
+  // Debounce the conversation search box: wait until the user stops typing
+  // before triggering a request, so each keystroke does not fire an API call.
   useEffect(() => {
-    loadVerificationQueue();
-  }, [loadVerificationQueue]);
+    const timer = setTimeout(() => setConvSearchApplied(convSearch.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [convSearch]);
 
   useEffect(() => {
     if (activeTab === 'conversations') loadConversations();
   }, [activeTab, loadConversations]);
+
+  // Keep the message panel scrolled to the latest message whenever the
+  // selected conversation or its messages change.
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [convMessages, convMessagesLoading, selectedConv?.id]);
 
   useEffect(() => {
     if (activeTab === 'referral') loadReferralAnalytics();
@@ -191,72 +196,7 @@ export default function AdminOperationsPage({ notify }) {
     if (activeTab === 'payments') loadPayments();
   }, [activeTab, loadPayments]);
 
-  // ── Verification actions ──
-  const approveVerification = async (item) => {
-    setVerificationUpdatingId(item.id);
-    try {
-      await client.patch(`/api/v1/verification/mentor/requests/${item.id}`, {
-        status: 'APPROVED',
-        reviewNote: 'Approved by admin'
-      });
-      setVerifications((prev) => prev.filter((request) => request.id !== item.id));
-      notify?.({
-        type: 'success',
-        title: 'Mentor approved',
-        message: `Mentor ${item?.mentor?.fullName || item?.mentor?.email || item.id} approved successfully`
-      });
-    } catch (error) {
-      notify?.({
-        type: 'error',
-        title: 'Approval failed',
-        message: error?.response?.data?.data?.error || error?.response?.data?.message || 'Failed to approve mentor verification.'
-      });
-    } finally {
-      setVerificationUpdatingId(null);
-    }
-  };
-
-  const startReject = (itemId) => {
-    setActiveRejectId(itemId);
-    setRejectReasonById((prev) => ({ ...prev, [itemId]: prev[itemId] || '' }));
-    setRejectErrorById((prev) => ({ ...prev, [itemId]: '' }));
-  };
-
-  const cancelReject = (itemId) => {
-    setActiveRejectId((prev) => (prev === itemId ? null : prev));
-    setRejectErrorById((prev) => ({ ...prev, [itemId]: '' }));
-  };
-
-  const submitRejection = async (item) => {
-    const reason = String(rejectReasonById[item.id] || '').trim();
-    if (!reason) {
-      setRejectErrorById((prev) => ({ ...prev, [item.id]: 'Rejection reason is required.' }));
-      return;
-    }
-    setVerificationUpdatingId(item.id);
-    try {
-      await client.patch(`/api/v1/verification/mentor/requests/${item.id}`, {
-        status: 'REJECTED',
-        reviewNote: reason
-      });
-      setVerifications((prev) => prev.filter((request) => request.id !== item.id));
-      setActiveRejectId((prev) => (prev === item.id ? null : prev));
-      notify?.({
-        type: 'success',
-        title: 'Mentor rejected',
-        message: `Mentor ${item?.mentor?.fullName || item?.mentor?.email || item.id} verification rejected`
-      });
-    } catch (error) {
-      notify?.({
-        type: 'error',
-        title: 'Rejection failed',
-        message: error?.response?.data?.data?.error || error?.response?.data?.message || 'Failed to reject mentor verification.'
-      });
-    } finally {
-      setVerificationUpdatingId(null);
-    }
-  };
-
+  // ── Report actions ──
   const updateReportStatus = async (reportId, nextStatus) => {
     try {
       await client.patch(`/api/v1/admin/reports/${reportId}`, { status: nextStatus });
@@ -276,22 +216,31 @@ export default function AdminOperationsPage({ notify }) {
   };
 
   // ── Conversation actions ──
-  const selectConversation = async (conv) => {
+  const selectConversation = useCallback(async (conv) => {
+    // Already viewing this conversation and its messages are loaded or loading.
+    // If the previous load failed, allow re-clicking to retry it.
+    if (selectedConv?.id === conv.id && !convMessagesError) return;
+    const requestId = ++msgRequestRef.current;
     setSelectedConv(conv);
     setConvMessagesLoading(true);
+    setConvMessagesError(false);
     setConvMessages([]);
     try {
       const endpoint = conv.kind === 'booking'
         ? `/api/v1/admin/conversations/booking/${conv.referenceId}/messages`
         : `/api/v1/admin/conversations/direct/${conv.referenceId}/messages`;
       const res = await client.get(endpoint);
+      if (requestId !== msgRequestRef.current) return; // stale response — ignore
       setConvMessages(res?.data?.data || []);
-    } catch {
-      notify?.({ type: 'error', title: 'Messages failed', message: 'Could not load messages for this conversation.' });
+    } catch (err) {
+      if (requestId !== msgRequestRef.current) return;
+      setConvMessagesError(true);
+      const msg = err?.response?.data?.data?.error || err?.response?.data?.message || 'Could not load messages for this conversation.';
+      notify?.({ type: 'error', title: 'Messages failed', message: msg });
     } finally {
-      setConvMessagesLoading(false);
+      if (requestId === msgRequestRef.current) setConvMessagesLoading(false);
     }
-  };
+  }, [notify, selectedConv, convMessagesError]);
 
   // ── Payment actions ──
   const handleRefund = async (paymentId) => {
@@ -503,61 +452,23 @@ export default function AdminOperationsPage({ notify }) {
     </section>
   );
 
-  const renderVerificationsTab = () => (
+  const renderVerificationsLink = () => (
     <section className="admin-panel">
       <div className="admin-section-heading">
         <div>
           <p className="admin-eyebrow">Verification</p>
-          <h2>Mentor Verification Queue <span className="admin-count-badge">{verifications.length} pending</span></h2>
+          <h2>Mentor Verification Queue</h2>
         </div>
-        <button type="button" className="admin-refresh-btn" onClick={loadVerificationQueue}
-          disabled={verificationLoading || Boolean(verificationUpdatingId)}>
-          {verificationLoading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <span className="admin-count-badge">{summary?.pendingMentorVerifications || 0} pending</span>
       </div>
-      <div className="admin-list">
-        {verificationLoading && <p>Loading pending verification requests...</p>}
-        {!verificationLoading && verifications.map((item) => {
-          const skills = getMentorSkills(item?.mentor?.skills);
-          const isUpdating = verificationUpdatingId === item.id;
-          const isRejectOpen = activeRejectId === item.id;
-          return (
-            <article className="admin-card admin-verification-card" key={item.id}>
-              <div className="admin-verification-header">
-                <h3>{item?.mentor?.fullName || `Mentor #${item?.mentor?.id || item.id}`}</h3>
-                <span className="admin-status">{item.status}</span>
-              </div>
-              <p className="admin-verification-meta"><strong>Email:</strong> {item?.mentor?.email || 'Not provided'}</p>
-              <p className="admin-verification-meta"><strong>Skills:</strong> {skills.length ? skills.join(', ') : 'No skills listed'}</p>
-              <p className="admin-verification-meta"><strong>Document type:</strong> {item.documentType || 'Unknown'}</p>
-              <p className="admin-verification-meta"><strong>Document:</strong> <a href={item.documentUrl} target="_blank" rel="noreferrer">View Document</a></p>
-              <p className="admin-verification-meta"><strong>Submitted:</strong> {formatDate(item.createdAt)}</p>
-              <div className="admin-verification-actions">
-                <button type="button" className="admin-action-btn admin-action-approve" disabled={isUpdating} onClick={() => approveVerification(item)}>Approve</button>
-                <button type="button" className="admin-action-btn admin-action-reject" disabled={isUpdating} onClick={() => startReject(item.id)}>Reject</button>
-              </div>
-              {isRejectOpen && (
-                <div className="admin-reject-form">
-                  <label htmlFor={`rejection-reason-${item.id}`}>Rejection reason (required)</label>
-                  <input id={`rejection-reason-${item.id}`} type="text"
-                    value={rejectReasonById[item.id] || ''}
-                    onChange={(event) => {
-                      setRejectReasonById((prev) => ({ ...prev, [item.id]: event.target.value }));
-                      setRejectErrorById((prev) => ({ ...prev, [item.id]: '' }));
-                    }}
-                    placeholder="Explain why this request is being rejected" />
-                  {rejectErrorById[item.id] && <p className="admin-reject-error">{rejectErrorById[item.id]}</p>}
-                  <div className="admin-reject-actions">
-                    <button type="button" className="admin-action-btn admin-action-reject" disabled={isUpdating} onClick={() => submitRejection(item)}>Submit Rejection</button>
-                    <button type="button" className="admin-action-btn admin-action-cancel" disabled={isUpdating} onClick={() => cancelReject(item.id)}>Cancel</button>
-                  </div>
-                </div>
-              )}
-            </article>
-          );
-        })}
-        {!verificationLoading && verifications.length === 0 && <p>No pending verification requests</p>}
-      </div>
+      <p style={{ margin: '0 0 14px', color: '#475569', fontSize: '0.88rem', lineHeight: 1.6 }}>
+        Review uploaded certificates, resumes, and experience before approving or
+        rejecting mentor verification requests. Approved mentors receive a
+        verified badge and are notified.
+      </p>
+      <Link to="/admin/verifications" className="admin-refresh-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
+        <Icon name="verified" /> Open Verification Center
+      </Link>
     </section>
   );
 
@@ -578,56 +489,77 @@ export default function AdminOperationsPage({ notify }) {
       </div>
       <div className="admin-conv-search">
         <Icon name="search" />
-        <input type="text" placeholder="Search conversations by participant, title, or message..."
+        <input type="text" placeholder="Search by name, email, title, or message..."
           value={convSearch}
           onChange={(e) => setConvSearch(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') loadConversations(); }} />
-        <button type="button" className="admin-refresh-btn" onClick={loadConversations} disabled={convsLoading}>
+          onKeyDown={(e) => { if (e.key === 'Enter') setConvSearchApplied(convSearch.trim()); }} />
+        <button type="button" className="admin-refresh-btn" onClick={() => setConvSearchApplied(convSearch.trim())} disabled={convsLoading}>
           {convsLoading ? 'Searching...' : 'Search'}
         </button>
       </div>
 
       <div className="admin-conv-layout">
-        <div className="admin-conv-list">
+        <div className="admin-conv-list" aria-label="Conversation list">
           {convsLoading ? (
-            <p>Loading conversations...</p>
+            <p style={{ padding: 16, color: 'var(--admin-muted)' }}>Loading conversations...</p>
           ) : convs.length === 0 ? (
-            <div className="admin-empty-state">
-              <Icon name="forum" />
-              <p>No conversations found. Try a different search or filter.</p>
+            <div className="admin-conv-empty" role="status">
+              <span className="admin-conv-empty-art" aria-hidden="true">
+                <Icon name="forum" />
+              </span>
+              <h3>{convSearchApplied.trim() || convTypeFilter !== 'all' ? 'No matching conversations' : 'No conversations found'}</h3>
+              <p>
+                {convSearchApplied.trim() || convTypeFilter !== 'all'
+                  ? 'Try a different search term or filter.'
+                  : 'Conversations from bookings and direct messages will appear here.'}
+              </p>
             </div>
           ) : (
             convs.map((conv) => (
               <button key={conv.id}
                 className={`admin-conv-item ${selectedConv?.id === conv.id ? 'is-selected' : ''}`}
-                onClick={() => selectConversation(conv)}>
-                <div className="admin-conv-item-top">
-                  <strong>{conv.participantName}</strong>
-                  <span className={`admin-pill ${conv.kind === 'booking' ? 'admin-pill--booking' : 'admin-pill--direct'}`}>
-                    {conv.kind}
-                  </span>
+                onClick={() => selectConversation(conv)}
+                aria-current={selectedConv?.id === conv.id ? 'true' : undefined}>
+                <div className="admin-conv-item-avatar" aria-hidden="true">
+                  {initialsOf(conv.participantName)}
                 </div>
-                <div className="admin-conv-item-title">{conv.sessionTitle}</div>
-                <div className="admin-conv-item-preview">
-                  {conv.lastMessagePreview || <span className="admin-text-muted">No messages yet</span>}
-                </div>
-                <div className="admin-conv-item-meta">
-                  <span>{conv.status}</span>
-                  <span>{formatDate(conv.lastActivityAt)}</span>
+                <div className="admin-conv-item-body">
+                  <div className="admin-conv-item-top">
+                    <strong className="admin-conv-item-name">{conv.participantName}</strong>
+                    <span className="admin-conv-item-time" title={formatDate(conv.lastActivityAt)}>
+                      {formatTimeShort(conv.lastActivityAt)}
+                    </span>
+                  </div>
+                  <div className="admin-conv-item-title">{conv.sessionTitle}</div>
+                  <div className="admin-conv-item-preview">
+                    {conv.lastMessagePreview || <span className="admin-text-muted">No messages yet</span>}
+                  </div>
+                  <div className="admin-conv-item-meta">
+                    <span className={`admin-pill ${conv.kind === 'booking' ? 'admin-pill--booking' : 'admin-pill--direct'}`}>
+                      {conv.kind}
+                    </span>
+                    <span className="admin-conv-item-status">{conv.status}</span>
+                    {conv.unreadCount > 0 && (
+                      <span className="admin-unread-badge" title={`${conv.unreadCount} unread`}>{conv.unreadCount}</span>
+                    )}
+                  </div>
                 </div>
               </button>
             ))
           )}
         </div>
 
-        <div className="admin-conv-messages">
+        <div className="admin-conv-messages" aria-label="Conversation messages">
           {!selectedConv ? (
-            <div className="admin-empty-state">
-              <Icon name="chat" />
-              <p>Select a conversation to view messages</p>
+            <div className="admin-conv-empty">
+              <span className="admin-conv-empty-art" aria-hidden="true">
+                <Icon name="chat" />
+              </span>
+              <h3>Select a conversation</h3>
+              <p>Choose a conversation from the list to read its full message history.</p>
             </div>
           ) : convMessagesLoading ? (
-            <p>Loading messages...</p>
+            <p style={{ padding: 16, color: 'var(--admin-muted)' }}>Loading messages...</p>
           ) : (
             <>
               <div className="admin-conv-messages-header">
@@ -636,23 +568,30 @@ export default function AdminOperationsPage({ notify }) {
               </div>
               <div className="admin-conv-messages-list">
                 {convMessages.length === 0 ? (
-                  <div className="admin-empty-state">
-                    <Icon name="chat" />
-                    <p>No messages in this conversation yet.</p>
+                  <div className="admin-conv-empty">
+                    <span className="admin-conv-empty-art" aria-hidden="true">
+                      <Icon name="mail" />
+                    </span>
+                    <h3>No messages yet</h3>
+                    <p>This conversation has no messages so far.</p>
                   </div>
                 ) : (
                   convMessages.map((msg) => (
                     <div key={msg.id} className="admin-msg">
-                      <div className="admin-msg-header">
-                        <strong>{msg.senderName}</strong>
-                        <span>{msg.senderEmail}</span>
-                        <span className="admin-text-muted">{formatDate(msg.createdAt)}</span>
-                        {msg.readByRecipient && <span className="admin-read-badge" title="Read">✓✓</span>}
+                      <div className="admin-msg-avatar" aria-hidden="true">{initialsOf(msg.senderName)}</div>
+                      <div className="admin-msg-main">
+                        <div className="admin-msg-header">
+                          <strong>{msg.senderName}</strong>
+                          <span className="admin-text-muted">{msg.senderEmail}</span>
+                          <span className="admin-msg-time" title={formatDate(msg.createdAt)}>{formatTimeShort(msg.createdAt)}</span>
+                          {msg.readByRecipient && <span className="admin-read-badge" title="Read by recipient">✓✓</span>}
+                        </div>
+                        <p className="admin-msg-content">{msg.content}</p>
                       </div>
-                      <p className="admin-msg-content">{msg.content}</p>
                     </div>
                   ))
                 )}
+                <div ref={messagesEndRef} />
               </div>
             </>
           )}
@@ -966,11 +905,10 @@ export default function AdminOperationsPage({ notify }) {
             </section>
           )}
           {renderReportsTab()}
-          {renderVerificationsTab()}
+          {renderVerificationsLink()}
         </>
       )}
       {activeTab === 'reports' && renderReportsTab()}
-      {activeTab === 'verifications' && renderVerificationsTab()}
       {activeTab === 'conversations' && renderConversationsTab()}
       {activeTab === 'payments' && renderPaymentsTab()}
       {activeTab === 'referral' && renderReferralTab()}

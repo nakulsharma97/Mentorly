@@ -15,4 +15,6 @@ public class CommunityStatsDto {
     private long skillsOffered;
     private long completedSwaps;
     private double averageRating;
+    /** Percentage (0-100) of all bookings that reached COMPLETED status. */
+    private double completionRate;
 }

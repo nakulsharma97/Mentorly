@@ -162,9 +162,29 @@ async function testPageAccessibility(page, url, name, authRole = null) {
     if (authRole) {
       await injectAuthState(page, authRole);
     }
-    // Use "load" instead of "networkidle" because the app has polling intervals
-    // (notification count every 15s, activity ping every 60s) that never settle
-    await page.goto(url, { waitUntil: "load", timeout: 30000 });
+    // Emulate reduced-motion so entrance animations (opacity fades) are
+    // disabled. Axe's color-contrast check otherwise runs mid-animation,
+    // where semi-transparent text blends toward the background and produces
+    // false contrast failures (this was a flaky failure on Public Mentor
+    // Profile in full-suite runs).
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    // Wait for "domcontentloaded" instead of "load": the app has polling
+    // intervals (notification count every 15s, activity ping every 60s) and
+    // heavy hero images that made "load" flaky under parallel workers (30s
+    // timeout on /mentor/professional-profile). domcontentloaded fires once
+    // the HTML/JS is parsed; the 2s settle below lets the SPA render.
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    } catch (error) {
+      // Single retry, ONLY for navigation timeouts: under full-suite load the
+      // dev server occasionally exceeds the first-attempt budget on heavy
+      // pages. Genuine failures (HTTP 500, DNS) must surface immediately, so
+      // we re-throw anything that is not a Playwright TimeoutError.
+      if (error && error.name !== "TimeoutError") {
+        throw error;
+      }
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45000 });
+    }
     await page.waitForTimeout(2000);
   });
 

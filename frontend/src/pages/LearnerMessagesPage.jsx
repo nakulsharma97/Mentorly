@@ -9,6 +9,11 @@ import "../modules/mentor/mentor-pages.css";
 
 const RECONNECT_MAX_ATTEMPTS = 5;
 
+// Empty WebVTT captions track for user-uploaded voice/audio clips (no transcript
+// is available). Minimal valid WebVTT signature — satisfies the media-has-caption
+// a11y requirement without inventing content.
+const EMPTY_CAPTIONS_TRACK = "data:text/vtt,WEBVTT%0A";
+
 function unwrap(payload) {
   if (payload && typeof payload === "object" && "data" in payload && "message" in payload) return payload.data;
   return payload;
@@ -99,7 +104,12 @@ function MessageContent({ content }) {
           <span className="ms-msg-file-icon"><Icon name={isAudio ? "mic" : isImage ? "image" : "attach_file"} /></span>
           <div className="ms-msg-file-info">
             <strong>{filename}</strong>
-            {isAudio && <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40, marginTop: 4 }} preload="none">Your browser does not support audio.</audio>}
+            {isAudio && (
+              <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40, marginTop: 4 }} preload="none">
+                <track kind="captions" srcLang="en" src={EMPTY_CAPTIONS_TRACK} />
+                Your browser does not support audio.
+              </audio>
+            )}
             {isImage && <img src={fileUrl} alt={filename} style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, marginTop: 4, display: 'block' }} />}
             <a href={fileUrl} target="_blank" rel="noreferrer" className="ms-msg-file-link" download={!isAudio && !isImage}>{isAudio || isImage ? 'Open' : 'Download'} <Icon name="open_in_new" /></a>
           </div>
@@ -117,7 +127,10 @@ function MessageContent({ content }) {
           <span className="ms-msg-file-icon"><Icon name="mic" /></span>
           <div className="ms-msg-file-info">
             <strong>Voice message</strong>
-            <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40 }} preload="none">Your browser does not support audio.</audio>
+            <audio controls src={fileUrl} style={{ width: '100%', maxWidth: 240, height: 40 }} preload="none">
+              <track kind="captions" srcLang="en" src={EMPTY_CAPTIONS_TRACK} />
+              Your browser does not support audio.
+            </audio>
           </div>
         </div>
       );

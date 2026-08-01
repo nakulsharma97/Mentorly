@@ -2,6 +2,8 @@ package com.skillswap.config;
 
 import com.skillswap.auth.OAuth2LoginFailureHandler;
 import com.skillswap.auth.OAuth2LoginSuccessHandler;
+import com.skillswap.common.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +20,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -27,8 +30,11 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -43,6 +49,7 @@ public class SecurityConfig {
         private final UserDetailsService userDetailsService;
         private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
         private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
+        private final ObjectMapper objectMapper;
 
         @Value("${app.cors.allowed-origins:http://localhost:5174,http://127.0.0.1:5174}")
         private String allowedOrigins;
@@ -88,6 +95,21 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/availability/my-slots",
                                                                 "/api/v1/availability/my-slots/**")
                                                 .hasAnyRole("MENTOR", "TEACHER", "ADMIN")
+                                                // ── Admin routes ──
+                                                // Booking approval endpoints live under /api/v1/admin/bookings
+                                                // but are intentionally reachable by MENTORs (mentor approves
+                                                // learner bookings for their own sessions) as well as admins.
+                                                .requestMatchers("/api/v1/admin/bookings/**")
+                                                .hasAnyRole("MENTOR", "ADMIN")
+                                                .requestMatchers("/api/v1/admin/**")
+                                                .hasRole("ADMIN")
+                                                // Mentor verification moderation endpoints live outside /api/v1/admin/**
+                                                // (mentor-facing /request and /my stay role-agnostic) but the
+                                                // moderation queue + decision endpoints are admin-only. This
+                                                // filter-chain rule is defense-in-depth on top of the controller
+                                                // level ensureAdmin() checks.
+                                                .requestMatchers("/api/v1/verification/mentor/requests/**")
+                                                .hasRole("ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login",
                                                                 "/api/v1/auth/signup",
                                                                 "/api/v1/auth/refresh",
@@ -112,9 +134,12 @@ public class SecurityConfig {
                                                                 "/swagger-resources/**")
                                                 .permitAll()
                                                 .anyRequest().authenticated())
-                                .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
-																new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
-																new AntPathRequestMatcher("/api/**")))
+                                .exceptionHandling(ex -> ex
+                                                .defaultAuthenticationEntryPointFor(
+                                                                new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                                                new AntPathRequestMatcher("/api/**"))
+                                                .defaultAccessDeniedHandlerFor(restAccessDeniedHandler(),
+                                                                new AntPathRequestMatcher("/api/**")))
                                 .oauth2Login(oauth2 -> oauth2
                                                 .successHandler(oAuth2LoginSuccessHandler)
                                                 .failureHandler(oAuth2LoginFailureHandler))
@@ -142,6 +167,28 @@ public class SecurityConfig {
         @Bean
         public PasswordEncoder passwordEncoder() {
                 return new BCryptPasswordEncoder(10);
+        }
+
+        /**
+         * Returns a JSON {@code ApiResponse} with HTTP 403 when an authenticated
+         * user lacks the role required for a protected resource. Matches the
+         * structured error format used by {@code GlobalExceptionHandler} so API
+         * clients (e.g. the React SPA) can render consistent error messages.
+         */
+        private AccessDeniedHandler restAccessDeniedHandler() {
+                return (request, response, accessDeniedException) -> {
+                        response.setStatus(HttpStatus.FORBIDDEN.value());
+                        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                        response.setCharacterEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
+                        Map<String, Object> error = new LinkedHashMap<>();
+                        error.put("code", "FORBIDDEN");
+                        error.put("error", "Access denied: you do not have permission to access this resource");
+                        error.put("message", "Access denied: you do not have permission to access this resource");
+                        error.put("retryable", false);
+                        error.put("traceId", org.slf4j.MDC.get("traceId") == null ? "na" : org.slf4j.MDC.get("traceId"));
+                        objectMapper.writeValue(response.getOutputStream(),
+                                        new ApiResponse<>("Request failed", error));
+                };
         }
 
         @Bean

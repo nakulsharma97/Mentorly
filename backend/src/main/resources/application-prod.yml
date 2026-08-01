@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://prod-db:3306/skill?useSSL=true&requireSSL=true&serverTimezone=UTC}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://prod-db:3306/skill_swap?useSSL=true&requireSSL=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
@@ -10,6 +10,10 @@ logging:
     com.skillswap: INFO
 
 app:
+  jwt:
+    # Required — NO dev fallback. The JWT signing key must be supplied via the
+    # JWT_SECRET environment variable; startup fails fast if it is missing.
+    secret: ${JWT_SECRET}
   rate-limit:
     auth:
       max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:12}

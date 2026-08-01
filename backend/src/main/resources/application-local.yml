@@ -1,3 +1,11 @@
+# Local profile: enable Swagger/OpenAPI docs for developers (actuator stays
+# limited to health+info, see the management block below).
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/skill?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}

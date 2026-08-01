@@ -59,7 +59,8 @@ public class FileUploadController {
     /**
      * Store the uploaded file to disk and return the public URL path.
      * Allowed types: images (JPEG, PNG, GIF, WebP), documents (PDF, DOC, DOCX, TXT),
-     * audio (WebM, MP3, WAV, OGG, M4A), and common web formats (SVG, JSON, CSV).
+     * audio (WebM, MP3, WAV, OGG, M4A), and common web formats (JSON, CSV).
+     * SVG is deliberately excluded — it can carry embedded scripts (stored XSS).
      */
     private String storeFile(MultipartFile file, String originalFilename, String contentType) {
         boolean isAllowed = isAllowedFileType(originalFilename, contentType);
@@ -81,7 +82,10 @@ public class FileUploadController {
                 extension = inferExtension(contentType);
             }
 
-            String storedName = UUID.randomUUID() + extension;
+            // Defense in depth: keep only alphanumeric + a leading dot so a
+            // crafted filename can never inject path separators into the path.
+            String sanitized = extension.replaceAll("[^a-zA-Z0-9.]", "");
+            String storedName = UUID.randomUUID() + sanitized;
             Path target = uploadDir.resolve(storedName);
 
             try (InputStream inputStream = file.getInputStream()) {
@@ -131,7 +135,7 @@ public class FileUploadController {
 
     private boolean isAllowedExtension(String ext) {
         return switch (ext) {
-            case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg" -> true;
+            case ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp" -> true;
             case ".pdf", ".doc", ".docx", ".txt", ".csv", ".json", ".xml" -> true;
             case ".mp3", ".wav", ".ogg", ".m4a", ".webm", ".flac" -> true;
             case ".mp4", ".mov", ".avi", ".mkv" -> true;
@@ -140,6 +144,10 @@ public class FileUploadController {
     }
 
     private boolean isAllowedContentType(String contentType) {
+        // SVG is never allowed — it can embed executable scripts (stored XSS).
+        if (contentType.equals("image/svg+xml") || contentType.equals("image/svg")) {
+            return false;
+        }
         return contentType.startsWith("image/")
                 || contentType.startsWith("audio/")
                 || contentType.startsWith("video/")
@@ -158,7 +166,6 @@ public class FileUploadController {
             case "image/png" -> ".png";
             case "image/gif" -> ".gif";
             case "image/webp" -> ".webp";
-            case "image/svg+xml" -> ".svg";
             case "application/pdf" -> ".pdf";
             case "text/plain" -> ".txt";
             case "text/csv" -> ".csv";

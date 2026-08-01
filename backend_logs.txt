@@ -1,0 +1,128 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.skillswap:backend >------------------------
+[INFO] Building skill-swapping-backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.0:run (default-cli) > test-compile @ backend >>>
+[INFO] 
+[INFO] --- jacoco:0.8.14:prepare-agent (default) @ backend ---
+[INFO] argLine set to -javaagent:C:\\Users\\NAKULSHARMA\\.m2\\repository\\org\\jacoco\\org.jacoco.agent\\0.8.14\\org.jacoco.agent-0.8.14-runtime.jar=destfile=C:\\Users\\NAKULSHARMA\\Downloads\\SkillSwapper-main\\backend\\target\\jacoco.exec
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ backend ---
+[INFO] Skipping the execution.
+[INFO] 
+[INFO] --- antrun:3.1.0:run (copy-resources) @ backend ---
+[INFO] Executing tasks
+[INFO]      [copy] Copying 5 files to C:\Users\NAKULSHARMA\Downloads\SkillSwapper-main\backend\target\classes
+[INFO] Executed tasks
+[INFO] 
+[INFO] --- antrun:3.1.0:run (copy-migrations) @ backend ---
+[INFO] Executing tasks
+[INFO]      [copy] Copying 40 files to C:\Users\NAKULSHARMA\Downloads\SkillSwapper-main\backend\target\classes\db\migration
+[INFO] Executed tasks
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ backend ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ backend ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.5.0:run (default-cli) < test-compile @ backend <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.5.0:run (default-cli) @ backend ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.0)
+
+2026-07-30 23:10:13 - Starting SkillSwapApplication using Java 21.0.11 with PID 17108 (C:\Users\NAKULSHARMA\Downloads\SkillSwapper-main\backend\target\classes started by NAKULSHARMA in C:\Users\NAKULSHARMA\Downloads\SkillSwapper-main\backend)
+2026-07-30 23:10:13 - Running with Spring Boot v3.5.0, Spring v6.2.7
+2026-07-30 23:10:13 - The following 1 profile is active: "dev"
+2026-07-30 23:10:17 - Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-30 23:10:18 - Finished Spring Data repository scanning in 678 ms. Found 38 JPA repository interfaces.
+2026-07-30 23:10:21 - Tomcat initialized with port 8080 (http)
+2026-07-30 23:10:21 - Starting service [Tomcat]
+2026-07-30 23:10:21 - Starting Servlet engine: [Apache Tomcat/10.1.41]
+2026-07-30 23:10:21 - Initializing Spring embedded WebApplicationContext
+2026-07-30 23:10:21 - Root WebApplicationContext: initialization completed in 7684 ms
+2026-07-30 23:10:23 - HikariPool-1 - Starting...
+2026-07-30 23:10:24 - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@6d5de79a
+2026-07-30 23:10:24 - HikariPool-1 - Start completed.
+2026-07-30 23:10:24 - Database: jdbc:mysql://localhost:3306/skill?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC (MySQL 8.0)
+2026-07-30 23:10:24 - Successfully validated 40 migrations (execution time 00:00.250s)
+2026-07-30 23:10:24 - Current version of schema `skill`: 39
+2026-07-30 23:10:24 - Schema `skill` is up to date. No migration necessary.
+2026-07-30 23:10:25 - HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-30 23:10:25 - HHH000412: Hibernate ORM core version 6.6.15.Final
+2026-07-30 23:10:25 - HHH000026: Second-level cache disabled
+2026-07-30 23:10:26 - No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-30 23:10:26 - HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 8.0.46
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-07-30 23:10:34 - HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-07-30 23:10:34 - Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-30 23:10:35 - Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-30 23:10:43 - Filter 'jwtAuthenticationFilter' configured for use
+2026-07-30 23:10:43 - Filter 'csrfCookieFilter' configured for use
+2026-07-30 23:10:43 - Filter 'requestTraceFilter' configured for use
+2026-07-30 23:10:43 - Filter 'endpointRateLimitFilter' configured for use
+2026-07-30 23:10:43 - Filter 'maintenanceModeFilter' configured for use
+2026-07-30 23:10:48 - ⚠ PayPal client-id is using the default/test placeholder! Set APP_PAYMENT_PAYPAL_CLIENT_ID in production.
+2026-07-30 23:10:48 - ⚠ PayPal client-secret is using the default/test placeholder! Set APP_PAYMENT_PAYPAL_CLIENT_SECRET in production.
+2026-07-30 23:10:48 - ⚠ Razorpay key-id is using the default/test placeholder! Set APP_PAYMENT_RAZORPAY_KEY_ID in production.
+2026-07-30 23:10:48 - ⚠ Razorpay key-secret is using the default/test placeholder! Set APP_PAYMENT_RAZORPAY_KEY_SECRET in production.
+2026-07-30 23:10:48 - ⚠ Stripe secret-key is using the default/test placeholder! Set APP_PAYMENT_STRIPE_SECRET_KEY in production.
+2026-07-30 23:10:48 - ⚠ Stripe webhook-secret is using the default/test placeholder! Set APP_PAYMENT_STRIPE_WEBHOOK_SECRET in production.
+2026-07-30 23:10:55 - Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2026-07-30 23:10:55 - Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
+2026-07-30 23:10:56 - ✅ Environment configuration validated successfully (profile: dev)
+2026-07-30 23:11:00 - Exposing 3 endpoints beneath base path '/actuator'
+2026-07-30 23:11:00 - Will secure any request with filters: DisableEncodeUrlFilter, WebAsyncManagerIntegrationFilter, RequestTraceFilter, SecurityContextHolderFilter, HeaderWriterFilter, CorsFilter, LogoutFilter, OAuth2AuthorizationRequestRedirectFilter, OAuth2LoginAuthenticationFilter, EndpointRateLimitFilter, JwtAuthenticationFilter, MaintenanceModeFilter, DefaultResourcesFilter, DefaultLoginPageGeneratingFilter, DefaultLogoutPageGeneratingFilter, RequestCacheAwareFilter, SecurityContextHolderAwareRequestFilter, AnonymousAuthenticationFilter, SessionManagementFilter, ExceptionTranslationFilter, AuthorizationFilter
+2026-07-30 23:11:03 - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-07-30 23:11:03 - Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-30 23:11:03 - HikariPool-1 - Shutdown initiated...
+2026-07-30 23:11:03 - HikariPool-1 - Shutdown completed.
+2026-07-30 23:11:03 - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-30 23:11:03 - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:06 min
+[INFO] Finished at: 2026-07-30T23:11:03+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.5.0:run (default-cli) on project backend: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

@@ -23,13 +23,26 @@ const formatRelative = (v) => {
   return formatDate(v);
 };
 
-const ACTION_ICONS = {
+// Tracked security events get a dedicated icon + color so they stand out in
+// the timeline. More specific actions must be matched before the generic
+// substring fallback below (e.g. USER_DISABLE before USER).
+const ACTION_STYLES = [
+  { match: 'MENTOR_VERIFICATION', icon: 'verified_user', color: '#7c3aed' },
+  { match: 'LOGIN', icon: 'login', color: '#059669' },
+  { match: 'LOGOUT', icon: 'logout', color: '#64748b' },
+  { match: 'USER_DISABLE', icon: 'block', color: '#dc2626' },
+  { match: 'USER_ENABLE', icon: 'check_circle', color: '#16a34a' },
+  { match: 'DELETE_USER', icon: 'person_off', color: '#b91c1c' },
+  { match: 'DELETE_SESSION', icon: 'delete', color: '#b91c1c' },
+];
+
+const FALLBACK_ICONS = {
   REFUND: 'payments', BULK: 'group', USER: 'person', ROLE: 'badge',
   SESSION: 'calendar_month', BROADCAST: 'campaign', SETTINGS: 'settings',
   MODERATE: 'gavel', UPDATE: 'edit', DEFAULT: 'history',
 };
 
-const ACTION_COLORS = {
+const FALLBACK_COLORS = {
   REFUND: '#7c3aed', BULK: '#2563eb', USER: '#059669', ROLE: '#d97706',
   SESSION: '#0891b2', BROADCAST: '#dc2626', SETTINGS: '#64748b',
   MODERATE: '#b91c1c', UPDATE: '#0f766e',
@@ -37,11 +50,30 @@ const ACTION_COLORS = {
 
 const getActionMeta = (action) => {
   const upper = (action || '').toUpperCase();
-  for (const [key, icon] of Object.entries(ACTION_ICONS)) {
-    if (upper.includes(key)) return { icon, color: ACTION_COLORS[key] || '#64748b' };
+  for (const style of ACTION_STYLES) {
+    if (upper.includes(style.match)) return { icon: style.icon, color: style.color };
+  }
+  for (const [key, icon] of Object.entries(FALLBACK_ICONS)) {
+    if (upper.includes(key)) return { icon, color: FALLBACK_COLORS[key] || '#64748b' };
   }
   return { icon: 'history', color: '#64748b' };
 };
+
+// "USER_DISABLE" → "User Disable", "MENTOR_VERIFICATION" → "Mentor Verification"
+const formatAction = (action) => {
+  if (!action) return 'Unknown action';
+  return action.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+};
+
+const QUICK_FILTERS = [
+  { code: '', label: 'All activity' },
+  { code: 'LOGIN', label: 'Login' },
+  { code: 'LOGOUT', label: 'Logout' },
+  { code: 'USER_DISABLE', label: 'User Disable' },
+  { code: 'DELETE_USER', label: 'User Delete' },
+  { code: 'DELETE_SESSION', label: 'Session Delete' },
+  { code: 'MENTOR_VERIFICATION', label: 'Mentor Verification' },
+];
 
 const AUDIT_PAGE_SIZE = 50;
 
@@ -84,11 +116,34 @@ export default function AuditLogPage({ notify }) {
         <div>
           <p className="admin-eyebrow">Monitoring</p>
           <h1>Activity Timeline</h1>
-          <p>Visual timeline of all admin actions for security and compliance.</p>
+          <p>Security timeline of logins, admin actions and account events — who, what, when, and from where.</p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, margin: '18px 0', flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Quick filters for the tracked security events */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '18px 0 4px' }}>
+        {QUICK_FILTERS.map((f) => {
+          const active = actionFilter === f.code;
+          return (
+            <button
+              key={f.code || 'all'}
+              type="button"
+              onClick={() => setActionFilter(f.code)}
+              style={{
+                padding: '6px 14px', borderRadius: 999, border: active ? 'none' : '1px solid #e2e8f0',
+                background: active ? '#7c3aed' : '#fff', color: active ? '#fff' : '#475569',
+                fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+                boxShadow: active ? '0 2px 8px rgba(124,58,237,0.35)' : 'none',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, margin: '14px 0', flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="admin-search" style={{ flex: 1, maxWidth: 400 }}>
           <Icon name="search" />
           <input type="text" placeholder="Filter by action, admin, or entity..."
@@ -132,6 +187,12 @@ export default function AuditLogPage({ notify }) {
         ) : (
           logs.map((log) => {
             const { icon, color } = getActionMeta(log.action);
+            const actor = log.adminEmail || (log.userId ? `User #${log.userId}` : 'System');
+            const target = log.entityType
+              ? `${log.entityType}${log.entityId ? ` #${log.entityId}` : ''}`
+              : log.resource
+                ? `${log.resource}${log.resourceId ? ` #${log.resourceId}` : ''}`
+                : null;
             return (
               <div key={log.id} className="admin-msg" style={{
                 display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 16px',
@@ -149,7 +210,7 @@ export default function AuditLogPage({ notify }) {
 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                    <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>{log.action}</strong>
+                    <strong style={{ fontSize: '0.9rem', color: '#0f172a' }}>{formatAction(log.action)}</strong>
                     <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>
                       {formatRelative(log.createdAt)}
                     </span>
@@ -159,10 +220,13 @@ export default function AuditLogPage({ notify }) {
                     {log.details || 'No details'}
                   </p>
 
-                  <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: '0.78rem', color: '#94a3b8' }}>
-                    <span><Icon name="person" style={{ fontSize: '0.8rem' }} /> {log.adminEmail}</span>
-                    {log.entityType && (
-                      <span><Icon name="tag" style={{ fontSize: '0.8rem' }} /> {log.entityType}#{log.entityId || ''}</span>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: '0.78rem', color: '#94a3b8', flexWrap: 'wrap' }}>
+                    <span><Icon name="person" style={{ fontSize: '0.8rem' }} /> {actor}</span>
+                    {target && (
+                      <span><Icon name="tag" style={{ fontSize: '0.8rem' }} /> {target}</span>
+                    )}
+                    {log.ipAddress && log.ipAddress !== 'unknown' && (
+                      <span><Icon name="public" style={{ fontSize: '0.8rem' }} /> {log.ipAddress}</span>
                     )}
                     <span><Icon name="schedule" style={{ fontSize: '0.8rem' }} /> {formatDate(log.createdAt)}</span>
                   </div>

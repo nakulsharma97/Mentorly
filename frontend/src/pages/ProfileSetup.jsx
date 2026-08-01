@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import client from "../api/client";
+import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
 import RoleSwitcher from "../components/RoleSwitcher";
 import {
   getProfileQualityScore,
@@ -27,6 +28,7 @@ const emptyForm = {
   pastTeachingSessions: "",
   certificates: "",
   projects: "",
+  resumeUrl: "",
 };
 
 const emptyProject = {
@@ -145,9 +147,6 @@ function CompletionCard({ qualityScore, completedChecks, totalChecks }) {
    Tip Card (Sidebar)
    ───────────────────────────────────────────────────────────── */
 function TipsCard({ checks }) {
-  const total = checks.length;
-  const done = checks.filter((c) => c.done).length;
-
   return (
     <div className="ps-tips">
       <h3>
@@ -282,6 +281,7 @@ export default function ProfileSetup({
       pastTeachingSessions: initialProfile?.pastTeachingSessions || "",
       certificates: initialProfile?.certificates || "",
       projects: initialProfile?.projects || "",
+      resumeUrl: initialProfile?.resumeUrl || "",
     });
     setSkillTags(parsedTags);
     if (initialProfile?.id) {
@@ -553,6 +553,7 @@ export default function ProfileSetup({
       if (form.pastTeachingSessions) payload.pastTeachingSessions = form.pastTeachingSessions;
       if (form.certificates) payload.certificates = form.certificates;
       if (form.projects) payload.projects = form.projects;
+      if (form.resumeUrl) payload.resumeUrl = form.resumeUrl;
       saveProfile(payload).catch(() => {});
     }, 30000);
 
@@ -614,6 +615,7 @@ export default function ProfileSetup({
         pastTeachingSessions: form.pastTeachingSessions,
         certificates: form.certificates,
         projects: form.projects,
+        resumeUrl: form.resumeUrl,
       };
       const response = await saveProfile(payload, { notifySuccess: true });
       if (response && onCompleted) onCompleted(response);
@@ -956,6 +958,26 @@ export default function ProfileSetup({
                         onBlur={handleBlur}
                       />
                       {touchedFields.linkedinUrl && form.linkedinUrl && !hasLinkedin && (
+                        <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
+                          Please enter a full URL starting with https://
+                        </p>
+                      )}
+                    </Field>
+
+                    <Field
+                      label="Resume URL"
+                      helper="Paste a link to your resume (PDF or document). Admins review it during mentor verification."
+                    >
+                      <input
+                        className="ps-input"
+                        name="resumeUrl"
+                        type="url"
+                        placeholder="https://example.com/your-resume.pdf"
+                        value={form.resumeUrl}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                      />
+                      {touchedFields.resumeUrl && form.resumeUrl && !/^https?:\/\//i.test(form.resumeUrl.trim()) && (
                         <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
                           Please enter a full URL starting with https://
                         </p>

@@ -1,0 +1,580 @@
+/* ═══════════════════════════════════════════════════════════════
+   Admin Analytics Dashboard — component styles
+   Reuses the --admin-* design tokens from AdminOperationsPage.css
+   (light + dark theme aware).
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Range filter (Today / 7d / 30d / 3m / 1y / Custom) ─────────── */
+.ana-range {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+}
+
+.ana-range__btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.12s ease;
+}
+
+.ana-range__btn:hover {
+  color: var(--admin-text);
+  background: var(--admin-hover);
+}
+
+.ana-range__btn.is-active {
+  background: var(--admin-brand);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--admin-brand-soft);
+}
+
+.ana-range__btn:active {
+  transform: scale(0.96);
+}
+
+/* ── Custom date range ─────────────────────────────────────────── */
+.ana-custom-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+
+.ana-custom-range input[type="date"] {
+  appearance: none;
+  background: var(--admin-input-bg);
+  color: var(--admin-input-text);
+  border: 1px solid var(--admin-input-border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  color-scheme: light;
+}
+
+[data-theme="dark"] .ana-custom-range input[type="date"] {
+  color-scheme: dark;
+}
+
+.ana-custom-range span {
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+}
+
+/* ── Auto-refresh toggle ───────────────────────────────────────── */
+.ana-autorefresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ana-autorefresh input {
+  accent-color: var(--admin-brand);
+  cursor: pointer;
+}
+
+/* ── KPI grid (animated counters) ──────────────────────────────── */
+.ana-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.ana-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 16px;
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.ana-stat:hover {
+  box-shadow: 0 8px 24px var(--admin-shadow);
+  transform: translateY(-2px);
+  border-color: var(--admin-border-strong);
+}
+
+.ana-stat__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+
+.ana-stat__body {
+  min-width: 0;
+}
+
+.ana-stat__value {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--admin-text);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.ana-stat__label {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tone modifiers (light + dark aware) */
+.ana-stat--slate .ana-stat__icon { background: #f1f5f9; color: #475569; }
+.ana-stat--teal  .ana-stat__icon { background: #f0fdfa; color: #0f766e; }
+.ana-stat--blue  .ana-stat__icon { background: #eff6ff; color: #1d4ed8; }
+.ana-stat--green .ana-stat__icon { background: #ecfdf5; color: #15803d; }
+.ana-stat--amber .ana-stat__icon { background: #fffbeb; color: #b45309; }
+.ana-stat--violet.ana-stat__icon { background: #f5f3ff; color: #6d28d9; }
+.ana-stat--cyan  .ana-stat__icon { background: #ecfeff; color: #0e7490; }
+.ana-stat--rose  .ana-stat__icon { background: #fff1f2; color: #be123c; }
+.ana-stat--indigo.ana-stat__icon { background: #eef2ff; color: #4338ca; }
+.ana-stat--orange.ana-stat__icon { background: #fff7ed; color: #c2410c; }
+.ana-stat--red   .ana-stat__icon { background: #fef2f2; color: #b91c1c; }
+
+[data-theme="dark"] .ana-stat--slate .ana-stat__icon { background: #334155; color: #cbd5e1; }
+[data-theme="dark"] .ana-stat--teal  .ana-stat__icon { background: #134e4a; color: #5eead4; }
+[data-theme="dark"] .ana-stat--blue  .ana-stat__icon { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .ana-stat--green .ana-stat__icon { background: #14532d; color: #86efac; }
+[data-theme="dark"] .ana-stat--amber .ana-stat__icon { background: #422006; color: #fcd34d; }
+[data-theme="dark"] .ana-stat--violet.ana-stat__icon { background: #2e1065; color: #c4b5fd; }
+[data-theme="dark"] .ana-stat--cyan  .ana-stat__icon { background: #164e63; color: #67e8f9; }
+[data-theme="dark"] .ana-stat--rose  .ana-stat__icon { background: #4c0519; color: #fda4af; }
+[data-theme="dark"] .ana-stat--indigo.ana-stat__icon { background: #1e1b4b; color: #a5b4fc; }
+[data-theme="dark"] .ana-stat--orange.ana-stat__icon { background: #431407; color: #fdba74; }
+[data-theme="dark"] .ana-stat--red   .ana-stat__icon { background: #450a0a; color: #fca5a5; }
+
+/* ── Donut chart ───────────────────────────────────────────────── */
+.ana-donut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ana-donut svg {
+  max-width: 100%;
+}
+
+.ana-donut__total {
+  font-size: 1.15rem;
+  font-weight: 800;
+  fill: var(--admin-text);
+}
+
+.ana-donut__label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  fill: var(--admin-muted);
+}
+
+.ana-donut__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 0;
+  color: var(--admin-muted);
+  font-size: 0.85rem;
+}
+
+.ana-donut__empty .material-symbols-outlined {
+  font-size: 2rem;
+}
+
+.ana-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ana-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--admin-text);
+}
+
+.ana-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ana-legend__name {
+  flex: 1;
+  text-transform: capitalize;
+  color: var(--admin-muted);
+}
+
+.ana-legend__count {
+  font-weight: 700;
+}
+
+/* ── Ranked bars (top skills / mentors / learners) ──────────────── */
+.ana-ranked {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ana-ranked__row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ana-ranked__rank {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--admin-hover);
+  color: var(--admin-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ana-ranked__medal {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.ana-ranked__medal--1 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.ana-ranked__medal--2 { background: linear-gradient(135deg, #94a3b8, #64748b); }
+.ana-ranked__medal--3 { background: linear-gradient(135deg, #d97706, #b45309); }
+
+.ana-ranked__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ana-ranked__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.ana-ranked__name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ana-ranked__count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--admin-muted);
+  flex-shrink: 0;
+}
+
+.ana-ranked__track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--admin-hover);
+  overflow: hidden;
+}
+
+.ana-ranked__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--admin-brand), #2dd4bf);
+  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ana-ranked__sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--admin-muted);
+}
+
+/* ── Activity heatmap ──────────────────────────────────────────── */
+.ana-heatmap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ana-heatmap__cell-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ana-heatmap__cell {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--admin-hover);
+  transition: transform 0.12s ease;
+}
+
+.ana-heatmap__cell:hover {
+  transform: scale(1.2);
+}
+
+.ana-heatmap__cell--1 { background: #ccfbf1; }
+.ana-heatmap__cell--2 { background: #5eead4; }
+.ana-heatmap__cell--3 { background: #14b8a6; }
+.ana-heatmap__cell--4 { background: #0f766e; }
+
+[data-theme="dark"] .ana-heatmap__cell--1 { background: #134e4a; }
+[data-theme="dark"] .ana-heatmap__cell--2 { background: #0f766e; }
+[data-theme="dark"] .ana-heatmap__cell--3 { background: #14b8a6; }
+[data-theme="dark"] .ana-heatmap__cell--4 { background: #2dd4bf; }
+
+.ana-heatmap__label {
+  font-size: 0.6rem;
+  color: var(--admin-muted);
+}
+
+/* ── Recent activity timeline ──────────────────────────────────── */
+.ana-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ana-activity__item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-divider);
+}
+
+.ana-activity__item:last-child {
+  border-bottom: none;
+}
+
+.ana-activity__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--admin-hover);
+  color: var(--admin-muted);
+  font-size: 1.05rem;
+}
+
+.ana-activity__icon--signup   { background: #eff6ff; color: #1d4ed8; }
+.ana-activity__icon--completed{ background: #ecfdf5; color: #15803d; }
+.ana-activity__icon--payment  { background: #f0fdfa; color: #0f766e; }
+.ana-activity__icon--report   { background: #fff7ed; color: #c2410c; }
+.ana-activity__icon--flagged  { background: #fef2f2; color: #b91c1c; }
+
+[data-theme="dark"] .ana-activity__icon--signup    { background: #1e3a5f; color: #93c5fd; }
+[data-theme="dark"] .ana-activity__icon--completed { background: #14532d; color: #86efac; }
+[data-theme="dark"] .ana-activity__icon--payment   { background: #134e4a; color: #5eead4; }
+[data-theme="dark"] .ana-activity__icon--report    { background: #431407; color: #fdba74; }
+[data-theme="dark"] .ana-activity__icon--flagged   { background: #450a0a; color: #fca5a5; }
+
+.ana-activity__body {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ana-activity__body strong {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.ana-activity__detail {
+  font-size: 0.8rem;
+  color: var(--admin-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ana-activity__meta {
+  font-size: 0.72rem;
+  color: var(--admin-muted);
+  opacity: 0.85;
+}
+
+/* ── Platform health panel ─────────────────────────────────────── */
+.ana-health {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ana-health__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-divider);
+  font-size: 0.85rem;
+  color: var(--admin-text);
+}
+
+.ana-health__row:last-child {
+  border-bottom: none;
+}
+
+.ana-health__row > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+.ana-health__row > span:first-child .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+.ana-health__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ana-health__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ana-health__status--up,
+.ana-health__status--healthy {
+  background: #ecfdf5;
+  color: #15803d;
+}
+
+.ana-health__status--down,
+.ana-health__status--degraded {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .ana-health__status--up,
+[data-theme="dark"] .ana-health__status--healthy {
+  background: #14532d;
+  color: #86efac;
+}
+
+[data-theme="dark"] .ana-health__status--down,
+[data-theme="dark"] .ana-health__status--degraded {
+  background: #450a0a;
+  color: #fca5a5;
+}
+
+/* ── Loading skeletons ─────────────────────────────────────────── */
+.ana-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.ana-skeleton__card {
+  height: 84px;
+  border-radius: 14px;
+  background: linear-gradient(100deg, var(--admin-hover) 40%, var(--admin-card-bg) 50%, var(--admin-hover) 60%);
+  background-size: 200% 100%;
+  animation: ana-shimmer 1.3s infinite linear;
+}
+
+@keyframes ana-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .ana-kpi-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .ana-range {
+    border-radius: 14px;
+  }
+
+  .ana-custom-range {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .ana-heatmap__cell {
+    width: 16px;
+    height: 16px;
+  }
+}

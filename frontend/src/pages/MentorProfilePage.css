@@ -10,12 +10,12 @@
   --mpr-card: #FFFFFF;
   --mpr-border: #E2E8F0;
   --mpr-border-light: rgba(226,232,240,0.60);
-  --mpr-muted: #64748B;
+  --mpr-muted: #5B6B84; /* slate-600: 5.4:1 on white, 5.1:1 on tint — WCAG AA */
   --mpr-muted-light: #94A3B8;
-  --mpr-primary: #0F9D8A;
-  --mpr-primary-hover: #0C8A79;
-  --mpr-primary-light: rgba(15,157,138,0.10);
-  --mpr-primary-tint: rgba(15,157,138,0.06);
+  --mpr-primary: #0B7A6C; /* deeper teal: 5.2:1 on white, 4.9:1 on tint — WCAG AA */
+  --mpr-primary-hover: #09695E;
+  --mpr-primary-light: rgba(11,122,108,0.10);
+  --mpr-primary-tint: rgba(11,122,108,0.06);
   --mpr-shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.02);
   --mpr-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
   --mpr-shadow-lg: 0 8px 30px rgba(15,157,138,0.10), 0 2px 8px rgba(0,0,0,0.04);
@@ -34,6 +34,8 @@
   --mpr-border-light: rgba(51,65,85,0.60);
   --mpr-muted: #94A3B8;
   --mpr-muted-light: #64748B;
+  --mpr-primary: #2DD4BF; /* teal-400: 7.8:1 on dark card — WCAG AA */
+  --mpr-primary-hover: #5EEAD4;
   --mpr-primary-light: rgba(20,184,166,0.12);
   --mpr-primary-tint: rgba(20,184,166,0.06);
   --mpr-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
@@ -48,8 +50,11 @@
   100% { background-position: -200% 0; }
 }
 @keyframes mpr-fade-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  /* Transform-only (no opacity): keeps text/icons at full contrast while
+     animating, so an axe audit that runs mid-animation never reports a
+     false color-contrast failure (opacity blending would lighten text). */
+  from { transform: translateY(20px); }
+  to { transform: translateY(0); }
 }
 @keyframes mpr-fade-in {
   from { opacity: 0; }
@@ -70,6 +75,43 @@
 
 .mpr-animate-in {
   animation: mpr-fade-up 0.5s ease both;
+}
+
+/* ── Reduced Motion (matches the block present in every other page CSS) ── */
+@media (prefers-reduced-motion: reduce) {
+  .mpr-animate-in,
+  .mpr-stat-glass,
+  .mpr-hero__av-ring,
+  .mpr-badge-verified,
+  .mpr-request-success__icon,
+  .mpr-booking-success__icon,
+  .mpr-skel__shimmer,
+  .mpr-skel__av,
+  .mpr-skel__l,
+  .mpr-skel__chip,
+  .mpr-skel__stat,
+  .mpr-skel__body-block,
+  .mpr-modal,
+  .mpr-modal-overlay,
+  .mpr-confirm-overlay,
+  .mpr-confirm {
+    animation: none;
+  }
+  .mpr-btn,
+  .mpr-stat-glass,
+  .mpr-expertise-card,
+  .mpr-cert-card,
+  .mpr-chip,
+  .mpr-link-icon,
+  .mpr-about-block,
+  .mpr-section-card,
+  .mpr-slot-btn,
+  .mpr-duration-btn,
+  .mpr-tz-select,
+  .mpr-modal__close,
+  .mpr-booking-card__view-schedule {
+    transition: none;
+  }
 }
 
 /* ── Shell ────────────────────────────────────────────── */
@@ -2108,7 +2150,7 @@ div.mpr-sessions-grid--picker {
   align-items: center;
   gap: 2px;
 }
-.mpr-reviews-header__bar-label .material-symbols-outlined { font-size: 14px; color: #FDB022; }
+.mpr-reviews-header__bar-label .material-symbols-outlined { font-size: 14px; color: #B45309; /* amber-700: ~4.6:1 on the tint bg — WCAG AA (was #FDB022 at 1.7:1) */ }
 .mpr-reviews-header__bar-track {
   flex: 1;
   height: 8px;

@@ -2,6 +2,7 @@ package com.skillswap.admin;
 
 import com.skillswap.common.AuditLog;
 import com.skillswap.common.AuditLogRepository;
+import com.skillswap.common.AuditLogService;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
@@ -23,8 +24,10 @@ import com.skillswap.user.UserRole;
 import com.skillswap.verification.MentorVerificationRequest;
 import com.skillswap.verification.MentorVerificationRequestRepository;
 import com.skillswap.verification.MentorVerificationRequestStatus;
+import com.skillswap.waitlist.SessionWaitlistRepository;
 import com.skillswap.wallet.WalletLedgerEntry;
 import com.skillswap.wallet.WalletService;
+import com.skillswap.session.SkillSession;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +64,7 @@ public class AdminService {
     private final ReferralRewardRepository referralRewardRepository;
     private final UserReportRepository reportRepository;
     private final MentorVerificationRequestRepository mentorVerificationRepository;
+    private final SessionWaitlistRepository waitlistRepository;
 
     // ════════════════════════════════════════════════
     //  Admin — User Deletion
@@ -85,6 +89,37 @@ public class AdminService {
 
         saveAuditLog(currentUser, "DELETE_USER", "User", userId,
                 "Deleted user \"" + name + "\" (" + email + ")");
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Session Deletion
+    // ════════════════════════════════════════════════
+
+    /**
+     * Permanently deletes an inappropriate session (admin moderation action).
+     *
+     * To protect booking/payment integrity, deletion is refused when the
+     * session has any bookings — the admin should cancel such sessions instead
+     * (existing cancel flow leaves the booking record intact). For sessions
+     * with no bookings, waitlist entries are removed and the session is deleted.
+     * This deliberately does not touch any mentor booking logic.
+     */
+    @Transactional
+    public void deleteSession(User currentUser, Long sessionId) {
+        SkillSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+
+        long bookingCount = bookingRepository.countBySessionId(sessionId);
+        if (bookingCount > 0) {
+            throw new IllegalArgumentException(
+                    "Cannot delete a session that has bookings. Cancel the session instead.");
+        }
+
+        waitlistRepository.deleteBySessionId(sessionId);
+        sessionRepository.delete(session);
+
+        saveAuditLog(currentUser, "DELETE_SESSION", "Session", sessionId,
+                "Deleted session \"" + session.getTitle() + "\" (" + sessionId + ")");
     }
 
     // ════════════════════════════════════════════════
@@ -210,8 +245,15 @@ public class AdminService {
     //  Admin — Notification Broadcast
     // ════════════════════════════════════════════════
 
+    /**
+     * Broadcasts an in-app notification to all enabled users (or a role-scoped
+     * subset). {@code type} is one of the admin notification kinds
+     * (ANNOUNCEMENT / MAINTENANCE / PLATFORM_UPDATE) and is persisted on every
+     * delivered {@code AppNotification} so the notification center can badge
+     * and categorize each message.
+     */
     @Transactional
-    public int broadcastNotification(String title, String message, String targetRole) {
+    public int broadcastNotification(String title, String message, String targetRole, String type) {
         List<User> targets;
         if (targetRole != null && !targetRole.isBlank()) {
             UserRole role = UserRole.valueOf(targetRole.toUpperCase());
@@ -232,7 +274,7 @@ public class AdminService {
                 .map(User::getId)
                 .collect(Collectors.toList());
 
-        notificationService.notifyUsers(enabledUserIds, "ANNOUNCEMENT",
+        notificationService.notifyUsers(enabledUserIds, type,
                 title, message, null);
 
         return enabledUserIds.size();
@@ -292,6 +334,7 @@ public class AdminService {
             auditLog.setEntityType(entityType);
             auditLog.setEntityId(entityId);
             auditLog.setDetails(details);
+            auditLog.setIpAddress(AuditLogService.extractClientIp());
             auditLogRepository.save(auditLog);
         } catch (Exception ignored) {
             log.warn("Failed to save audit log", ignored);

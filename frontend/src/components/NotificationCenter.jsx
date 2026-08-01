@@ -25,6 +25,8 @@ const NOTIF_TYPE_CONFIG = {
   ROLE_SWITCHED: { icon: "swap_horiz", color: "#6366f1", label: "Role Change" },
   WAITLIST_PROMOTION: { icon: "celebration", color: "#0f766e", label: "Promotion" },
   ANNOUNCEMENT: { icon: "campaign", color: "#dc2626", label: "Announcement" },
+  MAINTENANCE: { icon: "build", color: "#b45309", label: "Maintenance" },
+  PLATFORM_UPDATE: { icon: "rocket_launch", color: "#6d28d9", label: "Platform Update" },
 };
 
 const DEFAULT_TYPE_CONFIG = { icon: "notifications", color: "#6b7280", label: "Notification" };
@@ -555,6 +557,12 @@ export default function NotificationCenter({
 
         // ── Announcements ──
         ANNOUNCEMENT: isMentor
+          ? "/mentor/notifications"
+          : "/learner/notifications",
+        MAINTENANCE: isMentor
+          ? "/mentor/notifications"
+          : "/learner/notifications",
+        PLATFORM_UPDATE: isMentor
           ? "/mentor/notifications"
           : "/learner/notifications",
       };

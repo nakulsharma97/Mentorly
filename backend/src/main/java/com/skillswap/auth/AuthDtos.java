@@ -3,12 +3,13 @@ package com.skillswap.auth;
 import com.skillswap.user.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class AuthDtos {
 
         public record SignupRequest(
-                        @Email String email,
-                        @NotBlank String password,
+                        @Email @NotBlank String email,
+                        @NotBlank @Size(min = 6, message = "Password must be at least 6 characters") String password,
                         @NotBlank String fullName,
                         @NotBlank String username,
                         UserRole role,
@@ -17,7 +18,7 @@ public class AuthDtos {
         }
 
         public record LoginRequest(
-                        String email,
+                        @NotBlank String email,
                         @NotBlank String password) {
         }
 

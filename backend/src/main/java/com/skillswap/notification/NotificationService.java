@@ -18,7 +18,19 @@ public class NotificationService {
     private final EmailNotificationService emailNotificationService;
     private final NotificationWebSocketHandler webSocketHandler;
 
+    /**
+     * Sends a single notification through the full pipeline (DB persist +
+     * WebSocket push + preference-gated email). Overload used by broadcast
+     * campaigns passes delivery metadata (priority, action button, expiry,
+     * broadcast id) through to the persisted row.
+     */
     public void notifyUser(Long userId, String type, String title, String message, Long referenceId) {
+        notifyUser(userId, type, title, message, referenceId, null, null, null, null, null);
+    }
+
+    public void notifyUser(Long userId, String type, String title, String message, Long referenceId,
+            Long broadcastId, String priority, String actionUrl, String actionButtonText,
+            java.time.OffsetDateTime expiresAt) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
@@ -28,6 +40,11 @@ public class NotificationService {
         notification.setTitle(title);
         notification.setMessage(message);
         notification.setReferenceId(referenceId);
+        notification.setBroadcastId(broadcastId);
+        notification.setPriority(priority == null || priority.isBlank() ? "MEDIUM" : priority);
+        notification.setActionUrl(actionUrl);
+        notification.setActionButtonText(actionButtonText);
+        notification.setExpiresAt(expiresAt);
         notificationRepository.save(notification);
 
         // Push real-time notification via WebSocket

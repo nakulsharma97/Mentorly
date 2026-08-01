@@ -1,0 +1,185 @@
+/* ─────────────────────────────────────────────────────────────
+   Admin Dashboard — professional overview page
+   Reuses the admin design tokens from AdminOperationsPage.css
+   (--admin-*) plus the shared dashboard components (StatsCard,
+   SectionCard, TrendChart).
+   ───────────────────────────────────────────────────────────── */
+
+.admin-dash-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.admin-dash-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── KPI card grid (reuses the shared StatsCard component) ── */
+.admin-dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+/* ── Trend panels ── */
+.admin-dash-trends {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+/* ── Loading skeletons ── */
+.admin-dash-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.admin-dash-skeleton-card {
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 18px;
+  min-height: 132px;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-dash-skeleton-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(148, 163, 184, 0.14) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: admin-dash-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes admin-dash-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.admin-dash-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--admin-border);
+  margin-bottom: 12px;
+}
+
+.admin-dash-skeleton-line--sm {
+  width: 55%;
+}
+
+.admin-dash-skeleton-line--lg {
+  width: 70%;
+  height: 26px;
+  margin-top: 10px;
+}
+
+/* ── Empty / error states ── */
+.admin-dash-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 48px 24px;
+  background: var(--admin-panel-bg);
+  border: 1px dashed var(--admin-border-strong);
+  border-radius: 16px;
+  color: var(--admin-muted);
+}
+
+.admin-dash-state__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--admin-brand-soft);
+  color: var(--admin-brand);
+  font-size: 28px;
+}
+
+.admin-dash-state__icon .material-symbols-outlined {
+  font-size: 28px;
+}
+
+.admin-dash-state h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--admin-text);
+}
+
+.admin-dash-state p {
+  margin: 0;
+  max-width: 46ch;
+  line-height: 1.6;
+  font-size: 0.9rem;
+}
+
+.admin-dash-retry {
+  border: 1px solid var(--admin-border-strong);
+  background: var(--admin-panel-bg);
+  color: var(--admin-text);
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-dash-retry:hover {
+  background: var(--admin-hover);
+  border-color: var(--admin-brand);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .admin-dash-trends {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-dash-stats,
+  .admin-dash-skeleton-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .admin-dash-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-dash-skeleton-card::after {
+    animation: none;
+    display: none;
+  }
+}

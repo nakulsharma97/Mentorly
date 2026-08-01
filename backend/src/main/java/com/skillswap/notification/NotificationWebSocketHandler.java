@@ -159,6 +159,8 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
 
     /**
      * Simple DTO for WebSocket broadcast — avoids serializing JPA lazy proxies.
+     * Includes broadcast metadata (priority / action button / expiry / link back
+     * to the campaign) so real-time delivery matches what the admin composed.
      */
     public record NotificationPayload(
             Long id,
@@ -167,7 +169,12 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             String message,
             Long referenceId,
             boolean read,
-            String createdAt
+            String createdAt,
+            Long broadcastId,
+            String priority,
+            String actionUrl,
+            String actionButtonText,
+            String expiresAt
     ) {
         static NotificationPayload from(AppNotification n) {
             return new NotificationPayload(
@@ -177,7 +184,12 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
                     n.getMessage(),
                     n.getReferenceId(),
                     n.isRead(),
-                    n.getCreatedAt() != null ? n.getCreatedAt().toString() : null
+                    n.getCreatedAt() != null ? n.getCreatedAt().toString() : null,
+                    n.getBroadcastId(),
+                    n.getPriority(),
+                    n.getActionUrl(),
+                    n.getActionButtonText(),
+                    n.getExpiresAt() != null ? n.getExpiresAt().toString() : null
             );
         }
     }

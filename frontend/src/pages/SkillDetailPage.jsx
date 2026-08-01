@@ -1,11 +1,16 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import ReportModal from "../components/ReportModal";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
-/* ── Skill detail data ── */
+/* ── Curated enrichment catalog ──
+   These entries provide editorial learning content (roadmaps, resources, careers)
+   for well-known skills. Names/categories are always overridden by the live
+   /api/v1/skills record, and mentors come from the live /api/v1/users/mentors
+   endpoint — no fake people or metrics are shipped here anymore. */
 
 const SKILL_DETAILS = {
   java: {
@@ -24,9 +29,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/java",
     interviewUrl: "https://www.geeksforgeeks.org/java-interview-questions/",
-    mentors: [
-      { id: "sample-1", fullName: "Priya Sharma", company: "Google", skills: ["Java", "Spring Boot", "Microservices"], averageRating: 4.8, totalSessions: 340 },
-    ],
   },
   react: {
     name: "React",
@@ -44,9 +46,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/react",
     interviewUrl: "https://www.interviewbit.com/react-interview-questions/",
-    mentors: [
-      { id: "sample-2", fullName: "Rahul Verma", company: "Microsoft", skills: ["React", "TypeScript", "Next.js"], averageRating: 4.6, totalSessions: 280 },
-    ],
   },
   "spring-boot": {
     name: "Spring Boot",
@@ -64,9 +63,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/spring-boot",
     interviewUrl: "https://www.javatpoint.com/spring-boot-interview-questions",
-    mentors: [
-      { id: "sample-1", fullName: "Priya Sharma", company: "Google", skills: ["Java", "Spring Boot", "Microservices"], averageRating: 4.8, totalSessions: 340 },
-    ],
   },
   python: {
     name: "Python",
@@ -84,7 +80,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/python",
     interviewUrl: "https://www.geeksforgeeks.org/python-interview-questions/",
-    mentors: [],
   },
   "node.js": {
     name: "Node.js",
@@ -102,7 +97,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/nodejs",
     interviewUrl: "https://www.interviewbit.com/node-js-interview-questions/",
-    mentors: [],
   },
   aws: {
     name: "AWS",
@@ -120,9 +114,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/aws",
     interviewUrl: "https://www.javatpoint.com/aws-interview-questions",
-    mentors: [
-      { id: "sample-3", fullName: "Aisha Kapoor", company: "Amazon", skills: ["AWS", "Docker", "Kubernetes"], averageRating: 4.7, totalSessions: 195 },
-    ],
   },
   docker: {
     name: "Docker",
@@ -140,7 +131,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/",
     githubUrl: "https://github.com/topics/docker",
     interviewUrl: "https://www.edureka.co/blog/interview-questions/docker-interview-questions/",
-    mentors: [],
   },
   sql: {
     name: "SQL",
@@ -158,7 +148,6 @@ const SKILL_DETAILS = {
     practiceUrl: "https://leetcode.com/problemset/database/",
     githubUrl: "https://github.com/topics/sql",
     interviewUrl: "https://www.interviewbit.com/sql-interview-questions/",
-    mentors: [],
   },
 };
 
@@ -173,15 +162,142 @@ function initials(val) {
     .split(/\s+/).map((p) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
 }
 
-export default function SkillDetailPage() {
+function slugify(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function parseSkills(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((v) => parseSkills(v?.name ?? v)).map((s) => String(s).trim()).filter(Boolean);
+  }
+  const text = String(value).trim();
+  if (!text) return [];
+  if (text.startsWith("[") && text.endsWith("]")) {
+    try {
+      return JSON.parse(text).flatMap((v) => parseSkills(v?.name ?? v)).map((s) => String(s).trim()).filter(Boolean);
+    } catch { /* fall through */ }
+  }
+  return text.split(/[\n,;|]+/).map((p) => String(p).trim()).filter(Boolean);
+}
+
+function unwrap(payload) {
+  if (payload && typeof payload === "object" && "data" in payload && "message" in payload) return payload.data;
+  return payload;
+}
+
+async function apiGet(path, cfg) {
+  const r = await client.get(path, cfg);
+  return unwrap(r.data);
+}
+
+export default function SkillDetailPage({ notify }) {
   const { skillId } = useParams();
-  const skill = SKILL_DETAILS[skillId?.toLowerCase()];
+  const [showReport, setShowReport] = useState(false);
+  const [loadState, setLoadState] = useState("loading"); // loading | ready | missing | error
+  const [skill, setSkill] = useState(null);
+  const [mentors, setMentors] = useState(null); // null = loading, [] = none
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Resolve the skill from the live skills API (slug or id), then enrich it
+  // with the curated catalog when a matching entry exists.
+  useEffect(() => {
+    let active = true;
+    setLoadState("loading");
+    setSkill(null);
+    setMentors(null);
+
+    (async () => {
+      try {
+        const data = await apiGet("/api/v1/skills");
+        const list = Array.isArray(data) ? data : [];
+        const slug = String(skillId || "").toLowerCase();
+        const found = list.find(
+          (s) => slugify(s.name) === slug || String(s.id) === slug,
+        );
+        if (!active) return;
+        if (!found) {
+          setLoadState("missing");
+          return;
+        }
+        const catalog = SKILL_DETAILS[slugify(found.name)] || SKILL_DETAILS[slug] || {};
+        setSkill({
+          name: found.name,
+          category: found.category || catalog.category || "General",
+          difficulty: catalog.difficulty || "",
+          duration: catalog.duration || "",
+          description: catalog.description || "",
+          whatYouLearn: catalog.whatYouLearn || [],
+          prerequisites: catalog.prerequisites || [],
+          careerPaths: catalog.careerPaths || [],
+          avgSalary: catalog.avgSalary || "",
+          roadmapId: catalog.roadmapId || null,
+          docUrl: catalog.docUrl || "",
+          youtubeUrl: catalog.youtubeUrl || "",
+          practiceUrl: catalog.practiceUrl || "",
+          githubUrl: catalog.githubUrl || "",
+          interviewUrl: catalog.interviewUrl || "",
+        });
+        setLoadState("ready");
+      } catch {
+        if (!active) return;
+        setLoadState("error");
+      }
+    })();
+
+    return () => { active = false; };
+  }, [skillId, refreshKey]);
+
+  // Fetch real mentors who teach this skill — no hardcoded people anymore.
+  useEffect(() => {
+    if (!skill?.name) return;
+    let active = true;
+    setMentors(null);
+
+    apiGet("/api/v1/users/mentors", { params: { skill: skill.name } })
+      .then((data) => {
+        if (!active) return;
+        const list = Array.isArray(data) ? data : [];
+        setMentors(list.map((m) => ({
+          id: m.id ?? m.mentorId,
+          fullName: m.fullName || m.mentorName || "Mentor",
+          company: m.company || m.currentCompany || "",
+          skills: parseSkills(m.skills),
+          profileImageUrl: m.profileImageUrl,
+          averageRating: Number(m.averageRating || 0),
+          totalReviews: Number(m.totalReviews || 0),
+          totalSessions: Number(m.totalCompletedSessions || m.sessionsCompleted || m.totalSessions || 0),
+        })));
+      })
+      .catch(() => {
+        if (active) setMentors([]);
+      });
+
+    return () => { active = false; };
+  }, [skill?.name, skill?.id]);
 
   useEffect(() => {
     document.title = `${skill?.name || "Skill Details"} | SkillSwap`;
   }, [skill]);
 
-  if (!skill) {
+  if (loadState === "loading") {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">progress_activity</span>
+          </div>
+          <h3 className="md-empty__title">Loading skill details…</h3>
+          <p className="md-empty__desc">Fetching the latest information about this skill.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadState === "missing") {
     return (
       <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
         <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
@@ -194,6 +310,28 @@ export default function SkillDetailPage() {
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span>
             Back to Explore Skills
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+        <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
+          <div className="md-empty__icon">
+            <span className="material-symbols-outlined">cloud_off</span>
+          </div>
+          <h3 className="md-empty__title">Skill details could not be loaded</h3>
+          <p className="md-empty__desc">Something went wrong while fetching this skill. Please try again.</p>
+          <button
+            type="button"
+            className="mp-btn mp-btn--primary"
+            onClick={() => setRefreshKey((v) => v + 1)}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -221,17 +359,32 @@ export default function SkillDetailPage() {
             {skill.category}
           </div>
           <h1>{skill.name}</h1>
-          <p className="mp-hero__sub">{skill.description}</p>
+          {skill.description && <p className="mp-hero__sub">{skill.description}</p>}
           <div className="mp-hero__actions" style={{ gap: 8 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: diff.bg, color: diff.color, fontSize: "0.8rem", fontWeight: 700 }}>
-              <Icon name={diff.icon} /> {diff.label}
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-              <Icon name="schedule" /> {skill.duration}
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-              <Icon name="currency_rupee" /> {skill.avgSalary}
-            </span>
+            {skill.difficulty && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: diff.bg, color: diff.color, fontSize: "0.8rem", fontWeight: 700 }}>
+                <Icon name={diff.icon} /> {diff.label}
+              </span>
+            )}
+            {skill.duration && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+                <Icon name="schedule" /> {skill.duration}
+              </span>
+            )}
+            {skill.avgSalary && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+                <Icon name="currency_rupee" /> {skill.avgSalary}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowReport(true)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(220,38,38,0.18)", color: "#fca5a5", fontSize: "0.8rem", fontWeight: 700, border: "1px solid rgba(220,38,38,0.35)", cursor: "pointer", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.18)"; e.currentTarget.style.color = "#fca5a5"; }}
+            >
+              <Icon name="flag" /> Report
+            </button>
           </div>
         </div>
       </div>
@@ -241,96 +394,106 @@ export default function SkillDetailPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
           {/* What You Will Learn */}
-          <div className="mp-stat" style={{ padding: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="school" style={{ color: "var(--mp-primary)" }} /> What You Will Learn
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {skill.whatYouLearn.map((item) => (
-                <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--mp-primary-lighter)", fontSize: "0.88rem" }}>
-                  <Icon name="check_circle" style={{ color: "var(--mp-success)", fontSize: 18 }} />
-                  {item}
-                </div>
-              ))}
+          {skill.whatYouLearn.length > 0 && (
+            <div className="mp-stat" style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="school" style={{ color: "var(--mp-primary)" }} /> What You Will Learn
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {skill.whatYouLearn.map((item) => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--mp-primary-lighter)", fontSize: "0.88rem" }}>
+                    <Icon name="check_circle" style={{ color: "var(--mp-success)", fontSize: 18 }} />
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Prerequisites */}
-          <div className="mp-stat" style={{ padding: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="playlist_add_check" style={{ color: "var(--mp-warning)" }} /> Prerequisites
-            </h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {skill.prerequisites.map((p) => (
-                <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--mp-warning-light)", fontSize: "0.88rem" }}>
-                  <Icon name="arrow_forward" style={{ fontSize: 16, color: "var(--mp-warning)" }} />
-                  {p}
-                </div>
-              ))}
+          {skill.prerequisites.length > 0 && (
+            <div className="mp-stat" style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="playlist_add_check" style={{ color: "var(--mp-warning)" }} /> Prerequisites
+              </h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {skill.prerequisites.map((p) => (
+                  <div key={p} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "var(--mp-warning-light)", fontSize: "0.88rem" }}>
+                    <Icon name="arrow_forward" style={{ fontSize: 16, color: "var(--mp-warning)" }} />
+                    {p}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Career Paths */}
-          <div className="mp-stat" style={{ padding: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="work" style={{ color: "var(--mp-purple)" }} /> Career Opportunities
-            </h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {skill.careerPaths.map((cp) => (
-                <Link
-                  key={cp}
-                  to={`/learner/careers/${cp.toLowerCase().replace(/\s+/g, "-")}`}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, background: "var(--mp-purple-light)", color: "var(--mp-purple)", fontSize: "0.85rem", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mp-purple)"; e.currentTarget.style.color = "#fff"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "var(--mp-purple-light)"; e.currentTarget.style.color = "var(--mp-purple)"; }}
-                >
-                  <Icon name="arrow_forward" style={{ fontSize: 16 }} /> {cp}
-                </Link>
-              ))}
+          {skill.careerPaths.length > 0 && (
+            <div className="mp-stat" style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="work" style={{ color: "var(--mp-purple)" }} /> Career Opportunities
+              </h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {skill.careerPaths.map((cp) => (
+                  <Link
+                    key={cp}
+                    to={`/learner/careers/${cp.toLowerCase().replace(/\s+/g, "-")}`}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, background: "var(--mp-purple-light)", color: "var(--mp-purple)", fontSize: "0.85rem", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mp-purple)"; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--mp-purple-light)"; e.currentTarget.style.color = "var(--mp-purple)"; }}
+                  >
+                    <Icon name="arrow_forward" style={{ fontSize: 16 }} /> {cp}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Learning Roadmap */}
-          <div className="mp-stat" style={{ padding: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="route" style={{ color: "var(--mp-primary)" }} /> Learning Roadmap
-            </h3>
-            <p style={{ margin: "0 0 16px", color: "var(--mp-text-secondary)", fontSize: "0.9rem" }}>
-              Follow this structured path to master {skill.name}. Click "View Full Roadmap" for a detailed learning plan with milestones and projects.
-            </p>
-            <Link to={`/learner/roadmaps/${skill.roadmapId}`} className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>route</span>
-              View Full Roadmap
-            </Link>
-          </div>
+          {skill.roadmapId && (
+            <div className="mp-stat" style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="route" style={{ color: "var(--mp-primary)" }} /> Learning Roadmap
+              </h3>
+              <p style={{ margin: "0 0 16px", color: "var(--mp-text-secondary)", fontSize: "0.9rem" }}>
+                Follow this structured path to master {skill.name}. Click "View Full Roadmap" for a detailed learning plan with milestones and projects.
+              </p>
+              <Link to={`/learner/roadmaps/${skill.roadmapId}`} className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>route</span>
+                View Full Roadmap
+              </Link>
+            </div>
+          )}
 
           {/* Learning Resources */}
-          <div className="mp-stat" style={{ padding: 24 }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="menu_book" style={{ color: "var(--mp-info)" }} /> Learning Resources
-            </h3>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              {[
-                { label: "Official Documentation", icon: "menu_book", color: "#0F9D8A", url: skill.docUrl },
-                { label: "YouTube Courses", icon: "play_circle", color: "#EF4444", url: skill.youtubeUrl },
-                { label: "Practice Problems", icon: "quiz", color: "#8B5CF6", url: skill.practiceUrl },
-                { label: "GitHub Repositories", icon: "inventory_2", color: "#1F2937", url: skill.githubUrl },
-                { label: "Interview Preparation", icon: "work_history", color: "#EC4899", url: skill.interviewUrl },
-              ].map((r) => (
-                <a key={r.label} href={r.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--mp-card-border)", textDecoration: "none", color: "var(--mp-text)", transition: "all 0.15s", fontSize: "0.88rem", fontWeight: 600 }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = r.color; e.currentTarget.style.background = `${r.color}08`; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--mp-card-border)"; e.currentTarget.style.background = "transparent"; }}
-                >
-                  <span style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", color: "#fff", background: r.color, fontSize: "1rem" }}>
-                    <Icon name={r.icon} />
-                  </span>
-                  {r.label}
-                  <Icon name="open_in_new" style={{ marginLeft: "auto", fontSize: 16, color: "var(--mp-text-muted)" }} />
-                </a>
-              ))}
+          {skill.docUrl && (
+            <div className="mp-stat" style={{ padding: 24 }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon name="menu_book" style={{ color: "var(--mp-info)" }} /> Learning Resources
+              </h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { label: "Official Documentation", icon: "menu_book", color: "#0F9D8A", url: skill.docUrl },
+                  { label: "YouTube Courses", icon: "play_circle", color: "#EF4444", url: skill.youtubeUrl },
+                  { label: "Practice Problems", icon: "quiz", color: "#8B5CF6", url: skill.practiceUrl },
+                  { label: "GitHub Repositories", icon: "inventory_2", color: "#1F2937", url: skill.githubUrl },
+                  { label: "Interview Preparation", icon: "work_history", color: "#EC4899", url: skill.interviewUrl },
+                ].filter((r) => r.url).map((r) => (
+                  <a key={r.label} href={r.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, border: "1px solid var(--mp-card-border)", textDecoration: "none", color: "var(--mp-text)", transition: "all 0.15s", fontSize: "0.88rem", fontWeight: 600 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = r.color; e.currentTarget.style.background = `${r.color}08`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--mp-card-border)"; e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <span style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", color: "#fff", background: r.color, fontSize: "1rem" }}>
+                      <Icon name={r.icon} />
+                    </span>
+                    {r.label}
+                    <Icon name="open_in_new" style={{ marginLeft: "auto", fontSize: 16, color: "var(--mp-text-muted)" }} />
+                  </a>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Sidebar ── */}
@@ -343,18 +506,24 @@ export default function SkillDetailPage() {
                 <span style={{ color: "var(--mp-text-muted)" }}>Category</span>
                 <span style={{ fontWeight: 700 }}>{skill.category}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                <span style={{ color: "var(--mp-text-muted)" }}>Difficulty</span>
-                <span style={{ fontWeight: 700, color: diff.color }}>{diff.label}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                <span style={{ color: "var(--mp-text-muted)" }}>Duration</span>
-                <span style={{ fontWeight: 700 }}>{skill.duration}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
-                <span style={{ color: "var(--mp-text-muted)" }}>Avg. Salary</span>
-                <span style={{ fontWeight: 700, color: "var(--mp-success)" }}>{skill.avgSalary}</span>
-              </div>
+              {skill.difficulty && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                  <span style={{ color: "var(--mp-text-muted)" }}>Difficulty</span>
+                  <span style={{ fontWeight: 700, color: diff.color }}>{diff.label}</span>
+                </div>
+              )}
+              {skill.duration && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                  <span style={{ color: "var(--mp-text-muted)" }}>Duration</span>
+                  <span style={{ fontWeight: 700 }}>{skill.duration}</span>
+                </div>
+              )}
+              {skill.avgSalary && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                  <span style={{ color: "var(--mp-text-muted)" }}>Avg. Salary</span>
+                  <span style={{ fontWeight: 700, color: "var(--mp-success)" }}>{skill.avgSalary}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -369,20 +538,37 @@ export default function SkillDetailPage() {
         </div>
       </div>
 
-      {/* ── Recommended Mentors ── */}
-      {skill.mentors.length > 0 && (
-        <section style={{ marginTop: 32 }}>
-          <div className="sk-section__head">
-            <h2 className="sk-section__title"><Icon name="groups" /> {skill.name} Mentors</h2>
-            <Link to={`/learner/mentors?skill=${encodeURIComponent(skill.name)}`} className="sk-section__link">
-              Browse All <Icon name="arrow_forward" />
-            </Link>
-          </div>
+      {/* ── Recommended Mentors (real data) ── */}
+      <section style={{ marginTop: 32 }}>
+        <div className="sk-section__head">
+          <h2 className="sk-section__title"><Icon name="groups" /> {skill.name} Mentors</h2>
+          <Link to={`/learner/mentors?skill=${encodeURIComponent(skill.name)}`} className="sk-section__link">
+            Browse All <Icon name="arrow_forward" />
+          </Link>
+        </div>
+
+        {mentors === null ? (
           <div className="sk-mentor-grid--catalog">
-            {skill.mentors.map((m) => (
+            {[1, 2, 3].map((k) => (
+              <div key={k} className="sk-mentor--catalog md-animate" style={{ opacity: 0.6 }}>
+                <div className="sk-mentor--catalog__avatar"><span>&nbsp;</span></div>
+                <div className="sk-mentor--catalog__body">
+                  <div style={{ height: 14, width: "60%", borderRadius: 6, background: "var(--mp-skeleton, rgba(128,128,128,0.18))", marginBottom: 8 }} />
+                  <div style={{ height: 12, width: "40%", borderRadius: 6, background: "var(--mp-skeleton, rgba(128,128,128,0.14))" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : mentors.length > 0 ? (
+          <div className="sk-mentor-grid--catalog">
+            {mentors.map((m) => (
               <div key={m.id} className="sk-mentor--catalog md-animate">
                 <div className="sk-mentor--catalog__avatar">
-                  <span>{initials(m.fullName)}</span>
+                  {m.profileImageUrl ? (
+                    <img src={m.profileImageUrl} alt={m.fullName} />
+                  ) : (
+                    <span>{initials(m.fullName)}</span>
+                  )}
                 </div>
                 <div className="sk-mentor--catalog__body">
                   <strong className="sk-mentor--catalog__name">{m.fullName}</strong>
@@ -390,11 +576,17 @@ export default function SkillDetailPage() {
                   <div className="sk-mentor--catalog__rating">
                     <Icon name="star" />
                     <span>{m.averageRating > 0 ? m.averageRating.toFixed(1) : "—"}</span>
-                    <span className="sk-mentor--catalog__sessions">{m.totalSessions} sessions</span>
+                    {m.totalReviews > 0 ? (
+                      <span className="sk-mentor--catalog__sessions">{m.totalReviews} review{m.totalReviews !== 1 ? "s" : ""}</span>
+                    ) : m.totalSessions > 0 ? (
+                      <span className="sk-mentor--catalog__sessions">{m.totalSessions} sessions</span>
+                    ) : null}
                   </div>
-                  <div className="sk-mentor--catalog__skills">
-                    {m.skills.slice(0, 3).map((s) => <span key={s}>{s}</span>)}
-                  </div>
+                  {m.skills.length > 0 && (
+                    <div className="sk-mentor--catalog__skills">
+                      {m.skills.slice(0, 3).map((s) => <span key={s}>{s}</span>)}
+                    </div>
+                  )}
                 </div>
                 <div className="sk-mentor--catalog__actions">
                   <Link to={`/mentors/${m.id}`} className="sk-btn sk-btn--primary sk-btn--sm" style={{ flex: 1 }}>
@@ -404,20 +596,27 @@ export default function SkillDetailPage() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <div style={{ padding: 32, borderRadius: 16, border: "1px solid var(--mp-card-border)", textAlign: "center" }}>
+            <Icon name="person_off" style={{ fontSize: 40, color: "var(--mp-text-muted)", marginBottom: 12 }} />
+            <h3 style={{ margin: "0 0 8px" }}>No mentors currently teach {skill.name}.</h3>
+            <p style={{ margin: "0 0 16px", color: "var(--mp-text-secondary)" }}>We're still onboarding mentors for this skill.</p>
+            <Link to="/learner/skills" className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>auto_stories</span>
+              Explore Other Skills
+            </Link>
+          </div>
+        )}
+      </section>
 
-      {/* No mentors state */}
-      {skill.mentors.length === 0 && (
-        <div style={{ marginTop: 32, padding: 32, borderRadius: 16, border: "1px solid var(--mp-card-border)", textAlign: "center" }}>
-          <Icon name="person_off" style={{ fontSize: 40, color: "var(--mp-text-muted)", marginBottom: 12 }} />
-          <h3 style={{ margin: "0 0 8px" }}>No mentors currently teach {skill.name}.</h3>
-          <p style={{ margin: "0 0 16px", color: "var(--mp-text-secondary)" }}>We're still onboarding mentors for this skill.</p>
-          <Link to="/learner/skills" className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>auto_stories</span>
-            Explore Other Skills
-          </Link>
-        </div>
+      {showReport && (
+        <ReportModal
+          targetType="SKILL"
+          targetLabel={skill.name}
+          targetId={null}
+          onClose={() => setShowReport(false)}
+          notify={notify}
+        />
       )}
     </div>
   );

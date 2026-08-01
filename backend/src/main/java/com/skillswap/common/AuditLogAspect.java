@@ -1,5 +1,6 @@
 package com.skillswap.common;
 
+import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class AuditLogAspect {
 
     private final AuditLogService auditLogService;
+    private final UserRepository userRepository;
 
     @AfterReturning("@annotation(auditableOperation)")
     public void auditOperation(JoinPoint joinPoint, AuditableOperation auditableOperation) {
@@ -45,11 +47,13 @@ public class AuditLogAspect {
                 return user.getId();
             }
             if (principal instanceof org.springframework.security.core.userdetails.User springUser) {
-                try {
-                    return Long.parseLong(springUser.getUsername());
-                } catch (NumberFormatException ignored) {
-                    return null;
-                }
+                // Spring's UserDetails stores the login identifier (the email in
+                // this app) as the username — never the numeric user ID. Resolve
+                // the real ID from the repository instead of trying to parse it,
+                // so the audit trail always records the actual actor.
+                return userRepository.findByEmail(springUser.getUsername())
+                        .map(com.skillswap.user.User::getId)
+                        .orElse(null);
             }
         } catch (Exception e) {
             log.debug("Could not extract user ID from security context", e);

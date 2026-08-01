@@ -30,6 +30,17 @@ public interface DirectMessageRepository extends JpaRepository<DirectMessage, Lo
             """)
     List<DirectMessage> findLastMessagesByConversationIds(@Param("conversationIds") List<Long> conversationIds);
 
+    /**
+     * Batch-count unread messages (not yet read by the recipient) per direct
+     * conversation, in a single query. Returns rows of [conversationId, unreadCount].
+     */
+    @Query("""
+            SELECT m.conversation.id, COUNT(m) FROM DirectMessage m
+            WHERE m.conversation.id IN :conversationIds AND m.readByRecipient = false
+            GROUP BY m.conversation.id
+            """)
+    List<Object[]> countUnreadByConversationIds(@Param("conversationIds") List<Long> conversationIds);
+
     long countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(Long conversationId, String senderEmail);
 
     @Modifying

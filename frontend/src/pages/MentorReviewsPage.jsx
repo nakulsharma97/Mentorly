@@ -432,7 +432,6 @@ export default function MentorReviewsPage({ notify }) {
   const animatedAvgRating = useAnimatedCounter(summary.averageRating, 1000, 1);
   const animatedTotalReviews = useAnimatedCounter(summary.totalReviews, 1000);
   const animatedRecRate = useAnimatedCounter(summary.recommendationRate, 1000);
-  const animatedFiveStar = useAnimatedCounter(summary.fiveStarReviews, 1000);
 
   const openReview = (review) => {
     setSelectedReview(review);

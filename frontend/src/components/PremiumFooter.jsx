@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import "./PremiumFooter.css";
 
 export default function PremiumFooter({ onScrollToSection }) {
@@ -192,6 +193,9 @@ export default function PremiumFooter({ onScrollToSection }) {
                 {theme === "light" ? "🌙" : "☀️"}
               </button>
 
+              <Link to="/admin/login" className="footer-admin-link">
+                Admin Login
+              </Link>
               <span className="footer-version">v1.0</span>
             </div>
           </div>

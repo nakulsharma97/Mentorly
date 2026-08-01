@@ -1,0 +1,201 @@
+/* ═══════════════════════════════════════════════
+   Admin — Skill Management
+   ═══════════════════════════════════════════════ */
+
+.admin-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--admin-empty);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 50%;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.admin-search-clear:hover {
+  background: var(--admin-hover);
+  color: var(--admin-text);
+}
+
+.admin-search-clear .material-symbols-outlined {
+  font-size: 1.05rem;
+}
+
+/* ── Skill request cards ── */
+.skill-req-card {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-card-bg);
+  padding: 14px 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.skill-req-card:hover {
+  border-color: var(--admin-border-strong);
+  box-shadow: 0 4px 16px var(--admin-shadow);
+}
+
+.skill-req-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skill-req-card__head > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skill-req-card__name {
+  font-size: 0.98rem;
+  color: var(--admin-text);
+}
+
+.skill-req-card__meta {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 0.78rem;
+  color: var(--admin-muted);
+}
+
+.skill-req-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.skill-req-card__note {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--admin-muted);
+  background: var(--admin-msg-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.skill-req-card__note strong {
+  color: var(--admin-text);
+}
+
+/* Status pill for request statuses */
+.admin-status-pill--pending {
+  background: var(--admin-pill-initiated-bg);
+  color: var(--admin-pill-initiated-text);
+}
+
+.admin-status-pill--approved {
+  background: var(--admin-pill-released-bg);
+  color: var(--admin-pill-released-text);
+}
+
+.admin-status-pill--rejected {
+  background: var(--admin-pill-failed-bg);
+  color: var(--admin-pill-failed-text);
+}
+
+/* ── Modals ── */
+.skill-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.skill-modal {
+  width: min(440px, 100%);
+  background: var(--admin-panel-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px var(--admin-shadow);
+  overflow: hidden;
+}
+
+.skill-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.skill-modal__head h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--admin-text);
+}
+
+.skill-modal__close {
+  border: none;
+  background: transparent;
+  color: var(--admin-muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.skill-modal__close:hover {
+  background: var(--admin-hover);
+  color: var(--admin-text);
+}
+
+.skill-modal__body {
+  padding: 18px 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.skill-modal__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--admin-muted);
+  margin-top: 8px;
+}
+
+.skill-modal__label:first-child {
+  margin-top: 0;
+}
+
+.skill-modal__input {
+  width: 100%;
+  border: 1px solid var(--admin-input-border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--admin-input-text);
+  background: var(--admin-input-bg);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.skill-modal__input:focus {
+  border-color: var(--admin-brand);
+  box-shadow: 0 0 0 3px var(--admin-brand-soft);
+}
+
+.skill-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-header-bg);
+}

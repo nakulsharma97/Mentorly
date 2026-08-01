@@ -37,7 +37,22 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             """)
     List<ChatMessage> findLastMessagesByBookingIds(@Param("bookingIds") List<Long> bookingIds);
 
+    /**
+     * Batch-count unread messages (not yet read by the recipient) per booking,
+     * in a single query. Returns rows of [bookingId, unreadCount].
+     */
+    @Query("""
+            SELECT m.booking.id, COUNT(m) FROM ChatMessage m
+            WHERE m.booking.id IN :bookingIds AND m.readByRecipient = false
+            GROUP BY m.booking.id
+            """)
+    List<Object[]> countUnreadByBookingIds(@Param("bookingIds") List<Long> bookingIds);
+
     long countByBookingIdAndSenderEmailNotAndReadByRecipientFalse(Long bookingId, String readerEmail);
+
+    /** Count of distinct bookings with at least one chat message — active conversations KPI. */
+    @Query("SELECT COUNT(DISTINCT m.booking.id) FROM ChatMessage m")
+    long countDistinctBookingIds();
 
     @Modifying
     @Query("""

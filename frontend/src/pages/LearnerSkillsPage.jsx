@@ -8,16 +8,8 @@ import "../modules/mentor/mentor-pages.css";
 /* ───────────── constants ───────────── */
 const EMPTY_ARRAY = [];
 
-const FEATURED_SKILLS = [
-  { name: "Java", category: "Backend", difficulty: "intermediate", description: "Build enterprise-grade applications with Java, one of the most versatile and widely-used programming languages in the world.", learners: 12000, mentors: 45, rating: 4.5 },
-  { name: "React", category: "Frontend", difficulty: "beginner", description: "Master React to build fast, interactive user interfaces. The most popular frontend library for modern web apps.", learners: 25000, mentors: 60, rating: 4.8 },
-  { name: "Spring Boot", category: "Backend", difficulty: "intermediate", description: "Create production-grade Spring-based applications with minimal fuss. The go-to framework for Java microservices.", learners: 8000, mentors: 30, rating: 4.3 },
-  { name: "Python", category: "AI / Machine Learning", difficulty: "beginner", description: "Learn Python programming from scratch. The most beginner-friendly language powering AI, data science, and automation.", learners: 30000, mentors: 55, rating: 4.7 },
-  { name: "Node.js", category: "Backend", difficulty: "intermediate", description: "Build scalable server-side applications with JavaScript. Event-driven architecture for modern backends.", learners: 15000, mentors: 40, rating: 4.4 },
-  { name: "AWS", category: "Cloud Computing", difficulty: "advanced", description: "Master Amazon Web Services — the world's leading cloud platform. From EC2 to Lambda, deploy at scale.", learners: 10000, mentors: 35, rating: 4.6 },
-  { name: "Docker", category: "DevOps", difficulty: "intermediate", description: "Containerise your applications with Docker. Simplify deployment, scaling, and environment consistency.", learners: 7000, mentors: 25, rating: 4.2 },
-  { name: "SQL", category: "Data Science", difficulty: "beginner", description: "Query and manage relational databases with SQL. An essential skill for every developer and data professional.", learners: 20000, mentors: 20, rating: 4.1 },
-];
+/* Skills and mentor metrics are served live from the backend — no hardcoded
+   featured lists or invented learner/mentor counts are used here anymore. */
 
 const LEARNING_PATHS_DATA = [
   {
@@ -98,12 +90,6 @@ const RESOURCES_DATA = [
   { title: "Interview Preparation", icon: "work_history", desc: "Common interview questions and strategies", color: "#EC4899" },
 ];
 
-const SAMPLE_MENTORS = [
-  { id: "sample-1", fullName: "Priya Sharma", company: "Google", skills: ["Java", "Spring Boot", "Microservices"], averageRating: 4.8, totalSessions: 340, profileImageUrl: null },
-  { id: "sample-2", fullName: "Rahul Verma", company: "Microsoft", skills: ["React", "TypeScript", "Next.js"], averageRating: 4.6, totalSessions: 280, profileImageUrl: null },
-  { id: "sample-3", fullName: "Aisha Kapoor", company: "Amazon", skills: ["AWS", "Docker", "Kubernetes"], averageRating: 4.7, totalSessions: 195, profileImageUrl: null },
-];
-
 /* ───────────── helpers ───────────── */
 
 function slugify(name) {
@@ -151,14 +137,6 @@ async function apiGet(path, cfg) {
   const r = await client.get(path, cfg);
   return unwrap(r.data);
 }
-async function apiPost(path, body, cfg) {
-  const r = await client.post(path, body, cfg);
-  return unwrap(r.data);
-}
-async function apiDelete(path, cfg) {
-  const r = await client.delete(path, cfg);
-  return unwrap(r.data);
-}
 
 function useDocTitle(title) {
   useEffect(() => { document.title = `${title} | SkillSwap`; }, [title]);
@@ -202,36 +180,9 @@ function pickIcon(category) {
   return map[(category || "").toLowerCase()] || "auto_stories";
 }
 
-const TECH_LOGOS = {
-  react: { icon: "code", color: "#61dafb" },
-  "spring boot": { icon: "dns", color: "#6db33f" },
-  java: { icon: "code", color: "#ed8b00" },
-  python: { icon: "code", color: "#3776ab" },
-  "node.js": { icon: "dns", color: "#339933" },
-  docker: { icon: "cloud", color: "#2496ed" },
-  aws: { icon: "cloud", color: "#ff9900" },
-  kubernetes: { icon: "cloud", color: "#326ce5" },
-  mongodb: { icon: "storage", color: "#47a248" },
-  sql: { icon: "storage", color: "#e38c00" },
-  nextjs: { icon: "code", color: "#000" },
-  flutter: { icon: "smartphone", color: "#02569b" },
-  postgresql: { icon: "storage", color: "#336791" },
-  mysql: { icon: "storage", color: "#4479a1" },
-  typescript: { icon: "code", color: "#3178c6" },
-  javascript: { icon: "code", color: "#f7df1e" },
-};
-
-function techMeta(name) {
-  return TECH_LOGOS[(name || "").toLowerCase()] || { icon: "code", color: "#0f766e" };
-}
-
-const DIFFICULTIES = ["beginner", "intermediate", "advanced"];
-
 function skillDifficulty(skill) {
   const raw = skill?.difficulty || skill?.level || "";
-  if (raw) return raw.toLowerCase();
-  const n = (skill?.name || "").length;
-  return DIFFICULTIES[n % 3];
+  return raw ? raw.toLowerCase() : "";
 }
 
 function difficultyMeta(d) {
@@ -245,7 +196,8 @@ function difficultyMeta(d) {
 
 function estimatedTime(skill) {
   const map = { beginner: "4–8 weeks", intermediate: "8–16 weeks", advanced: "12–24 weeks" };
-  return map[skillDifficulty(skill)] || "4–8 weeks";
+  const d = skillDifficulty(skill);
+  return d ? map[d] || "4–8 weeks" : "";
 }
 
 /* ───────────── sub-components ───────────── */
@@ -266,6 +218,7 @@ function SkillSkeleton() {
 
 function SkillCard({ skill }) {
   const cat = skill.category || "General";
+  const hasDifficulty = Boolean(skillDifficulty(skill));
   const diffMeta = difficultyMeta(skillDifficulty(skill));
   const time = estimatedTime(skill);
   const slug = slugify(skill.name);
@@ -280,19 +233,29 @@ function SkillCard({ skill }) {
           <span className="sk-card__cat">{cat}</span>
         </div>
         <p className="sk-card__desc">{skill.description?.slice(0, 100) || ""}{skill.description?.length > 100 ? "…" : ""}</p>
-        <div className="sk-card__badges">
-          <span className="sk-card__diff" style={{ background: diffMeta.bg, color: diffMeta.color }}>
-            <Icon name={diffMeta.icon} /> {diffMeta.label}
-          </span>
-          <span className="sk-card__time"><Icon name="schedule" /> {time}</span>
-        </div>
-        <div className="sk-card__meta">
-          <div className="sk-card__mi"><Icon name="people" /><strong>{(skill.learners || 0).toLocaleString()}</strong><span>learners</span></div>
-          <div className="sk-card__mi"><Icon name="person" /><strong>{skill.mentors || 0}</strong><span>mentors</span></div>
-          {skill.rating > 0 && (
-            <div className="sk-card__mi"><Icon name="star" /><strong>{Number(skill.rating).toFixed(1)}</strong><span>rating</span></div>
-          )}
-        </div>
+        {/* Difficulty/time badges render only when the API actually provides them */}
+        {hasDifficulty && (
+          <div className="sk-card__badges">
+            <span className="sk-card__diff" style={{ background: diffMeta.bg, color: diffMeta.color }}>
+              <Icon name={diffMeta.icon} /> {diffMeta.label}
+            </span>
+            {time && <span className="sk-card__time"><Icon name="schedule" /> {time}</span>}
+          </div>
+        )}
+        {/* Metrics render only when the API actually provides them — no invented numbers */}
+        {(skill.learners != null || skill.mentors != null || skill.rating != null) && (
+          <div className="sk-card__meta">
+            {skill.learners != null && (
+              <div className="sk-card__mi"><Icon name="people" /><strong>{(skill.learners || 0).toLocaleString()}</strong><span>learners</span></div>
+            )}
+            {skill.mentors != null && (
+              <div className="sk-card__mi"><Icon name="person" /><strong>{skill.mentors || 0}</strong><span>mentors</span></div>
+            )}
+            {skill.rating > 0 && (
+              <div className="sk-card__mi"><Icon name="star" /><strong>{Number(skill.rating).toFixed(1)}</strong><span>rating</span></div>
+            )}
+          </div>
+        )}
         <div className="sk-card__actions">
           <Link to={`/learner/skills/${slug}`} className="sk-card__roadmap-link" onClick={(e) => e.stopPropagation()}>
             <Icon name="route" /> Explore Roadmap
@@ -416,7 +379,11 @@ function MentorMiniCard({ mentor }) {
         <div className="sk-mentor--catalog__rating">
           <Icon name="star" />
           <span>{mentor.averageRating > 0 ? mentor.averageRating.toFixed(1) : "—"}</span>
-          <span className="sk-mentor--catalog__sessions">{mentor.totalSessions} sessions</span>
+          {mentor.totalReviews > 0 ? (
+            <span className="sk-mentor--catalog__sessions">{mentor.totalReviews} review{mentor.totalReviews !== 1 ? "s" : ""}</span>
+          ) : mentor.totalSessions > 0 ? (
+            <span className="sk-mentor--catalog__sessions">{mentor.totalSessions} sessions</span>
+          ) : null}
         </div>
         {mentor.skills && mentor.skills.length > 0 && (
           <div className="sk-mentor--catalog__skills">
@@ -449,7 +416,7 @@ export default function LearnerSkillsPage() {
 
   const debouncedQuery = useDebounced(query, 350);
 
-  // ── data fetch with sample fallback ──
+  // ── data fetch (live API data only — no hardcoded fallbacks) ──
   const [state, setState] = useState({ loading: true, data: null, error: null });
 
   useEffect(() => {
@@ -458,30 +425,31 @@ export default function LearnerSkillsPage() {
 
     (async () => {
       try {
-        const [skills, mentors, savedSkills] = await Promise.all([
+        const [skills, mentors] = await Promise.all([
           apiGet("/api/v1/skills", { params: debouncedQuery ? { q: debouncedQuery } : undefined }),
           apiGet("/api/v1/users/mentors").catch(() => []),
-          apiGet("/api/v1/watchlist/skills").catch(() => []),
         ]);
         if (!active) return;
-        // If API returned empty data, use sample data
-        const finalSkills = (skills && skills.length > 0) ? skills : FEATURED_SKILLS;
-        const finalMentors = (mentors && mentors.length > 0) ? mentors : SAMPLE_MENTORS;
-        setState({ loading: false, data: { skills: finalSkills, mentors: finalMentors, savedSkills: savedSkills || EMPTY_ARRAY }, error: null });
+        setState({
+          loading: false,
+          data: {
+            skills: skills || EMPTY_ARRAY,
+            mentors: mentors || EMPTY_ARRAY,
+          },
+          error: null,
+        });
       } catch (err) {
         if (!active) return;
-        // On error, use sample data so the page always looks complete
-        setState({ loading: false, data: { skills: FEATURED_SKILLS, mentors: SAMPLE_MENTORS, savedSkills: EMPTY_ARRAY }, error: null });
+        setState({ loading: false, data: null, error: getErrorMessage(err) });
       }
     })();
 
     return () => { active = false; };
   }, [debouncedQuery, refreshKey]);
 
-  const { loading, data } = state;
-  const skills = data?.skills || FEATURED_SKILLS;
-  const mentors = data?.mentors || SAMPLE_MENTORS;
-  const savedSkills = data?.savedSkills || EMPTY_ARRAY;
+  const { loading, data, error } = state;
+  const skills = data?.skills || EMPTY_ARRAY;
+  const mentors = data?.mentors || EMPTY_ARRAY;
 
   // ── filtered / sorted skills ──
   const filtered = useMemo(() => {
@@ -520,6 +488,7 @@ export default function LearnerSkillsPage() {
       skills: parseSkills(m.skills),
       profileImageUrl: m.profileImageUrl,
       averageRating: Number(m.averageRating || 0),
+      totalReviews: Number(m.totalReviews || 0),
       totalSessions: Number(m.totalCompletedSessions || m.sessionsCompleted || m.totalSessions || 0),
     }));
   }, [mentors, debouncedQuery]);
@@ -544,22 +513,7 @@ export default function LearnerSkillsPage() {
     );
   }, [debouncedQuery]);
 
-  const savedSkillNames = useMemo(
-    () => new Set(savedSkills.map((i) => String(i?.skillName || i?.name || "").toLowerCase())),
-    [savedSkills],
-  );
-
-  async function toggleSave(name) {
-    const norm = name.toLowerCase();
-    try {
-      if (savedSkillNames.has(norm)) {
-        await apiDelete(`/api/v1/watchlist/skills/${encodeURIComponent(name)}`).catch(() => {});
-      } else {
-        await apiPost("/api/v1/watchlist/skills", { skillName: name }).catch(() => {});
-      }
-      setRefreshKey((k) => k + 1);
-    } catch (e) { console.error(e); }
-  }
+  const hasAnyDifficulty = useMemo(() => skills.some((s) => Boolean(skillDifficulty(s))), [skills]);
 
   const categories = useMemo(() => {
     const seen = new Set();
@@ -620,15 +574,17 @@ export default function LearnerSkillsPage() {
                 <option value="name" style={{ color: "#111" }}>Name A–Z</option>
               </select>
             </label>
-            <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="signal_cellular_alt" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
-              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
-                <option value="" style={{ color: "#111" }}>All Levels</option>
-                <option value="beginner" style={{ color: "#111" }}>Beginner</option>
-                <option value="intermediate" style={{ color: "#111" }}>Intermediate</option>
-                <option value="advanced" style={{ color: "#111" }}>Advanced</option>
-              </select>
-            </label>
+            {hasAnyDifficulty && (
+              <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <Icon name="signal_cellular_alt" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+                  <option value="" style={{ color: "#111" }}>All Levels</option>
+                  <option value="beginner" style={{ color: "#111" }}>Beginner</option>
+                  <option value="intermediate" style={{ color: "#111" }}>Intermediate</option>
+                  <option value="advanced" style={{ color: "#111" }}>Advanced</option>
+                </select>
+              </label>
+            )}
           </div>
         </div>
       </section>
@@ -643,15 +599,17 @@ export default function LearnerSkillsPage() {
               {categories.filter((c) => c.value).map((c) => (<option key={c.value} value={c.value}>{c.label}</option>))}
             </select>
           </div>
-          <div className="sk-filter__group">
-            <label>Difficulty</label>
-            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-              <option value="">All Levels</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </select>
-          </div>
+          {hasAnyDifficulty && (
+            <div className="sk-filter__group">
+              <label>Difficulty</label>
+              <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+                <option value="">All Levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+            </div>
+          )}
           <div className="sk-filter__actions">
             <button type="button" className="sk-btn sk-btn--ghost sk-btn--sm" onClick={() => { setCategory(""); setDifficulty(""); setSortBy("popular"); }}>
               <Icon name="restart_alt" /> Reset
@@ -672,19 +630,21 @@ export default function LearnerSkillsPage() {
         ))}
       </div>
 
-      {/* ─── Difficulty Pills ─── */}
-      <div className="sk-pills sk-pills--diff">
-        {[
-          { value: "", label: "All Levels", icon: "unfold_more" },
-          { value: "beginner", label: "Beginner", icon: "signal_cellular_0_bar" },
-          { value: "intermediate", label: "Intermediate", icon: "signal_cellular_2_bar" },
-          { value: "advanced", label: "Advanced", icon: "signal_cellular_4_bar" },
-        ].map((d) => (
-          <button key={d.value} type="button" className={`sk-pill sk-pill--diff${difficulty === d.value ? " is-active" : ""}`} onClick={() => setDifficulty(d.value)}>
-            <Icon name={d.icon} /> {d.label}
-          </button>
-        ))}
-      </div>
+      {/* ─── Difficulty Pills (hidden when no skill provides difficulty) ─── */}
+      {hasAnyDifficulty && (
+        <div className="sk-pills sk-pills--diff">
+          {[
+            { value: "", label: "All Levels", icon: "unfold_more" },
+            { value: "beginner", label: "Beginner", icon: "signal_cellular_0_bar" },
+            { value: "intermediate", label: "Intermediate", icon: "signal_cellular_2_bar" },
+            { value: "advanced", label: "Advanced", icon: "signal_cellular_4_bar" },
+          ].map((d) => (
+            <button key={d.value} type="button" className={`sk-pill sk-pill--diff${difficulty === d.value ? " is-active" : ""}`} onClick={() => setDifficulty(d.value)}>
+              <Icon name={d.icon} /> {d.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ═══ 2. FEATURED SKILLS ═══ */}
       <section>
@@ -696,7 +656,16 @@ export default function LearnerSkillsPage() {
           <span className="sk-section__count">{filtered.length} skill{filtered.length !== 1 ? "s" : ""}</span>
         </div>
 
-        {loading ? (
+        {error ? (
+          <div className="md-empty" style={{ margin: "16px 0", padding: "32px 20px", gap: 8 }}>
+            <div className="md-empty__icon"><span className="material-symbols-outlined">cloud_off</span></div>
+            <h3 className="md-empty__title">Skills could not be loaded</h3>
+            <p className="md-empty__desc">{error}</p>
+            <button type="button" className="mp-btn mp-btn--primary" onClick={() => setRefreshKey((v) => v + 1)}>
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span> Retry
+            </button>
+          </div>
+        ) : loading ? (
           <div className="sk-grid">{Array.from({ length: 8 }).map((_, i) => <SkillSkeleton key={i} />)}</div>
         ) : filtered.length > 0 ? (
           <div className="sk-grid">
@@ -711,7 +680,13 @@ export default function LearnerSkillsPage() {
               <span className="material-symbols-outlined" style={{ fontSize: 18 }}>restart_alt</span> Reset Filters
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="md-empty" style={{ margin: "16px 0", padding: "32px 20px", gap: 8 }}>
+            <div className="md-empty__icon"><span className="material-symbols-outlined">auto_stories</span></div>
+            <h3 className="md-empty__title">No skills available yet</h3>
+            <p className="md-empty__desc">Skills added to the platform will appear here. Check back soon.</p>
+          </div>
+        )}
       </section>
 
       {/* ═══ REMOVED: Browse Categories — redundant since this is already Explore Skills ═══ */}
@@ -749,22 +724,35 @@ export default function LearnerSkillsPage() {
         </div>
       </section>
 
-      {/* ═══ 6. RECOMMENDED MENTORS (max 3) ═══ */}
-      {topMentors.length > 0 && (
+      {/* ═══ 6. RECOMMENDED MENTORS (max 3) — live data only ═══ */}
+      {!loading && !error && (
         <section>
           <div className="sk-section__head">
             <h2 className="sk-section__title"><Icon name="groups" /> Recommended Mentors</h2>
             <Link to="/learner/mentors" className="sk-section__link">Browse All <Icon name="arrow_forward" /></Link>
           </div>
-          <div className="sk-mentor-grid--catalog">
-            {topMentors.slice(0, 3).map((m) => <MentorMiniCard key={m.id} mentor={m} />)}
-          </div>
-          <div className="sk-mentor-footer">
-            <p>Looking for more options? Browse our full mentor marketplace with detailed profiles, reviews, and direct booking.</p>
-            <Link to="/learner/mentors" className="sk-btn sk-btn--primary">
-              <Icon name="person_search" /> View All Mentors
-            </Link>
-          </div>
+          {topMentors.length > 0 ? (
+            <>
+              <div className="sk-mentor-grid--catalog">
+                {topMentors.slice(0, 3).map((m) => <MentorMiniCard key={m.id} mentor={m} />)}
+              </div>
+              <div className="sk-mentor-footer">
+                <p>Looking for more options? Browse our full mentor marketplace with detailed profiles, reviews, and direct booking.</p>
+                <Link to="/learner/mentors" className="sk-btn sk-btn--primary">
+                  <Icon name="person_search" /> View All Mentors
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="md-empty" style={{ margin: "16px 0", padding: "32px 20px", gap: 8 }}>
+              <div className="md-empty__icon"><span className="material-symbols-outlined">person_off</span></div>
+              <h3 className="md-empty__title">No mentors available yet</h3>
+              <p className="md-empty__desc">Mentors who join the platform will appear here once verified.</p>
+              <Link to="/learner/mentors" className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>person_search</span> Browse All Mentors
+              </Link>
+            </div>
+          )}
         </section>
       )}
     </div>

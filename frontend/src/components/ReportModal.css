@@ -1,0 +1,219 @@
+/* ── Report Modal ───────────────────────────────────────────── */
+
+.rm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  animation: rm-fade 0.18s ease;
+}
+
+@keyframes rm-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.rm-modal {
+  width: min(480px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  background: var(--bg, #ffffff);
+  color: var(--text, #0f172a);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+  border: 1px solid var(--line, #e2e8f0);
+  animation: rm-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes rm-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rm-modal__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 22px 12px;
+}
+
+.rm-modal__icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.1);
+  font-size: 22px;
+}
+
+.rm-modal__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #64748b);
+}
+
+.rm-modal__head h2 {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.rm-modal__close {
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted, #64748b);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rm-modal__close:hover {
+  background: var(--line, #e2e8f0);
+  color: var(--text, #0f172a);
+}
+
+.rm-modal__target {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 22px 10px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(185, 28, 28, 0.07);
+  color: #b91c1c;
+  max-width: calc(100% - 44px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rm-modal__body {
+  padding: 4px 22px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rm-field__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted-strong, #334155);
+}
+
+.rm-field select,
+.rm-field textarea {
+  width: 100%;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--text, #0f172a);
+  background: var(--bg, #ffffff);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.rm-field select:focus,
+.rm-field textarea:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.rm-field textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+.rm-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  background: rgba(220, 38, 38, 0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 38, 38, 0.18);
+}
+
+.rm-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--muted, #64748b);
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--bg-soft, #f8fafc);
+  border: 1px dashed var(--line, #e2e8f0);
+}
+
+.rm-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 22px 20px;
+}
+
+.rm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+
+.rm-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rm-btn--ghost {
+  background: transparent;
+  color: var(--muted, #64748b);
+  border-color: var(--line, #e2e8f0);
+}
+
+.rm-btn--ghost:hover:not(:disabled) {
+  background: var(--bg-soft, #f1f5f9);
+  color: var(--text, #0f172a);
+}
+
+.rm-btn--primary {
+  background: #dc2626;
+  color: #fff;
+}
+
+.rm-btn--primary:hover:not(:disabled) {
+  background: #b91c1c;
+}

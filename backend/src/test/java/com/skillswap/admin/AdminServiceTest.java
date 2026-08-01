@@ -11,10 +11,12 @@ import com.skillswap.payment.PaymentStatus;
 import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.safety.UserReportRepository;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import com.skillswap.verification.MentorVerificationRequestRepository;
+import com.skillswap.waitlist.SessionWaitlistRepository;
 import com.skillswap.wallet.WalletService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,6 +82,9 @@ class AdminServiceTest {
     @Mock
     private MentorVerificationRequestRepository mentorVerificationRepository;
 
+    @Mock
+    private SessionWaitlistRepository waitlistRepository;
+
     private AdminService adminService;
 
     @Captor
@@ -99,7 +104,8 @@ class AdminServiceTest {
                 userRepository, bookingRepository, paymentRepository, paymentService,
                 walletService, notificationService, emailNotificationService, auditLogRepository,
                 sessionRepository, adminSettingRepository, adminNotifPreferenceRepository,
-                referralRewardRepository, reportRepository, mentorVerificationRepository);
+                referralRewardRepository, reportRepository, mentorVerificationRepository,
+                waitlistRepository);
         admin = new User();
         admin.setId(1L);
         admin.setEmail("admin@test.com");
@@ -123,6 +129,51 @@ class AdminServiceTest {
                 .learnerId(1L)
                 .mentorId(2L)
                 .build();
+    }
+
+    // ── deleteSession ───────────────────────────────────
+
+    @Test
+    void deleteSessionDeletesSessionAndWaitlistAndAudits() {
+        SkillSession session = new SkillSession();
+        session.setId(500L);
+        session.setTitle("Inappropriate Session");
+
+        when(sessionRepository.findById(500L)).thenReturn(Optional.of(session));
+        when(bookingRepository.countBySessionId(500L)).thenReturn(0L);
+
+        adminService.deleteSession(admin, 500L);
+
+        verify(waitlistRepository).deleteBySessionId(500L);
+        verify(sessionRepository).delete(session);
+        verify(auditLogRepository).save(argThat(log ->
+                log.getAction().equals("DELETE_SESSION") &&
+                log.getEntityId().equals(500L)));
+    }
+
+    @Test
+    void deleteSessionThrowsWhenSessionNotFound() {
+        when(sessionRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> adminService.deleteSession(admin, 999L));
+        verify(sessionRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteSessionRefusesWhenBookingsExist() {
+        SkillSession session = new SkillSession();
+        session.setId(500L);
+        session.setTitle("Booked Session");
+
+        when(sessionRepository.findById(500L)).thenReturn(Optional.of(session));
+        when(bookingRepository.countBySessionId(500L)).thenReturn(2L);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> adminService.deleteSession(admin, 500L));
+        assertTrue(ex.getMessage().contains("has bookings"));
+        verify(sessionRepository, never()).delete(any());
+        verify(waitlistRepository, never()).deleteBySessionId(anyLong());
     }
 
     // ── deleteUser ──────────────────────────────────────
@@ -369,9 +420,43 @@ class AdminServiceTest {
         when(userRepository.findAll(any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(user1, user2)));
 
-        int sent = adminService.broadcastNotification("Title", "Message", null);
+        int sent = adminService.broadcastNotification("Title", "Message", null, "ANNOUNCEMENT");
 
         assertEquals(2, sent);
         verify(notificationService).notifyUsers(anyList(), eq("ANNOUNCEMENT"), eq("Title"), eq("Message"), isNull());
+    }
+
+    @Test
+    void broadcastNotificationPassesCustomTypeThrough() {
+        User user1 = new User();
+        user1.setId(1L);
+        user1.setEnabled(true);
+
+        when(userRepository.findAll(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(user1)));
+
+        int sent = adminService.broadcastNotification("Downtime", "Servers down", null, "MAINTENANCE");
+
+        assertEquals(1, sent);
+        verify(notificationService).notifyUsers(anyList(), eq("MAINTENANCE"), eq("Downtime"), eq("Servers down"), isNull());
+    }
+
+    @Test
+    void broadcastNotificationFiltersDisabledUsers() {
+        User enabled = new User();
+        enabled.setId(1L);
+        enabled.setEnabled(true);
+        User disabled = new User();
+        disabled.setId(2L);
+        disabled.setEnabled(false);
+
+        when(userRepository.findAll(any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(enabled, disabled)));
+
+        int sent = adminService.broadcastNotification("Update", "New release", null, "PLATFORM_UPDATE");
+
+        assertEquals(1, sent);
+        verify(notificationService).notifyUsers(argThat(ids -> ids.size() == 1), eq("PLATFORM_UPDATE"),
+                eq("Update"), eq("New release"), isNull());
     }
 }

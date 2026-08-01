@@ -32,6 +32,15 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
 
     boolean existsByMentorIdAndStartTime(Long mentorId, OffsetDateTime startTime);
 
+    long countByStatus(SessionStatus status);
+
+    /**
+     * Session status distribution (PENDING / ACCEPTED / COMPLETED / CANCELLED) —
+     * feeds the admin dashboard distribution chart.
+     */
+    @Query("SELECT s.status, COUNT(s) FROM SkillSession s GROUP BY s.status")
+    List<Object[]> countGroupedByStatus();
+
     // ── Admin pagination queries ──
     @Query("SELECT s FROM SkillSession s WHERE "
             + "(:status IS NULL OR s.status = :status) "

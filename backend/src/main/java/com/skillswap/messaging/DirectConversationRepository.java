@@ -1,6 +1,8 @@
 package com.skillswap.messaging;
 
 import com.skillswap.user.User;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,4 +19,15 @@ public interface DirectConversationRepository extends JpaRepository<DirectConver
     List<DirectConversation> findByParticipantOneOrderByUpdatedAtDesc(User participantOne);
 
     List<DirectConversation> findByParticipantTwoOrderByUpdatedAtDesc(User participantTwo);
+
+    /**
+     * Fetches direct conversations with both participants eagerly loaded.
+     * Participants are {@code FetchType.LAZY} on the entity, so a plain
+     * {@code findAll} would trigger a LazyInitializationException outside a
+     * transaction (the app runs with {@code open-in-view: false}). The
+     * {@code @EntityGraph} fetches them in the same query as the list.
+     */
+    @EntityGraph(attributePaths = {"participantOne", "participantTwo"})
+    @Query("select c from DirectConversation c")
+    List<DirectConversation> findAllWithParticipants(Pageable pageable);
 }

@@ -14,6 +14,12 @@ public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long
 
     long countByIpAddressAndLastAttemptAtAfter(String ipAddress, OffsetDateTime after);
 
+    /** Total failed-login records updated since a timestamp — feeds monitoring security metrics. */
+    long countByLastAttemptAtAfter(OffsetDateTime after);
+
+    /** Accounts/IPs currently locked out (blocked_until in the future) — feeds the retry queue. */
+    long countByBlockedUntilAfter(OffsetDateTime after);
+
     @Modifying
     @Query("DELETE FROM LoginAttempt la WHERE la.expiresAt IS NOT NULL AND la.expiresAt < :cutoff")
     int deleteExpired(@Param("cutoff") OffsetDateTime cutoff);

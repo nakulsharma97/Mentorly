@@ -65,6 +65,25 @@ export default function SessionManagementPage({ notify }) {
     } finally { setUpdatingId(null); }
   };
 
+  const deleteSession = async (sessionId, title) => {
+    if (!window.confirm(`Permanently delete "${title || `Session #${sessionId}`}"? This action cannot be undone. Sessions that already have bookings must be cancelled instead.`)) return;
+    setUpdatingId(sessionId);
+    try {
+      await client.delete(`/api/v1/admin/sessions/${sessionId}`);
+      const remaining = sessions.filter((s) => s.id !== sessionId);
+      setSessions(remaining);
+      setTotalElements((prev) => Math.max(0, Number(prev || 0) - 1));
+      if (drawerSession?.id === sessionId) { setDrawerSession(null); setDrawerData(null); }
+      // If we just emptied the last page, fall back to the previous page.
+      if (remaining.length === 0 && page > 0) {
+        setPage((p) => Math.max(0, p - 1));
+      }
+      notify?.({ type: 'success', title: 'Session deleted', message: `Session #${sessionId} permanently deleted.` });
+    } catch (err) {
+      notify?.({ type: 'error', title: 'Delete failed', message: err?.response?.data?.data?.error || err.message });
+    } finally { setUpdatingId(null); }
+  };
+
   const openDrawer = async (session) => {
     setDrawerSession(session);
     setDrawerLoading(true);
@@ -83,7 +102,7 @@ export default function SessionManagementPage({ notify }) {
         <div>
           <p className="admin-eyebrow">Administration</p>
           <h1>Session Management</h1>
-          <p>View and manage all sessions. Click a row to see bookings, revenue, and learner details.</p>
+          <p>View, search, filter, and manage all sessions. Cancel sessions to remove the meeting link, or permanently delete inappropriate sessions (only allowed when they have no bookings).</p>
         </div>
       </div>
 
@@ -133,13 +152,23 @@ export default function SessionManagementPage({ notify }) {
                       <td>{s.participantCount}/{s.maxParticipants}</td>
                       <td style={{ fontSize: '0.82rem' }}>{formatDate(s.startTime)}</td>
                       <td>
-                        {(s.status === 'ACTIVE' || s.status === 'PENDING') && (
-                          <button type="button" className="admin-action-btn admin-action-reject"
-                            disabled={updatingId === s.id}
-                            onClick={(e) => { e.stopPropagation(); cancelSession(s.id); }}>
-                            {updatingId === s.id ? '...' : 'Cancel'}
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {(s.status === 'ACTIVE' || s.status === 'PENDING') && (
+                            <button type="button" className="admin-action-btn admin-action-reject"
+                              disabled={updatingId === s.id}
+                              onClick={(e) => { e.stopPropagation(); cancelSession(s.id); }}>
+                              {updatingId === s.id ? '...' : 'Cancel'}
+                            </button>
+                          )}
+                          <button type="button" className="admin-action-btn admin-action-delete"
+                            disabled={updatingId === s.id || (s.bookingCount || 0) > 0}
+                            title={(s.bookingCount || 0) > 0
+                              ? 'Cannot delete: this session has bookings (active or past). Cancel it instead.'
+                              : 'Permanently delete an inappropriate session (only possible when it has no bookings)'}
+                            onClick={(e) => { e.stopPropagation(); deleteSession(s.id, s.title); }}>
+                            <Icon name="delete" /> Delete
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))

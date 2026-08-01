@@ -137,6 +137,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
     projects: "",
     pastTeachingSessions: "",
     certificates: "",
+    resumeUrl: "",
   });
   const [skillChips, setSkillChips] = useState([]);
   const [skillInput, setSkillInput] = useState("");
@@ -162,6 +163,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
       projects: profile.projects || "",
       pastTeachingSessions: profile.pastTeachingSessions || "",
       certificates: profile.certificates || "",
+      resumeUrl: profile.resumeUrl || "",
     });
     setSkillChips(parseSkillChips(profile.skills));
     setImgError(false);
@@ -208,6 +210,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
         if (form.projects !== (profile?.projects || "")) payload.projects = form.projects;
         if (form.pastTeachingSessions !== (profile?.pastTeachingSessions || "")) payload.pastTeachingSessions = form.pastTeachingSessions;
         if (form.certificates !== (profile?.certificates || "")) payload.certificates = form.certificates;
+        if (form.resumeUrl !== (profile?.resumeUrl || "")) payload.resumeUrl = form.resumeUrl;
       }
       if (Object.keys(payload).length === 0) {
         notify?.({ type: "info", title: "No changes", message: "Nothing to save." });
@@ -267,6 +270,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
       projects: profile.projects || "",
       pastTeachingSessions: profile.pastTeachingSessions || "",
       certificates: profile.certificates || "",
+      resumeUrl: profile.resumeUrl || "",
     });
     setSkillChips(parseSkillChips(profile.skills));
     setDirty(false);
@@ -508,6 +512,16 @@ export default function ProfessionalProfilePage({ profile, notify }) {
                   placeholder="https://linkedin.com/in/your-profile"
                 />
               </div>
+              <UrlInput
+                label="Resume URL"
+                value={form.resumeUrl}
+                onChange={setField("resumeUrl")}
+                placeholder="https://example.com/your-resume.pdf"
+              />
+              <p className="pp-avatar-editor__hint" style={{ marginTop: 6 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>info</span>
+                Paste a link to your resume (PDF or document). Admins review it during mentor verification.
+              </p>
             </div>
           </div>
         )}

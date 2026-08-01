@@ -51,7 +51,7 @@ public class MentorSearchController {
                                 .map(u -> new UserSearchResult(
                                                 u.getId(),
                                                 u.getFullName(),
-                                                u.getUsername(),
+                                                u.getDisplayUsername(),
                                                 u.getProfileImageUrl(),
                                                 u.getRole().name()))
                                 .collect(Collectors.toList());

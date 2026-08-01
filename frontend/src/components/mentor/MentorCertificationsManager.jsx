@@ -90,7 +90,6 @@ export default function MentorCertificationsManager({ mentorId, notify, readonly
   const [skillInput, setSkillInput] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const [imagePreviewError, setImagePreviewError] = useState({});
 
   const load = useCallback(async () => {
     if (!mentorId) return;

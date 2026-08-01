@@ -89,6 +89,52 @@ export default function App() {
     setLanguage(value);
   };
 
+  // Shared post-login handler — used by both the regular AuthModal and the
+  // dedicated AdminLoginPage (/admin/login). Persists the auth session, syncs
+  // the current user profile, then redirects to the role home (for ADMIN this
+  // is /admin/dashboard).
+  const handleAuthenticated = async (loggedMode, authResponse) => {
+    auth.setAuthMode(null);
+    auth.setOauthError("");
+    // Bump the sync generation so any in-flight stale syncCurrentUser
+    // call (e.g. from the mount effect) is discarded.
+    auth.bumpSyncGeneration();
+    const nextToken = persistAuthSession(authResponse);
+    if (!nextToken) {
+      notify({
+        type: "error",
+        title: "Authentication failed",
+        message: "No access token was returned by the server.",
+      });
+      return;
+    }
+    try {
+      const user = await auth.syncCurrentUser();
+      if (!user?.id) throw new Error("Profile initialization failed");
+      notify({
+        type: "success",
+        title: loggedMode === "signup" ? "Account created" : "Welcome back",
+        message: "Authentication successful. Loading your dashboard.",
+      });
+      const post = localStorage.getItem("auth_post_redirect");
+      if (post) {
+        localStorage.removeItem("auth_post_redirect");
+        navigate(post, { replace: true });
+      } else {
+        navigate(roleRoot(user.role), { replace: true });
+      }
+    } catch (error) {
+      console.error("Post-login profile initialization failed", error);
+      clearAuthSessionState();
+      notify({
+        type: "error",
+        title: "Authentication failed",
+        message: "We could not load your profile. Please try again.",
+      });
+      navigate("/login", { replace: true });
+    }
+  };
+
   return (
     <ThemeProvider>
       <div className="app-shell">
@@ -159,7 +205,6 @@ export default function App() {
             id="route-content"
             style={{ padding: 0, margin: 0 }}
             tabIndex={-1}
-            aria-label="Primary content"
           >
             <AppRoutes
               isLoggedIn={auth.isLoggedIn}
@@ -168,6 +213,7 @@ export default function App() {
               needsProfileSetup={auth.needsProfileSetup}
               handleLogout={auth.handleLogout}
               handleSelectAuthMode={auth.handleSelectAuthMode}
+              onLoggedIn={handleAuthenticated}
               notify={notify}
               language={language}
               onLanguageChange={handleLanguageChange}
@@ -191,47 +237,7 @@ export default function App() {
             language={language}
             initialError={auth.oauthError}
             notify={notify}
-            onLoggedIn={async (loggedMode, authResponse) => {
-              auth.setAuthMode(null);
-              auth.setOauthError("");
-              // Bump the sync generation so any in-flight stale syncCurrentUser
-              // call (e.g. from the mount effect) is discarded.
-              auth.bumpSyncGeneration();
-              const nextToken = persistAuthSession(authResponse);
-              if (!nextToken) {
-                notify({
-                  type: "error",
-                  title: "Authentication failed",
-                  message: "No access token was returned by the server.",
-                });
-                return;
-              }
-              try {
-                const user = await auth.syncCurrentUser();
-                if (!user?.id) throw new Error("Profile initialization failed");
-                notify({
-                  type: "success",
-                  title: loggedMode === "signup" ? "Account created" : "Welcome back",
-                  message: "Authentication successful. Loading your dashboard.",
-                });
-                const post = localStorage.getItem("auth_post_redirect");
-                if (post) {
-                  localStorage.removeItem("auth_post_redirect");
-                  navigate(post, { replace: true });
-                } else {
-                  navigate(roleRoot(user.role), { replace: true });
-                }
-              } catch (error) {
-                console.error("Post-login profile initialization failed", error);
-                clearAuthSessionState();
-                notify({
-                  type: "error",
-                  title: "Authentication failed",
-                  message: "We could not load your profile. Please try again.",
-                });
-                navigate("/login", { replace: true });
-              }
-            }}
+            onLoggedIn={handleAuthenticated}
           />
         )}
 

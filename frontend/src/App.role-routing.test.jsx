@@ -26,6 +26,9 @@ vi.mock("./api/client", () => ({
 }));
 
 vi.mock("./pages/AuthPage", () => ({ default: () => <div>Auth Page</div> }));
+vi.mock("./pages/AdminLoginPage", () => ({
+  default: () => <div>Admin Login Page</div>,
+}));
 vi.mock("./pages/LearnerDashboard", () => ({
   default: () => <div>Learner Dashboard</div>,
 }));
@@ -58,6 +61,23 @@ vi.mock("./pages/NotFoundPage", () => ({
   default: () => <div>Not Found</div>,
 }));
 vi.mock("./components/Navbar", () => ({ default: () => <div>Navbar</div> }));
+vi.mock("./modules/admin/layouts/AdminLayout", () => {
+  const { Outlet } = require("react-router-dom");
+  return {
+    default: () => (
+      <div>
+        Admin Layout
+        <Outlet />
+      </div>
+    ),
+  };
+});
+vi.mock("./pages/AdminOperationsPage", () => ({
+  default: () => <div>Admin Operations</div>,
+}));
+vi.mock("./pages/AdminDashboardPage", () => ({
+  default: () => <div>Admin Dashboard</div>,
+}));
 vi.mock("./components/AuthModal", () => ({
   default: () => <div>Auth Modal</div>,
 }));
@@ -97,6 +117,10 @@ describe("App role routing", () => {
 
     client.post.mockResolvedValue({ data: { data: null } });
   });
+
+  const mockNoProfile = () => {
+    client.get.mockResolvedValue({ data: { message: "OK", data: null } });
+  };
 
   afterEach(() => {
     localStorage.clear();
@@ -173,6 +197,84 @@ describe("App role routing", () => {
     });
 
     expect(screen.queryByText("Learner Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("lands admin on admin dashboard after login", async () => {
+    mockProfileForRole("ADMIN");
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/login"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Learner Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mentor Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("redirects learner away from admin pages to learner dashboard", async () => {
+    mockProfileForRole("LEARNER");
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/admin"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Learner Dashboard")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Admin Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("redirects admin away from learner and mentor dashboards to admin dashboard", async () => {
+    mockProfileForRole("ADMIN");
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/learner/dashboard"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Learner Dashboard")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mentor Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("serves the admin login page to logged-out visitors", async () => {
+    mockNoProfile();
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/admin/login"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Login Page")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Auth Page")).not.toBeInTheDocument();
   });
 
   it("keeps role boundaries on /home for both learner and mentor", async () => {

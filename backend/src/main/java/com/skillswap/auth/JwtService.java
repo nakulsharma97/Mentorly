@@ -145,6 +145,16 @@ public class JwtService {
         return jwtId;
     }
 
+    /**
+     * Extracts the role claim (e.g. "ADMIN", "MENTOR", "LEARNER") from a token.
+     * Returns {@code null} if the token predates the role claim and therefore
+     * does not carry it — callers must not treat a missing claim as a failure.
+     */
+    public String extractRole(String token) {
+        Object role = extractAllClaims(token).get("role");
+        return role == null ? null : String.valueOf(role);
+    }
+
     public Claims extractAllClaims(String token) {
         try {
             return Jwts.parser()
@@ -162,6 +172,11 @@ public class JwtService {
         claims.put("tokenType", "access");
         claims.put("tokenId", tokenId);
         claims.put("userId", resolveUserId(userDetails));
+        // Role claim lets clients and downstream components (admin UI, feature
+        // flags) determine the user's role without a DB round-trip. It is purely
+        // informational — authorization is always re-validated server-side from
+        // the live User record via getAuthorities().
+        claims.put("role", resolveRole(userDetails));
         return claims;
     }
 
@@ -170,7 +185,22 @@ public class JwtService {
         claims.put("tokenType", "refresh");
         claims.put("tokenId", tokenId);
         claims.put("userId", resolveUserId(userDetails));
+        claims.put("role", resolveRole(userDetails));
         return claims;
+    }
+
+    private String resolveRole(UserDetails userDetails) {
+        if (userDetails instanceof User user && user.getRole() != null) {
+            return user.getRole().name();
+        }
+        // Fallback for non-User UserDetails implementations: derive from the
+        // granted authority, e.g. "ROLE_ADMIN" -> "ADMIN".
+        return userDetails.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(authority -> authority != null && authority.startsWith("ROLE_"))
+                .map(authority -> authority.substring("ROLE_".length()))
+                .findFirst()
+                .orElse(null);
     }
 
     private Long resolveUserId(UserDetails userDetails) {

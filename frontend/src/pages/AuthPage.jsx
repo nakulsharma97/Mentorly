@@ -60,6 +60,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   const [mentors, setMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [communityStats, setCommunityStats] = useState(null);
 
   useEffect(() => {
     const updateActiveSection = () => {
@@ -129,11 +130,38 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     };
   }, []);
 
+  // Hero metrics are fed from the live community-stats endpoint (no fabricated
+  // numbers). averageRating / completedSwaps / completionRate are all computed
+  // server-side from real database rows.
+  useEffect(() => {
+    let isMounted = true;
+    client
+      .get("/api/v1/public/community-stats")
+      .then((response) => {
+        if (isMounted) {
+          setCommunityStats(response?.data || null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setCommunityStats(null);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [openFaq, setOpenFaq] = useState(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
   const displayMentors = useMemo(() => mentors.slice(0, 3), [mentors]);
   const mentorCountLabel = String(mentors.length);
+
+  // Real hero metrics (null until the community-stats call resolves)
+  const heroRating = communityStats ? Number(communityStats.averageRating || 0) : null;
+  const heroSwaps = communityStats ? Number(communityStats.completedSwaps || 0) : null;
+  const heroCompletion = communityStats ? Number(communityStats.completionRate || 0) : null;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -368,12 +396,12 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
                 <dd>mentor profiles</dd>
               </div>
               <div>
-                <dt>4.9</dt>
+                <dt>{heroRating !== null ? heroRating.toFixed(1) : "—"}</dt>
                 <dd>avg. session rating</dd>
               </div>
               <div>
-                <dt>12 min</dt>
-                <dd>to book a slot</dd>
+                <dt>{heroSwaps !== null ? heroSwaps : "—"}</dt>
+                <dd>skill swaps completed</dd>
               </div>
             </dl>
           </div>
@@ -402,7 +430,11 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
                     verified
                   </span>
                   <div>
-                    <strong>4.9/5 average</strong>
+                    <strong>
+                      {heroRating !== null
+                        ? `${heroRating.toFixed(1)}/5 average`
+                        : "—/5 average"}
+                    </strong>
                     <p>Trusted by ambitious learners</p>
                   </div>
                 </div>
@@ -639,9 +671,11 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           </div>
           <div className="landing-outcome-panel landing-reveal">
             <div className="landing-score-card">
-              <span>Session quality</span>
-              <strong>98%</strong>
-              <p>learners felt more confident after guided feedback</p>
+              <span>Session completion</span>
+              <strong>
+                {heroCompletion !== null ? `${heroCompletion.toFixed(0)}%` : "—"}
+              </strong>
+              <p>of bookings completed on SkillSwap</p>
             </div>
             <div className="landing-check-list">
               <p>

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import client from "../api/client";
 import { getErrorFeedback, getInfoFeedback } from "../utils/comingSoon";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
+import ReportModal from "../components/ReportModal";
 import BookingFlowPage from "./BookingFlowPage";
 import "./MentorProfilePage.css";
 
@@ -79,12 +80,6 @@ const StarRating = ({ rating, size = 14, max = 5 }) => (
       </svg>
     ))}
   </span>
-);
-
-const Avatar = ({ url, name, size = 80 }) => (
-  <div className="mpr-avatar" style={{ "--size": size + "px" }}>
-    {url ? <img src={url} alt={name} /> : <span>{initials(name)}</span>}
-  </div>
 );
 
 const Icon = ({ name, className = "" }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
@@ -178,9 +173,10 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [requestErrors, setRequestErrors] = useState({});
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [pendingCancelAction, setPendingCancelAction] = useState(null);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [bookingStep, setBookingStep] = useState("sessions"); // "sessions" | "calendar"
   const [selectedSessionForBooking, setSelectedSessionForBooking] = useState(null);
-  
+
   const [visibleSections, setVisibleSections] = useState({});
 
   /* Prevent body scroll while modals are open */
@@ -413,6 +409,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         <div className="mpr-overlay">
           <BookingFlowPage
             sessionId={bookingSessionId}
+            notify={notify}
             bookingData={{ date: selectedDate, slot: selectedSlot, duration: selectedDuration }}
             onBookingComplete={(result) => {
               const data = result || {};
@@ -523,6 +520,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 else navigator.clipboard?.writeText(window.location.href);
               }}>
                 <Icon name="share" /> Share
+              </button>
+              <button type="button" className="mpr-btn mpr-btn--ghost mpr-btn--report" onClick={() => setShowReportModal(true)}>
+                <Icon name="flag" /> Report
               </button>
             </div>
           </div>
@@ -825,7 +825,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               <span style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--mpr-muted)" }}>
                 {reviews.length} review{reviews.length !== 1 ? "s" : ""}
               </span>
-              <select value={reviewSort} onChange={e => setReviewSort(e.target.value)}>
+              <select aria-label="Sort reviews" value={reviewSort} onChange={e => setReviewSort(e.target.value)}>
                 <option value="newest">Newest First</option>
                 <option value="highest">Highest Rating</option>
                 <option value="lowest">Lowest Rating</option>
@@ -910,6 +910,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
 
                     <select
                       className="mpr-review-form__field"
+                      aria-label="Select a completed session to review"
                       value={reviewForm.bookingId}
                       onChange={e => {
                         const selectedId = e.target.value;
@@ -1143,6 +1144,18 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         </div>
       </div>
 
+      {showReportModal && (
+        <div className="mpr-overlay">
+          <ReportModal
+            targetType="MENTOR"
+            targetUserId={mentor?.id}
+            targetLabel={mentor?.fullName}
+            onClose={() => setShowReportModal(false)}
+            notify={notify}
+          />
+        </div>
+      )}
+
       {/* ═══ BOOKING MODAL — Calendar + Slots + Duration + Payment ═══ */}
       {showBookingModal && (
         <div className="mpr-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) { if (selectedSlot && bookingStep === "calendar") { setPendingCancelAction(() => () => { setShowBookingModal(false); setSelectedSlot(null); }); setShowCancelConfirm(true); } else { setShowBookingModal(false); setBookingStep("sessions"); setSelectedSessionForBooking(null); setSelectedSlot(null); } } }}>
@@ -1338,7 +1351,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                                 <div className="mpr-booking-summary__divider" />
                                 <div className="mpr-booking-summary__row" style={{ marginTop: 0 }}>
                                   <span><Icon name="language" /> Timezone</span>
-                                  <select className="mpr-tz-select mpr-tz-select--inline" defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}>
+                                  <select aria-label="Select timezone" className="mpr-tz-select mpr-tz-select--inline" defaultValue={Intl.DateTimeFormat().resolvedOptions().timeZone}>
                                     <option value="Asia/Kolkata">IST (UTC+5:30)</option>
                                     <option value="America/New_York">EST (UTC-5)</option>
                                     <option value="America/Chicago">CST (UTC-6)</option>
@@ -1449,7 +1462,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     <div className="mpr-request-form">
                       <div className="mpr-request-form__group">
                         <label>Subject</label>
-                        <select className="mpr-request-form__field" value={requestForm.subject} onChange={(e) => setRequestForm(p => ({ ...p, subject: e.target.value }))}>
+                        <select aria-label="Subject" className="mpr-request-form__field" value={requestForm.subject} onChange={(e) => setRequestForm(p => ({ ...p, subject: e.target.value }))}>
                           <option value="">Select a topic</option>
                           <option value="Career Guidance">Career Guidance</option>
                           <option value="Interview Preparation">Interview Preparation</option>

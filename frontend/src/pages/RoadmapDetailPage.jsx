@@ -112,6 +112,66 @@ const ROADMAPS = {
       { label: "Terraform Docs", url: "https://developer.hashicorp.com/terraform/docs", icon: "terminal" },
     ],
   },
+  "fullstack-developer": {
+    title: "Full Stack Developer",
+    icon: "dns",
+    gradient: "linear-gradient(135deg,#16a34a,#0d9488)",
+    duration: "8-14 months",
+    description: "Complete roadmap to become a professional full stack developer. From Node.js APIs to databases, frontend integration, and deployment.",
+    milestones: [
+      { title: "Node.js Fundamentals", duration: "3-4 weeks", items: ["Event Loop & Async", "Modules & NPM", "File System & Streams", "Error Handling"], projects: ["CLI to-do tool", "Markdown parser"] },
+      { title: "REST APIs with Express", duration: "3-4 weeks", items: ["Routing & Middleware", "Request Validation", "Authentication (JWT)", "Error Middleware"], projects: ["Bookstore API", "Expense tracker API"] },
+      { title: "Databases", duration: "3-4 weeks", items: ["SQL & PostgreSQL", "ORM (Prisma/Sequelize)", "MongoDB & Mongoose", "Indexing & Migrations"], projects: ["E-commerce schema", "Chat app with MongoDB"] },
+      { title: "Frontend Integration", duration: "3-4 weeks", items: ["REST Clients", "React Query/SWR", "State Management", "Auth Flows"], projects: ["Dashboard consuming the API", "Auth-protected CRUD app"] },
+      { title: "Deployment & DevOps", duration: "2-3 weeks", items: ["Docker", "CI/CD pipelines", "VPS/Cloud hosting", "Monitoring & Logging"], projects: ["Deploy full-stack app", "CI/CD pipeline setup"] },
+    ],
+    resources: [
+      { label: "Node.js Docs", url: "https://nodejs.org/docs/latest/api/", icon: "menu_book" },
+      { label: "Express Guide", url: "https://expressjs.com/", icon: "dns" },
+      { label: "Prisma Docs", url: "https://www.prisma.io/docs", icon: "database" },
+      { label: "Full Stack Practice", url: "https://leetcode.com/problemset/", icon: "quiz" },
+    ],
+  },
+  "devops-engineer": {
+    title: "DevOps Engineer",
+    icon: "terminal",
+    gradient: "linear-gradient(135deg,#0ea5e9,#6366f1)",
+    duration: "6-10 months",
+    description: "Complete roadmap to become a DevOps engineer. From containerization to CI/CD, IaC, and cloud-native operations.",
+    milestones: [
+      { title: "Linux & Shell Scripting", duration: "2-3 weeks", items: ["Command Line Basics", "File Permissions", "Process Management", "Bash Scripting"], projects: ["Server setup script", "Log analyzer"] },
+      { title: "Containerization (Docker)", duration: "3-4 weeks", items: ["Images & Containers", "Dockerfile Best Practices", "Volumes & Networks", "Docker Compose"], projects: ["Dockerize a web app", "Multi-service stack"] },
+      { title: "CI/CD Pipelines", duration: "3-4 weeks", items: ["GitHub Actions", "Build & Test Stages", "Artifact Publishing", "Environment Promotion"], projects: ["Automated deploy pipeline", "Release tagging workflow"] },
+      { title: "Infrastructure as Code", duration: "3-4 weeks", items: ["Terraform Basics", "Providers & State", "Ansible Config Management", "Kubernetes Fundamentals"], projects: ["Provision AWS with Terraform", "Deploy to a Kubernetes cluster"] },
+      { title: "Observability & Security", duration: "2-3 weeks", items: ["Monitoring (Prometheus/Grafana)", "Logging (Loki/ELK)", "Secret Management", "Supply-chain security"], projects: ["Monitoring stack dashboard", "Secure CI/CD hardening"] },
+    ],
+    resources: [
+      { label: "Docker Docs", url: "https://docs.docker.com/", icon: "menu_book" },
+      { label: "GitHub Actions Docs", url: "https://docs.github.com/actions", icon: "rocket_launch" },
+      { label: "Terraform Docs", url: "https://developer.hashicorp.com/terraform/docs", icon: "terminal" },
+      { label: "Kubernetes Docs", url: "https://kubernetes.io/docs/", icon: "inventory_2" },
+    ],
+  },
+  "data-analyst": {
+    title: "Data Analyst",
+    icon: "bar_chart",
+    gradient: "linear-gradient(135deg,#f59e0b,#ef4444)",
+    duration: "4-8 months",
+    description: "Complete roadmap to become a data analyst. From SQL and spreadsheets to statistics, visualization, and business reporting.",
+    milestones: [
+      { title: "SQL Fundamentals", duration: "3-4 weeks", items: ["SELECT, WHERE, ORDER BY", "JOINs & Subqueries", "Aggregations & GROUP BY", "Window Functions"], projects: ["Sales database analysis", "Customer churn queries"] },
+      { title: "Spreadsheets & Excel", duration: "2 weeks", items: ["Formulas & Functions", "Pivot Tables", "Data Cleaning", "Charts & Dashboards"], projects: ["Budget tracker", "KPI dashboard"] },
+      { title: "Statistics & Data Analysis", duration: "3-4 weeks", items: ["Descriptive Statistics", "Probability Basics", "Hypothesis Testing", "Correlation & Regression"], projects: ["A/B test analysis", "Marketing spend analysis"] },
+      { title: "Python for Analysis", duration: "3-4 weeks", items: ["Pandas & NumPy", "Data Cleaning", "Matplotlib & Seaborn", "Exploratory Analysis"], projects: ["Kaggle EDA notebook", "Automated report script"] },
+      { title: "Visualization & Reporting", duration: "2-3 weeks", items: ["Dashboard Design Principles", "Tableau/Power BI Basics", "Storytelling with Data", "Stakeholder Reports"], projects: ["Interactive dashboard", "Executive summary deck"] },
+    ],
+    resources: [
+      { label: "SQL Practice", url: "https://leetcode.com/problemset/database/", icon: "quiz" },
+      { label: "Kaggle Datasets", url: "https://www.kaggle.com/datasets", icon: "database" },
+      { label: "Pandas Docs", url: "https://pandas.pydata.org/docs/", icon: "menu_book" },
+      { label: "Tableau Tutorials", url: "https://www.tableau.com/learn", icon: "bar_chart" },
+    ],
+  },
 };
 
 export default function RoadmapDetailPage() {

@@ -67,5 +67,16 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             + "FROM bookings b WHERE b.booking_status = 'COMPLETED' AND b.created_at >= :since "
             + "GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
     List<Object[]> computeMonthlySessionTrend(@Param("since") java.time.OffsetDateTime since);
+
+    /**
+     * Total released revenue since a timestamp — returns a single [SUM(amount)]
+     * row, used for window-scoped revenue KPIs on the admin dashboard.
+     */
+    @Query(value = "SELECT COALESCE(SUM(p.amount), 0) FROM payments p "
+            + "WHERE p.status = 'RELEASED' AND p.created_at >= :since", nativeQuery = true)
+    java.math.BigDecimal computeRevenueSince(@Param("since") java.time.OffsetDateTime since);
+
+    /** Recent payments (newest first) — feeds the recent-activity timeline. */
+    List<Payment> findTop5ByOrderByCreatedAtDesc();
 }
 

@@ -304,6 +304,30 @@
   border-left: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.footer-admin-link {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.footer-admin-link:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.footer-admin-link:focus-visible {
+  outline: 2px solid rgba(79, 172, 254, 0.6);
+  outline-offset: 2px;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .footer-container {

@@ -27,7 +27,10 @@ metadata:
     app: skillswap
 type: Opaque
 stringData:
-  # IMPORTANT: Replace these with your actual secrets
+  # IMPORTANT: Replace these with your actual secrets BEFORE deploying.
+  # JWT_SECRET is REQUIRED: since the fail-fast hardening, the backend refuses
+  # to start (placeholder resolution error) unless JWT_SECRET is set to a real,
+  # randomly-generated 32-byte base64 value. Do NOT ship the placeholder below.
   JWT_SECRET: "CHANGE_ME-to-a-base64-encoded-32-byte-secret"
   SPRING_DATASOURCE_PASSWORD: "CHANGE_ME-to-your-database-password"
   GOOGLE_CLIENT_ID: "CHANGE_ME-google-client-id"

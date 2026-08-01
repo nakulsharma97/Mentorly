@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../api/client";
 import { SkeletonTable } from "../components/SkeletonLoaders";
+import ReportModal from "../components/ReportModal";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import Icon from "../modules/common/dashboard/Icon";
 import StudentDrawer from "../modules/mentor/components/students/StudentDrawer";
@@ -28,6 +29,7 @@ export default function MentorStudentsPage({ profile, notify }) {
   const [students, setStudents] = useState([]);
   const [summary, setSummary] = useState({ averageRating: 0 });
   const [selected, setSelected] = useState(null);
+  const [reportStudent, setReportStudent] = useState(null);
 
   const [search, setSearch] = useState("");
   const [skillFilter, setSkillFilter] = useState("all");
@@ -319,6 +321,13 @@ export default function MentorStudentsPage({ profile, notify }) {
                   >
                     <Icon name="download" />
                   </button>
+                  <button
+                    className="mp-icon-btn"
+                    title="Report learner"
+                    onClick={() => setReportStudent(s)}
+                  >
+                    <Icon name="flag" />
+                  </button>
                 </div>
               </td>
             </tr>
@@ -405,6 +414,13 @@ export default function MentorStudentsPage({ profile, notify }) {
           onClick={() => downloadReport(s)}
         >
           <Icon name="download" /> Export
+        </button>
+        <button
+          className="md-btn md-btn--outline md-btn--xs md-btn--danger"
+          title="Report learner"
+          onClick={() => setReportStudent(s)}
+        >
+          <Icon name="flag" /> Report
         </button>
       </div>
     </div>
@@ -635,6 +651,16 @@ export default function MentorStudentsPage({ profile, notify }) {
           student={selected}
           onClose={() => setSelected(null)}
           onReport={downloadReport}
+        />
+      )}
+
+      {reportStudent && (
+        <ReportModal
+          targetType="LEARNER"
+          targetUserId={reportStudent.id}
+          targetLabel={reportStudent.name}
+          onClose={() => setReportStudent(null)}
+          notify={notify}
         />
       )}
     </div>

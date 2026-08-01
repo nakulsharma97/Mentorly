@@ -21,7 +21,7 @@ import java.util.Map;
  * so all error responses are structurally consistent across the entire API.
  */
 @RestControllerAdvice
-@Order(Ordered.LOWEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class ServiceGlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceGlobalExceptionHandler.class);
@@ -47,8 +47,9 @@ public class ServiceGlobalExceptionHandler {
     }
 
     // Note: @ExceptionHandler(Exception.class) is intentionally omitted here.
-    // GlobalExceptionHandler (HIGHEST_PRECEDENCE) already handles generic
-    // exceptions, so adding it here at LOWEST_PRECEDENCE would be dead code.
+    // GlobalExceptionHandler (LOWEST_PRECEDENCE) already handles generic
+    // exceptions, so adding it here would be dead code — this advice wins for
+    // the specific service exceptions it declares because it runs first.
     // All specific exceptions (ResourceNotFoundException, etc.) are handled above.
 
     private ResponseEntity<ApiResponse<Map<String, Object>>> build(HttpStatus status, String code, String message) {

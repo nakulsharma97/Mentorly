@@ -1,5 +1,6 @@
 package com.skillswap.auth;
 
+import com.skillswap.common.AuditLogService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
@@ -47,6 +48,7 @@ public class AuthService {
     private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final MeterRegistry meterRegistry;
     private final LoginAttemptRepository loginAttemptRepository;
+    private final AuditLogService auditLogService;
 
     @Transactional
     public AuthResponse signup(SignupRequest req, String clientIp) {
@@ -109,7 +111,7 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.signup.success");
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
     }
 
     @Transactional
@@ -180,7 +182,8 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.login.success");
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
+        recordAuthEvent("LOGIN", user);
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
     }
 
     @Transactional
@@ -207,7 +210,8 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.oauth.success", "provider", provider.toLowerCase(Locale.ROOT));
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
+        recordAuthEvent("LOGIN", user);
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
     }
 
     @Transactional
@@ -248,13 +252,14 @@ public class AuthService {
         String rotatedRefreshToken = jwtService.generateRefreshToken(user, newTokenId);
         persistRefreshSession(user, rotatedRefreshToken);
         incrementCounter("auth.refresh.success");
-        return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(), user.getRole().name(), user.getUsername());
+        return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
     }
 
     @Transactional
     public LogoutAllResponse logoutAllSessions(User user) {
         int revokedSessions = refreshTokenSessionRepository.revokeAllByUserAndRevokedFalse(user);
         incrementCounter("auth.logout_all.success");
+        recordAuthEvent("LOGOUT", user);
         return new LogoutAllResponse(revokedSessions);
     }
 
@@ -278,7 +283,38 @@ public class AuthService {
         int revokedSessions = refreshTokenSessionRepository
                 .revokeByTokenIdAndRevokedFalse(jwtService.extractTokenId(accessToken));
         incrementCounter("auth.logout.success");
+        recordLogoutFromToken(accessToken);
         return new LogoutResponse(revokedSessions);
+    }
+
+    /**
+     * Persists a login/logout audit entry for the given user. IP is resolved
+     * from the request context by {@code AuditLogService}. Failures are never
+     * allowed to break the auth flow — the audit entry is best-effort.
+     */
+    private void recordAuthEvent(String action, User user) {
+        try {
+            auditLogService.log(action, "Auth", user.getId(), user.getEmail(), user.getId());
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record {} audit entry for userId={}", action, user.getId(), ex);
+        }
+    }
+
+    /**
+     * Records a logout audit entry for the access token's subject. The userId
+     * is read from the JWT claim (no DB round-trip required).
+     */
+    private void recordLogoutFromToken(String accessToken) {
+        try {
+            Long userId = null;
+            Object userIdClaim = jwtService.extractAllClaims(accessToken).get("userId");
+            if (userIdClaim != null) {
+                userId = Long.valueOf(String.valueOf(userIdClaim));
+            }
+            auditLogService.log("LOGOUT", "Auth", userId, jwtService.extractUsername(accessToken), userId);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record LOGOUT audit entry", ex);
+        }
     }
 
     private void persistRefreshSession(User user, String refreshToken) {

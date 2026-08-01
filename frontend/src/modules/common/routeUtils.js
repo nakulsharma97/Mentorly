@@ -37,5 +37,5 @@ export const getRoleHomePath = (pathname) => {
 };
 
 export const isPublicPath = (path) => {
-  return ["/", "/login", "/signup", "/test-checklist"].includes(path);
+  return ["/", "/login", "/signup", "/admin/login", "/test-checklist"].includes(path);
 };

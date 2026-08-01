@@ -118,6 +118,8 @@ export function useAuthProfile({ notify }) {
       return nextProfile;
     } catch (err) {
       const status = Number(err?.response?.status || 0);
+
+      // ── Auth errors (401/403): clear session and redirect to login ──
       if (status === 401 || status === 403) {
         clearAuthSessionState();
         setProfile(null);
@@ -125,6 +127,44 @@ export function useAuthProfile({ notify }) {
         return null;
       }
 
+      // ── Server errors (5xx): retry with exponential backoff ──
+      // Do NOT clear auth state on server errors because the issue is
+      // likely transient (e.g. LazyInitializationException, DB hiccup)
+      // and the JWT is still valid. Clearing state would force a logout.
+      if (status >= 500 && status < 600) {
+        const maxRetries = 2;
+        const baseDelay = 500;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          await new Promise(resolve => setTimeout(resolve, baseDelay * attempt));
+          try {
+            if (generation !== syncGenerationRef.current) {
+              return null;
+            }
+            const retryResponse = await client.get("/api/v1/users/me");
+            const retryProfile = retryResponse?.data?.data || null;
+            if (retryProfile?.id) {
+              const retryUserId = Number(retryProfile.id);
+              if (Number.isFinite(retryUserId) && retryUserId === tokenUserId) {
+                if (generation !== syncGenerationRef.current) {
+                  return null;
+                }
+                setProfile(retryProfile);
+                setProfileChecked(true);
+                return retryProfile;
+              }
+            }
+          } catch {
+            // Transient failure — the retry loop will handle it.
+          }
+        }
+        // All retries failed — don't clear auth state, just mark as checked
+        // so the UI doesn't hang. The user may still navigate and retry.
+        console.warn("Profile fetch failed after retries for userId=" + tokenUserId);
+        setProfileChecked(true);
+        return null;
+      }
+
+      // ── Try token refresh for non-5xx, non-4xx auth failures ──
       try {
         await client.post("/api/v1/auth/refresh");
         if (generation !== syncGenerationRef.current) {
@@ -295,7 +335,13 @@ export function useAuthProfile({ notify }) {
       return;
     }
 
-    if (!needsProfileSetup && (pathname === "/" || pathname === "/login" || pathname === "/signup")) {
+    if (
+      !needsProfileSetup &&
+      (pathname === "/" ||
+        pathname === "/login" ||
+        pathname === "/signup" ||
+        pathname === "/admin/login")
+    ) {
       navigate(roleRoot(profile?.role), { replace: true });
     }
   }, [isLoggedIn, needsProfileSetup, pathname, profileChecked, navigate, profile]);

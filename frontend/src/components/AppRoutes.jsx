@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import AuthPage from "../pages/AuthPage";
+import AdminLoginPage from "../pages/AdminLoginPage";
 import TestChecklistPage from "../pages/TestChecklistPage";
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import LearnerLayout from "../modules/learner/layouts/LearnerLayout";
@@ -24,6 +25,8 @@ const MentorProfilePage = lazy(() => import("../pages/MentorProfilePage"));
 const ProfessionalProfilePage = lazy(() => import("../pages/ProfessionalProfilePage"));
 const MessagesPage = lazy(() => import("../pages/MessagesPage"));
 const AdminOperationsPage = lazy(() => import("../pages/AdminOperationsPage"));
+const AdminDashboardPage = lazy(() => import("../pages/AdminDashboardPage"));
+const MentorVerificationsPage = lazy(() => import("../pages/MentorVerificationsPage"));
 const WalletPage = lazy(() => import("../pages/WalletPage"));
 const AdminLayout = lazy(() => import("../modules/admin/layouts/AdminLayout"));
 const UserManagementPage = lazy(() => import("../pages/UserManagementPage"));
@@ -36,6 +39,8 @@ const AdminPaymentsPage = lazy(() => import("../pages/AdminPaymentsPage"));
 const ContentModerationPage = lazy(() => import("../pages/ContentModerationPage"));
 const PlatformHealthPage = lazy(() => import("../pages/PlatformHealthPage"));
 const AdminApiDocsPage = lazy(() => import("../pages/AdminApiDocsPage"));
+const SkillManagementPage = lazy(() => import("../pages/SkillManagementPage"));
+const ReportsManagementPage = lazy(() => import("../pages/ReportsManagementPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LearnerMentorsPage = lazy(() => import("../pages/LearnerMentorsPage"));
 const LearnerSkillsPage = lazy(() => import("../pages/LearnerSkillsPage"));
@@ -74,6 +79,7 @@ export default function AppRoutes({
   profileChecked,
   handleLogout,
   handleSelectAuthMode,
+  onLoggedIn,
   notify,
   language,
   onLanguageChange,
@@ -100,6 +106,14 @@ export default function AppRoutes({
         <Route path="/" element={sharedAuthPage} />
         <Route path="/login" element={sharedAuthPage} />
         <Route path="/signup" element={sharedAuthPage} />
+        <Route
+          path="/admin/login"
+          element={routeContent(
+            "admin-login",
+            <AdminLoginPage onLoggedIn={onLoggedIn} notify={notify} />,
+            routeFallback,
+          )}
+        />
         <Route path="/test-checklist" element={<TestChecklistPage />} />
         <Route
           path="/mentors/:mentorId"
@@ -186,7 +200,7 @@ export default function AppRoutes({
         <Route path="dashboard" element={rc("learner-dashboard", <LearnerDashboard profile={profile} onLogout={handleLogout} />)} />
         <Route path="mentors" element={rc("learner-mentors", <LearnerMentorsPage />)} />
         <Route path="skills" element={rc("learner-skills", <LearnerSkillsPage />)} />
-        <Route path="skills/:skillId" element={rc("learner-skill-detail", <SkillDetailPage />)} />
+        <Route path="skills/:skillId" element={rc("learner-skill-detail", <SkillDetailPage notify={notify} />)} />
         <Route path="roadmaps/:roadmapId" element={rc("learner-roadmap-detail", <RoadmapDetailPage />)} />
         <Route path="careers/:careerId" element={rc("learner-career-detail", <CareerDetailPage />)} />
         <Route path="learning" element={rc("learner-learning", <LearnerLearningPage />)} />
@@ -266,7 +280,7 @@ export default function AppRoutes({
         }
       >
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="dashboard" element={rc("admin-dashboard", <AdminOperationsPage notify={notify} />)} />
+        <Route path="dashboard" element={rc("admin-dashboard", <AdminDashboardPage notify={notify} />)} />
         <Route path="users" element={rc("admin-users", <UserManagementPage notify={notify} />)} />
         <Route path="sessions" element={rc("admin-sessions", <SessionManagementPage notify={notify} />)} />
         <Route path="analytics" element={rc("admin-analytics", <AdminAnalyticsPage notify={notify} />)} />
@@ -276,9 +290,10 @@ export default function AppRoutes({
         <Route path="flagged-content" element={rc("admin-flagged-content", <ContentModerationPage notify={notify} />)} />
         <Route path="health" element={rc("admin-health", <PlatformHealthPage notify={notify} />)} />
         <Route path="api-docs" element={rc("admin-api-docs", <AdminApiDocsPage />)} />
-        <Route path="reports" element={rc("admin-reports", <AdminOperationsPage notify={notify} />)} />
-        <Route path="verifications" element={rc("admin-verifications", <AdminOperationsPage notify={notify} />)} />
+        <Route path="reports" element={rc("admin-reports", <ReportsManagementPage notify={notify} />)} />
+        <Route path="verifications" element={rc("admin-verifications", <MentorVerificationsPage notify={notify} />)} />
         <Route path="payments" element={rc("admin-payments", <AdminPaymentsPage notify={notify} />)} />
+        <Route path="skills" element={rc("admin-skills", <SkillManagementPage notify={notify} />)} />
         <Route path="conversations" element={rc("admin-conversations", <AdminOperationsPage notify={notify} />)} />
       </Route>
 

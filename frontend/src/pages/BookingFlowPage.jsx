@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
+import ReportModal from '../components/ReportModal';
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -25,25 +26,6 @@ const formatCredits = (value) => {
     return '0 CREDITS';
   }
   return `${amount.toFixed(2)} CREDITS`;
-};
-
-const getDurationLabel = (startTime, endTime) => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
-  const diffMs = end.getTime() - start.getTime();
-  if (Number.isNaN(diffMs) || diffMs <= 0) {
-    return 'Duration unavailable';
-  }
-  const minutes = Math.round(diffMs / (1000 * 60));
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-  if (hours > 0) {
-    return `${hours}h`;
-  }
-  return `${remainingMinutes}m`;
 };
 
 const parseSkills = (rawSkills) => {
@@ -79,10 +61,10 @@ function loadRazorpayScript() {
   });
 }
 
-export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel, bookingData }) {
+export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel, bookingData, notify }) {
   const [step, setStep] = useState(1);
   const [session, setSession] = useState(null);
-  const [availability, setAvailability] = useState([]);
+  const [, setAvailability] = useState([]);
   const [wallet, setWallet] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingWallet, setLoadingWallet] = useState(false);
@@ -91,6 +73,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [bookingError, setBookingError] = useState('');
   const [createdBookingId, setCreatedBookingId] = useState(null);
   const [createdPayment, setCreatedPayment] = useState(null);
+  const [showReport, setShowReport] = useState(false);
   const razorpayLoadedRef = useRef(false);
 
   const mentorSkills = useMemo(() => parseSkills(session?.mentor?.skills), [session?.mentor?.skills]);
@@ -307,6 +290,13 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
    */
   const initiateRazorpayCheckout = async (payment) => {
     try {
+      // Fail closed: never open checkout with a placeholder/test key.
+      const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || '';
+      if (!razorpayKeyId || razorpayKeyId === 'rzp_test_xxxxxxxxxxxx') {
+        setBookingError('Online payments are not configured yet. Please try again later or contact support.');
+        return;
+      }
+
       await loadRazorpayScript();
       razorpayLoadedRef.current = true;
 
@@ -314,7 +304,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       const amountPaise = payment.gatewayResponse?.amount || Number(payment.amount) * 100;
 
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_xxxxxxxxxxxx',
+        key: razorpayKeyId,
         amount: amountPaise,
         currency: payment.gatewayResponse?.currency || 'INR',
         name: 'Skill Swapper',
@@ -495,11 +485,30 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
             <button type="button" onClick={onCancel} style={{ border: '1px solid var(--line)', background: 'var(--card-bg, #fff)', padding: '10px 14px', borderRadius: 10 }}>
               Cancel
             </button>
-            <button type="button" onClick={handleNextToPayment} style={{ background: 'var(--accent)', color: 'var(--button-text, #fff)', border: 'none', padding: '10px 14px', borderRadius: 10 }}>
-              Next: Confirm payment →
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowReport(true)}
+                style={{ border: '1px solid rgba(220,38,38,0.35)', background: 'rgba(220,38,38,0.05)', color: '#dc2626', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+              >
+                ⚑ Report session
+              </button>
+              <button type="button" onClick={handleNextToPayment} style={{ background: 'var(--accent)', color: 'var(--button-text, #fff)', border: 'none', padding: '10px 14px', borderRadius: 10 }}>
+                Next: Confirm payment →
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {showReport && session && (
+        <ReportModal
+          targetType="SESSION"
+          targetId={session.id}
+          targetLabel={session.title}
+          onClose={() => setShowReport(false)}
+          notify={notify}
+        />
       )}
 
       {step === 2 && session && (

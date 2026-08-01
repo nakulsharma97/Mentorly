@@ -19,6 +19,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -37,6 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AccessTokenDenylistRepository accessTokenDenylistRepository;
     private final UserDetailsService userDetailsService;
     private final UserRepository userRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -80,10 +83,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Uses a direct UPDATE query instead of loading + saving the
                     // full User entity, which avoids SELECT overhead, entity
                     // hydration, and cascading flushes on every request.
+                    // Servlet filters run outside Spring's @Transactional proxy,
+                    // so a bare @Modifying query would fail with a
+                    // TransactionRequiredException on every request. Open the
+                    // transaction explicitly with TransactionTemplate instead.
                     try {
-                        userRepository.updateLastActiveAt(userEmail, OffsetDateTime.now());
-                    } catch (Exception ignored) {
-                        log.debug("Failed to update lastActiveAt for {}", userEmail, ignored);
+                        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                                userRepository.updateLastActiveAt(userEmail, OffsetDateTime.now()));
+                    } catch (Exception ex) {
+                        // A failed activity ping must never break authentication,
+                        // but it should be visible in the logs (not silently swallowed).
+                        log.warn("Failed to update lastActiveAt for {}", userEmail, ex);
                     }
                 }
             }

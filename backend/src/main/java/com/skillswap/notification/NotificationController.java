@@ -49,7 +49,10 @@ public class NotificationController {
             throw new IllegalArgumentException("Cannot update another user's notification");
         }
 
-        notification.setRead(true);
+        if (!notification.isRead()) {
+            notification.setRead(true);
+            notification.setReadAt(java.time.OffsetDateTime.now());
+        }
         return new ApiResponse<>("Notification marked as read", notificationRepository.save(notification));
     }
 
@@ -78,6 +81,45 @@ public class NotificationController {
 
         notificationRepository.delete(notification);
         return new ApiResponse<>("Notification deleted", null);
+    }
+
+    /**
+     * Records that the user clicked a notification's action button. Used by
+     * the admin Notification Center for click-rate analytics on broadcasts.
+     * Idempotent — repeated clicks keep the original timestamp.
+     */
+    @PostMapping("/{id}/click")
+    public ApiResponse<AppNotification> recordClick(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's notification");
+        }
+
+        if (!notification.isRead()) {
+            notification.setRead(true);
+            notification.setReadAt(java.time.OffsetDateTime.now());
+        }
+        if (notification.getClickedAt() == null) {
+            notification.setClickedAt(java.time.OffsetDateTime.now());
+        }
+        return new ApiResponse<>("Click recorded", notificationRepository.save(notification));
+    }
+
+    /** Marks a notification as dismissed (removed from the tray but kept for analytics). */
+    @PostMapping("/{id}/dismiss")
+    public ApiResponse<AppNotification> dismiss(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's notification");
+        }
+
+        notification.setDismissedAt(java.time.OffsetDateTime.now());
+        notification.setDeliveryStatus("DISMISSED");
+        return new ApiResponse<>("Notification dismissed", notificationRepository.save(notification));
     }
 
     @GetMapping("/preferences")

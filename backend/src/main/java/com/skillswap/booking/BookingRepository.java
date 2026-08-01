@@ -27,9 +27,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                         Long learnerId,
                         BookingStatus bookingStatus);
 
+        long countBySessionId(Long sessionId);
+
         long countBySessionIdAndBookingStatusIn(Long sessionId, Collection<BookingStatus> statuses);
 
         long countByBookingStatus(BookingStatus status);
+
+        /** Bookings created since a timestamp — feeds monitoring “today’s bookings”. */
+        long countByCreatedAtAfter(OffsetDateTime createdAt);
 
         boolean existsBySessionIdAndLearnerIdAndBookingStatusIn(Long sessionId, Long learnerId,
                         Collection<BookingStatus> statuses);
@@ -66,4 +71,37 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                 + "AND (b.approvedByAdmin IS NULL OR b.approvedByAdmin = false)")
         long countPendingNotApprovedBySessionId(@Param("sessionId") Long sessionId,
                 @Param("status") BookingStatus status);
+
+        /**
+         * Monthly booking-volume trend across ALL statuses (pending, accepted,
+         * completed, cancelled…) — returns [monthIndex (0=oldest), count]. Used
+         * together with {@link #computeMonthlyCompletedTrend} to derive the
+         * per-month session completion rate for the admin analytics dashboard.
+         */
+        @Query(value = "SELECT YEAR(b.created_at) * 100 + MONTH(b.created_at) AS ym, COUNT(*) AS cnt "
+                + "FROM bookings b WHERE b.created_at >= :since GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
+        List<Object[]> computeMonthlyBookingTrend(@Param("since") java.time.OffsetDateTime since);
+
+        /**
+         * Most active mentors ranked by number of bookings they received —
+         * returns [mentorId, bookingCount] ordered desc, limited to 10.
+         */
+        @Query(value = "SELECT s.mentor_id AS mentorId, COUNT(b.id) AS cnt "
+                + "FROM bookings b JOIN sessions s ON b.session_id = s.id "
+                + "WHERE s.mentor_id IS NOT NULL GROUP BY s.mentor_id ORDER BY cnt DESC LIMIT 10", nativeQuery = true)
+        List<Object[]> countTopMentorBookings();
+
+        /**
+         * Most active learners ranked by number of bookings they made — returns
+         * [learnerId, bookingCount] ordered desc, limited to 10.
+         */
+        @Query(value = "SELECT b.learner_id AS learnerId, COUNT(b.id) AS cnt "
+                + "FROM bookings b WHERE b.learner_id IS NOT NULL "
+                + "GROUP BY b.learner_id ORDER BY cnt DESC LIMIT 10", nativeQuery = true)
+        List<Object[]> countTopLearnerBookings();
+
+        /**
+         * Recent completed bookings (newest first) — feeds the recent-activity timeline.
+         */
+        List<Booking> findTop5ByBookingStatusOrderByCreatedAtDesc(BookingStatus status);
 }

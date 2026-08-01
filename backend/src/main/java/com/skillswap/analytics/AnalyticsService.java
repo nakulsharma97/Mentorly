@@ -271,7 +271,7 @@ public class AnalyticsService {
                                                         ? booking.getSession().getMentor().getFullName().trim()
                                                         : "Mentor";
                         String mentorUsername = booking.getSession() != null && booking.getSession().getMentor() != null
-                                        ? booking.getSession().getMentor().getUsername()
+                                        ? booking.getSession().getMentor().getDisplayUsername()
                                         : "";
                         String mentorKey = booking.getSession() != null && booking.getSession().getMentor() != null
                                         && booking.getSession().getMentor().getId() != null

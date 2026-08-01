@@ -163,7 +163,7 @@ function LearnerStatCard({ icon, iconBg, iconColor, value, label, desc, trend, t
    Main Component
    ========================================================================== */
 
-export default function LearnerDashboard({ profile, onLogout }) {
+export default function LearnerDashboard({ profile }) {
   const firstName =
     String(profile?.fullName || "Learner").trim().split(" ")[0] || "Learner";
 

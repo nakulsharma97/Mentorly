@@ -11,6 +11,9 @@
 # Root-level artifacts
 node_modules/
 *.log
+login.json
+login2.json
+login*.json
 
 # Windows reserved device names / accidental artifacts
 nul

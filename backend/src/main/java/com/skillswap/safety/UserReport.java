@@ -21,7 +21,12 @@ public class UserReport {
     @JoinColumn(name = "reporter_id")
     private User reporter;
 
-    @ManyToOne(optional = false)
+    /**
+     * The user this report points at (mentor / learner targets). Nullable:
+     * session and skill reports have no reported user, so this stays null
+     * and {@link #targetLabel} carries the display name instead.
+     */
+    @ManyToOne(optional = true)
     @JoinColumn(name = "reported_id")
     private User reported;
 
@@ -30,6 +35,38 @@ public class UserReport {
 
     @Column(name = "target_id")
     private Long targetId;
+
+    /** Human-readable label of the reported target (session title, skill name, user full name). */
+    @Column(name = "target_label")
+    private String targetLabel;
+
+    /** Admin moderation note recorded when the report is resolved or rejected. */
+    @Column(name = "moderator_note")
+    private String moderatorNote;
+
+    /** Triage priority (LOW / MEDIUM / HIGH / CRITICAL). Defaults to MEDIUM. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ReportPriority priority = ReportPriority.MEDIUM;
+
+    /**
+     * Admin currently assigned to investigate this report (nullable).
+     * {@code @JsonIgnore} keeps admin identity out of entity serialization —
+     * UserReport is returned directly by learner-facing endpoints, so the
+     * assigned admin must only ever surface through the admin DTO endpoints.
+     */
+    @ManyToOne
+    @JoinColumn(name = "assigned_admin_id")
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private User assignedAdmin;
+
+    /** Investigator-only notes. Never exposed to users. */
+    @Column(name = "internal_notes", columnDefinition = "TEXT")
+    private String internalNotes;
+
+    /** Soft-delete marker — spam reports are hidden from queues, not dropped. */
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
 
     @Column(nullable = false)
     private String reason;

@@ -1,5 +1,6 @@
 package com.skillswap.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.skillswap.messaging.MessagePrivacy;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -29,6 +30,7 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String username;
 
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
@@ -99,6 +101,10 @@ public class User implements UserDetails {
     @Column(name = "response_time_minutes")
     private Integer responseTimeMinutes;
 
+    /** URL to the mentor's resume document, reviewed during mentor verification. */
+    @Column(name = "resume_url", length = 1000)
+    private String resumeUrl;
+
     @Column(nullable = false)
     private boolean mentorVerified = false;
 
@@ -108,9 +114,11 @@ public class User implements UserDetails {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @JsonIgnore
     @Column(name = "password_reset_token")
     private String passwordResetToken;
 
+    @JsonIgnore
     @Column(name = "password_reset_token_expiry")
     private OffsetDateTime passwordResetTokenExpiry;
 
@@ -122,14 +130,34 @@ public class User implements UserDetails {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
+    /**
+     * {@inheritDoc} Returns the password hash for the Spring Security
+     * UserDetails contract. Serialization is suppressed — the raw hash must
+     * never appear in API responses.
+     */
     @Override
+    @JsonIgnore
     public String getPassword() {
         return passwordHash;
     }
 
+    /**
+     * Returns the email address as the Spring Security principal identifier.
+     * This is the UserDetails contract — the authentication system uses email
+     * as the unique identifier for login and JWT subject claims.
+     */
     @Override
     public String getUsername() {
         return email;
+    }
+
+    /**
+     * Returns the actual display username (the unique handle chosen by the user
+     * during signup), NOT the email. Use this in all DTO conversions and
+     * frontend-facing responses.
+     */
+    public String getDisplayUsername() {
+        return this.username;
     }
 
     @Override

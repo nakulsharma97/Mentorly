@@ -1,8 +1,8 @@
 package com.skillswap.user;
 
 import com.skillswap.common.ApiResponse;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.notification.NotificationService;
+import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.session.SessionRepository;
 import jakarta.validation.Valid;
@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
@@ -31,16 +32,32 @@ public class UserController {
     private final NotificationService notificationService;
 
     @GetMapping("/me")
+    @Transactional
     public ApiResponse<UserProfileResponse> me(@AuthenticationPrincipal User user) {
-        user.setLastActiveAt(OffsetDateTime.now());
-        userRepository.save(user);
-        return new ApiResponse<>("Current user", UserProfileResponse.from(user));
+        // Re-fetch the user within an active transaction to avoid
+        // LazyInitializationException when computeProfileCompletion()
+        // inspects profile fields (e.g. projects stored as TEXT).
+        // The @AuthenticationPrincipal User is loaded in the JWT filter
+        // without an active Hibernate session, so lazy associations are
+        // uninitialized. By re-fetching here under @Transactional,
+        // we get a fully managed entity with all fields safely accessible.
+        User managedUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        // Lightweight last-active timestamp update via direct query
+        // to avoid cascading operations on lazy collections like projectsList.
+        userRepository.updateLastActiveAt(managedUser.getEmail(), OffsetDateTime.now());
+        return new ApiResponse<>("Current user", UserProfileResponse.from(managedUser));
     }
 
     @PostMapping("/me/ping")
+    @Transactional
     public ApiResponse<String> ping(@AuthenticationPrincipal User user) {
-        user.setLastActiveAt(OffsetDateTime.now());
-        userRepository.save(user);
+        // Use a direct UPDATE query to avoid cascading operations on
+        // lazy-loaded collections (e.g. projectsList with CascadeType.ALL).
+        // @Transactional is required: updateLastActiveAt is a @Modifying
+        // UPDATE query and fails with TransactionRequiredException otherwise
+        // (mirrors the /me endpoint above).
+        userRepository.updateLastActiveAt(user.getEmail(), OffsetDateTime.now());
         return new ApiResponse<>("Activity updated", "ok");
     }
 
@@ -172,6 +189,9 @@ public class UserController {
         if (req.pastTeachingSessions() != null) {
             user.setPastTeachingSessions(trimToNull(req.pastTeachingSessions()));
         }
+        if (req.resumeUrl() != null) {
+            user.setResumeUrl(normalizeHttpUrl(req.resumeUrl()));
+        }
         userRepository.save(user);
         return new ApiResponse<>("Profile updated", UserProfileResponse.from(user));
     }
@@ -225,7 +245,7 @@ public class UserController {
         }
         String lowerCase = normalized.toLowerCase();
         if (!lowerCase.startsWith("http://") && !lowerCase.startsWith("https://")) {
-            throw new IllegalArgumentException("Social links must start with http:// or https://");
+            throw new IllegalArgumentException("URLs must start with http:// or https://");
         }
         return normalized;
     }
@@ -289,8 +309,9 @@ public class UserController {
         if (!hasValue(user.getCertificates())) {
             missing.add("Certifications");
         }
-        if (!hasValue(user.getProjects())
-                && (user.getProjectsList() == null || user.getProjectsList().isEmpty())) {
+        // Only check the projects TEXT field to avoid triggering lazy loading
+        // of the @OneToMany projectsList collection outside a Hibernate session.
+        if (!hasValue(user.getProjects())) {
             missing.add("Projects");
         }
 
@@ -322,7 +343,8 @@ public class UserController {
             @Size(max = 1000) String profileImageUrl,
             @Size(max = 6000) String projects,
             @Size(max = 6000) String certificates,
-            @Size(max = 6000) String pastTeachingSessions) {
+            @Size(max = 6000) String pastTeachingSessions,
+            @Size(max = 1000) String resumeUrl) {
     }
 
     @GetMapping("/me/check-username")
@@ -393,6 +415,7 @@ public class UserController {
             String projects,
             String certificates,
             String pastTeachingSessions,
+            String resumeUrl,
             Boolean mentorVerified,
             String verifiedSkills,
             Integer profileCompletionPercent,
@@ -402,7 +425,7 @@ public class UserController {
             return new UserProfileResponse(
                     user.getId(),
                     user.getEmail(),
-                    user.getUsername(),
+                    user.getDisplayUsername(),
                     user.getFullName(),
                     user.getRole().name(),
                     user.getWalletAddress(),
@@ -414,6 +437,7 @@ public class UserController {
                     user.getProjects(),
                     user.getCertificates(),
                     user.getPastTeachingSessions(),
+                    user.getResumeUrl(),
                     user.isMentorVerified(),
                     user.getVerifiedSkills(),
                     completion.percent(),
@@ -448,7 +472,7 @@ public class UserController {
                     mentor.getId(),
                     mentor.getCreatedAt() == null ? null : mentor.getCreatedAt().toString(),
                     mentor.getFullName(),
-                    mentor.getUsername(),
+                    mentor.getDisplayUsername(),
                     mentor.getSkills(),
                     mentor.getAboutMe(),
                     mentor.getGithubUrl(),
@@ -483,7 +507,7 @@ public class UserController {
             return new LiveMentorResponse(
                     mentor.getId(),
                     mentor.getFullName(),
-                    mentor.getUsername(),
+                    mentor.getDisplayUsername(),
                     mentor.getSkills(),
                     mentor.getProfileImageUrl(),
                     averageRating,

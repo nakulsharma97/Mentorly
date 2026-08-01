@@ -34,6 +34,14 @@ public class MentorVerificationRequest {
     @Column(name = "admin_note")
     private String adminNote;
 
+    /** Admin user id who reviewed the request (null while PENDING). */
+    @Column(name = "reviewed_by")
+    private Long reviewedBy;
+
+    /** When the admin reviewed the request (null while PENDING). */
+    @Column(name = "reviewed_at")
+    private OffsetDateTime reviewedAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 

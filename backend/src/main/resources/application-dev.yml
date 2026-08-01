@@ -1,3 +1,17 @@
+# Dev profile: enable Swagger/OpenAPI docs and the full actuator endpoint
+# set (metrics, prometheus, info) for local debugging and observability.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
 spring:
   jpa:
     open-in-view: false

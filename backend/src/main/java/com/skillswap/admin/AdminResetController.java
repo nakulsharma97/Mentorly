@@ -4,6 +4,7 @@ import com.skillswap.common.AdminUtils;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.AuditLog;
 import com.skillswap.common.AuditLogRepository;
+import com.skillswap.common.AuditLogService;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -68,6 +69,7 @@ public class AdminResetController {
             auditLog.setAction(action);
             auditLog.setEntityType("Database");
             auditLog.setDetails(result.summary());
+            auditLog.setIpAddress(AuditLogService.extractClientIp());
             auditLogRepository.save(auditLog);
         } catch (Exception ignored) {
             log.warn("Failed to save audit log for reset operation", ignored);

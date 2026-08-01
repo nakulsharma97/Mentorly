@@ -38,13 +38,45 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         long countByRole(UserRole role);
 
+        long countByEnabledFalse();
+
+        long countByMentorVerifiedTrue();
+
         long countByReferralCodeIsNotNull();
+
+        /**
+         * Recent signups (newest first) — feeds the admin dashboard recent-activity
+         * timeline without loading the full user table.
+         */
+        List<User> findTop5ByOrderByCreatedAtDesc();
+
+        /**
+         * Signups per day for the last N days — returns [DATE, count] ascending,
+         * used by the daily-signup trend and activity heatmap.
+         */
+        @Query(value = "SELECT DATE(u.created_at) AS d, COUNT(*) AS cnt FROM users u "
+                + "WHERE u.created_at >= :since GROUP BY DATE(u.created_at) ORDER BY d ASC", nativeQuery = true)
+        List<Object[]> countDailySignups(@Param("since") OffsetDateTime since);
+
+        /**
+         * Daily active users (last_active_at) — returns [DATE, count] ascending,
+         * used by the daily-login trend on the admin dashboard.
+         */
+        @Query(value = "SELECT DATE(u.last_active_at) AS d, COUNT(*) AS cnt FROM users u "
+                + "WHERE u.last_active_at >= :since GROUP BY DATE(u.last_active_at) ORDER BY d ASC", nativeQuery = true)
+        List<Object[]> countDailyActive(@Param("since") OffsetDateTime since);
 
         List<User> findByRole(UserRole role);
 
         Page<User> findByRole(UserRole role, Pageable pageable);
 
         List<User> findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole role);
+
+        /** Verified mentors (role MENTOR + mentorVerified) — broadcast audience scope. */
+        List<User> findByRoleAndMentorVerifiedTrueAndEnabledTrue(UserRole role);
+
+        /** Mentors that are NOT yet verified — broadcast audience scope. */
+        List<User> findByRoleAndMentorVerifiedFalseAndEnabledTrue(UserRole role);
 
         List<User> findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(UserRole role,
                         String skill);
@@ -54,7 +86,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
         long countByLastActiveAtAfter(OffsetDateTime cutoff);
 
+        /** Active users of a specific role since a cutoff — feeds monitoring “online mentors/learners”. */
+        long countByRoleAndLastActiveAtAfter(UserRole role, OffsetDateTime cutoff);
+
         long countByCreatedAtAfter(OffsetDateTime cutoff);
+
+        /**
+         * Returns the raw (comma/newline separated) skills column for every
+         * mentor so the admin analytics dashboard can rank the most in-demand
+         * skills without loading full user entities.
+         *
+         * @return non-null skills strings, one per mentor who has set skills
+         */
+        @Query("SELECT u.skills FROM User u WHERE u.role = :role AND u.skills IS NOT NULL AND u.skills <> ''")
+        List<String> findSkillsByRole(@Param("role") UserRole role);
 
         @Modifying
         @Query("UPDATE User u SET u.lastActiveAt = :now WHERE u.email = :email")

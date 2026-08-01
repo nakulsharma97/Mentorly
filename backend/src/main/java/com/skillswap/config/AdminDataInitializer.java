@@ -104,6 +104,7 @@ public class AdminDataInitializer implements CommandLineRunner {
 
         User admin = new User();
         admin.setEmail(adminEmail.trim().toLowerCase());
+        admin.setUsername(generateUsernameFromEmail(adminEmail.trim()));
         admin.setPasswordHash(passwordEncoder.encode(adminPassword.trim()));
         admin.setFullName(adminName.trim());
         admin.setRole(UserRole.ADMIN);
@@ -113,10 +114,47 @@ public class AdminDataInitializer implements CommandLineRunner {
         admin.setCreatedAt(OffsetDateTime.now());
         admin.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(admin);
-        log.info("Created default admin user: {}", adminEmail);
+        log.info("Created default admin user: {} (username: {})", adminEmail, admin.getDisplayUsername());
     }
 
     private static String generateReferralCode() {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+    }
+
+    /**
+     * Derives a unique, valid username from the admin's email address.
+     * Falls back to "admin" with an increasing suffix if the base name
+     * is reserved or already taken (though the latter shouldn't happen
+     * for a fresh admin creation).
+     */
+    private String generateUsernameFromEmail(String email) {
+        String base = email.contains("@") ? email.substring(0, email.indexOf('@')) : "admin";
+        base = base.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        if (base.length() < 3) base = base + "admin";
+        if (base.length() > 20) base = base.substring(0, 20);
+
+        // Check if the generated username is reserved or already taken
+        String candidate = base;
+        int suffix = 1;
+        while (isReservedUsername(candidate) || userRepository.existsByUsername(candidate)) {
+            String suffixed = base + suffix;
+            candidate = suffixed.length() > 20 ? suffixed.substring(0, 20) : suffixed;
+            suffix++;
+            if (suffix > 99) {
+                // Fallback: use timestamp as last resort
+                candidate = "admin" + System.currentTimeMillis() % 100000;
+                candidate = candidate.length() > 20 ? candidate.substring(0, 20) : candidate;
+                break;
+            }
+        }
+        return candidate;
+    }
+
+    private static boolean isReservedUsername(String username) {
+        return java.util.Set.of(
+                "admin", "support", "login", "register", "signup", "mentor", "learner",
+                "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
+                "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined"
+        ).contains(username);
     }
 }

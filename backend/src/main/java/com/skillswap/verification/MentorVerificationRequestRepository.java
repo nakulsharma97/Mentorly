@@ -1,13 +1,25 @@
 package com.skillswap.verification;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MentorVerificationRequestRepository extends JpaRepository<MentorVerificationRequest, Long> {
     List<MentorVerificationRequest> findByMentorIdOrderByCreatedAtDesc(Long mentorId);
 
     List<MentorVerificationRequest> findByStatusOrderByCreatedAtAsc(MentorVerificationRequestStatus status);
 
+    Optional<MentorVerificationRequest> findFirstByMentorIdAndStatusOrderByCreatedAtDesc(
+            Long mentorId, MentorVerificationRequestStatus status);
+
     long countByStatus(MentorVerificationRequestStatus status);
+
+    /**
+     * Verification status distribution (PENDING / APPROVED / REJECTED) — feeds
+     * the admin dashboard verification distribution chart.
+     */
+    @Query("SELECT r.status, COUNT(r) FROM MentorVerificationRequest r GROUP BY r.status")
+    List<Object[]> countGroupedByStatus();
 }

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import jakarta.validation.ConstraintViolationException;
 
 import org.slf4j.MDC;
@@ -22,7 +24,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
@@ -79,13 +81,34 @@ public class GlobalExceptionHandler {
         return new ApiResponse<>("Request failed", baseError("REQUEST_FORMAT_ERROR", "Invalid request format", false));
     }
 
+    // Unmatched routes (e.g. a typo'd /api/... path or an admin URL that no
+    // controller maps) throw NoResourceFoundException/NoHandlerFoundException
+    // instead of reaching a controller. These are client errors, not server
+    // faults, so they must be returned as 404 — the generic catch-all below
+    // must never turn them into 500s.
+    @ExceptionHandler({ NoResourceFoundException.class, NoHandlerFoundException.class })
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Map<String, Object>> handleNotFound(Exception ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        return new ApiResponse<>("Request failed", baseError("NOT_FOUND", "Resource not found", false));
+    }
+
+    // Note: this catch-all intentionally lives in the LOWEST_PRECEDENCE advice.
+    // ServiceGlobalExceptionHandler (HIGHEST_PRECEDENCE) resolves the specific
+    // service exceptions (ResourceNotFoundException, UnauthorizedException,
+    // BadRequestException, MeetingProviderException) first; only exceptions that
+    // no specific handler matches reach this fallback.
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Map<String, Object>> handleUnhandled(Exception ex) {
         log.error("Unhandled exception processing request", ex);
         Sentry.captureException(ex);
-        String message = ex.getMessage() == null ? "Unexpected server error" : ex.getMessage();
-        return new ApiResponse<>("Request failed", baseError("INTERNAL_ERROR", message, true));
+        // Never echo the raw exception message to the client — it may expose
+        // internal details (SQL fragments, class names, file paths). Full
+        // details are captured in logs and Sentry; the client gets a generic
+        // message with the trace id for correlation.
+        return new ApiResponse<>("Request failed",
+                baseError("INTERNAL_ERROR", "Unexpected server error", true));
     }
 
     private Map<String, Object> baseError(String code, String errorMessage, boolean retryable) {

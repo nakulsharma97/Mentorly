@@ -50,6 +50,16 @@ spring:
             enable: true
           auth: true
 
+# ── API documentation (Swagger/OpenAPI) ────────────────────
+# Disabled by default in every profile. Only the dev and local profiles
+# re-enable it (see application-dev.yml / application-local.yml) so the
+# internal endpoint schemas are never exposed in prod/staging.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 app:
   jwt:
     secret: ${JWT_SECRET:c2VjdXJlLWRldi1qd3Qtc2VjcmV0LWZvci1sb2NhbC1kZXZlbG9wbWVudA==}
@@ -97,11 +107,16 @@ logging:
     level: "%5p [traceId=%X{traceId:-na}]"
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
+# ── Operational endpoints ──────────────────────────────────
+# Only /actuator/health is exposed by default: the Kubernetes liveness/readiness
+# probes and the deploy.yml smoke check depend on it. The more sensitive endpoints
+# (info, metrics, prometheus) are enabled per-profile in application-dev.yml and
+# application-local.yml only, never in prod/staging.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health
       base-path: /actuator
   endpoint:
     health:

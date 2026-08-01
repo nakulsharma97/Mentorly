@@ -413,6 +413,15 @@ export default function LearnerSessionRequestsPage() {
                     }
 
                     // 4. Load and open Razorpay
+                    // Fail closed first: never fetch the SDK or open checkout with
+                    // a missing/placeholder key.
+                    const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+                    if (!razorpayKeyId || razorpayKeyId === "rzp_test_xxxxxxxxxxxx") {
+                      setPaymentError("Online payments are not configured yet. Please try again later or contact support.");
+                      setPaymentSending(false);
+                      return;
+                    }
+
                     if (!window.Razorpay) {
                       await new Promise((resolve, reject) => {
                         const script = document.createElement("script");
@@ -428,7 +437,7 @@ export default function LearnerSessionRequestsPage() {
                     const amountPaise = payment.gatewayResponse.amount || priceAmount * 100;
 
                     const rzpOptions = {
-                      key: import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_test_xxxxxxxxxxxx",
+                      key: razorpayKeyId,
                       amount: amountPaise,
                       currency: payment.gatewayResponse.currency || "INR",
                       name: "Skill Swapper",
