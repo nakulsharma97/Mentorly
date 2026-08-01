@@ -38,6 +38,25 @@ public class AdminDataInitializer implements CommandLineRunner {
     @Value("${app.admin.name:Platform Admin}")
     private String adminName;
 
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
+
+    /**
+     * Known default/placeholder admin passwords. In any non-development
+     * profile the initializer refuses to seed the admin account with one of
+     * these — a production deploy must supply its own strong credential.
+     * Comparison is case-insensitive so variants like {@code admin@12345}
+     * or {@code ADMIN} cannot slip past the guard.
+     */
+    private static final java.util.Set<String> INSECURE_ADMIN_PASSWORDS =
+            java.util.Set.of("Admin@12345", "admin", "password", "changeme", "admin123");
+
+    private static boolean isInsecurePassword(String password) {
+        String normalized = password == null ? "" : password.trim().toLowerCase(java.util.Locale.ROOT);
+        return INSECURE_ADMIN_PASSWORDS.stream()
+                .anyMatch(p -> p.toLowerCase(java.util.Locale.ROOT).equals(normalized));
+    }
+
     @Override
     public void run(String... args) {
         if (adminEmail == null || adminEmail.isBlank()) {
@@ -98,14 +117,32 @@ public class AdminDataInitializer implements CommandLineRunner {
 
     private void createAdminUser() {
         if (adminPassword == null || adminPassword.isBlank()) {
+            if (isProductionLikeProfile()) {
+                throw new IllegalStateException(
+                        "Refusing to start: APP_ADMIN_PASSWORD is not configured but the application "
+                                + "is running in a non-development profile. Set a strong unique "
+                                + "APP_ADMIN_PASSWORD before deploying.");
+            }
             log.warn("AdminDataInitializer skipped creating admin — app.admin.password is not configured");
             return;
+        }
+
+        String password = adminPassword.trim();
+        if (isProductionLikeProfile() && isInsecurePassword(password)) {
+            throw new IllegalStateException(
+                    "Refusing to start: APP_ADMIN_PASSWORD uses a known default value ('" + password
+                            + "') in a non-development profile. Set a strong unique APP_ADMIN_PASSWORD "
+                            + "before deploying.");
+        }
+        if (!isProductionLikeProfile() && isInsecurePassword(password)) {
+            log.warn("AdminDataInitializer creating admin with a known default password — "
+                    + "only acceptable for local development. Use a strong password in any real environment.");
         }
 
         User admin = new User();
         admin.setEmail(adminEmail.trim().toLowerCase());
         admin.setUsername(generateUsernameFromEmail(adminEmail.trim()));
-        admin.setPasswordHash(passwordEncoder.encode(adminPassword.trim()));
+        admin.setPasswordHash(passwordEncoder.encode(password));
         admin.setFullName(adminName.trim());
         admin.setRole(UserRole.ADMIN);
         admin.setAdminSubRole(AdminSubRole.SUPER_ADMIN);
@@ -115,6 +152,22 @@ public class AdminDataInitializer implements CommandLineRunner {
         admin.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(admin);
         log.info("Created default admin user: {} (username: {})", adminEmail, admin.getDisplayUsername());
+    }
+
+    /**
+     * True when the active Spring profiles do not include any local/test/dev
+     * profile — i.e. we are (likely) running in a real deployment.
+     */
+    private boolean isProductionLikeProfile() {
+        if (activeProfiles == null || activeProfiles.isBlank()) {
+            // No profile is active — treat as non-production so local runs with
+            // defaults are not blocked; the default is dev in application.yml.
+            return false;
+        }
+        String normalized = activeProfiles.toLowerCase(java.util.Locale.ROOT);
+        return !normalized.contains("dev")
+                && !normalized.contains("local")
+                && !normalized.contains("test");
     }
 
     private static String generateReferralCode() {
