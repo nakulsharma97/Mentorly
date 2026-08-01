@@ -228,8 +228,23 @@ public class AdminService {
 
     @Transactional
     public void updateSettings(Map<String, String> settings) {
+        persistSettings(settings);
+    }
+
+    /**
+     * Persists a batch of settings (the full configuration-center save). Returns
+     * the set of keys actually written so the controller can build the audit trail.
+     */
+    @Transactional
+    public java.util.Set<String> persistSettings(Map<String, String> settings) {
+        java.util.Set<String> written = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, String> entry : settings.entrySet()) {
             if (entry.getValue() == null) continue;
+            // Input validation — only catalog-known keys may be written so an
+            // arbitrary key can never be injected through the settings API.
+            if (!PlatformSettingsCatalog.isKnown(entry.getKey())) {
+                throw new IllegalArgumentException("Unknown setting key: " + entry.getKey());
+            }
             AdminSetting setting = adminSettingRepository.findBySettingKey(entry.getKey())
                     .orElseGet(() -> {
                         AdminSetting s = new AdminSetting();
@@ -238,7 +253,42 @@ public class AdminService {
                     });
             setting.setSettingValue(entry.getValue());
             adminSettingRepository.save(setting);
+            written.add(entry.getKey());
         }
+        return written;
+    }
+
+    /**
+     * Resets every known setting in a category back to its catalog default.
+     * Returns the number of persisted rows that were removed (defaults are not
+     * stored — the GET response synthesizes them).
+     */
+    @Transactional
+    public int resetSettingsSection(String category) {
+        List<String> keys = PlatformSettingsCatalog.groupedByCategory()
+                .getOrDefault(category, List.of())
+                .stream()
+                .map(PlatformSettingsCatalog.SettingDef::key)
+                .toList();
+        if (keys.isEmpty()) {
+            throw new IllegalArgumentException("Unknown settings category: " + category);
+        }
+        // Restore defaults by deleting stored rows — the GET layer re-seeds defaults.
+        adminSettingRepository.deleteBySettingKeyIn(keys);
+        return keys.size();
+    }
+
+    /** Resets every known platform setting to its catalog default. */
+    @Transactional
+    public int resetAllSettings() {
+        List<String> keys = PlatformSettingsCatalog.DEFINITIONS.stream()
+                .map(PlatformSettingsCatalog.SettingDef::key)
+                .toList();
+        adminSettingRepository.deleteBySettingKeyIn(keys);
+        // A full reset also restores every notification preference to its default.
+        adminNotifPreferenceRepository.deleteByPrefKeyIn(
+                PlatformSettingsCatalog.NOTIFICATION_PREFS.keySet());
+        return keys.size() + PlatformSettingsCatalog.NOTIFICATION_PREFS.size();
     }
 
     // ════════════════════════════════════════════════

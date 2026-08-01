@@ -2,7 +2,6 @@ package com.skillswap.auth;
 
 import com.skillswap.common.GlobalExceptionHandler;
 import com.skillswap.common.exception.ServiceGlobalExceptionHandler;
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -50,8 +49,6 @@ class AuthControllerIntegrationTest {
   @MockitoBean
   private MaintenanceModeFilter maintenanceModeFilter;
 
-  @MockitoBean
-  private CsrfCookieFilter csrfCookieFilter;
 
   @MockitoBean
   private UserDetailsService userDetailsService;

@@ -3,7 +3,6 @@ package com.skillswap.booking;
 import com.skillswap.certification.CertificationService;
 import com.skillswap.common.ApiClientException;
 import com.skillswap.common.GlobalExceptionHandler;
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -116,8 +115,6 @@ class BookingControllerIntegrationTest {
     @MockBean
     private MaintenanceModeFilter maintenanceModeFilter;
 
-    @MockBean
-    private CsrfCookieFilter csrfCookieFilter;
 
     @MockBean
     private UserDetailsService userDetailsService;

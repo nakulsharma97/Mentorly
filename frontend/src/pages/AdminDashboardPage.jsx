@@ -31,9 +31,9 @@ const formatCurrency = (value) => {
  * Professional Admin Dashboard at /admin/dashboard.
  *
  * Fetches real backend data from:
- *   - GET /api/v1/admin/dashboard?months=6  → health metrics + trends
+ *   - GET /api/v1/admin/dashboard?months=6  → health metrics (incl. pending
+ *     mentor verifications) + trends
  *   - GET /api/v1/skills                     → Total Skills
- *   - GET /api/v1/admin/summary              → Pending Requests (verifications)
  *
  * Renders seven responsive KPI cards using the shared StatsCard component,
  * plus a trend section. Includes loading skeletons, empty states, and an
@@ -42,7 +42,6 @@ const formatCurrency = (value) => {
 export default function AdminDashboardPage({ notify }) {
   const [dashboard, setDashboard] = useState(null);
   const [skillsCount, setSkillsCount] = useState(0);
-  const [pendingRequests, setPendingRequests] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -50,17 +49,14 @@ export default function AdminDashboardPage({ notify }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [dashboardRes, skillsRes, summaryRes] = await Promise.all([
+      const [dashboardRes, skillsRes] = await Promise.all([
         client.get("/api/v1/admin/dashboard?months=6"),
         client.get("/api/v1/skills"),
-        client.get("/api/v1/admin/summary"),
       ]);
       const dash = dashboardRes?.data?.data || null;
       setDashboard(dash);
       const skills = skillsRes?.data?.data;
       setSkillsCount(Array.isArray(skills) ? skills.length : 0);
-      const summary = summaryRes?.data?.data || {};
-      setPendingRequests(Number(summary.pendingMentorVerifications ?? 0));
     } catch (err) {
       const status = Number(err?.response?.status || 0);
       setLoadError(
@@ -124,7 +120,7 @@ export default function AdminDashboardPage({ notify }) {
     {
       icon: "hourglass_top",
       label: "Pending Requests",
-      value: formatNumber(pendingRequests),
+      value: formatNumber(health.pendingVerifications),
       description: "Mentor verifications awaiting review",
     },
   ];
@@ -212,7 +208,7 @@ export default function AdminDashboardPage({ notify }) {
         </div>
       </section>
 
-      {!hasAnyData && skillsCount === 0 && pendingRequests === 0 ? (
+      {!hasAnyData && skillsCount === 0 && Number(health.pendingVerifications ?? 0) === 0 ? (
         <div className="admin-dash-state">
           <span className="admin-dash-state__icon">
             <Icon name="dashboard" />

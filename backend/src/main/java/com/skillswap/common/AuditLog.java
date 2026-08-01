@@ -8,6 +8,12 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Immutable audit trail entry — one row per recorded event. Entries are
+ * created by {@link AuditLogService} (or the admin helpers) and are never
+ * updated after insertion; the admin UI treats them as read-only evidence.
+ */
+
 @Getter
 @Setter
 @Entity
@@ -58,6 +64,51 @@ public class AuditLog {
 
     @Column(name = "entity_id")
     private Long entityId;
+
+    // ── Activity-timeline metadata (V47) ──
+
+    /** INFO | SUCCESS | WARNING | ERROR | CRITICAL */
+    @Column(nullable = false, length = 20)
+    private String severity = "INFO";
+
+    /** AUTH | USER | SESSION | SKILL | REPORT | MODERATION | PAYMENT | NOTIFICATION | ADMIN | SYSTEM | SECURITY */
+    @Column(length = 40)
+    private String module;
+
+    /** SUCCESS | FAILURE */
+    @Column(nullable = false, length = 20)
+    private String outcome = "SUCCESS";
+
+    @Column(name = "before_value", columnDefinition = "TEXT")
+    private String beforeValue;
+
+    @Column(name = "after_value", columnDefinition = "TEXT")
+    private String afterValue;
+
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
+
+    @Column(length = 60)
+    private String device;
+
+    @Column(length = 60)
+    private String browser;
+
+    @Column(length = 60)
+    private String os;
+
+    @Column(name = "request_id", length = 64)
+    private String requestId;
+
+    @Column(name = "correlation_id", length = 64)
+    private String correlationId;
+
+    @Column(length = 255)
+    private String endpoint;
+
+    /** Set when a retention policy archives this entry (kept but hidden from active views). */
+    @Column(name = "archived_at")
+    private OffsetDateTime archivedAt;
 
     public AuditLog(String action, String resource, Long resourceId, String details, Long userId, String ipAddress) {
         this.action = action;

@@ -29,7 +29,6 @@ const GROUPS = [
       { to: "/admin/health", label: "Health", icon: "monitor_heart" },
       { to: "/admin/notifications", label: "Broadcast", icon: "campaign" },
       { to: "/admin/audit-log", label: "Timeline", icon: "history" },
-      { to: "/admin/api-docs", label: "API Docs", icon: "api" },
       { to: "/admin/settings", label: "Settings", icon: "settings" },
     ],
   },
@@ -53,7 +52,6 @@ const PAGE_META = {
   notifications: { title: "Broadcast Notification", search: "" },
   "audit-log": { title: "Activity Timeline", search: "Search logs..." },
   health: { title: "Platform Health", search: "" },
-  "api-docs": { title: "API Documentation", search: "" },
   settings: { title: "Settings", search: "" },
 };
 

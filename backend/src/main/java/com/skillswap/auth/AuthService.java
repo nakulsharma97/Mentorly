@@ -111,6 +111,7 @@ public class AuthService {
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.signup.success");
+        recordSignup(user);
         return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
     }
 
@@ -294,9 +295,52 @@ public class AuthService {
      */
     private void recordAuthEvent(String action, User user) {
         try {
-            auditLogService.log(action, "Auth", user.getId(), user.getEmail(), user.getId());
+            auditLogService.logEvent(action, AuditLogService.MOD_AUTH,
+                    AuditLogService.SEV_SUCCESS, "SUCCESS",
+                    "User", user.getId(),
+                    action + " for " + user.getEmail() + " (" + user.getRole().name() + ")",
+                    null, null, user.getId());
         } catch (RuntimeException ex) {
             log.warn("Failed to record {} audit entry for userId={}", action, user.getId(), ex);
+        }
+    }
+
+    /** Records a USER_CREATED audit entry on successful signup. */
+    private void recordSignup(User user) {
+        try {
+            auditLogService.logEvent("USER_CREATED", AuditLogService.MOD_USER,
+                    AuditLogService.SEV_SUCCESS, "SUCCESS",
+                    "User", user.getId(),
+                    "Account created for " + user.getEmail() + " as " + user.getRole().name(),
+                    null, null, user.getId());
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record USER_CREATED audit entry for userId={}", user.getId(), ex);
+        }
+    }
+
+    /** Records a FAILED_LOGIN audit entry (severity CRITICAL, outcome FAILURE). */
+    private void recordFailedLoginAudit(String email, String clientIp) {
+        try {
+            auditLogService.logEvent("FAILED_LOGIN", AuditLogService.MOD_SECURITY,
+                    AuditLogService.SEV_CRITICAL, "FAILURE",
+                    "User", null,
+                    "Failed login attempt for " + email + " from IP " + clientIp,
+                    null, null, null);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record FAILED_LOGIN audit entry", ex);
+        }
+    }
+
+    /** Records a PASSWORD_RESET audit entry on successful password reset. */
+    private void recordPasswordReset(User user) {
+        try {
+            auditLogService.logEvent("PASSWORD_RESET", AuditLogService.MOD_AUTH,
+                    AuditLogService.SEV_WARNING, "SUCCESS",
+                    "User", user.getId(),
+                    "Password reset completed for " + user.getEmail(),
+                    null, null, user.getId());
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record PASSWORD_RESET audit entry for userId={}", user.getId(), ex);
         }
     }
 
@@ -479,10 +523,16 @@ public class AuthService {
         }
 
         incrementCounter("auth.reset_password.success");
+        recordPasswordReset(user);
         log.info("Password reset successful for userId={}", user.getId());
     }
 
     private void recordFailedAttempt(String clientIp, String email) {
+        try {
+            recordFailedLoginAudit(email, clientIp);
+        } catch (RuntimeException ignored) {
+            log.warn("Failed to record failed-login audit entry from ip={}", clientIp, ignored);
+        }
         try {
             var attempt = loginAttemptRepository.findByIpAddress(clientIp)
                     .orElseGet(() -> {

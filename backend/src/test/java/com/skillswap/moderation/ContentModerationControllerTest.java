@@ -1,7 +1,6 @@
 package com.skillswap.moderation;
 
 import com.skillswap.common.AuditLogService;
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -72,8 +71,6 @@ class ContentModerationControllerTest {
     private RequestTraceFilter requestTraceFilter;
     @MockitoBean
     private MaintenanceModeFilter maintenanceModeFilter;
-    @MockitoBean
-    private CsrfCookieFilter csrfCookieFilter;
     @MockitoBean
     private UserDetailsService userDetailsService;
     @MockitoBean

@@ -107,6 +107,7 @@ public class AdminController {
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
     private final AuditLogRepository auditLogRepository;
+    private final AuditLogService auditLogService;
     private final SessionRepository sessionRepository;
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
@@ -123,6 +124,7 @@ public class AdminController {
     private final CertMigrationService certMigrationService;
     private final SystemHealthService systemHealthService;
     private final AdminNotificationService adminNotificationService;
+    private final com.skillswap.config.MaintenanceModeFilter maintenanceModeFilter;
 
     @GetMapping("/summary")
     public ApiResponse<AdminSummary> summary(@AuthenticationPrincipal User currentUser) {
@@ -1226,18 +1228,46 @@ public class AdminController {
     }
 
     // ════════════════════════════════════════════════
-    //  Admin — Audit Log
+    //  Admin — Audit Log · Activity Timeline & Security Audit
     // ════════════════════════════════════════════════
 
+    /**
+     * Paginated activity timeline with server-side filters — action, module,
+     * severity, outcome, entity type, user, date range — plus free-text search
+     * across action, details, admin email, IP, browser, device and endpoint.
+     * Archived entries are hidden unless {@code includeArchived} is set.
+     * Backwards compatible: a bare {@code action} filter uses the legacy query.
+     */
     @GetMapping("/audit-log")
     public ApiResponse<Page<AdminAuditLogDto>> getAuditLog(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String action,
+            @RequestParam(required = false) String module,
+            @RequestParam(required = false) String severity,
+            @RequestParam(required = false) String outcome,
+            @RequestParam(required = false) String entityType,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String fromDate,
+            @RequestParam(required = false) String toDate,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean includeArchived,
             Pageable pageable) {
         ensureAdmin(currentUser);
 
+        boolean hasAdvancedFilters = module != null || severity != null || outcome != null
+                || entityType != null || userId != null || fromDate != null || toDate != null
+                || (q != null && !q.isBlank()) || includeArchived;
+
         Page<AuditLog> logPage;
-        if (action != null && !action.isBlank()) {
+        if (hasAdvancedFilters) {
+            logPage = auditLogRepository.findByFilters(
+                    blankToNull(action), blankToNull(module), blankToNull(severity),
+                    blankToNull(outcome), blankToNull(entityType), userId,
+                    parseReportDate(fromDate, false), parseReportDate(toDate, true),
+                    includeArchived, blankToNull(q),
+                    PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100),
+                            Sort.by(Sort.Direction.DESC, "createdAt")));
+        } else if (action != null && !action.isBlank()) {
             List<AuditLog> logs = auditLogRepository.findByActionContainingIgnoreCaseOrderByCreatedAtDesc(
                     action, PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100)));
             // Wrap in a Page for consistent API response
@@ -1246,14 +1276,168 @@ public class AdminController {
         } else {
             logPage = auditLogRepository.findAll(PageRequest.of(pageable.getPageNumber(),
                     Math.min(pageable.getPageSize(), 100),
-                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")));
+                    Sort.by(Sort.Direction.DESC, "createdAt")));
         }
 
-        Page<AdminAuditLogDto> dtoPage = logPage.map(l -> new AdminAuditLogDto(l.getId(), l.getAdminId(), l.getAdminEmail(),
-                l.getAction(), l.getEntityType(), l.getEntityId(), l.getDetails(), l.getCreatedAt(),
-                l.getIpAddress(), l.getUserId(), l.getResource(), l.getResourceId()));
+        return new ApiResponse<>("Audit log fetched", logPage.map(AdminController::toAuditLogDto));
+    }
 
-        return new ApiResponse<>("Audit log fetched", dtoPage);
+    /** Single activity entry — the detail drawer source. Read-only by design. */
+    @GetMapping("/audit-log/{id}")
+    public ApiResponse<AdminAuditLogDto> auditLogDetail(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long id) {
+        ensureAdmin(currentUser);
+        AuditLog log = auditLogRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Audit log entry not found"));
+        return new ApiResponse<>("Audit entry fetched", toAuditLogDto(log));
+    }
+
+    /**
+     * Dashboard statistics for the audit timeline — every number is a real DB
+     * count (never hardcoded). Includes severity/module distribution and a
+     * 14-day daily trend for the charts.
+     */
+    @GetMapping("/audit-log/stats")
+    public ApiResponse<AdminAuditStatsDto> auditLogStats(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime todayStart = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
+        OffsetDateTime dayAgo = now.minusDays(1);
+        OffsetDateTime monthAgo = now.minusDays(30);
+
+        long total = auditLogRepository.countByArchivedAtIsNull();
+        long today = auditLogRepository.countByArchivedAtIsNullAndCreatedAtAfter(todayStart);
+        long last24h = auditLogRepository.countByArchivedAtIsNullAndCreatedAtAfter(dayAgo);
+        long security24h = auditLogRepository
+                .countByModuleAndArchivedAtIsNullAndCreatedAtAfter(AuditLogService.MOD_SECURITY, dayAgo);
+        long failedLogins24h = auditLogRepository
+                .countByActionContainingIgnoreCaseAndCreatedAtAfter("FAILED_LOGIN", dayAgo);
+        long adminActions30d = auditLogRepository
+                .countByAdminIdIsNotNullAndArchivedAtIsNullAndCreatedAtAfter(monthAgo);
+        long userActions30d = auditLogRepository
+                .countByModuleAndArchivedAtIsNullAndCreatedAtAfter(AuditLogService.MOD_USER, monthAgo);
+        long warnings24h = auditLogRepository.countBySeverityAndCreatedAtAfter(AuditLogService.SEV_WARNING, dayAgo);
+        long critical24h = auditLogRepository.countBySeverityAndCreatedAtAfter(AuditLogService.SEV_CRITICAL, dayAgo);
+
+        List<NameCountDto> bySeverity = new ArrayList<>();
+        for (Object[] row : auditLogRepository.countGroupedBySeveritySince(monthAgo)) {
+            bySeverity.add(new NameCountDto(String.valueOf(row[0]), ((Number) row[1]).longValue()));
+        }
+        List<NameCountDto> byModule = new ArrayList<>();
+        for (Object[] row : auditLogRepository.countGroupedByModuleSince(monthAgo)) {
+            byModule.add(new NameCountDto(String.valueOf(row[0]), ((Number) row[1]).longValue()));
+        }
+        List<NameCountDto> dailyTrend = new ArrayList<>();
+        OffsetDateTime trendStart = now.minusDays(13).withHour(0).withMinute(0).withSecond(0).withNano(0);
+        for (Object[] row : auditLogRepository.countDailyTrendSince(trendStart)) {
+            dailyTrend.add(new NameCountDto(String.valueOf(row[0]), ((Number) row[1]).longValue()));
+        }
+
+        double successRate = last24h == 0 ? 100
+                : Math.round(((last24h - failedLogins24h) * 100.0 / last24h) * 10.0) / 10.0;
+
+        return new ApiResponse<>("Audit stats fetched", new AdminAuditStatsDto(
+                total, today, last24h, security24h, failedLogins24h, adminActions30d, userActions30d,
+                warnings24h, critical24h, successRate, bySeverity, byModule, dailyTrend));
+    }
+
+    /**
+     * Security monitoring — highlights real suspicious patterns from the audit
+     * trail: repeated failed logins per IP, repeated password resets / account
+     * disables, admin privilege changes and recent errors.
+     */
+    @GetMapping("/audit-log/security-alerts")
+    public ApiResponse<AdminSecurityAlertsDto> auditSecurityAlerts(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        OffsetDateTime dayAgo = OffsetDateTime.now().minusDays(1);
+
+        List<AlertGroupDto> repeatedFailedLogins = new ArrayList<>();
+        for (Object[] row : auditLogRepository.repeatedFailedLoginsByIp(dayAgo)) {
+            repeatedFailedLogins.add(new AlertGroupDto(String.valueOf(row[0]), ((Number) row[1]).longValue()));
+        }
+        List<AlertGroupDto> repeatedPasswordResets = new ArrayList<>();
+        for (Object[] row : auditLogRepository.repeatedPasswordResets(dayAgo)) {
+            repeatedPasswordResets.add(new AlertGroupDto("user #" + row[0], ((Number) row[1]).longValue()));
+        }
+        List<AlertGroupDto> repeatedDisables = new ArrayList<>();
+        for (Object[] row : auditLogRepository.repeatedAccountDisables(dayAgo)) {
+            repeatedDisables.add(new AlertGroupDto(String.valueOf(row[0]), ((Number) row[1]).longValue()));
+        }
+        List<AdminAuditLogDto> privilegeChanges = auditLogRepository
+                .privilegeChangesSince(dayAgo, PageRequest.of(0, 20)).stream()
+                .map(AdminController::toAuditLogDto).toList();
+        List<AdminAuditLogDto> recentErrors = auditLogRepository
+                .errorsSince(dayAgo, PageRequest.of(0, 20)).stream()
+                .map(AdminController::toAuditLogDto).toList();
+
+        long totalAlerts = repeatedFailedLogins.size() + repeatedPasswordResets.size()
+                + repeatedDisables.size() + privilegeChanges.size() + recentErrors.size();
+
+        return new ApiResponse<>("Security alerts fetched", new AdminSecurityAlertsDto(
+                totalAlerts, repeatedFailedLogins, repeatedPasswordResets, repeatedDisables,
+                privilegeChanges, recentErrors));
+    }
+
+    /** Current retention policy (days) + how many entries are already expired. */
+    @GetMapping("/audit-log/retention")
+    public ApiResponse<Map<String, Object>> getAuditRetention(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        int days = auditRetentionDays();
+        return new ApiResponse<>("Retention fetched", Map.of(
+                "days", days,
+                "expiredCount", auditLogRepository.countExpired(OffsetDateTime.now().minusDays(days))));
+    }
+
+    /** Updates the audit retention policy (30 / 90 / 180 / 365 days …). */
+    @PutMapping("/audit-log/retention")
+    @Transactional
+    public ApiResponse<Map<String, Object>> setAuditRetention(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody AuditRetentionRequest request) {
+        ensureAdmin(currentUser);
+        int days = Math.max(1, Math.min(3650, request.days()));
+        AdminSetting setting = adminSettingRepository.findBySettingKey(AuditLogService.SETTING_AUDIT_RETENTION_DAYS)
+                .orElseGet(() -> {
+                    AdminSetting s = new AdminSetting();
+                    s.setSettingKey(AuditLogService.SETTING_AUDIT_RETENTION_DAYS);
+                    return s;
+                });
+        setting.setSettingValue(String.valueOf(days));
+        adminSettingRepository.save(setting);
+        saveAuditLog(currentUser, "UPDATE_AUDIT_RETENTION", "Settings", null,
+                "Set audit log retention to " + days + " days");
+        return new ApiResponse<>("Retention updated", Map.of("days", days));
+    }
+
+    /** Applies the retention policy now — deletes expired entries (audit action itself is logged). */
+    @PostMapping("/audit-log/purge")
+    @Transactional
+    public ApiResponse<Map<String, Object>> purgeAuditLogs(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        int days = auditRetentionDays();
+        int removed = auditLogService.purgeOlderThan(OffsetDateTime.now().minusDays(days));
+        saveAuditLog(currentUser, "PURGE_AUDIT_LOGS", "Settings", null,
+                "Purged " + removed + " audit entries older than " + days + " days");
+        return new ApiResponse<>("Audit logs purged", Map.of("removed", removed, "cutoffDays", days));
+    }
+
+    private int auditRetentionDays() {
+        // Delegate to the service — single source of truth shared with the nightly sweep.
+        return auditLogService.configuredRetentionDays();
+    }
+
+    private static AdminAuditLogDto toAuditLogDto(AuditLog l) {
+        return new AdminAuditLogDto(l.getId(), l.getAdminId(), l.getAdminEmail(), l.getAction(),
+                l.getEntityType(), l.getEntityId(), l.getDetails(), l.getCreatedAt(),
+                l.getIpAddress(), l.getUserId(), l.getResource(), l.getResourceId(),
+                l.getSeverity(), l.getModule(), l.getOutcome(), l.getBeforeValue(), l.getAfterValue(),
+                l.getUserAgent(), l.getDevice(), l.getBrowser(), l.getOs(),
+                l.getRequestId(), l.getCorrelationId(), l.getEndpoint(), l.getArchivedAt());
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     // ════════════════════════════════════════════════
@@ -1294,17 +1478,12 @@ public class AdminController {
 
     private Map<String, String> loadSettingsMap() {
         List<AdminSetting> allSettings = adminSettingRepository.findAll();
-        Map<String, String> result = new HashMap<>();
+        // Seed every known key from the catalog so the UI always has a value,
+        // then overlay stored rows (stored values must win over defaults).
+        Map<String, String> result = new HashMap<>(PlatformSettingsCatalog.defaults());
         for (AdminSetting s : allSettings) {
             result.put(s.getSettingKey(), s.getSettingValue());
         }
-        // Provide defaults for known keys
-        result.putIfAbsent("platform_fee_percent", "10");
-        result.putIfAbsent("min_withdrawal_amount", "10");
-        result.putIfAbsent("max_session_participants", "10");
-        result.putIfAbsent("maintenance_mode", "false");
-        result.putIfAbsent("new_registrations_enabled", "true");
-        result.putIfAbsent("mentor_verification_required", "true");
         return result;
     }
 
@@ -1312,6 +1491,49 @@ public class AdminController {
     public ApiResponse<Map<String, String>> getSettings(@AuthenticationPrincipal User currentUser) {
         ensureAdmin(currentUser);
         return new ApiResponse<>("Settings fetched", loadSettingsMap());
+    }
+
+    /**
+     * Settings catalog — categories, definitions, types and current values, all
+     * derived from the backend catalog so the admin UI renders from real data.
+     */
+    @GetMapping("/settings/catalog")
+    public ApiResponse<List<AdminSettingsCategoryDto>> getSettingsCatalog(
+            @AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        Map<String, String> current = loadSettingsMap();
+        Map<String, List<PlatformSettingsCatalog.SettingDef>> grouped = PlatformSettingsCatalog.groupedByCategory();
+        // Real stored preference values so the synthesized Notifications fields
+        // reflect what is actually saved (not a hardcoded default).
+        Map<String, Boolean> prefValues = new HashMap<>();
+        for (AdminNotifPreference pref : adminNotifPreferenceRepository.findAll()) {
+            prefValues.put(pref.getPrefKey(), pref.isPrefValue());
+        }
+
+        List<AdminSettingsCategoryDto> categories = new ArrayList<>();
+        for (PlatformSettingsCatalog.Category category : PlatformSettingsCatalog.CATEGORIES) {
+            if (PlatformSettingsCatalog.CAT_NOTIFICATIONS.equals(category.id())) {
+                // Notification preferences live in their own table — expose them
+                // as boolean fields so the Notifications section renders in the UI.
+                List<AdminSettingFieldDto> fields = PlatformSettingsCatalog.NOTIFICATION_PREFS.entrySet().stream()
+                        .map(e -> new AdminSettingFieldDto(e.getKey(), "boolean", e.getValue(), "",
+                                String.valueOf(prefValues.getOrDefault(e.getKey(), true)),
+                                List.of("true", "false")))
+                        .toList();
+                categories.add(new AdminSettingsCategoryDto(category.id(), category.label(),
+                        category.description(), fields));
+                continue;
+            }
+            List<PlatformSettingsCatalog.SettingDef> defs = grouped.getOrDefault(category.id(), List.of());
+            if (defs.isEmpty()) continue;
+            List<AdminSettingFieldDto> fields = defs.stream()
+                    .map(d -> new AdminSettingFieldDto(d.key(), d.type(), d.label(), d.description(),
+                            current.getOrDefault(d.key(), d.defaultValue()), d.options()))
+                    .toList();
+            categories.add(new AdminSettingsCategoryDto(category.id(), category.label(),
+                    category.description(), fields));
+        }
+        return new ApiResponse<>("Settings catalog fetched", categories);
     }
 
     @PutMapping("/settings")
@@ -1325,12 +1547,119 @@ public class AdminController {
             throw new IllegalArgumentException("At least one setting is required");
         }
 
-        adminService.updateSettings(settings);
+        // Only persist + audit keys whose value actually changed — no repeated
+        // saves or noisy audit entries for untouched fields.
+        Map<String, String> before = loadSettingsMap();
+        java.util.Map<String, String> changes = new java.util.LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : settings.entrySet()) {
+            if (entry.getValue() == null) continue;
+            String oldValue = before.getOrDefault(entry.getKey(), "");
+            if (!oldValue.equals(entry.getValue())) {
+                changes.put(entry.getKey(), entry.getValue());
+            }
+        }
 
-        saveAuditLog(currentUser, "UPDATE_SETTINGS", "Settings", null,
-                "Updated keys: " + String.join(", ", settings.keySet()));
+        if (changes.isEmpty()) {
+            return new ApiResponse<>("No settings changed", loadSettingsMap());
+        }
+
+        java.util.Set<String> written = adminService.persistSettings(changes);
+
+        // Maintenance-mode toggle must apply immediately, not after the 30s filter TTL.
+        if (written.contains("maintenance_mode")) {
+            maintenanceModeFilter.invalidateCache();
+        }
+
+        for (String key : written) {
+            String oldValue = before.getOrDefault(key, "");
+            String newValue = changes.get(key);
+            saveAuditLog(currentUser, "UPDATE_SETTING", "Settings", null,
+                    "Changed '" + key + "' from '" + oldValue + "' to '" + newValue + "'",
+                    oldValue, newValue);
+        }
 
         return new ApiResponse<>("Settings updated", loadSettingsMap());
+    }
+
+    /** Resets one settings category back to its catalog defaults. */
+    @PostMapping("/settings/reset-section")
+    public ApiResponse<Map<String, Object>> resetSettingsSection(
+            @AuthenticationPrincipal User currentUser,
+            @RequestBody(required = false) AdminSettingsResetRequest request) {
+        ensureAdmin(currentUser);
+        if (request == null || request.category() == null || request.category().isBlank()) {
+            throw new IllegalArgumentException("A category is required");
+        }
+        int reset = adminService.resetSettingsSection(request.category());
+        // A maintenance-category reset may have flipped maintenance_mode back to
+        // its default — invalidate the filter cache so it applies immediately.
+        maintenanceModeFilter.invalidateCache();
+        saveAuditLog(currentUser, "RESET_SETTINGS_SECTION", "Settings", null,
+                "Reset settings category '" + request.category() + "' (" + reset + " keys)");
+        return new ApiResponse<>("Settings section reset",
+                Map.of("reset", reset, "category", request.category()));
+    }
+
+    /** Resets every known platform setting back to its catalog default. */
+    @PostMapping("/settings/reset-all")
+    public ApiResponse<Map<String, Object>> resetAllSettings(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        int reset = adminService.resetAllSettings();
+        maintenanceModeFilter.invalidateCache();
+        saveAuditLog(currentUser, "RESET_ALL_SETTINGS", "Settings", null,
+                "Reset all platform settings (" + reset + " keys)");
+        return new ApiResponse<>("All settings reset", Map.of("reset", reset));
+    }
+
+    /** Downloads the current configuration as a CSV blob (filter-aware settings export). */
+    @GetMapping("/settings/export")
+    public org.springframework.http.ResponseEntity<byte[]> exportSettings(
+            @AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        Map<String, String> current = loadSettingsMap();
+        StringBuilder csv = new StringBuilder("category,key,type,label,value\n");
+        for (PlatformSettingsCatalog.SettingDef def : PlatformSettingsCatalog.DEFINITIONS) {
+            csv.append(escaped(def.category())).append(',')
+                    .append(escaped(def.key())).append(',')
+                    .append(escaped(def.type())).append(',')
+                    .append(escaped(def.label())).append(',')
+                    .append(escaped(current.getOrDefault(def.key(), def.defaultValue())))
+                    .append('\n');
+        }
+        return org.springframework.http.ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=skillswap-settings.csv")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
+                .body(csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /** Recent buffered system logs (feed for the Settings → Maintenance download). */
+    @GetMapping("/settings/logs")
+    public ApiResponse<List<LogBufferService.LogEntry>> getSettingsLogs(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(required = false) String level,
+            @RequestParam(defaultValue = "100") int limit) {
+        ensureAdmin(currentUser);
+        return new ApiResponse<>("Logs fetched",
+                systemHealthService.recentLogs(level, null, Math.min(Math.max(limit, 1), 500)));
+    }
+
+    /** Invalidates the maintenance-mode filter cache so toggles apply instantly. */
+    @PostMapping("/settings/clear-cache")
+    public ApiResponse<Map<String, String>> clearSettingsCache(@AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        maintenanceModeFilter.invalidateCache();
+        saveAuditLog(currentUser, "CLEAR_SETTINGS_CACHE", "Settings", null,
+                "Cleared maintenance-mode settings cache");
+        return new ApiResponse<>("Cache cleared", Map.of("cache", "cleared"));
+    }
+
+    private static String escaped(String value) {
+        String v = value == null ? "" : value;
+        // Neutralize CSV formula injection (Excel interprets = + - @ as formulas).
+        if (!v.isEmpty() && "=+-@".indexOf(v.charAt(0)) >= 0) {
+            v = "'" + v;
+        }
+        return "\"" + v.replace("\"", "\"\"") + "\"";
     }
 
     // ════════════════════════════════════════════════
@@ -1725,13 +2054,11 @@ public class AdminController {
         for (AdminNotifPreference p : all) {
             result.put(p.getPrefKey(), p.isPrefValue());
         }
-        // Provide defaults
-        result.putIfAbsent("new_user_signups", true);
-        result.putIfAbsent("reports_filed", true);
-        result.putIfAbsent("failed_payments", true);
-        result.putIfAbsent("mentor_verifications", true);
-        result.putIfAbsent("daily_summary", false);
-        result.putIfAbsent("new_bookings", true);
+        // Seed every known preference from the catalog (stored rows win; new
+        // keys default to enabled so admins opt out rather than opt in).
+        for (String key : PlatformSettingsCatalog.NOTIFICATION_PREFS.keySet()) {
+            result.putIfAbsent(key, true);
+        }
         return new ApiResponse<>("Preferences fetched", result);
     }
 
@@ -1750,6 +2077,10 @@ public class AdminController {
         for (AdminNotifPreference p : all) {
             result.put(p.getPrefKey(), p.isPrefValue());
         }
+        // Seed catalog defaults so the PUT response matches the GET shape.
+        for (String key : PlatformSettingsCatalog.NOTIFICATION_PREFS.keySet()) {
+            result.putIfAbsent(key, true);
+        }
         return new ApiResponse<>("Preferences updated", result);
     }
 
@@ -1758,6 +2089,11 @@ public class AdminController {
     // ════════════════════════════════════════════════
 
     private void saveAuditLog(User admin, String action, String entityType, Long entityId, String details) {
+        saveAuditLog(admin, action, entityType, entityId, details, null, null);
+    }
+
+    private void saveAuditLog(User admin, String action, String entityType, Long entityId, String details,
+            String beforeValue, String afterValue) {
         try {
             AuditLog log = new AuditLog();
             log.setAdminId(admin.getId());
@@ -1766,6 +2102,10 @@ public class AdminController {
             log.setEntityType(entityType);
             log.setEntityId(entityId);
             log.setDetails(details);
+            log.setSeverity(AuditLogService.inferSeverity(action));
+            log.setModule(AuditLogService.inferModule(action));
+            log.setBeforeValue(beforeValue);
+            log.setAfterValue(afterValue);
             log.setIpAddress(AuditLogService.extractClientIp());
             auditLogRepository.save(log);
         } catch (Exception ignored) {
@@ -2129,6 +2469,11 @@ public class AdminController {
     public record UserEnabledRequest(boolean enabled) {}
     public record AdminSubRoleRequest(@NotNull AdminSubRole adminSubRole) {}
     public record AdminSettingsDto(java.util.Map<String, String> settings) {}
+    public record AdminSettingsCategoryDto(String id, String label, String description,
+            List<AdminSettingFieldDto> fields) {}
+    public record AdminSettingFieldDto(String key, String type, String label, String description,
+            String value, List<String> options) {}
+    public record AdminSettingsResetRequest(String category) {}
     public record AdminReportScheduleRequest(@NotBlank @jakarta.validation.constraints.Pattern(regexp = "^(none|weekly|monthly)$", message = "Frequency must be none, weekly, or monthly") String frequency) {}
 
     // Conversation DTOs
@@ -2203,7 +2548,26 @@ public class AdminController {
     // Audit Log DTOs
     public record AdminAuditLogDto(Long id, Long adminId, String adminEmail, String action,
             String entityType, Long entityId, String details, OffsetDateTime createdAt,
-            String ipAddress, Long userId, String resource, Long resourceId) {}
+            String ipAddress, Long userId, String resource, Long resourceId,
+            String severity, String module, String outcome, String beforeValue, String afterValue,
+            String userAgent, String device, String browser, String os,
+            String requestId, String correlationId, String endpoint, OffsetDateTime archivedAt) {}
+
+    public record NameCountDto(String label, long count) {}
+
+    public record AdminAuditStatsDto(long totalLogs, long todayActivities, long last24h,
+            long securityEvents24h, long failedLogins24h, long adminActions30d, long userActions30d,
+            long warnings24h, long critical24h, double successRate,
+            List<NameCountDto> bySeverity, List<NameCountDto> byModule, List<NameCountDto> dailyTrend) {}
+
+    public record AlertGroupDto(String key, long count) {}
+
+    public record AdminSecurityAlertsDto(long totalAlerts,
+            List<AlertGroupDto> repeatedFailedLogins, List<AlertGroupDto> repeatedPasswordResets,
+            List<AlertGroupDto> repeatedAccountDisables,
+            List<AdminAuditLogDto> privilegeChanges, List<AdminAuditLogDto> recentErrors) {}
+
+    public record AuditRetentionRequest(@NotNull Integer days) {}
 
     // Moderation DTOs
     public record AdminModerationRequest(@NotNull ReportStatus status, String note) {}

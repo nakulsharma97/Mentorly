@@ -38,7 +38,6 @@ const AuditLogPage = lazy(() => import("../pages/AuditLogPage"));
 const AdminPaymentsPage = lazy(() => import("../pages/AdminPaymentsPage"));
 const ContentModerationPage = lazy(() => import("../pages/ContentModerationPage"));
 const PlatformHealthPage = lazy(() => import("../pages/PlatformHealthPage"));
-const AdminApiDocsPage = lazy(() => import("../pages/AdminApiDocsPage"));
 const SkillManagementPage = lazy(() => import("../pages/SkillManagementPage"));
 const ReportsManagementPage = lazy(() => import("../pages/ReportsManagementPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
@@ -289,7 +288,6 @@ export default function AppRoutes({
         <Route path="audit-log" element={rc("admin-audit-log", <AuditLogPage notify={notify} />)} />
         <Route path="flagged-content" element={rc("admin-flagged-content", <ContentModerationPage notify={notify} />)} />
         <Route path="health" element={rc("admin-health", <PlatformHealthPage notify={notify} />)} />
-        <Route path="api-docs" element={rc("admin-api-docs", <AdminApiDocsPage />)} />
         <Route path="reports" element={rc("admin-reports", <ReportsManagementPage notify={notify} />)} />
         <Route path="verifications" element={rc("admin-verifications", <MentorVerificationsPage notify={notify} />)} />
         <Route path="payments" element={rc("admin-payments", <AdminPaymentsPage notify={notify} />)} />

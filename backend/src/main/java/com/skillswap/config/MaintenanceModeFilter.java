@@ -64,6 +64,16 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
         this.adminSettingRepository = adminSettingRepository;
     }
 
+    /**
+     * Drops the cached maintenance-mode flag so the next request re-reads the
+     * database. Called by the admin settings endpoints right after a toggle so
+     * the change applies immediately instead of waiting out the 30s TTL.
+     */
+    public void invalidateCache() {
+        cachedEnabled = null;
+        cacheExpiresAt = 0L;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request,
             HttpServletResponse response,

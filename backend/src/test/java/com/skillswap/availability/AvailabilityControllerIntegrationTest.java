@@ -1,6 +1,5 @@
 package com.skillswap.availability;
 
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -56,8 +55,6 @@ class AvailabilityControllerIntegrationTest {
     @MockitoBean
     private MaintenanceModeFilter maintenanceModeFilter;
 
-    @MockitoBean
-    private CsrfCookieFilter csrfCookieFilter;
 
     @MockitoBean
     private UserDetailsService userDetailsService;

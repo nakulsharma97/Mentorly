@@ -389,7 +389,6 @@ test.describe("Accessibility Audit — Admin Pages", () => {
     ["/admin/audit-log", "Admin Audit Log"],
     ["/admin/flagged-content", "Admin Content Moderation"],
     ["/admin/health", "Admin Platform Health"],
-    ["/admin/api-docs", "Admin API Docs"],
   ];
 
   for (const [route, name] of ADMIN_ROUTES) {

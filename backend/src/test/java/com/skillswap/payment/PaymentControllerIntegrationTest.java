@@ -2,7 +2,6 @@ package com.skillswap.payment;
 
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -70,8 +69,6 @@ class PaymentControllerIntegrationTest {
     @MockitoBean
     private MaintenanceModeFilter maintenanceModeFilter;
 
-    @MockitoBean
-    private CsrfCookieFilter csrfCookieFilter;
 
     @MockitoBean
     private UserDetailsService userDetailsService;

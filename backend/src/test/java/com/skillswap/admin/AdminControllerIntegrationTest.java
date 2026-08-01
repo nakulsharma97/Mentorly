@@ -7,7 +7,6 @@ import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
 import com.skillswap.chat.ChatMessage;
 import com.skillswap.chat.ChatMessageRepository;
-import com.skillswap.config.CsrfCookieFilter;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -74,6 +73,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -118,6 +118,8 @@ class AdminControllerIntegrationTest {
     private PaymentService paymentService;
     @MockitoBean
     private AuditLogRepository auditLogRepository;
+    @MockitoBean
+    private com.skillswap.common.AuditLogService auditLogService;
     @MockitoBean
     private SessionRepository sessionRepository;
     @MockitoBean
@@ -169,8 +171,6 @@ class AdminControllerIntegrationTest {
     @MockitoBean
     private MaintenanceModeFilter maintenanceModeFilter;
 
-    @MockitoBean
-    private CsrfCookieFilter csrfCookieFilter;
 
     @MockitoBean
     private UserDetailsService userDetailsService;    @MockitoBean
@@ -1503,6 +1503,186 @@ class AdminControllerIntegrationTest {
     }
 
     // ══════════════════════════════════════════════════════════════
+    //  Activity Timeline — stats / detail / security-alerts / retention
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void auditLogStats_returnsRealCounts() throws Exception {
+        loginAs(adminUser);
+
+        when(auditLogRepository.countByArchivedAtIsNull()).thenReturn(1200L);
+        when(auditLogRepository.countByArchivedAtIsNullAndCreatedAtAfter(any())).thenReturn(35L);
+        when(auditLogRepository.countByModuleAndArchivedAtIsNullAndCreatedAtAfter(any(), any())).thenReturn(4L);
+        when(auditLogRepository.countByAdminIdIsNotNullAndArchivedAtIsNullAndCreatedAtAfter(any())).thenReturn(9L);
+        when(auditLogRepository.countByActionContainingIgnoreCaseAndCreatedAtAfter(any(), any())).thenReturn(2L);
+        when(auditLogRepository.countBySeverityAndCreatedAtAfter(any(), any())).thenReturn(1L);
+        when(auditLogRepository.countGroupedBySeveritySince(any()))
+                .thenReturn(List.of(new Object[]{"INFO", 800L}, new Object[]{"CRITICAL", 12L}));
+        when(auditLogRepository.countGroupedByModuleSince(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{"AUTH", 300L}));
+        when(auditLogRepository.countDailyTrendSince(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{"2026-01-01", 5L}));
+
+        mockMvc.perform(get("/api/v1/admin/audit-log/stats")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Audit stats fetched"))
+                .andExpect(jsonPath("$.data.totalLogs").value(1200))
+                .andExpect(jsonPath("$.data.todayActivities").value(35))
+                .andExpect(jsonPath("$.data.securityEvents24h").value(4))
+                .andExpect(jsonPath("$.data.adminActions30d").value(9))
+                .andExpect(jsonPath("$.data.failedLogins24h").value(2))
+                .andExpect(jsonPath("$.data.bySeverity.length()").value(2))
+                .andExpect(jsonPath("$.data.byModule[0].label").value("AUTH"))
+                .andExpect(jsonPath("$.data.dailyTrend[0].label").value("2026-01-01"));
+    }
+
+    @Test
+    void auditLogDetail_returnsEntry() throws Exception {
+        loginAs(adminUser);
+
+        AuditLog log = new AuditLog();
+        log.setId(42L);
+        log.setAction("LOGIN");
+        log.setModule("AUTH");
+        log.setSeverity("SUCCESS");
+        log.setOutcome("SUCCESS");
+        log.setUserId(10L);
+        log.setIpAddress("203.0.113.7");
+        log.setDevice("Desktop");
+        log.setBrowser("Chrome");
+        log.setOs("Windows NT 10.0");
+        log.setRequestId("req-123");
+        log.setEndpoint("POST /api/v1/auth/login");
+        log.setCreatedAt(OffsetDateTime.now());
+
+        when(auditLogRepository.findById(42L)).thenReturn(Optional.of(log));
+
+        mockMvc.perform(get("/api/v1/admin/audit-log/42")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Audit entry fetched"))
+                .andExpect(jsonPath("$.data.id").value(42))
+                .andExpect(jsonPath("$.data.severity").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.module").value("AUTH"))
+                .andExpect(jsonPath("$.data.browser").value("Chrome"))
+                .andExpect(jsonPath("$.data.requestId").value("req-123"));
+    }
+
+    @Test
+    void auditLogDetail_returnsNotFound() throws Exception {
+        loginAs(adminUser);
+
+        when(auditLogRepository.findById(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/admin/audit-log/999")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error").value("Audit log entry not found"));
+    }
+
+    @Test
+    void auditLogSecurityAlerts_returnsAlerts() throws Exception {
+        loginAs(adminUser);
+
+        when(auditLogRepository.repeatedFailedLoginsByIp(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{"203.0.113.7", 6L}));
+        when(auditLogRepository.repeatedPasswordResets(any()))
+                .thenReturn(List.<Object[]>of(new Object[]{"10L", 3L}));
+        when(auditLogRepository.repeatedAccountDisables(any()))
+                .thenReturn(List.of());
+        when(auditLogRepository.privilegeChangesSince(any(), any(Pageable.class)))
+                .thenReturn(List.of());
+        when(auditLogRepository.errorsSince(any(), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/admin/audit-log/security-alerts")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Security alerts fetched"))
+                .andExpect(jsonPath("$.data.totalAlerts").value(2))
+                .andExpect(jsonPath("$.data.repeatedFailedLogins[0].key").value("203.0.113.7"))
+                .andExpect(jsonPath("$.data.repeatedFailedLogins[0].count").value(6))
+                .andExpect(jsonPath("$.data.repeatedPasswordResets[0].count").value(3));
+    }
+
+    @Test
+    void auditLogRetention_returnsCurrentPolicy() throws Exception {
+        loginAs(adminUser);
+
+        when(auditLogService.configuredRetentionDays()).thenReturn(90);
+        when(auditLogRepository.countExpired(any())).thenReturn(7L);
+
+        mockMvc.perform(get("/api/v1/admin/audit-log/retention")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Retention fetched"))
+                .andExpect(jsonPath("$.data.days").value(90))
+                .andExpect(jsonPath("$.data.expiredCount").value(7));
+    }
+
+    @Test
+    void auditLogRetention_updatesPolicy() throws Exception {
+        loginAs(adminUser);
+
+        when(adminSettingRepository.findBySettingKey("audit_retention_days"))
+                .thenReturn(Optional.empty());
+        when(adminSettingRepository.save(any(AdminSetting.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(auditLogRepository.save(any(AuditLog.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(put("/api/v1/admin/audit-log/retention")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"days": 180}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Retention updated"))
+                .andExpect(jsonPath("$.data.days").value(180));
+
+        // The retention change itself is recorded in the audit trail.
+        verify(auditLogRepository).save(any(AuditLog.class));
+    }
+
+    @Test
+    void auditLogPurge_returnsRemovedCount() throws Exception {
+        loginAs(adminUser);
+
+        when(auditLogService.configuredRetentionDays()).thenReturn(365);
+        when(auditLogService.purgeOlderThan(any())).thenReturn(23);
+
+        mockMvc.perform(post("/api/v1/admin/audit-log/purge")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Audit logs purged"))
+                .andExpect(jsonPath("$.data.removed").value(23))
+                .andExpect(jsonPath("$.data.cutoffDays").value(365));
+    }
+
+    @Test
+    void getAuditLog_filtersByAdvancedFilters() throws Exception {
+        loginAs(adminUser);
+
+        AuditLog log = new AuditLog();
+        log.setId(9L);
+        log.setAction("LOGIN");
+        log.setModule("AUTH");
+        log.setSeverity("SUCCESS");
+        log.setUserId(10L);
+        log.setCreatedAt(OffsetDateTime.now());
+
+        when(auditLogRepository.findByFilters(any(), any(), any(), any(), any(), any(), any(), any(),
+                anyBoolean(), any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(log)));
+
+        mockMvc.perform(get("/api/v1/admin/audit-log?module=AUTH&severity=SUCCESS&q=login")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Audit log fetched"))
+                .andExpect(jsonPath("$.data.content[0].module").value("AUTH"))
+                .andExpect(jsonPath("$.data.content[0].severity").value("SUCCESS"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
     //  GET /settings
     // ══════════════════════════════════════════════════════════════
 
@@ -1542,8 +1722,14 @@ class AdminControllerIntegrationTest {
                 .thenReturn(Optional.empty());
         when(adminSettingRepository.save(any(AdminSetting.class)))
                 .thenReturn(feeSetting, maintenanceSetting);
+        // The controller delegates persistence to the mocked AdminService —
+        // return the written keys so the per-key audit loop actually runs.
+        when(adminService.persistSettings(any()))
+                .thenReturn(new java.util.LinkedHashSet<>(List.of("platform_fee_percent", "maintenance_mode")));
+        // First findAll() feeds the before-values (defaults only), the second
+        // feeds the response after the settings have been written.
         when(adminSettingRepository.findAll())
-                .thenReturn(List.of(feeSetting, maintenanceSetting));
+                .thenReturn(List.of(), List.of(feeSetting, maintenanceSetting));
 
         mockMvc.perform(put("/api/v1/admin/settings")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -1554,6 +1740,164 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Settings updated"))
                 .andExpect(jsonPath("$.data.platform_fee_percent").value("15"))
                 .andExpect(jsonPath("$.data.maintenance_mode").value("true"));
+
+        // Per-key audit trail — each changed setting is logged with old → new.
+        verify(auditLogRepository, atLeast(2)).save(any(AuditLog.class));
+    }
+
+    @Test
+    void updateSettings_skipsUnchangedKeys() throws Exception {
+        loginAs(adminUser);
+
+        when(adminSettingRepository.findAll())
+                .thenReturn(List.of());
+
+        mockMvc.perform(put("/api/v1/admin/settings")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"settings": {"platform_fee_percent": "10"}}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("No settings changed"));
+
+        verify(adminService, never()).persistSettings(any());
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  GET /settings/catalog
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void getSettingsCatalog_returnsCategoriesFromCatalog() throws Exception {
+        loginAs(adminUser);
+
+        // No stored rows → the response is seeded with catalog defaults.
+        when(adminSettingRepository.findAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/admin/settings/catalog")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Settings catalog fetched"))
+                .andExpect(jsonPath("$.data.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(8)))
+                // Categories follow the catalog order: general(0) … maintenance(11).
+                .andExpect(jsonPath("$.data[2].id").value("security"))
+                .andExpect(jsonPath("$.data[2].fields.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.data[11].id").value("maintenance"))
+                .andExpect(jsonPath("$.data[11].fields.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  POST /settings/reset-section
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void resetSettingsSection_resetsCategory() throws Exception {
+        loginAs(adminUser);
+
+        when(adminService.resetSettingsSection(eq("security"))).thenReturn(4);
+
+        mockMvc.perform(post("/api/v1/admin/settings/reset-section")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"category": "security"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Settings section reset"))
+                .andExpect(jsonPath("$.data.reset").value(4))
+                .andExpect(jsonPath("$.data.category").value("security"));
+
+        verify(auditLogRepository, atLeastOnce()).save(any(AuditLog.class));
+    }
+
+    @Test
+    void resetSettingsSection_requiresCategory() throws Exception {
+        loginAs(adminUser);
+
+        mockMvc.perform(post("/api/v1/admin/settings/reset-section")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  POST /settings/reset-all
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void resetAllSettings_resetsAllKeys() throws Exception {
+        loginAs(adminUser);
+
+        when(adminService.resetAllSettings()).thenReturn(42);
+
+        mockMvc.perform(post("/api/v1/admin/settings/reset-all")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("All settings reset"))
+                .andExpect(jsonPath("$.data.reset").value(42));
+
+        verify(auditLogRepository, atLeastOnce()).save(any(AuditLog.class));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  GET /settings/export
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void exportSettings_returnsCsvBlob() throws Exception {
+        loginAs(adminUser);
+
+        when(adminSettingRepository.findAll()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/admin/settings/export")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Content-Disposition",
+                                org.hamcrest.Matchers.containsString("skillswap-settings.csv")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("category,key,type,label,value")))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().string(org.hamcrest.Matchers.containsString("maintenance_mode")));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  GET /settings/logs
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void getSettingsLogs_returnsBufferedLogs() throws Exception {
+        loginAs(adminUser);
+
+        when(systemHealthService.recentLogs(eq("ERROR"), any(), anyInt()))
+                .thenReturn(List.of(new com.skillswap.monitoring.LogBufferService.LogEntry(
+                        "2026-01-01T00:00:00Z", "AdminController", "ERROR", "settings update failed")));
+
+        mockMvc.perform(get("/api/v1/admin/settings/logs?level=ERROR&limit=50")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Logs fetched"))
+                .andExpect(jsonPath("$.data[0].level").value("ERROR"))
+                .andExpect(jsonPath("$.data[0].message").value("settings update failed"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  POST /settings/clear-cache
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void clearSettingsCache_returnsCleared() throws Exception {
+        loginAs(adminUser);
+
+        mockMvc.perform(post("/api/v1/admin/settings/clear-cache")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Cache cleared"))
+                .andExpect(jsonPath("$.data.cache").value("cleared"));
+
+        verify(maintenanceModeFilter).invalidateCache();
+        verify(auditLogRepository, atLeastOnce()).save(any(AuditLog.class));
     }
 
     // ══════════════════════════════════════════════════════════════

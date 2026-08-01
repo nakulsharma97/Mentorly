@@ -1,150 +1,304 @@
-import { useCallback, useEffect, useState } from 'react';
-import client from '../api/client';
-import Icon from '../modules/common/dashboard/Icon';
-import './AdminOperationsPage.css';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import client from "../api/client";
+import { getApiErrorMessage as errorMessage } from "../utils/apiErrors";
+import Icon from "../modules/common/dashboard/Icon";
+import "./AdminOperationsPage.css";
+import "./SystemSettingsPage.css";
 
-const SETTING_LABELS = {
-  platform_fee_percent: 'Platform Fee (%)',
-  min_withdrawal_amount: 'Min Withdrawal Amount (credits)',
-  max_session_participants: 'Max Session Participants',
-  maintenance_mode: 'Maintenance Mode',
-  new_registrations_enabled: 'New Registrations Enabled',
-  mentor_verification_required: 'Mentor Verification Required',
+/* ── Helpers ───────────────────────────────────────────────────── */
+
+const unwrap = (res) => res?.data?.data;
+
+const SECTION_ICONS = {
+  general: "settings",
+  registration: "person_add",
+  security: "security",
+  notifications: "notifications_active",
+  payments: "payments",
+  sessions: "calendar_month",
+  ai: "smart_toy",
+  moderation: "gavel",
+  email: "mail",
+  features: "toggle_on",
+  appearance: "palette",
+  maintenance: "build",
 };
 
-const SETTING_DESCRIPTIONS = {
-  platform_fee_percent: 'Percentage deducted from mentor payouts as platform fee.',
-  min_withdrawal_amount: 'Minimum credits a user can withdraw from their wallet.',
-  max_session_participants: 'Default maximum participants per session.',
-  maintenance_mode: 'When enabled, only admins can access the platform.',
-  new_registrations_enabled: 'Allow new users to sign up.',
-  mentor_verification_required: 'Require mentors to submit verification documents.',
+const TYPE_META = {
+  boolean: { icon: "toggle_on", hint: "Toggle" },
+  number: { icon: "pin", hint: "Number" },
+  email: { icon: "mail", hint: "Email" },
+  select: { icon: "arrow_drop_down_circle", hint: "Select" },
+  text: { icon: "text_fields", hint: "Text" },
 };
 
-const NOTIF_PREFS = {
-  new_user_signups: 'Notify when new users sign up',
-  reports_filed: 'Notify when a report is filed',
-  failed_payments: 'Notify when a payment fails',
-  mentor_verifications: 'Notify when a mentor verification is pending',
-  daily_summary: 'Receive a daily summary email',
-  new_bookings: 'Notify when a new booking is created',
-};
-
-const REPORT_FREQ_OPTIONS = [
-  { value: 'none', label: 'Disabled' },
-  { value: 'weekly', label: 'Weekly (Mondays at 7 AM)' },
-  { value: 'monthly', label: 'Monthly (1st at 7 AM)' },
-];
+/* ── Main page ─────────────────────────────────────────────────── */
 
 export default function SystemSettingsPage({ notify }) {
-  const [settings, setSettings] = useState({});
+  const [catalog, setCatalog] = useState([]); // [{ id, label, description, fields: [] }]
+  const [values, setValues] = useState({}); // flat key -> current value
+  const [notifPrefs, setNotifPrefs] = useState({});
+  const [prefsBaseline, setPrefsBaseline] = useState({}); // as loaded from server
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [notifPrefs, setNotifPrefs] = useState({});
-  const [notifLoading, setNotifLoading] = useState(true);
-  const [notifSaving, setNotifSaving] = useState(false);
-  // Scheduled report state
-  const [reportFreq, setReportFreq] = useState('none');
-  const [reportFreqLoading, setReportFreqLoading] = useState(true);
-  const [reportFreqSaving, setReportFreqSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(() => new Set(["general", "security", "maintenance"]));
+  const [confirmReset, setConfirmReset] = useState(null); // { type: 'section'|'all', category }
+  const [busyAction, setBusyAction] = useState("");
 
-  const loadReportSchedule = useCallback(async () => {
-    setReportFreqLoading(true);
-    try {
-      const res = await client.get('/api/v1/admin/report-schedule');
-      setReportFreq(res?.data?.data?.frequency || 'none');
-    } catch { /* use default */ }
-    finally { setReportFreqLoading(false); }
-  }, []);
+  const lastErrorRef = useRef(null);
+  const notifyOnce = useCallback((type, title, message) => {
+    const key = `${title}|${message}`;
+    const now = Date.now();
+    const last = lastErrorRef.current;
+    if (last && last.key === key && now - last.ts < 2500) return;
+    lastErrorRef.current = { key, ts: now };
+    notify?.({ type, title, message });
+  }, [notify]);
 
-  useEffect(() => { loadReportSchedule(); }, [loadReportSchedule]);
+  /* ── Loaders ─────────────────────────────────────────────────── */
 
-  const handleReportFreqChange = async (freq) => {
-    setReportFreq(freq);
-    setReportFreqSaving(true);
-    try {
-      await client.put('/api/v1/admin/report-schedule', { frequency: freq });
-      notify?.({ type: 'success', title: 'Report schedule saved', message: `Dashboard reports set to ${freq}.` });
-    } catch {
-      notify?.({ type: 'error', title: 'Update failed', message: 'Could not update report schedule.' });
-      loadReportSchedule();
-    } finally { setReportFreqSaving(false); }
-  };
-
-  const handleSendTestNotif = async () => {
-    try {
-      await client.post('/api/v1/admin/notifications/send-test');
-      notify?.({ type: 'success', title: 'Test notification sent', message: 'Check your email inbox.' });
-    } catch (err) {
-      notify?.({ type: 'error', title: 'Send failed', message: err?.response?.data?.data?.error || err.message });
-    }
-  };
-
-  const loadSettings = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await client.get('/api/v1/admin/settings');
-      setSettings(res?.data?.data || {});
-    } catch {
-      notify?.({ type: 'error', title: 'Settings unavailable', message: 'Could not load platform settings.' });
+      const [catalogRes, valuesRes, prefsRes] = await Promise.all([
+        client.get("/api/v1/admin/settings/catalog"),
+        client.get("/api/v1/admin/settings"),
+        client.get("/api/v1/admin/notification-preferences"),
+      ]);
+      setCatalog(unwrap(catalogRes) || []);
+      setValues(unwrap(valuesRes) || {});
+      const prefs = unwrap(prefsRes) || {};
+      setNotifPrefs(prefs);
+      setPrefsBaseline(prefs);
+      setDirty(false);
+    } catch (err) {
+      notifyOnce("error", "Settings unavailable", errorMessage(err, "Could not load platform settings."));
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, [notifyOnce]);
 
-  useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
 
-  const loadNotifPrefs = useCallback(async () => {
-    setNotifLoading(true);
-    try {
-      const res = await client.get('/api/v1/admin/notification-preferences');
-      setNotifPrefs(res?.data?.data || {});
-    } catch { /* prefs may not be available */ }
-    finally { setNotifLoading(false); }
-  }, []);
+  /* ── Local edits ──────────────────────────────────────────────── */
 
-  useEffect(() => { loadNotifPrefs(); }, [loadNotifPrefs]);
-
-  const handleNotifToggle = async (key, value) => {
-    const updated = { ...notifPrefs, [key]: value };
-    setNotifPrefs(updated);
-    setNotifSaving(true);
-    try {
-      await client.put('/api/v1/admin/notification-preferences', updated);
-      notify?.({ type: 'success', title: 'Preference saved', message: `${NOTIF_PREFS[key] || key} updated.` });
-    } catch {
-      setNotifPrefs(notifPrefs); // revert on error
-      notify?.({ type: 'error', title: 'Update failed', message: 'Could not save notification preference.' });
-    } finally {
-      setNotifSaving(false);
-    }
-  };
-
-  const handleChange = (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  const handleFieldChange = (key, value) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
+
+  const handleNotifToggle = (key, value) => {
+    setNotifPrefs((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+  };
+
+  /* ── Saves ───────────────────────────────────────────────────── */
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await client.put('/api/v1/admin/settings', settings);
-      setDirty(false);
-      notify?.({ type: 'success', title: 'Settings saved', message: 'Platform settings updated successfully.' });
+      // Only send keys whose value changed — the backend audits each change.
+      const changed = {};
+      Object.entries(values).forEach(([k, v]) => {
+        if (!catalog.some((c) => c.fields.some((f) => f.key === k))) return;
+        const baseline = catalog
+          .flatMap((c) => c.fields)
+          .find((f) => f.key === k)?.value;
+        if (String(v) !== String(baseline ?? "")) changed[k] = String(v);
+      });
+
+      let savedAny = false;
+      let noOp = false;
+      if (Object.keys(changed).length > 0) {
+        const res = await client.put("/api/v1/admin/settings", { settings: changed });
+        const data = unwrap(res);
+        setValues(data || values);
+        // Refresh the catalog field baselines from the response so change
+        // detection compares against the saved state (not the mount-time one) —
+        // otherwise reverting a setting to its original value would be dropped.
+        setCatalog((prev) => prev.map((c) => ({
+          ...c,
+          fields: c.fields.map((f) => ({
+            ...f,
+            value: data && data[f.key] !== undefined ? String(data[f.key]) : f.value,
+          })),
+        })));
+        // The backend short-circuits when every submitted value already matches
+        // the stored value — surface that as an info toast, not a success one.
+        if (res?.data?.message === "No settings changed") noOp = true;
+        else savedAny = true;
+      }
+
+      // Persist notification preferences through their dedicated endpoint.
+      const prefsChanged = {};
+      Object.entries(notifPrefs).forEach(([k, v]) => {
+        const baseline = prefsBaseline[k];
+        if (baseline === undefined || baseline !== v) prefsChanged[k] = v;
+      });
+      if (Object.keys(prefsChanged).length > 0) {
+        const res = await client.put("/api/v1/admin/notification-preferences", prefsChanged);
+        const newPrefs = unwrap(res);
+        setNotifPrefs((prev) => ({ ...prev, ...newPrefs }));
+        // Same baseline refresh as above — keep the saved state as the reference.
+        setPrefsBaseline((prev) => ({ ...prev, ...newPrefs }));
+        savedAny = true;
+      }
+
+      if (noOp && !savedAny) {
+        notify?.({ type: "info", title: "No changes", message: "Values already match the saved configuration." });
+        setDirty(false);
+      } else if (savedAny) {
+        notify?.({ type: "success", title: "Settings saved", message: "Platform configuration updated." });
+        setDirty(false);
+      } else {
+        notify?.({ type: "info", title: "No changes", message: "Nothing to save — values are unchanged." });
+        setDirty(false);
+      }
     } catch (err) {
-      notify?.({ type: 'error', title: 'Save failed', message: err?.response?.data?.data?.error || err.message });
+      notifyOnce("error", "Save failed", errorMessage(err, "Could not save platform settings."));
     } finally {
       setSaving(false);
     }
   };
 
+  /* ── Reset ───────────────────────────────────────────────────── */
+
+  const runReset = async () => {
+    if (!confirmReset) return;
+    const { type, category } = confirmReset;
+    setBusyAction(type === "all" ? "reset-all" : `reset-${category}`);
+    try {
+      if (type === "all") {
+        await client.post("/api/v1/admin/settings/reset-all");
+        notify?.({ type: "success", title: "Settings reset", message: "All platform settings restored to defaults." });
+      } else {
+        await client.post("/api/v1/admin/settings/reset-section", { category });
+        notify?.({ type: "success", title: "Section reset", message: "Section restored to default values." });
+      }
+      setConfirmReset(null);
+      await loadAll();
+    } catch (err) {
+      notifyOnce("error", "Reset failed", errorMessage(err, "Could not reset settings."));
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  /* ── Maintenance actions ─────────────────────────────────────── */
+
+  const downloadBlob = (blob, fileName) => {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportCsv = async () => {
+    setBusyAction("export");
+    try {
+      const res = await client.get("/api/v1/admin/settings/export", { responseType: "blob" });
+      downloadBlob(res.data, "skillswap-settings.csv");
+      notify?.({ type: "success", title: "Export ready", message: "Settings exported as CSV." });
+    } catch (err) {
+      notifyOnce("error", "Export failed", errorMessage(err, "Could not export settings."));
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const handleDownloadLogs = async () => {
+    setBusyAction("logs");
+    try {
+      const res = await client.get("/api/v1/admin/settings/logs", { params: { limit: 500 } });
+      const rows = unwrap(res) || [];
+      const lines = rows.map((l) => `[${l.timestamp}] [${l.level}] ${l.service}: ${l.message}`).join("\n");
+      downloadBlob(new Blob([lines], { type: "text/plain" }), "skillswap-system.log");
+      notify?.({ type: "success", title: "Logs downloaded", message: `${rows.length} log entries exported.` });
+    } catch (err) {
+      notifyOnce("error", "Logs failed", errorMessage(err, "Could not download system logs."));
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const handleClearCache = async () => {
+    setBusyAction("cache");
+    try {
+      await client.post("/api/v1/admin/settings/clear-cache");
+      notify?.({ type: "success", title: "Cache cleared", message: "Settings cache invalidated." });
+    } catch (err) {
+      notifyOnce("error", "Cache clear failed", errorMessage(err, "Could not clear the settings cache."));
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setBusyAction("email");
+    try {
+      await client.post("/api/v1/admin/notifications/send-test");
+      notify?.({ type: "success", title: "Test email sent", message: "Check your email inbox." });
+    } catch (err) {
+      notifyOnce("error", "Send failed", errorMessage(err, "Could not send the test email."));
+    } finally {
+      setBusyAction("");
+    }
+  };
+
+  /* ── Derived render data ─────────────────────────────────────── */
+
+  const searchTerm = search.trim().toLowerCase();
+
+  const filteredCatalog = useMemo(() => {
+    if (!searchTerm) return catalog;
+    return catalog
+      .map((category) => ({
+        ...category,
+        fields: category.fields.filter((f) =>
+          f.label.toLowerCase().includes(searchTerm)
+            || f.key.toLowerCase().includes(searchTerm)
+            || (f.description || "").toLowerCase().includes(searchTerm)
+            || category.label.toLowerCase().includes(searchTerm)),
+      }))
+      .filter((category) => category.fields.length > 0);
+  }, [catalog, searchTerm]);
+
+  const totalSettings = useMemo(
+    () => catalog.reduce((sum, c) => sum + c.fields.length, 0),
+    [catalog],
+  );
+
+  const toggleSection = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  /* ── Render ──────────────────────────────────────────────────── */
+
   if (loading) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: '0 0 18px 18px' }}>
-          <h1>Platform Settings</h1>
-          <p>Loading settings...</p>
+        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+          <div>
+            <p className="admin-eyebrow">Configuration</p>
+            <h1>Platform Configuration Center</h1>
+            <p>Loading configuration…</p>
+          </div>
+        </div>
+        <div className="ss-skeleton-grid">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="ss-skeleton-card" />
+          ))}
         </div>
       </section>
     );
@@ -152,135 +306,250 @@ export default function SystemSettingsPage({ notify }) {
 
   return (
     <section className="admin-page">
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: '0 0 18px 18px' }}>
+      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
         <div>
-          <p className="admin-eyebrow">Configuration</p>
-          <h1>Platform Settings</h1>
-          <p>Configure platform-wide settings and feature flags. Changes take effect immediately.</p>
+          <p className="admin-eyebrow">Super Admin</p>
+          <h1>Platform Configuration Center</h1>
+          <p>
+            {totalSettings} settings across {catalog.length} categories. Changes are audited and apply immediately.
+          </p>
         </div>
       </div>
 
-      {/* Notification Preferences */}
-      <div className="admin-panel" style={{ marginTop: 18 }}>
-        <div className="admin-section-heading">
-          <div>
-            <p className="admin-eyebrow">Notifications</p>
-            <h2>Admin Notification Preferences</h2>
-          </div>
-          {notifSaving && <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Saving...</span>}
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {notifLoading ? (
-            <p style={{ color: '#94a3b8' }}>Loading preferences...</p>
-          ) : (
-            Object.entries(NOTIF_PREFS).map(([key, label]) => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 0', borderBottom: '1px solid var(--admin-border)' }}>
-                <input type="checkbox" checked={!!notifPrefs[key]}
-                  onChange={(e) => handleNotifToggle(key, e.target.checked)}
-                  disabled={notifSaving} />
-                <div>
-                  <strong style={{ fontSize: '0.9rem', display: 'block', color: 'var(--admin-text)' }}>{label}</strong>
-                </div>
-              </label>
-            ))
+      {/* Sticky toolbar */}
+      <div className="ss-toolbar">
+        <div className="ss-search">
+          <Icon name="search" />
+          <input
+            type="search"
+            placeholder="Search settings, categories, keywords…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          {search && (
+            <button type="button" className="ss-search__clear" onClick={() => setSearch("")} aria-label="Clear search">
+              <Icon name="close" />
+            </button>
           )}
         </div>
-      </div>
-
-      {/* Scheduled Reports */}
-      <div className="admin-panel" style={{ marginTop: 18 }}>
-        <div className="admin-section-heading">
-          <div>
-            <p className="admin-eyebrow">Automation</p>
-            <h2>Scheduled Dashboard Reports</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--admin-muted)', margin: '4px 0 0' }}>
-              Generate and email a PDF dashboard report to all admins on a recurring schedule.
-            </p>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {reportFreqLoading ? (
-            <p style={{ color: 'var(--admin-muted)', fontSize: '0.85rem' }}>Loading schedule...</p>
-          ) : (
-            <>
-              <label style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--admin-text)' }}>
-                Frequency:
-              </label>
-              <select value={reportFreq}
-                onChange={(e) => handleReportFreqChange(e.target.value)}
-                disabled={reportFreqSaving}
-                style={{ border: '1px solid var(--admin-input-border)', borderRadius: 8, padding: '8px 12px', color: 'var(--admin-input-text)', background: 'var(--admin-input-bg)' }}>
-                {REPORT_FREQ_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              {reportFreqSaving && <span style={{ fontSize: '0.82rem', color: 'var(--admin-muted)' }}>Saving...</span>}
-            </>
-          )}
+        <div className="ss-toolbar__actions">
+          <button
+            type="button"
+            className="ss-btn ss-btn--ghost"
+            onClick={() => setConfirmReset({ type: "all", category: null })}
+            disabled={saving || Boolean(busyAction)}
+          >
+            <Icon name="restart_alt" /> Reset All
+          </button>
+          <button
+            type="button"
+            className="ss-btn ss-btn--primary"
+            onClick={handleSave}
+            disabled={saving || !dirty || Boolean(busyAction)}
+          >
+            <Icon name="save" /> {saving ? "Saving…" : "Save Changes"}
+          </button>
         </div>
       </div>
 
-      {/* Test Notification */}
-      <div className="admin-panel" style={{ marginTop: 18 }}>
-        <div className="admin-section-heading">
-          <div>
-            <p className="admin-eyebrow">Email</p>
-            <h2>Admin Email Notifications</h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--admin-muted)', margin: '4px 0 0' }}>
-              Send a test notification to verify your email configuration.
-            </p>
-          </div>
+      {searchTerm && (
+        <div className="ss-search-hint">
+          Showing matches for “{search}” — {filteredCatalog.reduce((sum, c) => sum + c.fields.length, 0)} setting(s).
         </div>
-        <button type="button" className="admin-refresh-btn" onClick={handleSendTestNotif}
-          style={{ background: '#7c3aed', borderColor: '#6d28d9' }}>
-          <Icon name="mail" /> Send Test Email
-        </button>
-      </div>
+      )}
 
-      {/* Platform Settings */}
-      <div className="admin-panel" style={{ marginTop: 18 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {Object.entries(SETTING_LABELS).map(([key, label]) => {
-            const value = settings[key] ?? '';
-            const desc = SETTING_DESCRIPTIONS[key] || '';
-            const isBool = value === 'true' || value === 'false';
-
+      {filteredCatalog.length === 0 ? (
+        <div className="ss-empty">
+          <Icon name="search_off" />
+          <h3>No settings found</h3>
+          <p>Try a different search term.</p>
+        </div>
+      ) : (
+        <div className="ss-sections">
+          {filteredCatalog.map((category) => {
+            const isOpen = expanded.has(category.id);
+            const notifSection = category.id === "notifications";
             return (
-              <div key={key} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: 16 }}>
-                <label style={{ display: 'block', fontWeight: 700, marginBottom: 4, color: '#0f172a' }}>
-                  {label}
-                </label>
-                <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 8px' }}>{desc}</p>
-                {isBool ? (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={value === 'true'}
-                      onChange={(e) => handleChange(key, e.target.checked ? 'true' : 'false')} />
-                    <span style={{ fontSize: '0.9rem' }}>Enabled</span>
-                  </label>
-                ) : (
-                  <input type={key.includes('percent') || key.includes('amount') ? 'number' : 'text'}
-                    value={value}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', width: '100%', maxWidth: 300 }} />
+              <div key={category.id} className="ss-section">
+                <button
+                  type="button"
+                  className="ss-section__header"
+                  onClick={() => toggleSection(category.id)}
+                  aria-expanded={isOpen}
+                >
+                  <span className="ss-section__icon"><Icon name={SECTION_ICONS[category.id] || "tune"} /></span>
+                  <span className="ss-section__title">
+                    <strong>{category.label}</strong>
+                    <small>{category.description}</small>
+                  </span>
+                  <span className="ss-section__count">{notifSection ? Object.keys(notifPrefs).length : category.fields.length} items</span>
+                  <span className="ss-section__chevron"><Icon name={isOpen ? "expand_less" : "expand_more"} /></span>
+                </button>
+
+                {isOpen && (
+                  <div className="ss-section__body">
+                    {notifSection ? (
+                      <div className="ss-field-list">
+                        {Object.entries(notifPrefs).map(([key, value]) => (
+                          <div key={key} className="ss-field ss-field--row">
+                            <div className="ss-field__info">
+                              <strong>{humanizePrefKey(key)}</strong>
+                            </div>
+                            <ToggleSwitch
+                              checked={Boolean(value)}
+                              onChange={(v) => handleNotifToggle(key, v)}
+                              disabled={saving || Boolean(busyAction)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="ss-field-list">
+                        {category.fields.map((field) => (
+                          <FieldControl
+                            key={field.key}
+                            field={field}
+                            value={values[field.key] ?? field.value ?? ""}
+                            onChange={(v) => handleFieldChange(field.key, v)}
+                            disabled={saving || Boolean(busyAction)}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {!notifSection && (
+                      <div className="ss-section__footer">
+                        <button
+                          type="button"
+                          className="ss-btn ss-btn--ghost ss-btn--sm"
+                          onClick={() => setConfirmReset({ type: "section", category: category.id })}
+                          disabled={saving || Boolean(busyAction)}
+                        >
+                          <Icon name="restart_alt" /> Reset section
+                        </button>
+                      </div>
+                    )}
+
+                    {category.id === "maintenance" && (
+                      <div className="ss-maintenance-actions">
+                        <button type="button" className="ss-btn ss-btn--outline" onClick={handleSendTestEmail} disabled={Boolean(busyAction)}>
+                          <Icon name="mail" /> {busyAction === "email" ? "Sending…" : "Send test email"}
+                        </button>
+                        <button type="button" className="ss-btn ss-btn--outline" onClick={handleExportCsv} disabled={Boolean(busyAction)}>
+                          <Icon name="download" /> {busyAction === "export" ? "Exporting…" : "Export settings (CSV)"}
+                        </button>
+                        <button type="button" className="ss-btn ss-btn--outline" onClick={handleDownloadLogs} disabled={Boolean(busyAction)}>
+                          <Icon name="description" /> {busyAction === "logs" ? "Downloading…" : "Download logs"}
+                        </button>
+                        <button type="button" className="ss-btn ss-btn--outline" onClick={handleClearCache} disabled={Boolean(busyAction)}>
+                          <Icon name="cleaning_services" /> {busyAction === "cache" ? "Clearing…" : "Clear cache"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             );
           })}
         </div>
+      )}
 
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          <button type="button" className="admin-refresh-btn" onClick={handleSave} disabled={saving || !dirty}
-            style={{ padding: '10px 20px' }}>
-            {saving ? 'Saving...' : 'Save Settings'}
-          </button>
-          <button type="button"
-            style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 20px', background: '#fff', cursor: 'pointer', fontWeight: 700 }}
-            onClick={loadSettings} disabled={saving}>
-            Reset
-          </button>
-          {dirty && <span style={{ color: '#d97706', fontSize: '0.85rem', alignSelf: 'center' }}>Unsaved changes</span>}
+      {/* Reset confirmation dialog */}
+      {confirmReset && (
+        <div className="ss-modal-overlay" role="presentation">
+          <div className="ss-modal" role="dialog" aria-modal="true" aria-labelledby="ss-modal-title">
+            <span className="ss-modal__icon"><Icon name="warning" /></span>
+            <h3 id="ss-modal-title">
+              {confirmReset.type === "all" ? "Reset all settings?" : "Reset this section?"}
+            </h3>
+            <p>
+              {confirmReset.type === "all"
+                ? "Every platform setting will be restored to its catalog default. Changes are audited. This cannot be undone."
+                : `The “${catalog.find((c) => c.id === confirmReset.category)?.label || confirmReset.category}” section will be restored to its default values. Changes are audited.`}
+            </p>
+            <div className="ss-modal__actions">
+              <button type="button" className="ss-btn ss-btn--ghost" onClick={() => setConfirmReset(null)} disabled={Boolean(busyAction)}>
+                Cancel
+              </button>
+              <button type="button" className="ss-btn ss-btn--danger" onClick={runReset} disabled={Boolean(busyAction)}>
+                {busyAction ? "Resetting…" : "Confirm reset"}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </section>
   );
+}
+
+/* ── Sub-components ────────────────────────────────────────────── */
+
+function ToggleSwitch({ checked, onChange, disabled }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className={`ss-toggle${checked ? " ss-toggle--on" : ""}`}
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+    >
+      <span className="ss-toggle__track"><span className="ss-toggle__thumb" /></span>
+    </button>
+  );
+}
+
+function FieldControl({ field, value, onChange, disabled }) {
+  const meta = TYPE_META[field.type] || TYPE_META.text;
+  const isBoolean = field.type === "boolean";
+
+  if (isBoolean) {
+    return (
+      <div className="ss-field ss-field--row">
+        <div className="ss-field__info">
+          <strong>{field.label}</strong>
+          {field.description && <p>{field.description}</p>}
+        </div>
+        <ToggleSwitch checked={value === "true" || value === true} onChange={(v) => onChange(v ? "true" : "false")} disabled={disabled} />
+      </div>
+    );
+  }
+
+  const isSelect = field.type === "select" || (field.options && field.options.length > 0);
+
+  return (
+    <div className="ss-field">
+      <div className="ss-field__info">
+        <strong>{field.label}</strong>
+        {field.description && <p>{field.description}</p>}
+        <small className="ss-field__type"><Icon name={meta.icon} /> {meta.hint}</small>
+      </div>
+      {isSelect ? (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="ss-input ss-input--select"
+        >
+          {(field.options || []).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          type={field.type === "number" ? "number" : field.type === "email" ? "email" : "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="ss-input"
+        />
+      )}
+    </div>
+  );
+}
+
+function humanizePrefKey(key) {
+  return key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
