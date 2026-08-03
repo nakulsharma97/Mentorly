@@ -197,7 +197,7 @@ export default function AppRoutes({
       >
         <Route index element={<Navigate to="/learner/dashboard" replace />} />
         <Route path="dashboard" element={rc("learner-dashboard", <LearnerDashboard profile={profile} onLogout={handleLogout} />)} />
-        <Route path="mentors" element={rc("learner-mentors", <LearnerMentorsPage />)} />
+        <Route path="mentors" element={rc("learner-mentors", <LearnerMentorsPage notify={notify} />)} />
         <Route path="skills" element={rc("learner-skills", <LearnerSkillsPage />)} />
         <Route path="skills/:skillId" element={rc("learner-skill-detail", <SkillDetailPage notify={notify} />)} />
         <Route path="roadmaps/:roadmapId" element={rc("learner-roadmap-detail", <RoadmapDetailPage />)} />
@@ -208,7 +208,7 @@ export default function AppRoutes({
         <Route path="certificates" element={rc("learner-certificates", <LearnerCertificatesPage />)} />
         <Route path="messages" element={rc("learner-messages", <LearnerMessagesPage profile={profile} />)} />
         <Route path="messages/:conversationId" element={rc("learner-messages-conversation", <LearnerMessagesPage profile={profile} />)} />
-        <Route path="saved" element={rc("learner-saved", <LearnerSavedMentorsPage />)} />
+        <Route path="saved" element={rc("learner-saved", <LearnerSavedMentorsPage notify={notify} />)} />
         <Route path="path" element={rc("learner-path", <LearnerPathPage />)} />
         <Route path="achievements" element={rc("learner-achievements", <LearnerAchievementsPage />)} />            <Route path="notifications" element={rc("learner-notifications", <LearnerNotificationsPage notify={notify} />)} />
         <Route path="profile" element={rc("learner-profile", <LearnerProfilePage profile={profile} />)} />

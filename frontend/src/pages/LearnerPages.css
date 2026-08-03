@@ -5364,6 +5364,55 @@
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
 }
 
+/* Favorite heart: disabled + pending states and pop animation */
+.lf-mentor-card__save:disabled,
+.lf-featured-card__save:disabled {
+  cursor: wait;
+  opacity: 0.85;
+}
+
+.lf-mentor-card__save.is-pending .md__icon,
+.lf-featured-card__save.is-pending .md__icon {
+  opacity: 0;
+}
+
+.lf-heart-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(220, 38, 38, 0.25);
+  border-top-color: #dc2626;
+  border-radius: 50%;
+  animation: lf-heart-spin 0.7s linear infinite;
+}
+
+@keyframes lf-heart-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lf-mentor-card__save.is-saved .md__icon,
+.lf-featured-card__save.is-saved .md__icon {
+  animation: lf-heart-pop 0.35s ease;
+}
+
+@keyframes lf-heart-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  55% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.lf-mentor-card__save .md__icon,
+.lf-featured-card__save .md__icon {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
 /* ------------------------------------------------------------ skeletons */
 .lf-skel-card {
   border-radius: 20px;

@@ -33,6 +33,11 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
     @Query("select min(s.priceAmount) from SkillSession s where s.mentor.id = :mentorId")
     BigDecimal findMinPriceByMentorId(Long mentorId);
 
+    @Query("select s.mentor.id, min(s.priceAmount) from SkillSession s"
+            + " where s.mentor.id in :mentorIds group by s.mentor.id")
+    List<Object[]> findMinPriceByMentorIdsIn(
+            @Param("mentorIds") java.util.Collection<Long> mentorIds);
+
     boolean existsByMentorIdAndStartTime(Long mentorId, OffsetDateTime startTime);
 
     long countByStatus(SessionStatus status);

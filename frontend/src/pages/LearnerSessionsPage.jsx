@@ -46,7 +46,12 @@ async function apiPost(path, body, config) {
 }
 
 function getErrorMessage(error) {
+  // Prefer the nested backend error detail (ApiResponse error body: {message,
+  // data:{code,error,message,...}}) over the generic top-level "Request failed"
+  // wrapper, so real failures (500 from a lazy proxy, 401, 404) are visible.
   return (
+    error?.response?.data?.data?.error ||
+    error?.response?.data?.data?.message ||
     error?.response?.data?.message ||
     error?.response?.data?.error ||
     error?.message ||
@@ -69,6 +74,15 @@ function useResource(loader, deps = []) {
       })
       .catch((error) => {
         if (!active) return;
+        // Log the full failure (status, response body, config) to the console so
+        // debugging is easy — "Request failed" alone hides what actually broke.
+        window.console.error("[LearnerSessionsPage] Failed to load bookings:", error);
+        window.console.error(
+          "[LearnerSessionsPage] Status:",
+          error?.response?.status,
+          "Body:",
+          error?.response?.data,
+        );
         setState({ loading: false, data: null, error: getErrorMessage(error) });
       });
 
@@ -592,6 +606,22 @@ export default function LearnerSessionsPage() {
 
   const { loading, data, error } = useResource(() => apiGet("/api/v1/bookings"), [refreshKey]);
   const allBookings = data || EMPTY_ARRAY;
+
+  // Auto-refresh when the tab regains focus (e.g. the learner switches back to
+  // this tab after the mentor confirmed a session elsewhere) so the list and
+  // counts always reflect the latest backend state.
+  useEffect(() => {
+    const refreshOnFocus = () => setRefreshKey((v) => v + 1);
+    const refreshOnVisible = () => {
+      if (document.visibilityState === "visible") setRefreshKey((v) => v + 1);
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    window.addEventListener("visibilitychange", refreshOnVisible);
+    return () => {
+      window.removeEventListener("focus", refreshOnFocus);
+      window.removeEventListener("visibilitychange", refreshOnVisible);
+    };
+  }, []);
 
   const grouped = useMemo(() => {
     const upcoming = [];

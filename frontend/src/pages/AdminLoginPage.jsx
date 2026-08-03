@@ -5,6 +5,7 @@ import client, {
   resolveAuthResponsePayload,
 } from "../api/client";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
+import { getApiErrorMessage } from "../utils/apiErrors";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "../components/ui/Primitives";
 import "./AdminLoginPage.css";
 
@@ -73,12 +74,21 @@ export default function AdminLoginPage({ onLoggedIn, notify }) {
       onLoggedIn("login", authResponse);
     } catch (err) {
       const status = Number(err?.response?.status || 0);
-      const backendError = err?.response?.data?.data?.error;
+      const responseData = err?.response?.data?.data;
+      const backendError = responseData?.error;
+      const validationErrors = responseData?.errors;
+      const hasStructuredError =
+        Boolean(backendError) ||
+        (validationErrors && typeof validationErrors === "object"
+          && Object.keys(validationErrors).length > 0);
 
-      if (backendError) {
-        trackAnalyticsEvent("auth_login_failed", { reason: "backend_error" });
-        setError(backendError);
-        notify?.({ type: "error", title: "Authentication failed", message: backendError });
+      if (hasStructuredError) {
+        const reason = getApiErrorMessage(err);
+        trackAnalyticsEvent("auth_login_failed", {
+          reason: backendError ? "backend_error" : "validation_error",
+        });
+        setError(reason);
+        notify?.({ type: "error", title: "Authentication failed", message: reason });
         return;
       }
 

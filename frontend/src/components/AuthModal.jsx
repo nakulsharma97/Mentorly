@@ -7,6 +7,7 @@ import client, {
 } from "../api/client";
 import { t } from "../utils/i18n";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
+import { getApiErrorMessage } from "../utils/apiErrors";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "./ui/Primitives";
 
 export default function AuthModal({
@@ -95,16 +96,25 @@ export default function AuthModal({
       onLoggedIn(mode, authResponse);
     } catch (err) {
       const status = Number(err?.response?.status || 0);
-      const backendError = err?.response?.data?.data?.error;
+      const responseData = err?.response?.data?.data;
+      const backendError = responseData?.error;
+      const validationErrors = responseData?.errors;
+      const hasStructuredError =
+        Boolean(backendError) ||
+        (validationErrors && typeof validationErrors === "object"
+          && Object.keys(validationErrors).length > 0);
 
-      // 1) Backend returned a structured JSON error → show the real reason
-      if (backendError) {
+      // 1) Backend returned a structured JSON error (either a single `error`
+      //    message or field-level `errors` from validation) → show the real
+      //    reason instead of a cryptic "Backend returned 400"
+      if (hasStructuredError) {
+        const reason = getApiErrorMessage(err);
         trackAnalyticsEvent(
           mode === "login" ? "auth_login_failed" : "auth_signup_failed",
-          { reason: "backend_error" },
+          { reason: backendError ? "backend_error" : "validation_error" },
         );
-        setError(backendError);
-        notify?.({ type: "error", title: "Authentication failed", message: backendError });
+        setError(reason);
+        notify?.({ type: "error", title: "Authentication failed", message: reason });
         return;
       }
 
@@ -378,6 +388,7 @@ export default function AuthModal({
               name="password"
               autoComplete="current-password"
               type="password"
+              aria-describedby={mode === "signup" ? "signup-password-hint" : undefined}
               placeholder="Password"
               value={form.password}
               onChange={(e) =>
@@ -386,6 +397,21 @@ export default function AuthModal({
               disabled={submitting}
               required
             />
+            {mode === "signup" && (
+              <span
+                id="signup-password-hint"
+                style={{
+                  display: "block",
+                  fontSize: "0.75rem",
+                  color: "var(--muted)",
+                  marginTop: 4,
+                  lineHeight: 1.4,
+                }}
+              >
+                Use 8–64 characters with at least one uppercase letter, one
+                lowercase letter, and one digit.
+              </span>
+            )}
           </UIField>
 
           {mode === "signup" && (

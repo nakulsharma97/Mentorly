@@ -8,6 +8,7 @@ const GROUPS = [
     links: [
       { to: "/learner/dashboard", label: "Dashboard", icon: "grid_view", end: true },
       { to: "/learner/mentors", label: "Find Mentors", icon: "person_search" },
+      { to: "/learner/saved", label: "Favorite Mentors", icon: "favorite" },
       { to: "/learner/skills", label: "Explore Skills", icon: "auto_stories" },
       { to: "/learner/learning", label: "My Learning", icon: "school" },
       { to: "/learner/sessions", label: "Booked Sessions", icon: "calendar_month" },

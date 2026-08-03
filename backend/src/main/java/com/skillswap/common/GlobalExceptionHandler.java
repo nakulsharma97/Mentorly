@@ -7,6 +7,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -37,6 +38,21 @@ public class GlobalExceptionHandler {
         LOG.warn("API client exception: {}", ex.getMessage(), ex);
         return ResponseEntity.status(ex.getStatus())
                 .body(new ApiResponse<>("Request failed", baseError(ex.getCode(), ex.getMessage(), ex.isRetryable())));
+    }
+
+    /**
+     * Failed authentication (wrong password via DaoAuthenticationProvider, or a
+     * disabled/locked account) surfaces as an AuthenticationException from the
+     * login call. It is a client error — 401 Unauthorized — and must never be
+     * reported as a 500 or sent to Sentry. The message stays generic so it does
+     * not reveal whether a given email exists.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Map<String, Object>> handleAuthenticationFailed(AuthenticationException ex) {
+        LOG.warn("Authentication failed: {}", ex.getMessage());
+        return new ApiResponse<>("Request failed",
+                baseError("UNAUTHORIZED", "Invalid email or password", false));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

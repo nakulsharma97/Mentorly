@@ -124,7 +124,7 @@ set DB_PASSWORD=your-password-here
 
 ### Method 2: .env File
 
-Create `.env` in project root (don't commit to Git):
+Create `.env` in the **project root or `backend/`** (don't commit to Git):
 
 ```bash
 # Backend
@@ -134,7 +134,14 @@ SPRING_DATASOURCE_PASSWORD=password
 JWT_SECRET=base64-encoded-secret-here
 ```
 
-Load in your terminal before running:
+**Spring Boot loads `.env` automatically** via `spring.config.import` in
+`backend/src/main/resources/application.yml` — no manual `export` needed for
+`mvn spring-boot:run`, IDE launches, or `java -jar`. OS environment variables
+always take precedence over `.env` values, so values you export explicitly
+still win. The `.env` is parsed as Java properties (`KEY=VALUE`, `#` comments);
+`optional:` makes a missing file harmless (e.g. containers).
+
+Only if you prefer to load it by hand in your terminal:
 
 ```bash
 export $(cat .env | xargs)

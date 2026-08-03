@@ -84,6 +84,18 @@ export const handlers = [
   http.get("*/api/v1/watchlist/mentors", () => {
     return HttpResponse.json({ data: [] });
   }),
+  http.get("*/api/v1/favorites", () => {
+    return HttpResponse.json({ data: [] });
+  }),
+  http.get("*/api/v1/favorites/check/*", () => {
+    return HttpResponse.json({ data: false });
+  }),
+  http.post("*/api/v1/favorites/*", () => {
+    return HttpResponse.json({ data: { id: 1, mentorId: 1 } });
+  }),
+  http.delete("*/api/v1/favorites/*", () => {
+    return HttpResponse.json({ data: true });
+  }),
   http.get("*/api/v1/users/mentors", () => {
     return HttpResponse.json({ data: [] });
   }),

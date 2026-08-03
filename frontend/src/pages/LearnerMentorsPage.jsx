@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import { useFavorites } from "../hooks/useFavorites";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -29,16 +30,6 @@ function unwrapResponse(payload) {
 
 async function apiGet(path, config) {
   const response = await client.get(path, config);
-  return unwrapResponse(response.data);
-}
-
-async function apiPost(path, body, config) {
-  const response = await client.post(path, body, config);
-  return unwrapResponse(response.data);
-}
-
-async function apiDelete(path, config) {
-  const response = await client.delete(path, config);
   return unwrapResponse(response.data);
 }
 
@@ -159,7 +150,7 @@ function mentorExtras(rawData) {
    Premium Mentor Card
    ========================================================================== */
 
-function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
+function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData }) {
   const skills = mentor.skills || [];
   const rating = Number(mentor.averageRating || rawData?.averageRating || 0);
   const reviews = Number(mentor.totalReviews || rawData?.totalReviews || 0);
@@ -321,7 +312,7 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
           </Link>
           <button
             type="button"
-            className={`lf-mentor-card__save${saved ? " is-saved" : ""}`}
+            className={`lf-mentor-card__save${saved ? " is-saved" : ""}${pending ? " is-pending" : ""}`}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -334,9 +325,22 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
                 onSaveToggle(mentor.id);
               }
             }}
-            aria-label={saved ? "Remove mentor from wishlist" : "Add mentor to wishlist"}
+            disabled={pending}
+            aria-busy={pending}
+            aria-pressed={saved}
+            aria-label={
+              pending
+                ? "Updating wishlist"
+                : saved
+                  ? "Remove mentor from wishlist"
+                  : "Add mentor to wishlist"
+            }
           >
-            <Icon name={saved ? "favorite" : "favorite_border"} />
+            {pending ? (
+              <span className="lf-heart-spinner" aria-hidden="true" />
+            ) : (
+              <Icon name={saved ? "favorite" : "favorite_border"} />
+            )}
           </button>
         </div>
       </div>
@@ -413,8 +417,9 @@ function MentorsEmptyState({ query, apiReturnedEmpty }) {
    MAIN PAGE — LearnerMentorsPage (premium redesign)
    ========================================================================== */
 
-export default function LearnerMentorsPage() {
+export default function LearnerMentorsPage({ notify }) {
   useDocumentTitle("Find Mentors");
+  const { favoriteIds, isFavorite, isPending, toggleFavorite } = useFavorites({ notify });
   const [searchParams] = useSearchParams();
   const skillParam = searchParams.get("skill") || "";
   const [query, setQuery] = useState(skillParam);
@@ -446,22 +451,22 @@ export default function LearnerMentorsPage() {
   const debouncedQuery = useDebouncedValue(query, 350);
 
   const { loading, data, error } = useResource(async () => {
-    const [mentorResults, savedMentors] = await Promise.all([
-      apiGet("/api/v1/search/mentors", {
-        params: {
-          ...(debouncedQuery ? { q: debouncedQuery } : {}),
-          sort,
-          ...(minRating > 0 ? { minRating } : {}),
-          size: 40,
-        },
-      }),
-      apiGet("/api/v1/watchlist/mentors").catch(() => []),
-    ]);
-    return { mentors: mentorResults || [], savedMentors: savedMentors || [] };
+    const mentorResults = await apiGet("/api/v1/search/mentors", {
+      params: {
+        ...(debouncedQuery ? { q: debouncedQuery } : {}),
+        sort,
+        ...(minRating > 0 ? { minRating } : {}),
+        size: 40,
+      },
+    });
+    return mentorResults || [];
   }, [debouncedQuery, sort, minRating, refreshKey]);
 
-  const rawMentors = useMemo(() => data?.mentors || [], [data]);
-  const savedMentors = useMemo(() => data?.savedMentors || [], [data]);
+  const rawMentors = useMemo(() => data || [], [data]);
+  const savedMentors = useMemo(
+    () => [...favoriteIds].map((id) => ({ mentorId: id })),
+    [favoriteIds],
+  );
 
   const liveMentors = useMemo(
     () =>
@@ -476,14 +481,6 @@ export default function LearnerMentorsPage() {
         mentorVerified: Boolean(m.mentorVerified),
       })),
     [rawMentors],
-  );
-
-  const savedMentorIds = useMemo(
-    () =>
-      new Set(
-        savedMentors.map((i) => i?.mentor?.id ?? i?.mentorId ?? i?.id).filter(Boolean),
-      ),
-    [savedMentors],
   );
 
   const skillOptions = useMemo(() => {
@@ -540,13 +537,10 @@ export default function LearnerMentorsPage() {
     : 0;
 
   async function toggleMentorSave(mentorId) {
-    const isSaved = savedMentorIds.has(mentorId);
     try {
-      if (isSaved) await apiDelete(`/api/v1/watchlist/mentors/${mentorId}`);
-      else await apiPost(`/api/v1/watchlist/mentors/${mentorId}`);
-      setRefreshKey((v) => v + 1);
-    } catch (e) {
-      window.console.error(e);
+      await toggleFavorite(mentorId);
+    } catch {
+      // useFavorites already rolled back the optimistic UI and notified.
     }
   }
 
@@ -718,7 +712,7 @@ export default function LearnerMentorsPage() {
                       </Link>
                       <button
                         type="button"
-                        className={`lf-featured-card__save${savedMentorIds.has(mentor.id) ? " is-saved" : ""}`}
+                        className={`lf-featured-card__save${isFavorite(mentor.id) ? " is-saved" : ""}${isPending(mentor.id) ? " is-pending" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           e.preventDefault();
@@ -731,9 +725,22 @@ export default function LearnerMentorsPage() {
                             toggleMentorSave(mentor.id);
                           }
                         }}
-                        aria-label={savedMentorIds.has(mentor.id) ? "Remove mentor from wishlist" : "Add mentor to wishlist"}
+                        disabled={isPending(mentor.id)}
+                        aria-busy={isPending(mentor.id)}
+                        aria-pressed={isFavorite(mentor.id)}
+                        aria-label={
+                          isPending(mentor.id)
+                            ? "Updating wishlist"
+                            : isFavorite(mentor.id)
+                              ? "Remove mentor from wishlist"
+                              : "Add mentor to wishlist"
+                        }
                       >
-                        <Icon name={savedMentorIds.has(mentor.id) ? "favorite" : "favorite_border"} />
+                        {isPending(mentor.id) ? (
+                          <span className="lf-heart-spinner" aria-hidden="true" />
+                        ) : (
+                          <Icon name={isFavorite(mentor.id) ? "favorite" : "favorite_border"} />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -916,7 +923,8 @@ export default function LearnerMentorsPage() {
               key={mentor.id}
               mentor={mentor}
               rawData={rawMentorMap.get(mentor.id) || null}
-              saved={savedMentorIds.has(mentor.id)}
+              saved={isFavorite(mentor.id)}
+              pending={isPending(mentor.id)}
               onSaveToggle={toggleMentorSave}
             />
           ))}

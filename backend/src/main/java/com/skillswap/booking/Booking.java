@@ -66,7 +66,17 @@ public class Booking {
     @Column(name = "payment_status")
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    /**
+     * EAGER fetch + serialize-safe: with {@code spring.jpa.open-in-view=false},
+     * a LAZY proxy here blows up Jackson serialization of every booking list
+     * response with {@code LazyInitializationException} once a booking has a
+     * payment attached (which is exactly what happens after a session is
+     * confirmed / escrow held). EAGER keeps the payment fully initialized
+     * inside the transaction so the API can always serialize bookings.
+     * Payment is a leaf entity (no back-reference to Booking), so there is no
+     * serialization cycle.
+     */
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "payment_id")
     private Payment payment;
 

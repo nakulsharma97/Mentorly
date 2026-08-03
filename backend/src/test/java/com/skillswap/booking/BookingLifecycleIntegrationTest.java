@@ -336,6 +336,42 @@ class BookingLifecycleIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
+    //  Test 8a: Learner booking list serializes payments (regression)
+    //  With open-in-view=false, a LAZY payment proxy used to blow up the
+    //  learner's Booked Sessions API (GET /api/v1/bookings) with a
+    //  LazyInitializationException once a booking had a payment attached
+    //  (i.e. after confirmation/escrow). The fix makes Booking.payment
+    //  EAGER so the list always serializes.
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenAcceptedBookingWithEscrow_whenLearnerListsBookings_thenPaymentSerializes() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        // Mentor accepts → escrow held → booking.payment is populated
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk());
+
+        // The learner's Booked Sessions API must return 200 and include the
+        // booking with its payment — not a 500 from an uninitialized proxy.
+        mockMvc.perform(get("/api/v1/bookings")
+                        .with(csrf())
+                        .with(user(learner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(bookingId))
+                .andExpect(jsonPath("$.data[0].bookingStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.data[0].payment.status").value("ESCROWED"))
+                .andExpect(jsonPath("$.data[0].session.id").isNumber())
+                .andExpect(jsonPath("$.data[0].session.mentor.id").value(mentor.getId()));
+    }
+
+    // ═══════════════════════════════════════════════════════════
     //  Test 8: Idempotency key replay returns same booking
     // ═══════════════════════════════════════════════════════════
 

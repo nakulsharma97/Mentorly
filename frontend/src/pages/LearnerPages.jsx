@@ -55,7 +55,11 @@ async function apiDelete(path, config) {
 }
 
 function getErrorMessage(error) {
+  // Prefer the nested backend error detail (ApiResponse error body: {message,
+  // data:{code,error,message,...}}) over the generic "Request failed" wrapper.
   return (
+    error?.response?.data?.data?.error ||
+    error?.response?.data?.data?.message ||
     error?.response?.data?.message ||
     error?.response?.data?.error ||
     error?.message ||
@@ -83,6 +87,14 @@ function useResource(loader, deps = []) {
       })
       .catch((error) => {
         if (!active) return;
+        // Log the full failure so real backend errors are visible in the console.
+        window.console.error("[LearnerPages] Failed to load data:", error);
+        window.console.error(
+          "[LearnerPages] Status:",
+          error?.response?.status,
+          "Body:",
+          error?.response?.data,
+        );
         setState({ loading: false, data: null, error: getErrorMessage(error) });
       });
     return () => { active = false; };

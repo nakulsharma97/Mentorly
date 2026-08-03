@@ -21,6 +21,16 @@ public interface MentorReviewRepository extends JpaRepository<MentorReview, Long
     @Query("select coalesce(avg(r.rating), 0) from MentorReview r where r.mentor.id = :mentorId")
     Optional<Double> averageRatingByMentorId(Long mentorId);
 
+    @Query("select r.mentor.id, coalesce(avg(r.rating), 0) from MentorReview r"
+            + " where r.mentor.id in :mentorIds group by r.mentor.id")
+    List<Object[]> averageRatingByMentorIdsIn(
+            @org.springframework.data.repository.query.Param("mentorIds") java.util.Collection<Long> mentorIds);
+
+    @Query("select r.mentor.id, count(r) from MentorReview r"
+            + " where r.mentor.id in :mentorIds group by r.mentor.id")
+    List<Object[]> countByMentorIdsIn(
+            @org.springframework.data.repository.query.Param("mentorIds") java.util.Collection<Long> mentorIds);
+
     @Query("select coalesce(sum(r.rating), 0) from MentorReview r")
     Double sumRating();
 

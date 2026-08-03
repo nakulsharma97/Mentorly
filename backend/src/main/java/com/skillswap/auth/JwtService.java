@@ -60,6 +60,14 @@ public class JwtService {
 
     @PostConstruct
     void validateSecret() {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "app.jwt.secret is not configured. Set the JWT_SECRET environment variable "
+                            + "(base64-encoded, decoding to at least 32 bytes) or create a backend/.env "
+                            + "file from backend/.env.example (JWT_SECRET=...). Generate a key with "
+                            + "`openssl rand -base64 48`.");
+        }
+
         byte[] keyBytes;
         try {
             keyBytes = Decoders.BASE64.decode(secret);

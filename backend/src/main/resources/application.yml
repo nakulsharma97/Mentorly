@@ -2,6 +2,20 @@ server:
   port: 8080
 
 spring:
+  config:
+    # Load backend/.env (or the project-root .env) automatically so the app
+    # works with plain `mvn spring-boot:run`, IDE launches, and `java -jar`
+    # without manually exporting environment variables first. `optional:`
+    # means a missing .env is fine (e.g. containers, where secrets come from
+    # the real environment / orchestrator). OS environment variables always
+    # take precedence over .env values, matching start-backend.ps1 semantics.
+    #
+    # Relative file: imports are resolved against the working directory, so
+    # this covers running from backend/ (./.env) and from the repo root
+    # (../.env), matching the two locations start-backend.ps1 probes.
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
   servlet:
     multipart:
       enabled: true
@@ -10,7 +24,16 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/skill?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    # No default secret: the dev profile supplies a local default
+    # (application-dev.yml / application-local.yml) and staging/prod override
+    # this with ${SPRING_DATASOURCE_PASSWORD} (no default) so a missing key
+    # fails fast. The `:` here avoids a subtle trap: these properties are bound
+    # via @ConfigurationProperties, so an unresolved placeholder would NOT fail
+    # startup — Hikari would send the raw "${SPRING_DATASOURCE_PASSWORD}"
+    # string as the password and fail with a confusing "Access denied (using
+    # password: YES)". With the empty default, a misconfigured launch fails
+    # with a clean MySQL auth error instead.
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -62,12 +85,20 @@ springdoc:
 
 app:
   jwt:
-    # JWT_SECRET is REQUIRED from the environment. There is deliberately NO
-    # default fallback: a missing/blank value fails placeholder resolution at
-    # startup, and EnvironmentConfigValidator blocks startup with a clear
-    # message. Dev/local/staging/prod must all supply a strong base64-encoded
-    # key (see .env.example and docs/ENVIRONMENT_VARIABLES.md).
-    secret: ${JWT_SECRET}
+    # JWT_SECRET is REQUIRED from the OS environment or a .env file (see
+    # spring.config.import above — backend/.env is loaded automatically).
+    # There is deliberately NO default fallback secret: a missing/blank value
+    # resolves to "" and JwtService blocks startup with a clear, actionable
+    # message instead of booting with a weak/forgeable key.
+    #
+    # The `:` default keeps the failure mode readable: without it a missing
+    # JWT_SECRET produces the cryptic "Could not resolve placeholder" error;
+    # with it, JwtService.validateSecret() and EnvironmentConfigValidator fail
+    # startup with explicit guidance.
+    #
+    # Prod/staging override this below with ${JWT_SECRET} (no default) so a
+    # missing key still fails fast at config load in real environments.
+    secret: ${JWT_SECRET:}
     # Short-lived access tokens (15 min) limit the blast radius of an XSS-able
     # token stored in browser storage; the SPA silently refreshes via the
     # httpOnly refresh_token cookie when it hits a 401. Override with

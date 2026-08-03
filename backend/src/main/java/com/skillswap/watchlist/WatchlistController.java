@@ -2,7 +2,6 @@ package com.skillswap.watchlist;
 
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
-import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,55 +16,44 @@ import java.util.List;
 
 /**
  * REST controller for managing user watchlists (saved mentors and tracked skills).
+ *
+ * <p>The mentor-bookmark endpoints are kept as backward-compatible aliases for
+ * the canonical favorite-mentor API exposed under {@code /api/v1/favorites}.
+ * All logic delegates to {@link FavoriteMentorService}, which returns rich DTOs
+ * instead of raw entities — this fixes the previous 500 caused by serializing
+ * the {@code SavedMentor -> User -> UserProject} entity graph (infinite
+ * Jackson recursion).
  */
 @RestController
 @RequestMapping("/api/v1/watchlist")
 @RequiredArgsConstructor
 public final class WatchlistController {
 
-    private final SavedMentorRepository savedMentorRepository;
+    private final FavoriteMentorService favoriteMentorService;
     private final SkillWatchlistRepository skillWatchlistRepository;
-    private final UserRepository userRepository;
 
     /** Returns all mentors saved by the authenticated learner. */
     @GetMapping("/mentors")
-    public ApiResponse<List<SavedMentor>> listSavedMentors(@AuthenticationPrincipal final User learner) {
+    public ApiResponse<List<SavedMentorDto>> listSavedMentors(
+            @AuthenticationPrincipal final User learner) {
         return new ApiResponse<>("Saved mentors fetched",
-                savedMentorRepository.findByLearnerId(learner.getId()));
+                favoriteMentorService.listFavorites(learner));
     }
 
     /** Adds a mentor to the authenticated learner's saved list. */
     @PostMapping("/mentors/{mentorId}")
-    public ApiResponse<SavedMentor> saveMentor(@AuthenticationPrincipal final User learner,
+    public ApiResponse<SavedMentorDto> saveMentor(@AuthenticationPrincipal final User learner,
             @PathVariable final Long mentorId) {
-        if (learner.getId().equals(mentorId)) {
-            throw new IllegalArgumentException("You cannot save yourself as mentor");
-        }
-        savedMentorRepository.findByLearnerIdAndMentorId(learner.getId(), mentorId)
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("Mentor already saved");
-                });
-        final User mentor = userRepository.findById(mentorId)
-                .orElseThrow(() -> new IllegalArgumentException("Mentor not found"));
-        if (!"MENTOR".equals(mentor.getRole().name())) {
-            throw new IllegalArgumentException("Selected user is not a mentor");
-        }
-        final SavedMentor savedMentor = new SavedMentor();
-        savedMentor.setLearner(learner);
-        savedMentor.setMentor(mentor);
         return new ApiResponse<>("Mentor saved",
-                savedMentorRepository.save(savedMentor));
+                favoriteMentorService.addFavorite(learner, mentorId));
     }
 
     /** Removes a mentor from the authenticated learner's saved list. */
     @DeleteMapping("/mentors/{mentorId}")
     public ApiResponse<Boolean> removeMentor(@AuthenticationPrincipal final User learner,
             @PathVariable final Long mentorId) {
-        final SavedMentor savedMentor = savedMentorRepository
-                .findByLearnerIdAndMentorId(learner.getId(), mentorId)
-                .orElseThrow(() -> new IllegalArgumentException("Saved mentor not found"));
-        savedMentorRepository.delete(savedMentor);
-        return new ApiResponse<>("Saved mentor removed", true);
+        return new ApiResponse<>("Saved mentor removed",
+                favoriteMentorService.removeFavorite(learner, mentorId));
     }
 
     /** Returns all skills tracked by the authenticated learner. */
@@ -112,4 +100,3 @@ public final class WatchlistController {
     public record SkillWatchRequest(String skillName) {
     }
 }
-

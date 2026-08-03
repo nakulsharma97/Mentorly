@@ -135,39 +135,32 @@ async function injectAuthState(page, { watchlistMentorIds = [] } = {}) {
     });
   });
 
-  // Mock watchlist/mentors GET — returns list of saved mentor IDs
+  // Mock favorites GET — returns the list of saved mentor DTOs. The page
+  // reads mentor ids via mentorId ?? mentor.id ?? id, so a sparse DTO is fine.
   const savedMentors = watchlistMentorIds.map((id) => ({
     id,
     mentor: { id },
     mentorId: id,
   }));
-  await page.route("**/api/v1/watchlist/mentors", async (route) => {
-    if (route.request().method() === "GET") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(savedMentors),
-      });
-    } else if (route.request().method() === "POST") {
-      // Accept the POST (adding to watchlist)
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { success: true } }),
-      });
-    } else if (route.request().method() === "DELETE") {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { success: true } }),
-      });
-    } else {
-      await route.continue();
-    }
+  await page.route("**/api/v1/favorites", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: savedMentors }),
+    });
   });
 
-  // Mock the delete endpoint for individual watchlist items
-  await page.route("**/api/v1/watchlist/mentors/*", async (route) => {
+  // Mock favorites check endpoint
+  await page.route("**/api/v1/favorites/check/*", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: false }),
+    });
+  });
+
+  // Mock POST/DELETE for individual favorites
+  await page.route("**/api/v1/favorites/*", async (route) => {
     if (route.request().method() === "DELETE") {
       await route.fulfill({
         status: 200,
