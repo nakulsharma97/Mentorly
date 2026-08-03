@@ -22,6 +22,9 @@ import java.util.Collections;
  * Manages OAuth 2.0 tokens for Google Calendar API.
  * Handles token refresh and storage securely.
  */
+/**
+ * Encapsulates google oauth token.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -165,9 +168,9 @@ public class GoogleOAuthTokenManager {
 
     private void updateTokenExpiry() {
         if (credential != null && credential.getExpiresInSeconds() != null) {
-            tokenExpiryTime = System.currentTimeMillis() +
-                    (credential.getExpiresInSeconds() * 1000) -
-                    (5 * 60 * 1000); // Refresh 5 minutes before expiry
+            tokenExpiryTime = System.currentTimeMillis()
+                    + (credential.getExpiresInSeconds() * 1000)
+                    - (5 * 60 * 1000); // Refresh 5 minutes before expiry
         }
     }
 }

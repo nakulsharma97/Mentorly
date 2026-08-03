@@ -11,8 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Locale;
 
+/**
+ * Service implementing message request business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class MessageRequestService {
@@ -43,7 +45,7 @@ public class MessageRequestService {
             throw new IllegalArgumentException("Your first message is required");
         }
 
-        enforcePrivacy(sender, receiver, firstMessage);
+        enforcePrivacy(sender, receiver);
 
         MessageRequest existing = messageRequestRepository
                 .findTopBySenderIdAndReceiverIdOrderByCreatedAtDesc(sender.getId(), receiver.getId());
@@ -126,7 +128,7 @@ public class MessageRequestService {
         return saved;
     }
 
-    private void enforcePrivacy(User sender, User receiver, String firstMessage) {
+    private void enforcePrivacy(User sender, User receiver) {
         MessagePrivacy privacy = receiver.getMessagePrivacy() == null ? MessagePrivacy.ANYONE
                 : receiver.getMessagePrivacy();
         if (privacy == MessagePrivacy.NOBODY) {
@@ -139,8 +141,7 @@ public class MessageRequestService {
             throw new IllegalArgumentException("This user only accepts message requests from learners.");
         }
         if (privacy == MessagePrivacy.CONNECTED_ONLY) {
-            boolean connected = hasAcceptedConversation(sender, receiver) || hasAcceptedSession(sender, receiver)
-                    || hasAcceptedSkillSwap(sender, receiver);
+            boolean connected = hasAcceptedConversation(sender, receiver) || hasAcceptedSession(sender, receiver);
             if (!connected) {
                 throw new IllegalArgumentException("This user only accepts message requests from connected users.");
             }
@@ -162,7 +163,4 @@ public class MessageRequestService {
                         .stream().findAny().isPresent();
     }
 
-    private boolean hasAcceptedSkillSwap(User sender, User receiver) {
-        return false;
-    }
 }

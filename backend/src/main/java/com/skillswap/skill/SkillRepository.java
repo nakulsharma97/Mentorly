@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code Skill} persistence.
+ */
 public interface SkillRepository extends JpaRepository<Skill, Long> {
 
     Optional<Skill> findByNameIgnoreCase(String name);

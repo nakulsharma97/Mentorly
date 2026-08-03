@@ -3,9 +3,7 @@ package com.skillswap.sessionrequest;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.common.ApiResponse;
 import com.skillswap.notification.NotificationService;
-import com.skillswap.session.MeetingProvider;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SessionStatus;
 import com.skillswap.session.SkillSession;
@@ -20,6 +18,9 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Service implementing session request business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class SessionRequestService {
@@ -80,8 +81,8 @@ public class SessionRequestService {
                 mentor.getId(),
                 "SESSION_REQUEST_RECEIVED",
                 "New session request",
-                learner.getFullName() + " requested a session with you" +
-                        (message != null && !message.isBlank() ? ": \"" + message + "\"" : ""),
+                learner.getFullName() + " requested a session with you"
+                        + (message != null && !message.isBlank() ? ": \"" + message + "\"" : ""),
                 saved.getId());
 
         return saved;
@@ -248,7 +249,8 @@ public class SessionRequestService {
                 .orElseThrow(() -> new IllegalArgumentException("Session request not found"));
 
         if (request.getStatus() == SessionRequestStatus.PENDING) {
-            throw new IllegalArgumentException("Cannot reply to a pending request. Wait for the mentor to respond first.");
+            throw new IllegalArgumentException(
+                    "Cannot reply to a pending request. Wait for the mentor to respond first.");
         }
 
         if (replyMessage == null || replyMessage.isBlank()) {

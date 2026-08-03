@@ -1,5 +1,8 @@
 package com.skillswap.common;
 
+/**
+ * Encapsulates idempotency key support.
+ */
 public final class IdempotencyKeySupport {
 
     public static final int MIN_LENGTH = 8;

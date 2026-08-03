@@ -22,6 +22,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Service implementing analytics business logic.
+ */
 @Service
 public class AnalyticsService {
 
@@ -150,7 +153,7 @@ public class AnalyticsService {
                 double totalHoursLearned = completedBookings.stream().mapToDouble(this::sessionHours).sum();
                 int completionRate = relevantBookings.isEmpty()
                                 ? 0
-                                : (int) Math.round((completedBookings.size() * 100.0) / relevantBookings.size());
+                                : (int) Math.round(completedBookings.size() * 100.0 / relevantBookings.size());
 
                 int cancelledCount = (int) relevantBookings.stream()
                                 .filter(booking -> "CANCELLED"
@@ -187,7 +190,7 @@ public class AnalyticsService {
                 double goalCurrent = dataset.mentor() ? completedBookings.size() : totalHoursLearned;
                 String goalUnit = dataset.mentor() ? "sessions" : "hours";
                 int goalProgressPercent = (int) Math.min(100,
-                                Math.round((goalCurrent / Math.max(1, goalTarget)) * 100));
+                                Math.round(goalCurrent / Math.max(1, goalTarget) * 100));
 
                 Map<Long, Double> paymentBySessionId = new LinkedHashMap<>();
                 amountPayments.forEach(payment -> {
@@ -210,7 +213,8 @@ public class AnalyticsService {
                                                 String.valueOf(booking.getBookingStatus()),
                                                 // Map payment amount by session ID
                                                 booking.getSession() != null
-                                                                ? paymentBySessionId.getOrDefault(booking.getSession().getId(), 0.0)
+                                                                ? paymentBySessionId.getOrDefault(
+                                                                        booking.getSession().getId(), 0.0)
                                                                 : 0.0,
                                                 sessionHours(booking)))
                                 .toList();
@@ -278,7 +282,8 @@ public class AnalyticsService {
                                                         ? String.valueOf(booking.getSession().getMentor().getId())
                                                         : mentorName;
 
-                        history.computeIfAbsent(mentorKey, key -> new MutableMentorHistory(mentorKey, mentorName, mentorUsername));
+                        history.computeIfAbsent(mentorKey,
+                                key -> new MutableMentorHistory(mentorKey, mentorName, mentorUsername));
                         mentorByBookingId.put(booking.getId(), mentorKey);
 
                         if ("COMPLETED".equalsIgnoreCase(String.valueOf(booking.getBookingStatus()))) {

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import LearnerDashboard from './LearnerDashboard';
@@ -69,12 +69,17 @@ describe('LearnerDashboard', () => {
       expect(screen.getByText('Referral Rewards')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('SKILLSWAP')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
-    expect(screen.getByText('150')).toBeInTheDocument();
-    expect(screen.getByText('Friends Referred')).toBeInTheDocument();
-    expect(screen.getByText('Credits Earned')).toBeInTheDocument();
-    expect(screen.getByText('Copy Code')).toBeInTheDocument();
+    // Scope stat-value assertions to the referral hero so they never collide
+    // with identical numbers rendered elsewhere (e.g. session-row days).
+    const referralHero = screen.getByText('Referral Rewards').closest('.ld-referral-hero');
+    expect(referralHero).not.toBeNull();
+
+    expect(within(referralHero).getByText('SKILLSWAP')).toBeInTheDocument();
+    expect(within(referralHero).getByText('3')).toBeInTheDocument();
+    expect(within(referralHero).getByText('150')).toBeInTheDocument();
+    expect(within(referralHero).getByText('Friends Referred')).toBeInTheDocument();
+    expect(within(referralHero).getByText('Credits Earned')).toBeInTheDocument();
+    expect(within(referralHero).getByText('Copy Code')).toBeInTheDocument();
   });
 
   it('renders achievements section', async () => {

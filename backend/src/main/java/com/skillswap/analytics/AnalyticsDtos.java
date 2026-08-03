@@ -2,10 +2,16 @@ package com.skillswap.analytics;
 
 import java.util.List;
 
+/**
+ * Encapsulates analytics dtos.
+ */
 public final class AnalyticsDtos {
     private AnalyticsDtos() {
     }
 
+/**
+ * Immutable data carrier for analytics summary.
+ */
     public record AnalyticsSummaryDto(
             int rangeDays,
             String role,
@@ -35,12 +41,18 @@ public final class AnalyticsDtos {
             double avgRating) {
     }
 
+/**
+ * Immutable data carrier for learner history.
+ */
     public record LearnerHistoryDto(
             int totalSessionsAttended,
             double averageSessionLengthHours,
             List<MentorHistoryDto> mentors) {
     }
 
+/**
+ * Immutable data carrier for mentor history.
+ */
     public record MentorHistoryDto(
             String id,
             String name,
@@ -50,6 +62,9 @@ public final class AnalyticsDtos {
             double totalSpend) {
     }
 
+/**
+ * Immutable data carrier for top session.
+ */
     public record TopSessionDto(
             String id,
             String title,
@@ -59,23 +74,35 @@ public final class AnalyticsDtos {
             double hours) {
     }
 
+/**
+ * Immutable data carrier for acquisition.
+ */
     public record AcquisitionDto(
             int organic,
             int referral,
             int social) {
     }
 
+/**
+ * Immutable data carrier for trend bucket.
+ */
     public record TrendBucketDto(
             String key,
             String label,
             double value) {
     }
 
+/**
+ * Immutable data carrier for cancellation reason.
+ */
     public record CancellationReasonDto(
             String reason,
             long count) {
     }
 
+/**
+ * Immutable data carrier for share payload.
+ */
     public record SharePayloadDto(
             String role,
             String title,

@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code AccessTokenDenylist} persistence.
+ */
 public interface AccessTokenDenylistRepository extends JpaRepository<AccessTokenDenylist, Long> {
 
     Optional<AccessTokenDenylist> findByJti(String jti);

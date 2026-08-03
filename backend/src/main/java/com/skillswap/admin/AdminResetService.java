@@ -20,7 +20,7 @@ import java.nio.file.Paths;
 @Service
 public class AdminResetService {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminResetService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AdminResetService.class);
 
     /**
      * Tables to clear, ordered for readability. Execution order does not matter
@@ -160,7 +160,7 @@ public class AdminResetService {
                         .createNativeQuery("ALTER TABLE " + table + " AUTO_INCREMENT = 1")
                         .executeUpdate();
 
-                log.info("Cleared table {} ({} rows deleted)", table, deleted);
+                LOG.info("Cleared table {} ({} rows deleted)", table, deleted);
             }
         } finally {
             // Re-enable foreign key checks
@@ -169,7 +169,7 @@ public class AdminResetService {
 
         int cleanedFiles = clearUploadedFiles();
 
-        log.warn("Database reset complete: {} rows deleted from {} tables, {} uploaded files removed",
+        LOG.warn("Database reset complete: {} rows deleted from {} tables, {} uploaded files removed",
                 totalDeleted, ALL_TABLES_IN_DELETION_ORDER.length, cleanedFiles);
 
         return new CleanupResult(totalDeleted, ALL_TABLES_IN_DELETION_ORDER.length, cleanedFiles);
@@ -188,19 +188,19 @@ public class AdminResetService {
                         try {
                             Files.deleteIfExists(file);
                             cleaned++;
-                            log.info("Deleted uploaded file: {}", file);
+                            LOG.info("Deleted uploaded file: {}", file);
                         } catch (IOException e) {
-                            log.warn("Failed to delete uploaded file: {}", file, e);
+                            LOG.warn("Failed to delete uploaded file: {}", file, e);
                         }
                     }
                     // Remove the now-empty subdirectory
                     try {
                         Files.deleteIfExists(dir);
                     } catch (IOException e) {
-                        log.warn("Failed to delete empty upload directory: {}", dir, e);
+                        LOG.warn("Failed to delete empty upload directory: {}", dir, e);
                     }
                 } catch (IOException e) {
-                    log.warn("Failed to list upload directory: {}", dir, e);
+                    LOG.warn("Failed to list upload directory: {}", dir, e);
                 }
             }
         }

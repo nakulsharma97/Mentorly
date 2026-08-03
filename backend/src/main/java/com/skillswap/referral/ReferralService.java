@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
+/**
+ * Service implementing referral business logic.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

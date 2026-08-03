@@ -10,6 +10,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code NotificationBroadcast} persistence.
+ */
 public interface NotificationBroadcastRepository extends JpaRepository<NotificationBroadcast, Long> {
 
     /** Broadcasts that are not soft-deleted and are currently actionable. */

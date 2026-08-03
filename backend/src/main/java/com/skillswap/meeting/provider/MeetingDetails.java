@@ -8,6 +8,9 @@ import lombok.NoArgsConstructor;
 /**
  * Details of a meeting returned by a meeting provider.
  */
+/**
+ * Encapsulates meeting details.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

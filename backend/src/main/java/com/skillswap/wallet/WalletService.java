@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * Service implementing wallet business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class WalletService {
@@ -80,20 +83,30 @@ public class WalletService {
                 "CREDITS",
                 request.description() != null && !request.description().isBlank()
                         ? request.description()
-                        : "Wallet withdrawal to " + (request.paymentMethod() != null ? request.paymentMethod() : "bank account"),
+                        : "Wallet withdrawal to "
+                                + (request.paymentMethod() != null ? request.paymentMethod() : "bank account"),
                 "WITHDRAWAL",
                 null));
     }
 
+/**
+ * Immutable data carrier for withdraw request.
+ */
     public record WithdrawRequest(
             BigDecimal amount,
             String description,
             String paymentMethod) {
     }
 
+/**
+ * Immutable data carrier for wallet balance.
+ */
     public record WalletBalance(BigDecimal balance, String currency) {
     }
 
+/**
+ * Immutable data carrier for wallet entry request.
+ */
     public record WalletEntryRequest(
             WalletTransactionType type,
             BigDecimal amount,

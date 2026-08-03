@@ -14,7 +14,14 @@ import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -31,6 +38,9 @@ import java.util.List;
  * the decision (status + admin note + reviewer audit trail), and notifies the
  * mentor via in-app notification and email. Only admins may access the
  * moderation endpoints.
+ */
+/**
+ * REST controller exposing mentor verification endpoints.
  */
 @RestController
 @RequestMapping("/api/v1/verification/mentor")
@@ -154,9 +164,10 @@ public class MentorVerificationController {
                         ? "Mentor verification approved"
                         : "Mentor verification rejected",
                 nextStatus == MentorVerificationRequestStatus.APPROVED
-                        ? "Congratulations! Your mentor profile has been verified. A verified badge now appears on your profile."
-                        : "Your mentor verification request was not approved." +
-                        (request.getAdminNote() == null ? "" : " Reason: " + request.getAdminNote()),
+                        ? "Congratulations! Your mentor profile has been verified."
+                                + " A verified badge now appears on your profile."
+                        : "Your mentor verification request was not approved."
+                        + (request.getAdminNote() == null ? "" : " Reason: " + request.getAdminNote()),
                 saved.getId());
 
         return new ApiResponse<>("Mentor verification request updated",
@@ -199,9 +210,15 @@ public class MentorVerificationController {
         AdminUtils.ensureAdmin(currentUser, requiredSubRole);
     }
 
+/**
+ * Immutable data carrier for submit mentor verification request.
+ */
     public record SubmitMentorVerificationRequest(String documentUrl, String documentType) {
     }
 
+/**
+ * Immutable data carrier for update mentor verification status request.
+ */
     public record UpdateMentorVerificationStatusRequest(MentorVerificationRequestStatus status, String adminNote) {
     }
 }

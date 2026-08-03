@@ -1,7 +1,15 @@
 package com.skillswap.payment;
 
 import com.skillswap.user.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,8 +18,12 @@ import java.time.OffsetDateTime;
 @Getter
 @Setter
 @Entity
-@Table(name = "payment_idempotency_keys", uniqueConstraints = @UniqueConstraint(name = "uk_payment_idempotency", columnNames = {
+@Table(name = "payment_idempotency_keys", uniqueConstraints = @UniqueConstraint(
+        name = "uk_payment_idempotency", columnNames = {
         "user_id", "endpoint", "idempotency_key" }))
+/**
+ * Encapsulates payment idempotency key.
+ */
 public class PaymentIdempotencyKey {
 
     @Id

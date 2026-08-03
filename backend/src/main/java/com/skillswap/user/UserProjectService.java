@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Service implementing user project business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserProjectService {
@@ -89,10 +92,9 @@ public class UserProjectService {
             throw new IllegalArgumentException("Project start date is required");
         }
 
-        if (!request.isCurrentlyWorking() && request.getEndDate() != null) {
-            if (request.getEndDate().isBefore(startDate)) {
-                throw new IllegalArgumentException("Project end date cannot be before start date");
-            }
+        if (!request.isCurrentlyWorking() && request.getEndDate() != null
+                && request.getEndDate().isBefore(startDate)) {
+            throw new IllegalArgumentException("Project end date cannot be before start date");
         }
     }
 

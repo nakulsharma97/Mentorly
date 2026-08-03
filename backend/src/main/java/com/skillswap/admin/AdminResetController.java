@@ -24,12 +24,15 @@ import java.util.Map;
  *
  * Access: Restricted to ADMIN role.
  */
+/**
+ * REST controller exposing admin reset endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/admin/reset")
 @RequiredArgsConstructor
 public class AdminResetController {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminResetController.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AdminResetController.class);
 
     private final AdminResetService adminResetService;
     private final AuditLogRepository auditLogRepository;
@@ -45,13 +48,13 @@ public class AdminResetController {
             @AuthenticationPrincipal User currentUser) {
         AdminUtils.ensureAdmin(currentUser);
 
-        log.warn("Admin {} ({}) initiated a full database reset!", currentUser.getEmail(), currentUser.getId());
+        LOG.warn("Admin {} ({}) initiated a full database reset!", currentUser.getEmail(), currentUser.getId());
 
         AdminResetService.CleanupResult result = adminResetService.resetAllData();
 
         saveAuditLog(currentUser, "RESET_ALL_DATA", result);
 
-        log.warn("Database reset completed by admin {}: {}", currentUser.getEmail(), result.summary());
+        LOG.warn("Database reset completed by admin {}: {}", currentUser.getEmail(), result.summary());
 
         return new ApiResponse<>("Database reset complete. All user-generated data has been deleted.",
                 Map.of(
@@ -72,7 +75,7 @@ public class AdminResetController {
             auditLog.setIpAddress(AuditLogService.extractClientIp());
             auditLogRepository.save(auditLog);
         } catch (Exception ignored) {
-            log.warn("Failed to save audit log for reset operation", ignored);
+            LOG.warn("Failed to save audit log for reset operation", ignored);
         }
     }
 }

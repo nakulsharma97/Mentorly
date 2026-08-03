@@ -1,13 +1,13 @@
 package com.skillswap.booking;
 
 import com.skillswap.common.ApiClientException;
-import com.skillswap.common.ApiResponse;
 import com.skillswap.common.IdempotencyKeySupport;
 import com.skillswap.certification.CertificationService;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
+import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.referral.ReferralService;
 import com.skillswap.roadmap.LearningRoadmap;
@@ -24,7 +24,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -35,14 +34,18 @@ import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Service implementing booking lifecycle business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class BookingLifecycleService {
 
-    private static final Logger log = LoggerFactory.getLogger(BookingLifecycleService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(BookingLifecycleService.class);
 
     private final BookingRepository bookingRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
     private final CertificationService certificationService;
     private final SessionWaitlistRepository sessionWaitlistRepository;
     private final NotificationService notificationService;
@@ -70,8 +73,9 @@ public class BookingLifecycleService {
     }
 
     @Transactional
-    public Booking startBooking(Long bookingId) {
+    public Booking startBooking(Long bookingId, User currentUser) {
         Booking booking = loadBooking(bookingId);
+        requireStarter(currentUser, booking);
         requireCurrentState(booking, List.of(BookingStatus.CONFIRMED, BookingStatus.ACCEPTED),
                 "Booking can only move to in progress after it has been confirmed");
 
@@ -230,7 +234,7 @@ public class BookingLifecycleService {
         try {
             savedBooking = bookingRepository.save(booking);
         } catch (DataIntegrityViolationException ex) {
-            log.warn("booking_create_transient_conflict learnerId={} sessionId={} msg={}",
+            LOG.warn("booking_create_transient_conflict learnerId={} sessionId={} msg={}",
                     learner.getId(), session.getId(), ex.getMessage());
             throw new ApiClientException(
                     HttpStatus.CONFLICT,
@@ -304,6 +308,19 @@ public class BookingLifecycleService {
         }
     }
 
+    /**
+     * Enforces that only the session mentor, the assigned learner, or an admin
+     * may start a booking. Prevents any authenticated user from flipping an
+     * unrelated booking to {@code IN_PROGRESS} (privilege escalation / IDOR).
+     */
+    private void requireStarter(User currentUser, Booking booking) {
+        boolean isAdmin = currentUser != null && currentUser.getRole() == UserRole.ADMIN;
+        if (!isAdmin) {
+            requireParticipant(currentUser, booking,
+                    "Only the session mentor, assigned learner, or an admin can start a booking");
+        }
+    }
+
     private void requireCurrentState(Booking booking, List<BookingStatus> allowedStates, String message) {
         if (!allowedStates.contains(booking.getBookingStatus())) {
             throw new IllegalArgumentException(message + " Current status: " + booking.getBookingStatus());
@@ -312,10 +329,13 @@ public class BookingLifecycleService {
 
     private void requestRefundForConfirmedCancellation(Booking booking) {
         Payment payment = booking.getPayment();
-        if (payment != null && (payment.getStatus() == PaymentStatus.ESCROWED || payment.getStatus() == PaymentStatus.INITIATED)) {
-            payment.setStatus(PaymentStatus.REFUNDED);
-            paymentRepository.save(payment);
-            log.info("booking_refund_requested bookingId={} sessionId={} paymentId={}",
+        if (payment != null && (payment.getStatus() == PaymentStatus.ESCROWED
+                || payment.getStatus() == PaymentStatus.INITIATED)) {
+            // Gateway-first, idempotent refund — the external gateway is called
+            // before the DB status flips; a gateway failure propagates and
+            // rolls back the whole cancellation.
+            paymentService.refundForCancellation(payment.getId(), payment.getAmount(), "Booking cancelled");
+            LOG.info("booking_refund_requested bookingId={} sessionId={} paymentId={}",
                     booking.getId(), booking.getSession().getId(), payment.getId());
         }
     }
@@ -449,7 +469,8 @@ public class BookingLifecycleService {
         // Check if there's already an active payment for this booking to prevent double-charging
         Payment existingPayment = booking.getPayment();
         if (existingPayment != null && existingPayment.getStatus() != PaymentStatus.INITIATED) {
-            log.info("Payment already processed for booking {}, status={}", booking.getId(), existingPayment.getStatus());
+            LOG.info("Payment already processed for booking {}, status={}",
+                    booking.getId(), existingPayment.getStatus());
             return;
         }
 
@@ -462,7 +483,7 @@ public class BookingLifecycleService {
                 booking.getId()));
 
         Payment payment = existingPayment != null ? existingPayment : Payment.builder()
-                .orderId("WALLET_" + System.currentTimeMillis())
+                .orderId("WALLET_" + java.util.UUID.randomUUID().toString().replace("-", ""))
                 .learnerId(booking.getLearner().getId())
                 .mentorId(booking.getSession().getMentor().getId())
                 .sessionId(booking.getSession().getId())
@@ -525,18 +546,25 @@ public class BookingLifecycleService {
         int refundPercent = 100;
         BigDecimal refundAmount = payment.getAmount();
 
-        User learner = booking.getLearner();
-        SkillSession session = booking.getSession();
-        walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
-                WalletTransactionType.REFUND,
-                refundAmount,
-                "CREDITS",
-                "Refund for cancelled session: " + session.getTitle(),
-                "BOOKING",
-                booking.getId()));
+        // Wallet-gateway escrow is internal money — refund it into the learner's
+        // wallet. External-gateway payments were charged at the gateway, so the
+        // refund goes back to the payer there; the wallet was never debited, so
+        // no wallet credit is issued (prevents a double refund).
+        if ("wallet".equalsIgnoreCase(payment.getGateway())) {
+            User learner = booking.getLearner();
+            SkillSession session = booking.getSession();
+            walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
+                    WalletTransactionType.REFUND,
+                    refundAmount,
+                    "CREDITS",
+                    "Refund for cancelled session: " + session.getTitle(),
+                    "BOOKING",
+                    booking.getId()));
+        }
 
-        payment.setStatus(PaymentStatus.REFUNDED);
-        paymentRepository.save(payment);
+        // Gateway-first, idempotent status flip (no-ops when this flow already
+        // refunded the payment, e.g. after requestRefundForConfirmedCancellation).
+        paymentService.refundForCancellation(payment.getId(), refundAmount, "Booking cancelled");
         return refundPercent;
     }
 }

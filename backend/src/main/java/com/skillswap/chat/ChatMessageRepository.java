@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code ChatMessage} persistence.
+ */
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
     List<ChatMessage> findByBookingIdOrderByCreatedAtAsc(Long bookingId);
 

@@ -19,8 +19,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.web.util.UriComponentsBuilder;
-
+/**
+ * Encapsulates notification web socket.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -67,36 +68,31 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
         try {
             session.close(CloseStatus.SERVER_ERROR);
         } catch (IOException e) {
-            // ignore
+            // Closing a transport-error session is best-effort.
+            log.debug("Failed to close notification WS session: {}", e.getMessage());
         }
     }
 
     /**
-     * Authenticate the session by extracting the JWT token from either:
-     * 1. The Cookie header (same as chat handlers)
-     * 2. A "token" query parameter (fallback for proxy environments)
+     * Authenticates the session using the httpOnly {@code access_token} cookie
+     * carried in the WebSocket handshake. JWTs are deliberately NEVER accepted
+     * in the query string — URL query parameters leak into proxy access logs,
+     * browser history and referrer headers.
      */
     private Long authenticate(WebSocketSession session) {
         try {
-            String token = null;
+            String cookieHeader = session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE);
+            String token = extractAccessTokenFromCookie(cookieHeader);
 
-            // Query parameter token takes priority (newly issued after login);
-            // fall back to cookie for environments where query params are stripped.
-            token = extractTokenFromQuery(session);
-
-            // Fallback: extract token from Cookie header
             if (token == null) {
-                String cookieHeader = session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE);
-                if (cookieHeader != null) {
-                    token = extractAccessTokenFromCookie(cookieHeader);
-                }
+                return null;
             }
-
-            if (token == null) return null;
 
             String email = jwtService.extractUsername(token);
             UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-            if (!jwtService.isTokenValid(token, userDetails)) return null;
+            if (!jwtService.isTokenValid(token, userDetails)) {
+                return null;
+            }
 
             return jwtService.extractUserId(token);
         } catch (Exception ex) {
@@ -118,13 +114,6 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             }
         }
         return null;
-    }
-
-    private String extractTokenFromQuery(WebSocketSession session) {
-        java.net.URI uri = session.getUri();
-        if (uri == null) return null;
-        var params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
-        return params.getFirst("token");
     }
 
     /**

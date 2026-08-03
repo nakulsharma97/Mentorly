@@ -31,6 +31,9 @@ import java.util.List;
  * The setting is cached for up to 30 seconds to avoid querying the
  * database on every single request.
  */
+/**
+ * Encapsulates maintenance mode filter.
+ */
 @Slf4j
 @Component
 public class MaintenanceModeFilter extends OncePerRequestFilter {
@@ -100,12 +103,11 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
         }
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
-            if (user.getRole() == UserRole.ADMIN) {
-                // Admin users can access everything during maintenance
-                filterChain.doFilter(request, response);
-                return;
-            }
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user
+                && user.getRole() == UserRole.ADMIN) {
+            // Admin users can access everything during maintenance
+            filterChain.doFilter(request, response);
+            return;
         }
 
         // Block the request — return 503 Service Unavailable
@@ -115,9 +117,10 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
         response.setStatus(HttpStatus.SERVICE_UNAVAILABLE.value());
         response.setContentType("application/json");
         response.setHeader("Retry-After", "3600");
-        response.getWriter().write("""
-                {"message":"Platform is under maintenance","data":{"error":"The platform is currently in maintenance mode. Only administrators can access the system. Please try again later.","code":"MAINTENANCE_MODE"}}
-                """);
+        response.getWriter().write("{\"message\":\"Platform is under maintenance\",\"data\":{\"error\":\""
+                + "The platform is currently in maintenance mode."
+                + " Only administrators can access the system."
+                + " Please try again later.\",\"code\":\"MAINTENANCE_MODE\"}}");
     }
 
     private boolean isPublicPath(String path) {

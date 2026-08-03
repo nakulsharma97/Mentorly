@@ -723,6 +723,10 @@ export default function LearnerMessagesPage({ profile }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // Tie the attachment to this conversation so the recipient (booking
+      // learner/mentor or direct-chat participant) is authorized to view it.
+      formData.append('contextType', selConv.kind === 'booking' ? 'BOOKING_CHAT' : 'DIRECT_CHAT');
+      formData.append('contextId', selConv.kind === 'booking' ? selConv.bookingId : selConv.conversationId);
       const uploadRes = await apiPost('/api/v1/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (p) => {
@@ -823,6 +827,9 @@ export default function LearnerMessagesPage({ profile }) {
       const formData = new FormData();
       const fileName = `voice-${Date.now()}.webm`;
       formData.append('file', recordedBlob, fileName);
+      // Tie the voice clip to this conversation for recipient authorization.
+      formData.append('contextType', selConv.kind === 'booking' ? 'BOOKING_CHAT' : 'DIRECT_CHAT');
+      formData.append('contextId', selConv.kind === 'booking' ? selConv.bookingId : selConv.conversationId);
       const uploadRes = await apiPost('/api/v1/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });

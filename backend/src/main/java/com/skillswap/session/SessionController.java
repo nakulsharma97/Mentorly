@@ -1,6 +1,5 @@
 package com.skillswap.session;
 
-import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.exception.BadRequestException;
 import com.skillswap.notification.NotificationService;
@@ -10,7 +9,14 @@ import com.skillswap.watchlist.SavedMentorRepository;
 import com.skillswap.watchlist.SkillWatchlistRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -19,6 +25,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * REST controller exposing session endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/sessions")
 @RequiredArgsConstructor
@@ -36,7 +45,8 @@ public class SessionController {
         }
         if (currentUser.getRole() == UserRole.ADMIN) {
             return new ApiResponse<>("Sessions fetched",
-                    sessionRepository.findByFilters(null, null, org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
+                    sessionRepository.findByFilters(null, null,
+                            org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
         }
         if (currentUser.getRole() == UserRole.MENTOR) {
             return new ApiResponse<>("Sessions fetched", sessionRepository.findByMentorId(currentUser.getId()));
@@ -74,7 +84,7 @@ public class SessionController {
         session.setStartTime(req.startTime());
         session.setEndTime(req.endTime());
         session.setPriceAmount(req.priceAmount());
-        session.setMeetingLink(req.meetingLink());
+        session.setMeetingLink(normalizeHttpUrl(req.meetingLink()));
         session.setCancellationWindowHours(req.cancellationWindowHours() == null ? 24 : req.cancellationWindowHours());
         session.setRescheduleWindowHours(req.rescheduleWindowHours() == null ? 12 : req.rescheduleWindowHours());
         session.setMaxParticipants(
@@ -126,7 +136,7 @@ public class SessionController {
         session.setStartTime(req.startTime());
         session.setEndTime(req.endTime());
         session.setPriceAmount(req.priceAmount());
-        session.setMeetingLink(req.meetingLink());
+        session.setMeetingLink(normalizeHttpUrl(req.meetingLink()));
         session.setCancellationWindowHours(req.cancellationWindowHours() == null ? 24 : req.cancellationWindowHours());
         session.setRescheduleWindowHours(req.rescheduleWindowHours() == null ? 12 : req.rescheduleWindowHours());
         session.setMaxParticipants(
@@ -148,7 +158,7 @@ public class SessionController {
             throw new IllegalArgumentException("Only mentor can update meeting link");
         }
 
-        session.setMeetingLink(req.meetingLink());
+        session.setMeetingLink(normalizeHttpUrl(req.meetingLink()));
         return new ApiResponse<>("Meeting link updated", sessionRepository.save(session));
     }
 
@@ -191,6 +201,30 @@ public class SessionController {
         }
     }
 
+    /**
+     * Validates that a meeting link is an absolute http(s) URL. Prevents
+     * javascript:, data:, or other non-http schemes from being stored (they
+     * would otherwise render as clickable links / be opened by window.open in
+     * the learner UI). Accepts null/blank for sessions without a link yet.
+     */
+    private static String normalizeHttpUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
+            throw new BadRequestException("Meeting link must be an http(s) URL");
+        }
+        return trimmed;
+    }
+
+/**
+ * Immutable data carrier for create session request.
+ */
     public record CreateSessionRequest(
             String title,
             String description,
@@ -204,6 +238,9 @@ public class SessionController {
             Integer maxParticipants) {
     }
 
+/**
+ * Immutable data carrier for update meeting link request.
+ */
     public record UpdateMeetingLinkRequest(String meetingLink) {
     }
 }

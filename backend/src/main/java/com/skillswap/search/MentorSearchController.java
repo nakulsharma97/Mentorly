@@ -19,6 +19,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * REST controller exposing mentor search endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor
@@ -45,7 +48,11 @@ public class MentorSearchController {
                         return new ApiResponse<>("Users fetched", List.of());
                 }
 
-                List<User> users = userRepository.searchUsersByName(normalizedQuery, safeSize);
+                // Escape SQL LIKE wildcards so "%" / "_" in the query match
+                // literally instead of broadening the pattern (abuse, not
+                // injection — params are bound, but wildcard characters would
+                // otherwise let a query like "%" return every user).
+                List<User> users = userRepository.searchUsersByName(escapeLike(normalizedQuery), safeSize);
 
                 List<UserSearchResult> results = users.stream()
                                 .map(u -> new UserSearchResult(
@@ -95,6 +102,7 @@ public class MentorSearchController {
                 List<User> mentors = hasSearchCriteria
                                 ? userRepository.searchMentorsAdvanced(
                                                 normalizedQuery,
+                                                escapeLike(normalizedQuery),
                                                 safeMinPrice,
                                                 safeMaxPrice,
                                                 safeMinRating,
@@ -117,6 +125,21 @@ public class MentorSearchController {
                                 .toList();
 
                 return new ApiResponse<>("Mentor search results fetched", results);
+        }
+
+        /**
+         * Escapes LIKE wildcard characters so they match literally. Used only
+         * for the {@code likeKeyword} parameter bound to {@code LIKE ... ESCAPE}
+         * clauses; the raw {@code keyword} is passed untouched to the full-text
+         * {@code MATCH ... AGAINST} clause so boolean-mode semantics are intact.
+         */
+        private static String escapeLike(String value) {
+                if (value == null || value.isEmpty()) {
+                        return value;
+                }
+                return value.replace("\\", "\\\\")
+                                .replace("%", "\\%")
+                                .replace("_", "\\_");
         }
 
         private MentorSearchResult scoreMentor(User mentor) {
@@ -143,6 +166,9 @@ public class MentorSearchController {
                 return mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
         }
 
+/**
+ * Immutable data carrier for mentor search result.
+ */
         public record MentorSearchResult(
                         Long mentorId,
                         String mentorName,

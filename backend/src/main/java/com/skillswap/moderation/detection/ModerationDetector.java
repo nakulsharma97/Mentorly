@@ -12,6 +12,9 @@ import com.skillswap.moderation.DetectionSource;
  * prompt injection) each implement this interface — concrete implementations
  * can be swapped for real AI models without touching the moderation flow.
  */
+/**
+ * Contract for moderation detector.
+ */
 public interface ModerationDetector {
 
     /**

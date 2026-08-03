@@ -14,6 +14,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code User} persistence.
+ */
 public interface UserRepository extends JpaRepository<User, Long> {
 
         @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -149,9 +152,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         SELECT DISTINCT u.* FROM users u
                         WHERE u.enabled = true
                           AND (
-                                LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
                           )
                         ORDER BY
                           CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,
@@ -179,12 +182,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                 :keyword IS NULL OR :keyword = ''
                                 OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
                                      AGAINST (:keyword IN BOOLEAN MODE)
-                                OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.company) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.email) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.company) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                                OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
                           )
                           AND (
                                 :minPrice IS NULL
@@ -252,6 +255,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                         """, nativeQuery = true)
         List<User> searchMentorsAdvanced(
                         @Param("keyword") String keyword,
+                        @Param("likeKeyword") String likeKeyword,
                         @Param("minPrice") BigDecimal minPrice,
                         @Param("maxPrice") BigDecimal maxPrice,
                         @Param("minRating") Double minRating,

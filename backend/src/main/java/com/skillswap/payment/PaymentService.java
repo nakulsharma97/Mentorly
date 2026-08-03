@@ -3,6 +3,7 @@ package com.skillswap.payment;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.IdempotencyKeySupport;
+import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
@@ -12,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.retry.annotation.Backoff;
-import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PaymentService {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
@@ -62,7 +62,8 @@ public class PaymentService {
                 String.valueOf(bookingId), String.valueOf(amount), gatewaySlug);
 
         // Check for idempotency replay
-        PaymentIdempotencyKey existingKey = checkIdempotency(currentUser.getId(), endpoint, idempotencyKey, requestHash);
+        PaymentIdempotencyKey existingKey =
+                checkIdempotency(currentUser.getId(), endpoint, idempotencyKey, requestHash);
         if (existingKey != null && existingKey.getPayment() != null) {
             incrementCounter("payment.intent.replay");
             return existingKey.getPayment();
@@ -117,7 +118,7 @@ public class PaymentService {
         notifyPaymentUpdate(booking, "Payment initiated",
                 "Payment intent created for booking #" + booking.getId());
 
-        log.info("Payment order created: id={}, orderId={}, gateway={}, amount={}",
+        LOG.info("Payment order created: id={}, orderId={}, gateway={}, amount={}",
                 saved.getId(), orderId, gatewaySlug, amount);
 
         return saved;
@@ -149,7 +150,7 @@ public class PaymentService {
             payment.setSignature(signature);
             Payment saved = paymentRepository.save(payment);
 
-            log.warn("Payment verification failed: id={}, orderId={}, paymentGatewayId={}",
+            LOG.warn("Payment verification failed: id={}, orderId={}, paymentGatewayId={}",
                     paymentId, payment.getOrderId(), paymentGatewayId);
 
             incrementCounter("payment.verification.failed");
@@ -162,7 +163,7 @@ public class PaymentService {
         Payment saved = paymentRepository.save(payment);
 
         incrementCounter("payment.verification.success");
-        log.info("Payment verified and completed: id={}, orderId={}, paymentGatewayId={}",
+        LOG.info("Payment verified and completed: id={}, orderId={}, paymentGatewayId={}",
                 paymentId, payment.getOrderId(), paymentGatewayId);
 
         return saved;
@@ -174,30 +175,162 @@ public class PaymentService {
      */
     @Retryable(
         retryFor = Exception.class,
-        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
+        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class, UnauthorizedException.class},
         backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000)
     )
     @Transactional
-    public Payment refundPayment(Long paymentId, BigDecimal amount, String reason) {
-        Payment payment = paymentRepository.findById(paymentId)
+    public Payment refundPayment(Long paymentId, BigDecimal amount, String reason, User currentUser) {
+        Payment payment = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+
+        // Only the learner who paid (or an admin) may refund — prevents any
+        // user from refunding someone else's payment (privilege escalation).
+        assertPaymentAccess(payment, currentUser);
 
         if (payment.getStatus() != PaymentStatus.ESCROWED) {
             throw new IllegalArgumentException("Only escrowed payments can be refunded. Current status: "
                     + payment.getStatus());
         }
 
-        PaymentGateway gateway = resolveGateway(payment.getGateway());
-        String refundId = gateway.processRefund(payment.getPaymentId(), amount, reason);
+        // Wallet-gateway escrow is internal money whose refund is a wallet
+        // credit issued by the booking/admin flows — this standalone endpoint
+        // must not silently flip the status without crediting the learner.
+        if ("wallet".equalsIgnoreCase(payment.getGateway())) {
+            throw new IllegalArgumentException(
+                    "Wallet escrow refunds are processed through the booking cancellation flow");
+        }
+
+        refundThroughGateway(payment, amount, reason);
 
         payment.setStatus(PaymentStatus.REFUNDED);
         Payment saved = paymentRepository.save(payment);
 
         incrementCounter("payment.refund.processed");
-        log.info("Payment refunded: id={}, refundId={}, amount={}, reason={}",
-                paymentId, refundId, amount, reason);
+        LOG.info("Payment refunded: id={}, amount={}, reason={}",
+                paymentId, amount, reason);
 
         return saved;
+    }
+
+    /**
+     * Gateway-first, idempotent refund used by booking-cancellation and admin
+     * flows. The external gateway is called BEFORE the database status is
+     * flipped, so the DB is never marked {@code REFUNDED} for a refund that did
+     * not actually happen. The payment row is loaded with a pessimistic lock so
+     * concurrent refund attempts serialize — only one ever reaches the gateway
+     * (duplicate-refund prevention).
+     *
+     * <p>Wallet-gateway escrow is internal money held inside the platform, so
+     * there is no external charge to reverse; the caller performs the wallet
+     * credit and this method only flips the status. The same applies to
+     * {@code INITIATED} intents that were never captured — nothing was charged,
+     * so no gateway refund is issued.
+     *
+     * @param paymentId internal payment id
+     * @param amount    amount to refund
+     * @param reason    human-readable refund reason
+     * @return the refunded payment
+     */
+    @Transactional
+    public Payment refundForCancellation(Long paymentId, BigDecimal amount, String reason) {
+        Payment payment = paymentRepository.findByIdWithLock(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+
+        // Duplicate-refund guard — idempotent for retries and for flows that
+        // reach the refund twice (e.g. booking cancel + status update).
+        if (payment.getStatus() == PaymentStatus.REFUNDED) {
+            LOG.info("Refund skipped — payment {} already refunded", paymentId);
+            return payment;
+        }
+        if (payment.getStatus() != PaymentStatus.ESCROWED
+                && payment.getStatus() != PaymentStatus.INITIATED) {
+            throw new IllegalArgumentException(
+                    "Only escrowed or initiated payments can be refunded. Current status: "
+                            + payment.getStatus());
+        }
+
+        refundThroughGateway(payment, amount, reason);
+
+        payment.setStatus(PaymentStatus.REFUNDED);
+        Payment saved = paymentRepository.save(payment);
+        incrementCounter("payment.refund.processed");
+        return saved;
+    }
+
+    /**
+     * Issues the refund at the external gateway (if one exists for this
+     * payment). Wallet-gateway escrow and never-captured {@code INITIATED}
+     * intents have no external charge, so they are skipped — the money either
+     * stays inside the platform wallet (credited by the caller) or was never
+     * moved. A gateway failure propagates, rolling back the surrounding
+     * transaction so the DB status stays unchanged.
+     */
+    private void refundThroughGateway(Payment payment, BigDecimal amount, String reason) {
+        boolean walletEscrow = "wallet".equalsIgnoreCase(payment.getGateway());
+        if (walletEscrow || payment.getStatus() != PaymentStatus.ESCROWED) {
+            LOG.info("Internal refund (wallet escrow or uncaptured intent): id={}, gateway={}, status={}",
+                    payment.getId(), payment.getGateway(), payment.getStatus());
+            return;
+        }
+        if (payment.getPaymentId() == null || payment.getPaymentId().isBlank()) {
+            throw new IllegalStateException(
+                    "Cannot refund payment " + payment.getId() + ": missing gateway payment id");
+        }
+        PaymentGateway gateway = resolveGateway(payment.getGateway());
+        String refundId = gateway.processRefund(payment.getPaymentId(), amount, reason);
+        LOG.info("Payment refunded via gateway: id={}, refundId={}, amount={}, reason={}",
+                payment.getId(), refundId, amount, reason);
+    }
+
+    /**
+     * Enforces that the given user may perform a sensitive payment action
+     * (refund / verify). Allowed actors are the learner who paid for it and
+     * admins. Anyone else is rejected, mirroring the existing authorization
+     * contract on {@code GET /api/v1/payments/{id}/status}. Throws
+     * {@link UnauthorizedException} (HTTP 403) when access is denied, which
+     * prevents IDOR and privilege escalation on payment records.
+     */
+    public void assertPaymentAccess(Payment payment, User currentUser) {
+        assertPaymentAccess(payment, currentUser, false);
+    }
+
+    /**
+     * Enforces that the given user may view the payment. Allowed actors are
+     * the learner who paid, the mentor who received it (mirroring
+     * {@link #getPaymentHistory}), and admins. Throws
+     * {@link UnauthorizedException} (HTTP 403) when access is denied.
+     */
+    public void assertPaymentViewAccess(Payment payment, User currentUser) {
+        assertPaymentAccess(payment, currentUser, true);
+    }
+
+    private void assertPaymentAccess(Payment payment, User currentUser, boolean allowMentorOfRecord) {
+        if (currentUser == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        if (payment.getLearnerId() != null && payment.getLearnerId().equals(currentUser.getId())) {
+            return;
+        }
+        if (allowMentorOfRecord
+                && payment.getMentorId() != null && payment.getMentorId().equals(currentUser.getId())) {
+            return;
+        }
+        throw new UnauthorizedException("You do not have access to this payment");
+    }
+
+    /**
+     * Returns a payment by ID, but only for users authorized to view it
+     * (the learner who paid, the mentor who received it, or an admin).
+     * Rejects IDOR attempts.
+     */
+    public Payment getPayment(Long paymentId, User currentUser) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        assertPaymentViewAccess(payment, currentUser);
+        return payment;
     }
 
     /**
@@ -205,7 +338,8 @@ public class PaymentService {
      */
     public List<Payment> getPaymentHistory(User currentUser) {
         if (currentUser.getRole() == UserRole.ADMIN) {
-            return paymentRepository.findByFilters(null, null, null, org.springframework.data.domain.PageRequest.of(0, 1000)).getContent();
+            return paymentRepository.findByFilters(null, null, null,
+                    org.springframework.data.domain.PageRequest.of(0, 1000)).getContent();
         }
         return paymentRepository.findByLearnerIdOrMentorId(currentUser.getId(), currentUser.getId());
     }
@@ -218,15 +352,22 @@ public class PaymentService {
     }
 
     /**
-     * Update payment status (for admin/mentor operations like wallet escrow).
+     * Update payment status. Admin-only: this is a privileged state mutation
+     * that no learner or mentor may invoke — prevents privilege escalation
+     * (e.g. flipping a payment to ESCROWED/RELEASED without a real gateway
+     * transition).
      */
     @Transactional
-    public Payment updatePaymentStatus(Long paymentId, PaymentStatus newStatus) {
+    public Payment updatePaymentStatus(Long paymentId, PaymentStatus newStatus, User currentUser) {
+        if (currentUser == null || currentUser.getRole() != UserRole.ADMIN) {
+            throw new UnauthorizedException("Only admins can update payment status");
+        }
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        PaymentStatus previous = payment.getStatus();
         payment.setStatus(newStatus);
         Payment saved = paymentRepository.save(payment);
-        incrementCounter("payment.status.transition", "from", payment.getStatus().name(), "to", newStatus.name());
+        incrementCounter("payment.status.transition", "from", previous.name(), "to", newStatus.name());
         return saved;
     }
 
@@ -271,7 +412,7 @@ public class PaymentService {
             key.setPayment(payment);
             idempotencyKeyRepository.save(key);
         } catch (DataIntegrityViolationException ex) {
-            log.warn("Idempotency key race condition: userId={}, endpoint={}", user.getId(), endpoint);
+            LOG.warn("Idempotency key race condition: userId={}, endpoint={}", user.getId(), endpoint);
         }
     }
 

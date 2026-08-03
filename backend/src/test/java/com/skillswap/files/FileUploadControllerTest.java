@@ -49,6 +49,8 @@ class FileUploadControllerTest {
     private com.skillswap.auth.OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
     @MockitoBean
     private ClientRegistrationRepository clientRegistrationRepository;
+    @MockitoBean
+    private StoredFileService storedFileService;
 
     private User user;
 
@@ -120,6 +122,6 @@ class FileUploadControllerTest {
                 new byte[]{1, 2, 3});
 
         mockMvc.perform(multipart("/api/v1/files/upload").file(png))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
     }
 }

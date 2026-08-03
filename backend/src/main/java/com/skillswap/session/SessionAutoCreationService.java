@@ -26,12 +26,15 @@ import java.util.List;
  * When a mentor creates or updates an availability slot (e.g. "Monday 9-5 UTC"),
  * this service generates dated SkillSession instances for the upcoming 2 weeks.
  */
+/**
+ * Service implementing session auto creation business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionAutoCreationService {
 
-    private static final Logger log = LoggerFactory.getLogger(SessionAutoCreationService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SessionAutoCreationService.class);
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
     private static final int WEEKS_AHEAD = 2;
 
@@ -75,7 +78,7 @@ public class SessionAutoCreationService {
 
             // Check for duplicate: session already exists for this mentor at this time
             if (sessionRepository.existsByMentorIdAndStartTime(mentor.getId(), startTime)) {
-                log.debug("Skipping duplicate session for mentor={} at time={}", mentor.getId(), startTime);
+                LOG.debug("Skipping duplicate session for mentor={} at time={}", mentor.getId(), startTime);
                 continue;
             }
 
@@ -101,12 +104,12 @@ public class SessionAutoCreationService {
 
             SkillSession saved = sessionRepository.save(session);
             created.add(saved);
-            log.info("Auto-created session id={} title='{}' for mentor={} at {}",
+            LOG.info("Auto-created session id={} title='{}' for mentor={} at {}",
                     saved.getId(), saved.getTitle(), mentor.getId(), startTime);
         }
 
         if (created.isEmpty()) {
-            log.debug("No new sessions created from availability slot id={} for mentor={}",
+            LOG.debug("No new sessions created from availability slot id={} for mentor={}",
                     slot.getId(), mentor.getId());
         }
 

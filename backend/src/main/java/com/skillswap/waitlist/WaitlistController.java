@@ -8,10 +8,17 @@ import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * REST controller exposing waitlist endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/waitlist")
 @RequiredArgsConstructor

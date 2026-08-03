@@ -316,15 +316,58 @@ class AdminServiceTest {
     // ── refundPayment ───────────────────────────────────
 
     @Test
-    void refundPaymentRefundsEscrowedPayment() {
+    void refundPaymentRefundsWalletEscrowAndCreditsWallet() {
+        payment.setGateway("wallet");
         when(paymentRepository.findById(100L)).thenReturn(Optional.of(payment));
-        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        Payment refunded = Payment.builder()
+                .id(100L)
+                .amount(new BigDecimal("100.00"))
+                .currency("CREDITS")
+                .status(PaymentStatus.REFUNDED)
+                .learnerId(1L)
+                .mentorId(2L)
+                .gateway("wallet")
+                .build();
+        when(paymentService.refundForCancellation(100L, new BigDecimal("100.00"), "Admin refund"))
+                .thenReturn(refunded);
         when(auditLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         Payment result = adminService.refundPayment(admin, 100L, "Admin refund");
 
         assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        // Gateway-first primitive is invoked before the DB status flip.
+        verify(paymentService).refundForCancellation(100L, new BigDecimal("100.00"), "Admin refund");
+        // Wallet-gateway escrow → learner's wallet is credited.
         verify(walletService).addEntryForUser(eq(payment.getLearnerId()), any());
+        verify(auditLogRepository).save(argThat(log ->
+                log.getAction().equals("REFUND_PAYMENT")));
+    }
+
+    @Test
+    void refundPaymentForExternalGatewayCreditsNoWallet() {
+        // External-gateway escrow: money returns to the payer at the gateway,
+        // so the wallet must NOT be credited (prevents a double refund).
+        payment.setGateway("razorpay");
+        payment.setPaymentId("pay_rzp_123");
+        when(paymentRepository.findById(100L)).thenReturn(Optional.of(payment));
+        Payment refunded = Payment.builder()
+                .id(100L)
+                .amount(new BigDecimal("100.00"))
+                .currency("CREDITS")
+                .status(PaymentStatus.REFUNDED)
+                .learnerId(1L)
+                .mentorId(2L)
+                .gateway("razorpay")
+                .build();
+        when(paymentService.refundForCancellation(100L, new BigDecimal("100.00"), "Admin refund"))
+                .thenReturn(refunded);
+        when(auditLogRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = adminService.refundPayment(admin, 100L, "Admin refund");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(paymentService).refundForCancellation(100L, new BigDecimal("100.00"), "Admin refund");
+        verify(walletService, never()).addEntryForUser(anyLong(), any());
         verify(auditLogRepository).save(argThat(log ->
                 log.getAction().equals("REFUND_PAYMENT")));
     }

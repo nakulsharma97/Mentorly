@@ -3,7 +3,6 @@ package com.skillswap.session;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.payment.PaymentStatus;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.common.exception.ResourceNotFoundException;
 import com.skillswap.common.exception.BadRequestException;
@@ -25,6 +24,9 @@ import java.util.stream.Collectors;
 /**
  * Service for managing live sessions with Google Meet integration.
  * Handles automatic meeting creation, updates, and cancellations.
+ */
+/**
+ * Service implementing live session business logic.
  */
 @Slf4j
 @Service
@@ -139,8 +141,8 @@ public class LiveSessionService {
                     .withinJoinWindow(false)
                     .minutesUntilStart(minutesUntilStart)
                     .minutesUntilEnd(java.time.temporal.ChronoUnit.MINUTES.between(now, session.getEndTime()))
-                    .message("Join window not yet open. You can join from " +
-                            JOIN_WINDOW_BEFORE_MINUTES + " minutes before the session starts.")
+                    .message("Join window not yet open. You can join from "
+                            + JOIN_WINDOW_BEFORE_MINUTES + " minutes before the session starts.")
                     .build();
         }
 
@@ -301,7 +303,8 @@ public class LiveSessionService {
 
     private LiveSessionResponse mapToResponse(SkillSession session) {
         long approvedCount = bookingRepository.countBySessionIdAndApprovedByAdminTrue(session.getId());
-        long rejectedCount = bookingRepository.countBySessionIdAndBookingStatus(session.getId(), BookingStatus.REJECTED);
+        long rejectedCount = bookingRepository
+                .countBySessionIdAndBookingStatus(session.getId(), BookingStatus.REJECTED);
         long pendingCount = bookingRepository.countPendingNotApprovedBySessionId(
                 session.getId(), BookingStatus.PENDING);
 

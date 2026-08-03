@@ -5,7 +5,12 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.Calendar;
-import com.google.api.services.calendar.model.*;
+import com.google.api.services.calendar.model.ConferenceData;
+import com.google.api.services.calendar.model.ConferenceSolutionKey;
+import com.google.api.services.calendar.model.CreateConferenceRequest;
+import com.google.api.services.calendar.model.EntryPoint;
+import com.google.api.services.calendar.model.Event;
+import com.google.api.services.calendar.model.EventDateTime;
 import com.skillswap.meeting.provider.MeetingDetails;
 import com.skillswap.meeting.provider.MeetingProviderException;
 import com.skillswap.meeting.provider.MeetingProviderService;
@@ -19,13 +24,14 @@ import java.security.GeneralSecurityException;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Implementation of MeetingProviderService for Google Calendar.
  * Handles automatic Google Meet link generation using Google Calendar API.
+ */
+/**
+ * Encapsulates google calendar meeting provider.
  */
 @Slf4j
 @Component
@@ -66,8 +72,8 @@ public class GoogleCalendarMeetingProvider implements MeetingProviderService {
             log.info("Google Meet event created successfully. Event ID: {}", createdEvent.getId());
 
             // Extract and return the meeting link
-            if (createdEvent.getConferenceData() != null &&
-                    createdEvent.getConferenceData().getEntryPoints() != null) {
+            if (createdEvent.getConferenceData() != null
+                    && createdEvent.getConferenceData().getEntryPoints() != null) {
                 for (EntryPoint entryPoint : createdEvent.getConferenceData().getEntryPoints()) {
                     if ("video".equalsIgnoreCase(entryPoint.getEntryPointType())) {
                         log.info("Google Meet link generated: {}", entryPoint.getUri());
@@ -180,8 +186,8 @@ public class GoogleCalendarMeetingProvider implements MeetingProviderService {
                     .execute();
 
             String meetingLink = null;
-            if (event.getConferenceData() != null &&
-                    event.getConferenceData().getEntryPoints() != null) {
+            if (event.getConferenceData() != null
+                    && event.getConferenceData().getEntryPoints() != null) {
                 for (EntryPoint entryPoint : event.getConferenceData().getEntryPoints()) {
                     if ("video".equalsIgnoreCase(entryPoint.getEntryPointType())) {
                         meetingLink = entryPoint.getUri();
@@ -213,8 +219,8 @@ public class GoogleCalendarMeetingProvider implements MeetingProviderService {
 
     @Override
     public boolean isConfigured() {
-        return googleCalendarProperties.isConfigured() &&
-                oauthTokenManager.hasValidToken();
+        return googleCalendarProperties.isConfigured()
+                && oauthTokenManager.hasValidToken();
     }
 
     // Helper methods
@@ -246,9 +252,9 @@ public class GoogleCalendarMeetingProvider implements MeetingProviderService {
 
     private String buildEventDescription(SkillSession session) {
         return String.format(
-                "Session: %s\n\nDescription: %s\n\nMentor: %s\n\nPrice: %s\n\n" +
-                        "This is an automated Google Meet session. " +
-                        "Only approved participants can join.",
+                "Session: %s\n\nDescription: %s\n\nMentor: %s\n\nPrice: %s\n\n"
+                        + "This is an automated Google Meet session. "
+                        + "Only approved participants can join.",
                 session.getTitle(),
                 session.getDescription() != null ? session.getDescription() : "N/A",
                 session.getMentor().getFullName(),

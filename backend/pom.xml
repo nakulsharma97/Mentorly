@@ -170,8 +170,8 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <!-- spring.config.additional-location points to source resources dir
                      because maven-resources-plugin has <skip>true</skip> (Windows workaround).
-                     The application.yml already has ${JWT_SECRET:fallback} defaults,
-                     so no need to set it here. -->
+                     JWT_SECRET is REQUIRED from the environment (no default in
+                     application.yml) — provide it via the shell/.env before running. -->
                 <configuration>
                     <arguments>
                         <argument>--spring.config.additional-location=file:./src/main/resources/</argument>

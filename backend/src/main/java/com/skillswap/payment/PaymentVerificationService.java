@@ -1,6 +1,7 @@
 package com.skillswap.payment;
 
 import com.skillswap.notification.NotificationService;
+import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PaymentVerificationService {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentVerificationService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PaymentVerificationService.class);
 
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
@@ -30,19 +31,26 @@ public class PaymentVerificationService {
      * @param gatewayPaymentId  Payment ID from the gateway (e.g. Razorpay payment_id)
      * @param signature     Signature/hmac from gateway for verification
      * @param extraParams   Additional gateway-specific parameters
+     * @param currentUser   Authenticated caller — must be the learner who paid
+     *                      (or an admin), otherwise access is denied (IDOR
+     *                      prevention).
      * @return Verified payment entity
      */
     @Transactional
     public Payment verifyPayment(Long paymentId, String gatewayPaymentId, String signature,
-            Map<String, String> extraParams) {
+            Map<String, String> extraParams, User currentUser) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        paymentService.assertPaymentAccess(payment, currentUser);
+
         Payment verified = paymentService.verifyAndCompletePayment(paymentId, gatewayPaymentId, signature, extraParams);
 
         if (verified.getStatus() == PaymentStatus.ESCROWED) {
             notifyPaymentSuccess(verified);
-            log.info("Payment verification callback succeeded: paymentId={}, gatewayPaymentId={}",
+            LOG.info("Payment verification callback succeeded: paymentId={}, gatewayPaymentId={}",
                     paymentId, gatewayPaymentId);
         } else {
-            log.warn("Payment verification callback failed: paymentId={}, gatewayPaymentId={}, status={}",
+            LOG.warn("Payment verification callback failed: paymentId={}, gatewayPaymentId={}, status={}",
                     paymentId, gatewayPaymentId, verified.getStatus());
         }
 
@@ -55,7 +63,7 @@ public class PaymentVerificationService {
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
             Map<String, Object> eventData) {
-        log.info("Processing webhook event: gateway={}, eventType={}, gatewayPaymentId={}",
+        LOG.info("Processing webhook event: gateway={}, eventType={}, gatewayPaymentId={}",
                 gatewaySlug, eventType, gatewayPaymentId);
 
         // Find the payment by gateway payment ID
@@ -71,7 +79,7 @@ public class PaymentVerificationService {
                     payment.setStatus(PaymentStatus.ESCROWED);
                     Payment saved = paymentRepository.save(payment);
                     notifyPaymentSuccess(saved);
-                    log.info("Webhook payment captured: paymentId={}", saved.getId());
+                    LOG.info("Webhook payment captured: paymentId={}", saved.getId());
                     return saved;
                 }
                 break;
@@ -81,11 +89,11 @@ public class PaymentVerificationService {
             case "CHECKOUT.ORDER.DECLINED":
                 payment.setStatus(PaymentStatus.FAILED);
                 Payment saved = paymentRepository.save(payment);
-                log.warn("Webhook payment failed: paymentId={}", saved.getId());
+                LOG.warn("Webhook payment failed: paymentId={}", saved.getId());
                 return saved;
 
             default:
-                log.info("Unhandled webhook event type: {} for gateway {}", eventType, gatewaySlug);
+                LOG.info("Unhandled webhook event type: {} for gateway {}", eventType, gatewaySlug);
         }
 
         return payment;
@@ -102,16 +110,16 @@ public class PaymentVerificationService {
             PaymentGateway gateway = paymentService.resolveGateway(payment.getGateway());
             if (payment.getPaymentId() != null) {
                 String gatewayStatus = gateway.fetchPaymentStatus(payment.getPaymentId());
-                log.info("Gateway status check: paymentId={}, gatewayStatus={}", payment.getId(), gatewayStatus);
+                LOG.info("Gateway status check: paymentId={}, gatewayStatus={}", payment.getId(), gatewayStatus);
                 return gatewayStatus;
             }
         } catch (Exception e) {
-            log.warn("Failed to fetch gateway status for paymentId={}: {}", payment.getId(), e.getMessage());
+            LOG.warn("Failed to fetch gateway status for paymentId={}: {}", payment.getId(), e.getMessage());
         }
         return null;
     }
 
     private void notifyPaymentSuccess(Payment payment) {
-        log.debug("Payment succeeded: id={}, orderId={}", payment.getId(), payment.getOrderId());
+        LOG.debug("Payment succeeded: id={}, orderId={}", payment.getId(), payment.getOrderId());
     }
 }

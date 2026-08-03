@@ -12,6 +12,9 @@ import java.time.OffsetDateTime;
  * Scheduled cleanup for stale LoginAttempt records.
  * Prevents the login_attempts table from growing unbounded.
  */
+/**
+ * Service implementing login attempt cleanup business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

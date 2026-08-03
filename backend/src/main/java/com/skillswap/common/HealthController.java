@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * REST controller exposing health endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1")
 public class HealthController {

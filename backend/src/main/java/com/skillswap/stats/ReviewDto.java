@@ -7,6 +7,9 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Encapsulates review.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code MentorVerificationRequest} persistence.
+ */
 public interface MentorVerificationRequestRepository extends JpaRepository<MentorVerificationRequest, Long> {
     List<MentorVerificationRequest> findByMentorIdOrderByCreatedAtDesc(Long mentorId);
 

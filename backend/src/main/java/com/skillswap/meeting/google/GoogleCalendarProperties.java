@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
  * Configuration properties for Google Calendar API.
  * Read from application.properties or environment variables.
  */
+/**
+ * Encapsulates google calendar properties.
+ */
 @Data
 @Component
 @ConfigurationProperties(prefix = "google.calendar")
@@ -26,8 +29,8 @@ public class GoogleCalendarProperties {
     private String scopes = "https://www.googleapis.com/auth/calendar";
 
     public boolean isConfigured() {
-        return clientId != null && !clientId.isBlank() &&
-                clientSecret != null && !clientSecret.isBlank() &&
-                redirectUri != null && !redirectUri.isBlank();
+        return clientId != null && !clientId.isBlank()
+                && clientSecret != null && !clientSecret.isBlank()
+                && redirectUri != null && !redirectUri.isBlank();
     }
 }

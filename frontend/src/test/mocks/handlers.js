@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { http, HttpResponse, ws } from "msw";
 
 const now = Date.now();
 
@@ -61,7 +61,17 @@ const mockReviews = [
   },
 ];
 
+// Accept the NotificationCenter real-time WebSocket connection in unit tests.
+// The component opens ws://<host>/ws/notifications on mount; without a
+// matching handler, MSW logs "intercepted a WebSocket connection without a
+// matching event handler". The virtual connection is closed on unmount.
+const notificationSocket = ws.link("*/ws/notifications");
+
 export const handlers = [
+  notificationSocket.addEventListener("connection", () => {
+    // Connection accepted — no server frames are needed in unit tests.
+  }),
+
   http.get("*/api/v1/bookings", () => {
     return HttpResponse.json({ data: mockBookings });
   }),

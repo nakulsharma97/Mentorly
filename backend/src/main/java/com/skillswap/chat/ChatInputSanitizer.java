@@ -10,6 +10,9 @@ import java.util.regex.Pattern;
  * consumed by a React SPA where JSX text nodes already escape by default.
  * HTML-escaping would cause double-escaping (users seeing {@code &lt;} literally).
  */
+/**
+ * Encapsulates chat input sanitizer.
+ */
 public final class ChatInputSanitizer {
 
     /** Maximum allowed message content length (matches DB column: VARCHAR(2000)). */

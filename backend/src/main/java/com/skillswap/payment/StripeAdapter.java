@@ -21,7 +21,7 @@ import java.util.Map;
 @Component
 public class StripeAdapter implements PaymentGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(StripeAdapter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(StripeAdapter.class);
 
     @Value("${app.payment.stripe.secret-key:sk_test_xxxxxxxxxxxx}")
     private String secretKey;
@@ -33,12 +33,12 @@ public class StripeAdapter implements PaymentGateway {
     void validateKeys() {
         if (secretKey == null || secretKey.isBlank()
                 || "sk_test_xxxxxxxxxxxx".equals(secretKey)) {
-            log.warn("⚠ Stripe secret-key is using the default/test placeholder! "
+            LOG.warn("⚠ Stripe secret-key is using the default/test placeholder! "
                     + "Set APP_PAYMENT_STRIPE_SECRET_KEY in production.");
         }
         if (webhookSecret == null || webhookSecret.isBlank()
                 || "whsec_test_secret".equals(webhookSecret)) {
-            log.warn("⚠ Stripe webhook-secret is using the default/test placeholder! "
+            LOG.warn("⚠ Stripe webhook-secret is using the default/test placeholder! "
                     + "Set APP_PAYMENT_STRIPE_WEBHOOK_SECRET in production.");
         }
     }
@@ -59,7 +59,7 @@ public class StripeAdapter implements PaymentGateway {
         response.put("status", "requires_payment_method");
         response.put("client_secret", "pi_" + orderId + "_secret_" + System.currentTimeMillis());
 
-        log.info("Stripe payment intent created: orderId={}, stripePiId={}, amount={} {}",
+        LOG.info("Stripe payment intent created: orderId={}, stripePiId={}, amount={} {}",
                 orderId, response.get("id"), amount, currency);
 
         return response;
@@ -89,12 +89,12 @@ public class StripeAdapter implements PaymentGateway {
             String expectedSignature = hexString.toString();
             boolean verified = expectedSignature.equals(signature);
 
-            log.info("Stripe payment verification: paymentId={}, orderId={}, verified={}",
+            LOG.info("Stripe payment verification: paymentId={}, orderId={}, verified={}",
                     paymentId, orderId, verified);
 
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("Stripe signature verification failed", e);
+            LOG.error("Stripe signature verification failed", e);
             return false;
         }
     }
@@ -104,7 +104,7 @@ public class StripeAdapter implements PaymentGateway {
         // In production: use Stripe API Refund.create()
         String refundId = "re_" + paymentId + "_" + System.currentTimeMillis();
 
-        log.info("Stripe refund processed: paymentId={}, amount={}, refundId={}, reason={}",
+        LOG.info("Stripe refund processed: paymentId={}, amount={}, refundId={}, reason={}",
                 paymentId, amount, refundId, reason);
 
         return refundId;
@@ -113,7 +113,7 @@ public class StripeAdapter implements PaymentGateway {
     @Override
     public String fetchPaymentStatus(String paymentId) {
         // In production: use Stripe API PaymentIntent.retrieve()
-        log.info("Stripe payment status fetched: paymentId={}", paymentId);
+        LOG.info("Stripe payment status fetched: paymentId={}", paymentId);
         return "succeeded";
     }
 
@@ -123,7 +123,7 @@ public class StripeAdapter implements PaymentGateway {
         //   t=timestamp,v1=signature1,v1=signature2,...
         // We parse the v1 signature and verify against the raw payload.
         if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
-            log.warn("Stripe webhook signature header missing or empty");
+            LOG.warn("Stripe webhook signature header missing or empty");
             return false;
         }
         try {
@@ -137,7 +137,7 @@ public class StripeAdapter implements PaymentGateway {
                 }
             }
             if (v1Signature == null || v1Signature.isBlank()) {
-                log.warn("No v1 signature found in Stripe-Signature header");
+                LOG.warn("No v1 signature found in Stripe-Signature header");
                 return false;
             }
 
@@ -150,15 +150,17 @@ public class StripeAdapter implements PaymentGateway {
             StringBuilder hexString = new StringBuilder();
             for (byte b : hmacBytes) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
                 hexString.append(hex);
             }
 
             boolean verified = hexString.toString().equals(v1Signature);
-            log.info("Stripe webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            LOG.info("Stripe webhook signature verification: {}", verified ? "PASSED" : "FAILED");
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("Stripe webhook signature verification failed", e);
+            LOG.error("Stripe webhook signature verification failed", e);
             return false;
         }
     }

@@ -8,10 +8,19 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code LoginAttempt} persistence.
+ */
 public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long> {
 
-    Optional<LoginAttempt> findByIpAddress(String ipAddress);
+    /**
+     * Finds the attempt counter for one IP and one auth flow. Each flow
+     * (login / forgot-password) has its own row, so they never share quotas
+     * or lockout state.
+     */
+    Optional<LoginAttempt> findByIpAddressAndAttemptType(String ipAddress, AttemptType attemptType);
 
+    /** Row count for the IP in a window — used by the signup IP gate. */
     long countByIpAddressAndLastAttemptAtAfter(String ipAddress, OffsetDateTime after);
 
     /** Total failed-login records updated since a timestamp — feeds monitoring security metrics. */

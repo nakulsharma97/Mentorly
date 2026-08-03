@@ -1,5 +1,8 @@
 package com.skillswap.payment;
 
+/**
+ * Enumerates payment status.
+ */
 public enum PaymentStatus {
     PENDING,
     INITIATED,

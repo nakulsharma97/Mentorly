@@ -255,7 +255,67 @@ class BookingLifecycleIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  Test 5: Non-owner can't update booking status
+    //  Test 5: Assigned learner can start their own booking
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenAcceptedBooking_whenAssignedLearnerStarts_thenReturnOk() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        // pastSession has an already-elapsed start time so starting is allowed
+        Long bookingId = createBooking(pastSession.getId(), learner);
+
+        // Mentor accepts → escrow held
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk());
+
+        // Assigned learner starts the booking → allowed
+        mockMvc.perform(post("/api/v1/bookings/{id}/start", bookingId)
+                        .with(csrf())
+                        .with(user(learner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bookingStatus").value("IN_PROGRESS"));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 6: Non-participant can't start someone else's booking
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenAcceptedBooking_whenUnrelatedLearnerStarts_thenReturn400() throws Exception {
+        creditWallet(learner.getId(), new BigDecimal("200.00"));
+
+        // pastSession has an already-elapsed start time so the only reason for
+        // rejection is the authorization check (not the time gate).
+        Long bookingId = createBooking(pastSession.getId(), learner);
+
+        // Mentor accepts → booking is ACCEPTED (eligible to start)
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk());
+
+        // Unrelated learner (learner2) tries to start → rejected, booking unchanged
+        mockMvc.perform(post("/api/v1/bookings/{id}/start", bookingId)
+                        .with(csrf())
+                        .with(user(learner2)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error")
+                        .value(org.hamcrest.Matchers.containsString(
+                                "Only the session mentor, assigned learner, or an admin can start a booking")));
+
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+        assertThat(booking.getBookingStatus()).isEqualTo(BookingStatus.ACCEPTED);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  Test 7: Non-owner can't update booking status
     // ═══════════════════════════════════════════════════════════
 
     @Test
@@ -276,7 +336,7 @@ class BookingLifecycleIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
-    //  Test 6: Idempotency key replay returns same booking
+    //  Test 8: Idempotency key replay returns same booking
     // ═══════════════════════════════════════════════════════════
 
     @Test

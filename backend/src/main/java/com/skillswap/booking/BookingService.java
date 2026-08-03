@@ -4,7 +4,6 @@ import com.skillswap.common.exception.BadRequestException;
 import com.skillswap.common.exception.ResourceNotFoundException;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.booking.dto.BookingResponse;
-import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
@@ -21,6 +20,9 @@ import java.util.stream.Collectors;
  * Service for managing bookings and learner approvals.
  * Handles the approval workflow where admins approve or reject learners before
  * they can join.
+ */
+/**
+ * Service implementing booking business logic.
  */
 @Slf4j
 @Service

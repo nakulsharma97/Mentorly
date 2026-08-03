@@ -2,6 +2,7 @@ package com.skillswap.payment;
 
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
+import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -300,37 +301,230 @@ class PaymentServiceTest {
         assertTrue(ex.getMessage().contains("Payment not found"));
     }
 
-    // ── refundPayment ───────────────────────────────────
+    // ── getPayment (authorization / IDOR prevention) ─────
+
+    @Test
+    void getPaymentAllowsOwningLearner() {
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+
+        Payment result = paymentService.getPayment(1000L, learner);
+
+        assertEquals(1000L, result.getId());
+    }
+
+    @Test
+    void getPaymentAllowsAdmin() {
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+
+        Payment result = paymentService.getPayment(1000L, admin);
+
+        assertEquals(1000L, result.getId());
+    }
+
+    @Test
+    void getPaymentRejectsOtherLearner() {
+        User otherLearner = new User();
+        otherLearner.setId(99L);
+        otherLearner.setRole(UserRole.LEARNER);
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+
+        UnauthorizedException ex = assertThrows(UnauthorizedException.class,
+                () -> paymentService.getPayment(1000L, otherLearner));
+        assertEquals("You do not have access to this payment", ex.getMessage());
+    }
+
+    @Test
+    void getPaymentAllowsMentorOfRecord() {
+        // Mentors are party to payments they received (mirrors getPaymentHistory),
+        // so they may view their own payment records but not refund/verify them.
+        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+
+        Payment result = paymentService.getPayment(1000L, mentor);
+
+        assertEquals(1000L, result.getId());
+    }
+
+    @Test
+    void getPaymentRejectsPaymentNotFound() {
+        when(paymentRepository.findById(9999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.getPayment(9999L, learner));
+        assertTrue(ex.getMessage().contains("Payment not found"));
+    }
+
+    // ── refundPayment (learner/admin endpoint) ───────────
 
     @Test
     void refundPaymentSuccess() {
         payment.setStatus(PaymentStatus.ESCROWED);
-        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        payment.setPaymentId("pi_test_123");
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Payment result = paymentService.refundPayment(1000L, new BigDecimal("100.00"), "Customer request");
+        Payment result = paymentService.refundPayment(1000L, new BigDecimal("100.00"), "Customer request", learner);
 
         assertEquals(PaymentStatus.REFUNDED, result.getStatus());
-        verify(stripeGateway).processRefund(any(), eq(new BigDecimal("100.00")), eq("Customer request"));
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("100.00")), eq("Customer request"));
     }
 
     @Test
     void refundPaymentRejectsNonEscrowed() {
         payment.setStatus(PaymentStatus.INITIATED);
-        when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test"));
+                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test", learner));
         assertTrue(ex.getMessage().contains("Only escrowed payments can be refunded"));
     }
 
     @Test
-    void refundPaymentPaymentNotFound() {
-        when(paymentRepository.findById(9999L)).thenReturn(Optional.empty());
+    void refundPaymentRejectsWalletEscrowOnStandaloneEndpoint() {
+        // Wallet escrow is refunded via the booking cancellation flow (wallet
+        // credit); this endpoint must not silently flip it to REFUNDED.
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setGateway("wallet");
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> paymentService.refundPayment(9999L, new BigDecimal("50.00"), "Test"));
+                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test", learner));
+        assertTrue(ex.getMessage().contains("Wallet escrow refunds are processed through the booking"));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundPaymentPaymentNotFound() {
+        when(paymentRepository.findByIdWithLock(9999L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundPayment(9999L, new BigDecimal("50.00"), "Test", learner));
         assertTrue(ex.getMessage().contains("Payment not found"));
+    }
+
+    @Test
+    void refundPaymentRejectsOtherLearner() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        User otherLearner = new User();
+        otherLearner.setId(99L);
+        otherLearner.setRole(UserRole.LEARNER);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        UnauthorizedException ex = assertThrows(UnauthorizedException.class,
+                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test", otherLearner));
+        assertEquals("You do not have access to this payment", ex.getMessage());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundPaymentRejectsMentor() {
+        // Refunding is a payer/admin decision — the recipient mentor may not
+        // reverse the learner's payment.
+        payment.setStatus(PaymentStatus.ESCROWED);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        assertThrows(UnauthorizedException.class,
+                () -> paymentService.refundPayment(1000L, new BigDecimal("50.00"), "Test", mentor));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundPaymentAllowsAdmin() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundPayment(1000L, new BigDecimal("100.00"), "Admin refund", admin);
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("100.00")), eq("Admin refund"));
+    }
+
+    // ── refundForCancellation (booking cancel / admin flows) ──
+
+    @Test
+    void refundForCancellationCallsGatewayBeforeStatusFlip() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        // Gateway must be called before the DB status is flipped.
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("100.00")), eq("Booking cancelled"));
+        verify(paymentRepository).save(argThat(p -> p.getStatus() == PaymentStatus.REFUNDED));
+    }
+
+    @Test
+    void refundForCancellationSkipsGatewayForWalletEscrow() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setGateway("wallet");
+        payment.setPaymentId(null);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway, never()).processRefund(any(), any(), any());
+    }
+
+    @Test
+    void refundForCancellationIsIdempotentWhenAlreadyRefunded() {
+        payment.setStatus(PaymentStatus.REFUNDED);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        Payment result = paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway, never()).processRefund(any(), any(), any());
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundForCancellationRejectsNonRefundableStatus() {
+        payment.setStatus(PaymentStatus.RELEASED);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled"));
+        assertTrue(ex.getMessage().contains("Only escrowed or initiated payments can be refunded"));
+        verify(stripeGateway, never()).processRefund(any(), any(), any());
+    }
+
+    @Test
+    void refundForCancellationPaymentNotFound() {
+        when(paymentRepository.findByIdWithLock(9999L)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundForCancellation(9999L, new BigDecimal("100.00"), "Booking cancelled"));
+    }
+
+    @Test
+    void refundForCancellationRejectsMissingGatewayPaymentId() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId(null);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        assertThrows(IllegalStateException.class,
+                () -> paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled"));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundForCancellationPropagatesGatewayFailure() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(stripeGateway.processRefund(any(), any(), any()))
+                .thenThrow(new IllegalStateException("Gateway unavailable"));
+
+        assertThrows(IllegalStateException.class,
+                () -> paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled"));
+        // DB must NOT be flipped when the gateway call fails.
+        verify(paymentRepository, never()).save(any());
     }
 
     // ── getPaymentHistory ───────────────────────────────
@@ -356,17 +550,30 @@ class PaymentServiceTest {
         assertEquals(1, history.size());
     }
 
-    // ── updatePaymentStatus ─────────────────────────────
+    // ── updatePaymentStatus (admin-only) ────────────────
 
     @Test
-    void updatePaymentStatusSuccess() {
+    void updatePaymentStatusAllowsAdmin() {
         payment.setStatus(PaymentStatus.INITIATED);
         when(paymentRepository.findById(1000L)).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Payment result = paymentService.updatePaymentStatus(1000L, PaymentStatus.ESCROWED);
+        Payment result = paymentService.updatePaymentStatus(1000L, PaymentStatus.ESCROWED, admin);
 
         assertEquals(PaymentStatus.ESCROWED, result.getStatus());
+    }
+
+    @Test
+    void updatePaymentStatusRejectsLearner() {
+        assertThrows(UnauthorizedException.class,
+                () -> paymentService.updatePaymentStatus(1000L, PaymentStatus.ESCROWED, learner));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void updatePaymentStatusRejectsMentor() {
+        assertThrows(UnauthorizedException.class,
+                () -> paymentService.updatePaymentStatus(1000L, PaymentStatus.ESCROWED, mentor));
     }
 
     // ── helpers ─────────────────────────────────────────

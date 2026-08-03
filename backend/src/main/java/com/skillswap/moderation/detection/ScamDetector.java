@@ -32,7 +32,9 @@ public class ScamDetector implements ModerationDetector {
         for (String phrase : PHRASES) {
             if (lower.contains(phrase)) {
                 hits++;
-                if (first == null) first = phrase;
+                if (first == null) {
+                    first = phrase;
+                }
             }
         }
         if (hits >= 2) {

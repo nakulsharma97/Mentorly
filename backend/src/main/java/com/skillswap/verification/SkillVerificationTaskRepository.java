@@ -7,6 +7,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code SkillVerificationTask} persistence.
+ */
 public interface SkillVerificationTaskRepository extends JpaRepository<SkillVerificationTask, Long> {
     List<SkillVerificationTask> findByActiveTrue();
 

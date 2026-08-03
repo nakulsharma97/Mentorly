@@ -11,6 +11,9 @@ import java.util.List;
  * aggregates the results. If multiple detectors fire, the strongest signal
  * (highest confidence) wins so the flag carries a single primary source.
  */
+/**
+ * Encapsulates moderation scanner.
+ */
 @Service
 @RequiredArgsConstructor
 public class ModerationScanner {
@@ -29,20 +32,21 @@ public class ModerationScanner {
         DetectionSource bestSource = null;
         for (ModerationDetector detector : detectors) {
             ModerationDetector.DetectionResult result = detector.detect(content);
-            if (result != null && result.flagged()) {
-                if (best.flagged() == false
+            if (result != null && result.flagged()
+                    && (!best.flagged()
                         || (result.confidence() != null && best.confidence() == null)
                         || (result.confidence() != null && best.confidence() != null
-                                && result.confidence() > best.confidence())) {
-                    best = result;
-                    bestSource = detector.source();
-                }
+                                && result.confidence() > best.confidence()))) {
+                best = result;
+                bestSource = detector.source();
             }
         }
         return new ScanOutcome(best, bestSource);
     }
 
-    /** Strongest signal plus the detector that produced it. */
+/**
+ * Immutable data carrier for scan outcome.
+ */
     public record ScanOutcome(ModerationDetector.DetectionResult result, DetectionSource source) {
         public boolean flagged() {
             return result() != null && result().flagged();

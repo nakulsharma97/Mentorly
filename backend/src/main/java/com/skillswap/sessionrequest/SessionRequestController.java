@@ -12,12 +12,21 @@ import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * REST controller exposing session request endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/session-requests")
 @RequiredArgsConstructor
@@ -120,6 +129,9 @@ public class SessionRequestController {
         return new ApiResponse<>("Session created from request", session);
     }
 
+/**
+ * Immutable data carrier for create request.
+ */
     public record CreateRequest(
             @NotNull Long mentorId,
             String message,
@@ -130,12 +142,21 @@ public class SessionRequestController {
             String budget) {
     }
 
+/**
+ * Immutable data carrier for accept request.
+ */
     public record AcceptRequest(String message) {
     }
 
+/**
+ * Immutable data carrier for reply request.
+ */
     public record ReplyRequest(@NotBlank String message) {
     }
 
+/**
+ * Immutable data carrier for create session from request.
+ */
     public record CreateSessionFromRequest(
             @NotBlank String title,
             String description,

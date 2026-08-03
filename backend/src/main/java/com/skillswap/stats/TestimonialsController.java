@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * REST controller exposing testimonials endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/public")
 @RequiredArgsConstructor

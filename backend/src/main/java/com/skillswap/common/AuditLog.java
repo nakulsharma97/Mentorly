@@ -1,6 +1,12 @@
 package com.skillswap.common;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,6 +28,9 @@ import java.time.OffsetDateTime;
         @Index(name = "idx_audit_action", columnList = "action"),
         @Index(name = "idx_audit_created_at", columnList = "created_at")
 })
+/**
+ * Encapsulates audit log.
+ */
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditLog {

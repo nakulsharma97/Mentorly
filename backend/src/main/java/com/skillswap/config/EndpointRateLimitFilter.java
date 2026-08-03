@@ -16,11 +16,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Encapsulates endpoint rate limit filter.
+ */
 @Slf4j
 @Component
 public class EndpointRateLimitFilter extends OncePerRequestFilter {
 
     private static final long ONE_MINUTE_MS = 60_000L;
+
+    private final ClientIpResolver clientIpResolver;
+
+    public EndpointRateLimitFilter(ClientIpResolver clientIpResolver) {
+        this.clientIpResolver = clientIpResolver;
+    }
 
     @Value("${app.rate-limit.auth.max-per-minute:25}")
     private int authMaxPerMinute;
@@ -30,6 +39,9 @@ public class EndpointRateLimitFilter extends OncePerRequestFilter {
 
     @Value("${app.rate-limit.api-write.max-per-minute:120}")
     private int apiWriteMaxPerMinute;
+
+    @Value("${app.rate-limit.search.max-per-minute:60}")
+    private int searchMaxPerMinute;
 
     private final Map<String, WindowCounter> counters = new ConcurrentHashMap<>();
 
@@ -66,7 +78,8 @@ public class EndpointRateLimitFilter extends OncePerRequestFilter {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType("application/json");
             response.getWriter().write(
-                    "{\"message\":\"Too many requests\",\"data\":{\"error\":\"Rate limit exceeded. Please retry in a minute.\"}}");
+                    "{\"message\":\"Too many requests\","
+                            + "\"data\":{\"error\":\"Rate limit exceeded. Please retry in a minute.\"}}");
             return;
         }
 
@@ -80,6 +93,11 @@ public class EndpointRateLimitFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/v1/payments")) {
             return paymentMaxPerMinute;
         }
+        // Public/costly search endpoints (unauthenticated-ish reads) are
+        // per-IP limited to prevent scraping and heavy index scans.
+        if (path.startsWith("/api/v1/search/")) {
+            return searchMaxPerMinute;
+        }
         boolean isWriteMethod = "POST".equalsIgnoreCase(method)
                 || "PUT".equalsIgnoreCase(method)
                 || "PATCH".equalsIgnoreCase(method)
@@ -91,11 +109,10 @@ public class EndpointRateLimitFilter extends OncePerRequestFilter {
     }
 
     private String buildRateLimitKey(String path, HttpServletRequest request) {
-        String client = request.getHeader("X-Forwarded-For");
-        if (client == null || client.isBlank()) {
-            client = request.getRemoteAddr();
-        }
-        return path + "::" + client;
+        // Resolve the client IP through the trusted-proxy-aware resolver so a
+        // spoofed X-Forwarded-For header can never be used to bypass the
+        // per-IP rate limit.
+        return path + "::" + clientIpResolver.resolve(request);
     }
 
     private static final class WindowCounter {

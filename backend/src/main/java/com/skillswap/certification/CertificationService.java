@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Service implementing certification business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class CertificationService {

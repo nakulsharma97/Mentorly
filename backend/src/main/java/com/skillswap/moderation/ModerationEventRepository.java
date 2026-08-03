@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code ModerationEvent} persistence.
+ */
 public interface ModerationEventRepository extends JpaRepository<ModerationEvent, Long> {
 
     /**

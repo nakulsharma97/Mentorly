@@ -4,6 +4,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+/**
+ * Encapsulates skill swap application.
+ */
 @SpringBootApplication
 @EnableScheduling
 public class SkillSwapApplication {

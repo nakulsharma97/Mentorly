@@ -11,12 +11,23 @@ import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * REST controller exposing safety endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/safety")
 @RequiredArgsConstructor
@@ -250,6 +261,9 @@ public class SafetyController {
         }
     }
 
+/**
+ * Immutable data carrier for block request.
+ */
     public record BlockRequest(String reason) {
     }
 
@@ -261,13 +275,22 @@ public class SafetyController {
      * @param reason         short reason for the report
      * @param details        optional free-text details
      */
+/**
+ * Immutable data carrier for create report request.
+ */
     public record CreateReportRequest(Long reportedUserId, String targetType, Long targetId, String targetLabel,
             String reason, String details) {
     }
 
+/**
+ * Immutable data carrier for update report status request.
+ */
     public record UpdateReportStatusRequest(ReportStatus status) {
     }
 
+/**
+ * Immutable data carrier for escalate report request.
+ */
     public record EscalateReportRequest(Integer level, String reason) {
     }
 }

@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Encapsulates direct chat web socket.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -63,14 +66,12 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
 
         String email;
         try {
-            // Query parameter token takes priority (newly issued after login);
-            // fall back to cookie for environments where query params are stripped.
-            String token = extractTokenFromQuery(session);
+            // SECURITY: authenticate via the httpOnly access_token cookie in the
+            // handshake ONLY. JWTs are never accepted in the query string — URL
+            // query parameters leak into proxy access logs and browser history.
+            String token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
             if (token == null) {
-                token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
-            }
-            if (token == null) {
-                log.warn("Direct chat auth failed: no token found in query param or cookie for conversationId={}", conversationIdRaw);
+                log.warn("Direct chat auth failed: no access_token cookie for conversationId={}", conversationIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
                 return;
             }
@@ -93,17 +94,6 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put(ATTR_USER_EMAIL, email);
 
         conversationRooms.computeIfAbsent(conversationId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
-    }
-
-    /**
-     * Extract the JWT token from the "token" query parameter (fallback for proxy environments
-     * where the Cookie header may not be forwarded).
-     */
-    private String extractTokenFromQuery(WebSocketSession session) {
-        URI uri = session.getUri();
-        if (uri == null) return null;
-        var params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
-        return params.getFirst("token");
     }
 
     private String extractAccessTokenFromCookie(String cookieHeader) {
@@ -189,7 +179,8 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
                     "message", message));
             broadcastToRoom(conversationId, payload);
         } catch (IOException e) {
-            log.warn("[broadcastMessage] Failed to broadcast message to conversation {}: {}", conversationId, e.getMessage());
+            log.warn("[broadcastMessage] Failed to broadcast message to conversation {}: {}",
+                    conversationId, e.getMessage());
         }
     }
 
@@ -202,7 +193,8 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void broadcastToOthers(Long conversationId, WebSocketSession senderSession, String payload) throws IOException {
+    private void broadcastToOthers(Long conversationId, WebSocketSession senderSession,
+            String payload) throws IOException {
         Set<WebSocketSession> room = conversationRooms.getOrDefault(conversationId, Set.of());
         for (WebSocketSession member : room) {
             if (member.isOpen() && member != senderSession) {

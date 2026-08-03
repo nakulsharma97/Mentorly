@@ -13,7 +13,14 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -21,6 +28,9 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
+/**
+ * REST controller exposing booking endpoints.
+ */
 @Tag(name = "Bookings", description = "Session booking creation, retrieval, cancellation, and confirmation")
 @RestController
 @Validated
@@ -28,7 +38,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookingController {
 
-        private static final Logger log = LoggerFactory.getLogger(BookingController.class);
+        private static final Logger LOG = LoggerFactory.getLogger(BookingController.class);
 
         private final BookingRepository bookingRepository;
         private final EmailNotificationService emailService;
@@ -39,7 +49,9 @@ public class BookingController {
         public ApiResponse<List<Booking>> list(@AuthenticationPrincipal User currentUser) {
                 if (currentUser.getRole() == UserRole.ADMIN) {
                         return new ApiResponse<>("Bookings fetched",
-                                        bookingRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
+                                        bookingRepository.findAll(
+                                                org.springframework.data.domain.PageRequest.of(0, 1000))
+                                                .getContent());
                 }
                 if (currentUser.getRole() == UserRole.MENTOR) {
                         return new ApiResponse<>("Bookings fetched",
@@ -69,7 +81,8 @@ public class BookingController {
                                 logBookingCreateOutcome("replay", learner.getId(), req.sessionId(), idempotencyKey,
                                                 "idempotency_replay");
                         } else {
-                                incrementCounter("booking.create.failed", "reason", reason != null ? reason : "unknown");
+                                incrementCounter("booking.create.failed", "reason",
+                                        reason != null ? reason : "unknown");
                                 logBookingCreateOutcome("failed", learner.getId(), req.sessionId(), idempotencyKey,
                                                 reason != null ? reason : "unknown");
                         }
@@ -91,8 +104,10 @@ public class BookingController {
         }
 
         @PostMapping("/{id}/start")
-        public ApiResponse<Booking> startBooking(@PathVariable @NotNull @Min(1) Long id) {
-                Booking saved = bookingLifecycleService.startBooking(id);
+        public ApiResponse<Booking> startBooking(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.startBooking(id, currentUser);
                 return new ApiResponse<>("Booking started", saved);
         }
 
@@ -102,6 +117,14 @@ public class BookingController {
             @PathVariable @NotNull @Min(1) Long id) {
         Booking saved = bookingLifecycleService.completeBooking(id, currentUser);
         bookingLifecycleService.grantReferralRewardIfNeeded(saved);
+        // Payout parity with the COMPLETED status-update path: escrowed funds
+        // must be released to the mentor here too, otherwise completing via
+        // this endpoint would leave the money stuck in escrow forever.
+        bookingLifecycleService.releaseEscrowForCompletedBooking(saved);
+        emailService.sendBookingCompleted(
+                saved.getLearner(),
+                saved.getSession().getMentor(),
+                saved.getSession());
         return new ApiResponse<>("Booking completed", saved);
     }
 
@@ -134,8 +157,9 @@ public class BookingController {
 
         private void logBookingCreateOutcome(String outcome, Long userId, Long sessionId, String idempotencyKey,
                         String reason) {
-                log.info(
-                                "booking_create outcome={} reason={} userId={} sessionId={} idempotencyKey={} traceId={}",
+                LOG.info(
+                                "booking_create outcome={} reason={} userId={} sessionId={}"
+                                        + " idempotencyKey={} traceId={}",
                                 outcome,
                                 reason,
                                 userId,

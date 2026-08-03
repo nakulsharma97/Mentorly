@@ -170,64 +170,105 @@ class PaymentControllerIntegrationTest {
 
     @Test
     void verifyPaymentReturnsSuccess() throws Exception {
+        User learner = new User();
+        learner.setId(11L);
+        learner.setRole(UserRole.LEARNER);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(learner, null,
+                learner.getAuthorities()));
+        SecurityContextHolder.setContext(context);
+
         Payment payment = new Payment();
         payment.setId(601L);
         payment.setPaymentId("pay_test_123");
         payment.setStatus(PaymentStatus.ESCROWED);
 
-        when(paymentVerificationService.verifyPayment(anyLong(), anyString(), anyString(), any()))
+        when(paymentVerificationService.verifyPayment(anyLong(), anyString(), anyString(), any(), any(User.class)))
                 .thenReturn(payment);
 
-        mockMvc.perform(post("/api/v1/payments/verify")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "paymentId": 601,
-                          "gatewayPaymentId": "pay_test_123",
-                          "signature": "test_signature",
-                          "extraParams": {
-                            "razorpay_order_id": "order_test_123"
-                          }
-                        }
-                        """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Payment verified"))
-                .andExpect(jsonPath("$.data.status").value("ESCROWED"));
+        try {
+            mockMvc.perform(post("/api/v1/payments/verify")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "paymentId": 601,
+                              "gatewayPaymentId": "pay_test_123",
+                              "signature": "test_signature",
+                              "extraParams": {
+                                "razorpay_order_id": "order_test_123"
+                              }
+                            }
+                            """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Payment verified"))
+                    .andExpect(jsonPath("$.data.status").value("ESCROWED"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void processRefundReturnsSuccess() throws Exception {
+        User learner = new User();
+        learner.setId(11L);
+        learner.setRole(UserRole.LEARNER);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(learner, null,
+                learner.getAuthorities()));
+        SecurityContextHolder.setContext(context);
+
         Payment payment = new Payment();
         payment.setId(701L);
         payment.setStatus(PaymentStatus.REFUNDED);
 
-        when(paymentService.refundPayment(anyLong(), any(), anyString())).thenReturn(payment);
+        when(paymentService.refundPayment(anyLong(), any(), anyString(), any(User.class))).thenReturn(payment);
 
-        mockMvc.perform(post("/api/v1/payments/701/refund")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {
-                          "amount": 10.00,
-                          "reason": "Customer requested"
-                        }
-                        """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Refund processed"))
-                .andExpect(jsonPath("$.data.status").value("REFUNDED"));
+        try {
+            mockMvc.perform(post("/api/v1/payments/701/refund")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {
+                              "amount": 10.00,
+                              "reason": "Customer requested"
+                            }
+                            """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Refund processed"))
+                    .andExpect(jsonPath("$.data.status").value("REFUNDED"));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void getPaymentByIdReturnsPayment() throws Exception {
+        User learner = new User();
+        learner.setId(11L);
+        learner.setRole(UserRole.LEARNER);
+
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken(learner, null,
+                learner.getAuthorities()));
+        SecurityContextHolder.setContext(context);
+
         Payment payment = new Payment();
         payment.setId(801L);
         payment.setStatus(PaymentStatus.INITIATED);
 
-        when(paymentRepository.findById(801L)).thenReturn(Optional.of(payment));
+        // Ownership is enforced in the service layer; the controller simply
+        // passes the authenticated user through.
+        when(paymentService.getPayment(anyLong(), any(User.class))).thenReturn(payment);
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/payments/801")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Payment fetched"))
-                .andExpect(jsonPath("$.data.id").value(801));
+        try {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/payments/801")
+                    .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.message").value("Payment fetched"))
+                    .andExpect(jsonPath("$.data.id").value(801));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 }

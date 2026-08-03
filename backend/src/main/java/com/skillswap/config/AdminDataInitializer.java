@@ -21,6 +21,9 @@ import java.util.UUID;
  * Only one admin user is ever allowed in the system — signups with
  * {@code UserRole.ADMIN} are rejected in {@code AuthService}.
  */
+/**
+ * Encapsulates admin data initializer.
+ */
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -93,8 +96,8 @@ public class AdminDataInitializer implements CommandLineRunner {
                 // The configured admin email doesn't match any existing admin.
                 // If there's already an enabled admin in the system, do NOT create another one.
                 // Instead, inform via log that the configured admin email was not matched.
-                log.warn("Configured admin email '{}' does not match any existing admin. " +
-                        "An admin already exists in the system. Skipping creation.", adminEmail);
+                log.warn("Configured admin email '{}' does not match any existing admin. "
+                        + "An admin already exists in the system. Skipping creation.", adminEmail);
             }
             return;
         }
@@ -183,8 +186,12 @@ public class AdminDataInitializer implements CommandLineRunner {
     private String generateUsernameFromEmail(String email) {
         String base = email.contains("@") ? email.substring(0, email.indexOf('@')) : "admin";
         base = base.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
-        if (base.length() < 3) base = base + "admin";
-        if (base.length() > 20) base = base.substring(0, 20);
+        if (base.length() < 3) {
+            base = base + "admin";
+        }
+        if (base.length() > 20) {
+            base = base.substring(0, 20);
+        }
 
         // Check if the generated username is reserved or already taken
         String candidate = base;

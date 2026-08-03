@@ -9,6 +9,9 @@ import jakarta.persistence.Table;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Encapsulates referral reward.
+ */
 @Entity
 @Table(name = "referral_rewards")
 public class ReferralReward {

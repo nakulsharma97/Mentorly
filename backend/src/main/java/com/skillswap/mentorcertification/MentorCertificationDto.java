@@ -7,6 +7,9 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
+/**
+ * Encapsulates mentor certification.
+ */
 @Data
 public class MentorCertificationDto {
 

@@ -3,10 +3,7 @@ package com.skillswap.admin;
 import com.skillswap.common.AuditLog;
 import com.skillswap.common.AuditLogRepository;
 import com.skillswap.common.AuditLogService;
-import com.skillswap.common.ApiResponse;
-import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
-import com.skillswap.booking.BookingStatus;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
@@ -15,17 +12,12 @@ import com.skillswap.payment.PaymentStatus;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.session.SessionRepository;
-import com.skillswap.safety.ReportStatus;
-import com.skillswap.safety.UserReport;
 import com.skillswap.safety.UserReportRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
-import com.skillswap.verification.MentorVerificationRequest;
 import com.skillswap.verification.MentorVerificationRequestRepository;
-import com.skillswap.verification.MentorVerificationRequestStatus;
 import com.skillswap.waitlist.SessionWaitlistRepository;
-import com.skillswap.wallet.WalletLedgerEntry;
 import com.skillswap.wallet.WalletService;
 import com.skillswap.session.SkillSession;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +40,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminService {
 
-    private static final Logger log = LoggerFactory.getLogger(AdminService.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AdminService.class);
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -165,17 +157,26 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
 
         if (payment.getStatus() != PaymentStatus.ESCROWED) {
-            throw new IllegalArgumentException("Only escrowed payments can be refunded. Current status: " + payment.getStatus());
+            throw new IllegalArgumentException(
+                    "Only escrowed payments can be refunded. Current status: " + payment.getStatus());
         }
 
-        walletService.addEntryForUser(payment.getLearnerId(), new WalletService.WalletEntryRequest(
-                com.skillswap.wallet.WalletTransactionType.REFUND,
-                payment.getAmount(), payment.getCurrency(),
-                "Admin refund: " + reason + " (payment #" + payment.getId() + ")",
-                "PAYMENT", payment.getId()));
+        // Gateway-first refund — the external gateway is called before the DB
+        // status flips; a gateway failure propagates and rolls back the wallet
+        // credit and status change below (transaction consistency).
+        Payment saved = paymentService.refundForCancellation(paymentId, payment.getAmount(), reason);
 
-        payment.setStatus(PaymentStatus.REFUNDED);
-        Payment saved = paymentRepository.save(payment);
+        // Wallet-gateway escrow is internal money — refund it into the learner's
+        // wallet. External-gateway payments were charged at the gateway, so the
+        // money goes back to the payer there; no wallet credit is issued.
+        if ("wallet".equalsIgnoreCase(payment.getGateway())) {
+            walletService.addEntryForUser(payment.getLearnerId(), new WalletService.WalletEntryRequest(
+                    com.skillswap.wallet.WalletTransactionType.REFUND,
+                    payment.getAmount(), payment.getCurrency(),
+                    "Admin refund: " + reason + " (payment #" + payment.getId() + ")",
+                    "PAYMENT", payment.getId()));
+        }
+
         saveAuditLog(currentUser, "REFUND_PAYMENT", "Payment", paymentId,
                 "Refunded " + payment.getAmount() + ": " + reason);
         return saved;
@@ -187,7 +188,8 @@ public class AdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
 
         if (payment.getStatus() != PaymentStatus.ESCROWED) {
-            throw new IllegalArgumentException("Only escrowed payments can be released. Current status: " + payment.getStatus());
+            throw new IllegalArgumentException(
+                    "Only escrowed payments can be released. Current status: " + payment.getStatus());
         }
 
         BigDecimal grossAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
@@ -239,7 +241,9 @@ public class AdminService {
     public java.util.Set<String> persistSettings(Map<String, String> settings) {
         java.util.Set<String> written = new java.util.LinkedHashSet<>();
         for (Map.Entry<String, String> entry : settings.entrySet()) {
-            if (entry.getValue() == null) continue;
+            if (entry.getValue() == null) {
+                continue;
+            }
             // Input validation — only catalog-known keys may be written so an
             // arbitrary key can never be injected through the settings API.
             if (!PlatformSettingsCatalog.isKnown(entry.getKey())) {
@@ -308,7 +312,8 @@ public class AdminService {
         if (targetRole != null && !targetRole.isBlank()) {
             UserRole role = UserRole.valueOf(targetRole.toUpperCase());
             targets = new java.util.ArrayList<>();
-            org.springframework.data.domain.PageRequest batchReq = org.springframework.data.domain.PageRequest.of(0, 1000);
+            org.springframework.data.domain.PageRequest batchReq =
+                    org.springframework.data.domain.PageRequest.of(0, 1000);
             org.springframework.data.domain.Page<User> batch;
             do {
                 batch = userRepository.findByRole(role, batchReq);
@@ -336,19 +341,25 @@ public class AdminService {
 
     @Transactional
     public int bulkEnableUsers(List<Long> targetIds) {
-        if (targetIds.isEmpty()) return 0;
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
         return userRepository.updateEnabledBatch(targetIds, true);
     }
 
     @Transactional
     public int bulkDisableUsers(List<Long> targetIds) {
-        if (targetIds.isEmpty()) return 0;
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
         return userRepository.updateEnabledBatch(targetIds, false);
     }
 
     @Transactional
     public int bulkUpdateRole(List<Long> targetIds, UserRole targetRole) {
-        if (targetIds.isEmpty()) return 0;
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
         int updated = userRepository.updateRoleBatch(targetIds, targetRole);
         if (targetRole != UserRole.MENTOR) {
             userRepository.resetMentorVerifiedBatch(targetIds);
@@ -363,7 +374,9 @@ public class AdminService {
     @Transactional
     public void updateNotificationPreferences(Map<String, Boolean> prefs) {
         for (Map.Entry<String, Boolean> entry : prefs.entrySet()) {
-            if (entry.getValue() == null) continue;
+            if (entry.getValue() == null) {
+                continue;
+            }
             AdminNotifPreference pref = adminNotifPreferenceRepository.findByPrefKey(entry.getKey())
                     .orElseGet(() -> {
                         AdminNotifPreference p = new AdminNotifPreference();
@@ -387,7 +400,7 @@ public class AdminService {
             auditLog.setIpAddress(AuditLogService.extractClientIp());
             auditLogRepository.save(auditLog);
         } catch (Exception ignored) {
-            log.warn("Failed to save audit log", ignored);
+            LOG.warn("Failed to save audit log", ignored);
         }
     }
 }

@@ -7,6 +7,9 @@ package com.skillswap.user;
  * - FINANCE: Payments, refunds, wallet only
  * - SUPPORT: Users, conversations, sessions only
  */
+/**
+ * Enumerates admin sub role.
+ */
 public enum AdminSubRole {
     SUPER_ADMIN,
     MODERATOR,

@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code SessionWaitlist} persistence.
+ */
 public interface SessionWaitlistRepository extends JpaRepository<SessionWaitlist, Long> {
     Optional<SessionWaitlist> findBySessionIdAndLearnerIdAndStatus(Long sessionId, Long learnerId,
             WaitlistStatus status);

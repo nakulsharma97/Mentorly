@@ -6,6 +6,9 @@ import lombok.Data;
 
 import java.util.List;
 
+/**
+ * Encapsulates user profile.
+ */
 @Data
 public class UserProfileDto {
 

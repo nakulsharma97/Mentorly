@@ -10,7 +10,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -21,6 +27,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller exposing payment endpoints.
+ */
 @Tag(name = "Payments", description = "Payment processing, gateway adapters, refunds, and transaction history")
 @RestController
 @Validated
@@ -28,7 +37,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PaymentController.class);
 
     private final PaymentService paymentService;
     private final PaymentVerificationService paymentVerificationService;
@@ -49,8 +58,9 @@ public class PaymentController {
     @GetMapping("/{id}")
     public ApiResponse<Payment> getPayment(@AuthenticationPrincipal User currentUser,
             @PathVariable @NotNull @Min(1) Long id) {
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        // Ownership validated in the service layer (learner who paid, or admin)
+        // — prevents IDOR on payment records.
+        Payment payment = paymentService.getPayment(id, currentUser);
         return new ApiResponse<>("Payment fetched", payment);
     }
 
@@ -74,8 +84,10 @@ public class PaymentController {
     @PostMapping("/verify")
     public ApiResponse<Payment> verifyPayment(@AuthenticationPrincipal User currentUser,
             @Valid @RequestBody VerifyPaymentRequest req) {
+        // Ownership validated in the service layer — only the learner who paid
+        // (or an admin) can confirm a payment.
         Payment verified = paymentVerificationService.verifyPayment(
-                req.paymentId(), req.gatewayPaymentId(), req.signature(), req.extraParams());
+                req.paymentId(), req.gatewayPaymentId(), req.signature(), req.extraParams(), currentUser);
         return new ApiResponse<>("Payment verified", verified);
     }
 
@@ -101,12 +113,13 @@ public class PaymentController {
             try {
                 String gatewayStatus = paymentVerificationService.fetchFromGateway(payment);
                 if ("captured".equalsIgnoreCase(gatewayStatus) || "completed".equalsIgnoreCase(gatewayStatus)) {
-                    // Complete the verification
+                    // Complete the verification (ownership already checked above)
                     payment = paymentVerificationService.verifyPayment(
-                            payment.getId(), payment.getPaymentId(), payment.getSignature(), Map.of());
+                            payment.getId(), payment.getPaymentId(), payment.getSignature(), Map.of(),
+                            currentUser);
                 }
             } catch (Exception e) {
-                log.warn("Failed to fetch gateway status for paymentId={}", id, e);
+                LOG.warn("Failed to fetch gateway status for paymentId={}", id, e);
             }
         }
 
@@ -120,7 +133,9 @@ public class PaymentController {
     public ApiResponse<Payment> refundPayment(@AuthenticationPrincipal User currentUser,
             @PathVariable @NotNull @Min(1) Long id,
             @Valid @RequestBody RefundPaymentRequest req) {
-        Payment refunded = paymentService.refundPayment(id, req.amount(), req.reason());
+        // Ownership validated in the service layer — only the learner who paid
+        // (or an admin) can refund a payment.
+        Payment refunded = paymentService.refundPayment(id, req.amount(), req.reason(), currentUser);
         return new ApiResponse<>("Refund processed", refunded);
     }
 
@@ -144,18 +159,18 @@ public class PaymentController {
 
         // Verify webhook signature — reject forged events before any processing
         if (!gatewayAdapter.verifyWebhookSignature(rawBody, signatureHeader)) {
-            log.warn("Webhook signature verification FAILED for gateway={}", gateway);
+            LOG.warn("Webhook signature verification FAILED for gateway={}", gateway);
             throw new IllegalArgumentException("Invalid webhook signature");
         }
-        log.info("Webhook signature verified for gateway={}", gateway);
+        LOG.info("Webhook signature verified for gateway={}", gateway);
 
         // Parse the raw JSON body to a Map with proper type safety
         Map<String, Object> webhookPayload;
         try {
             webhookPayload = OBJECT_MAPPER.readValue(rawBody,
-                    new TypeReference<Map<String, Object>>() {});
+                    new TypeReference<Map<String, Object>>() { });
         } catch (Exception e) {
-            log.warn("Failed to parse webhook payload JSON for gateway={}", gateway, e);
+            LOG.warn("Failed to parse webhook payload JSON for gateway={}", gateway, e);
             throw new IllegalArgumentException("Invalid webhook payload format");
         }
 
@@ -163,7 +178,7 @@ public class PaymentController {
         String eventType = safeStringCast(webhookPayload.get("event"), "unknown");
         String gatewayPaymentId = extractGatewayPaymentId(webhookPayload);
 
-        log.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}",
+        LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}",
                 gateway, eventType, gatewayPaymentId);
 
         Payment processed = paymentVerificationService.processWebhookEvent(
@@ -214,12 +229,18 @@ public class PaymentController {
 
     // --- Request DTOs ---
 
+/**
+ * Immutable data carrier for create payment intent request.
+ */
     public record CreatePaymentIntentRequest(
             @NotNull @Min(1) Long bookingId,
-            @NotNull java.math.BigDecimal amount,
+            @NotNull BigDecimal amount,
             String gateway) {
     }
 
+/**
+ * Immutable data carrier for verify payment request.
+ */
     public record VerifyPaymentRequest(
             @NotNull @Min(1) Long paymentId,
             @NotBlank String gatewayPaymentId,
@@ -227,6 +248,9 @@ public class PaymentController {
             Map<String, String> extraParams) {
     }
 
+/**
+ * Immutable data carrier for refund payment request.
+ */
     public record RefundPaymentRequest(
             @NotNull @Min(1) BigDecimal amount,
             String reason) {

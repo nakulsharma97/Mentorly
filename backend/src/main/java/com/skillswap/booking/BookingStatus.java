@@ -1,5 +1,8 @@
 package com.skillswap.booking;
 
+/**
+ * Enumerates booking status.
+ */
 public enum BookingStatus {
     PENDING,
     CONFIRMED,

@@ -9,11 +9,23 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.*;
+import java.time.DateTimeException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,12 +33,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller exposing availability endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/availability")
 @RequiredArgsConstructor
 public class AvailabilityController {
 
-    private static final Logger log = LoggerFactory.getLogger(AvailabilityController.class);
+    private static final Logger LOG = LoggerFactory.getLogger(AvailabilityController.class);
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
 
     private final UserAvailabilitySlotRepository slotRepository;
@@ -43,7 +58,7 @@ public class AvailabilityController {
     @PostMapping("/my-slots")
     public ApiResponse<SlotResponse> createSlot(@AuthenticationPrincipal User user,
             @RequestBody SlotRequest req) {
-        log.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
+        LOG.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
         validateSlotRequest(req);
 
         UserAvailabilitySlot slot = new UserAvailabilitySlot();
@@ -54,14 +69,14 @@ public class AvailabilityController {
         slot.setTimezone(req.timezone());
         slot.setActive(req.active() == null || req.active());
         UserAvailabilitySlot saved = slotRepository.save(slot);
-        log.info("Availability slot saved id={} for userId={}", saved.getId(), user.getId());
+        LOG.info("Availability slot saved id={} for userId={}", saved.getId(), user.getId());
 
         // Auto-create sessions from this availability slot
         try {
             List<SkillSession> autoSessions = sessionAutoCreationService.createSessionsFromSlot(saved, user);
-            log.info("Auto-created {} sessions from availability slot id={}", autoSessions.size(), saved.getId());
+            LOG.info("Auto-created {} sessions from availability slot id={}", autoSessions.size(), saved.getId());
         } catch (Exception e) {
-            log.warn("Failed to auto-create sessions from availability slot id={}: {}", saved.getId(), e.getMessage());
+            LOG.warn("Failed to auto-create sessions from availability slot id={}: {}", saved.getId(), e.getMessage());
         }
 
         return new ApiResponse<>("Availability slot created", SlotResponse.fromEntity(saved));
@@ -70,7 +85,7 @@ public class AvailabilityController {
     @PatchMapping("/my-slots/{id}")
     public ApiResponse<SlotResponse> updateSlot(@AuthenticationPrincipal User user,
             @PathVariable Long id, @RequestBody SlotRequest req) {
-        log.info("updateSlot called for userId={}, slotId={}", user.getId(), id);
+        LOG.info("updateSlot called for userId={}, slotId={}", user.getId(), id);
         validateSlotRequest(req);
 
         UserAvailabilitySlot slot = slotRepository.findById(id)
@@ -85,14 +100,15 @@ public class AvailabilityController {
         slot.setTimezone(req.timezone());
         slot.setActive(req.active() == null || req.active());
         UserAvailabilitySlot saved = slotRepository.save(slot);
-        log.info("Availability slot updated id={} for userId={}", saved.getId(), user.getId());
+        LOG.info("Availability slot updated id={} for userId={}", saved.getId(), user.getId());
 
         // Auto-create sessions from this updated availability slot (for future dates)
         try {
             List<SkillSession> autoSessions = sessionAutoCreationService.createSessionsFromSlot(saved, user);
-            log.info("Auto-created {} sessions from updated availability slot id={}", autoSessions.size(), saved.getId());
+            LOG.info("Auto-created {} sessions from updated availability slot id={}",
+                    autoSessions.size(), saved.getId());
         } catch (Exception e) {
-            log.warn("Failed to auto-create sessions from updated slot id={}: {}", saved.getId(), e.getMessage());
+            LOG.warn("Failed to auto-create sessions from updated slot id={}: {}", saved.getId(), e.getMessage());
         }
 
         return new ApiResponse<>("Availability slot updated", SlotResponse.fromEntity(saved));
@@ -281,9 +297,15 @@ public class AvailabilityController {
         }
     }
 
+/**
+ * Immutable data carrier for slot request.
+ */
     public record SlotRequest(Integer dayOfWeek, String startTime, String endTime, String timezone, Boolean active) {
     }
 
+/**
+ * Immutable data carrier for slot response.
+ */
     public record SlotResponse(Long id, Integer dayOfWeek, String startTime, String endTime,
                                String timezone, boolean active) {
         static SlotResponse fromEntity(UserAvailabilitySlot slot) {
@@ -292,9 +314,15 @@ public class AvailabilityController {
         }
     }
 
+/**
+ * Immutable data carrier for slot view.
+ */
     public record SlotView(Integer dayOfWeek, String startTime, String endTime, String timezone, String note) {
     }
 
+/**
+ * Immutable data carrier for recommended slot view.
+ */
     public record RecommendedSlotView(
             Integer dayOfWeek,
             String startTime,

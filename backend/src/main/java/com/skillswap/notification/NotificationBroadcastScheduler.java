@@ -17,6 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * firing; NONE repeats finish as SENT. A process-local flag prevents overlapping
  * runs on the same JVM.
  */
+/**
+ * Encapsulates notification broadcast scheduler.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

@@ -11,6 +11,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
+/**
+ * Encapsulates oauth2 login failure.
+ */
 @Component
 public class OAuth2LoginFailureHandler implements AuthenticationFailureHandler {
 

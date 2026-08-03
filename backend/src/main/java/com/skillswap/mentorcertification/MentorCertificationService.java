@@ -8,6 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * Service implementing mentor certification business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class MentorCertificationService {
@@ -60,12 +63,16 @@ public class MentorCertificationService {
     private void ensureUnique(User owner, MentorCertificationDto request, Long excludeId) {
         String normalizedName = normalize(request.getCertificationName());
         String normalizedOrg = normalize(request.getIssuingOrganization());
-        if (normalizedName == null || normalizedOrg == null) return;
+        if (normalizedName == null || normalizedOrg == null) {
+            return;
+        }
 
         boolean duplicate = certificationRepository.findByMentorIdOrderByIssueDateDesc(owner.getId())
                 .stream()
                 .anyMatch(item -> {
-                    if (excludeId != null && excludeId.equals(item.getId())) return false;
+                    if (excludeId != null && excludeId.equals(item.getId())) {
+                        return false;
+                    }
                     return normalize(item.getCertificationName()).equals(normalizedName)
                             && normalize(item.getIssuingOrganization()).equals(normalizedOrg);
                 });
@@ -130,16 +137,29 @@ public class MentorCertificationService {
                 throw new IllegalArgumentException("Credential URL must start with http:// or https://");
             }
         }
+        // Validate certificate image URL scheme server-side — the frontend-only
+        // check is bypassable via the API, so a javascript:/data: link could
+        // otherwise be stored and rendered as a clickable anchor.
+        if (request.getCertificateImage() != null && !request.getCertificateImage().trim().isEmpty()) {
+            String image = request.getCertificateImage().trim().toLowerCase(Locale.ROOT);
+            if (!image.startsWith("http://") && !image.startsWith("https://")) {
+                throw new IllegalArgumentException("Certificate image URL must start with http:// or https://");
+            }
+        }
     }
 
     private static String normalize(String value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed.toLowerCase(Locale.ROOT);
     }
 
     private static String trimToNull(String value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }

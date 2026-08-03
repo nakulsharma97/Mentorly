@@ -18,19 +18,26 @@ import java.util.concurrent.atomic.AtomicLong;
  * the monitoring dashboard can render real CPU / memory / API-latency charts
  * that accumulate over time. All values are measured live — nothing is seeded.
  */
+/**
+ * Service implementing request stats business logic.
+ */
 @Component
 public class RequestStatsService {
 
-    /** Per-endpoint aggregation. */
+/**
+ * Immutable data carrier for endpoint stat.
+ */
     public record EndpointStat(String path, long count, long failures, long totalDurationMs) {
         public double avgResponseTimeMs() {
             return count == 0 ? 0 : totalDurationMs / (double) count;
         }
     }
 
-    /** One sampled snapshot (appended by the health poll loop). */
+/**
+ * Immutable data carrier for system sample.
+ */
     public record SystemSample(long at, double cpuPercent, double heapPercent,
-            double dbResponseMs, double apiAvgMs, double loadAvg) {}
+            double dbResponseMs, double apiAvgMs, double loadAvg) { }
 
     private static final int MAX_HISTORY = 120;
 

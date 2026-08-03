@@ -18,6 +18,9 @@ import java.util.stream.Collectors;
  * (existing {@link AdminSetting} entity) — no schema change required. Values
  * are stored as strings; boolean/number coercion happens at read time.
  */
+/**
+ * Encapsulates platform settings catalog.
+ */
 public final class PlatformSettingsCatalog {
 
     private PlatformSettingsCatalog() {
@@ -38,7 +41,10 @@ public final class PlatformSettingsCatalog {
     public static final String CAT_APPEARANCE = "appearance";
     public static final String CAT_MAINTENANCE = "maintenance";
 
-    public record Category(String id, String label, String description) {}
+/**
+ * Immutable data carrier for category.
+ */
+    public record Category(String id, String label, String description) { }
 
     public static final List<Category> CATEGORIES = List.of(
             new Category(CAT_GENERAL, "General", "Platform identity, contact and branding."),
@@ -54,7 +60,9 @@ public final class PlatformSettingsCatalog {
             new Category(CAT_APPEARANCE, "Appearance", "Theme, accent and default layout."),
             new Category(CAT_MAINTENANCE, "Maintenance", "Maintenance mode and operational tools."));
 
-    /** A single configurable setting. */
+/**
+ * Immutable data carrier for setting def.
+ */
     public record SettingDef(String key, String category, String type, String label,
             String description, String defaultValue, List<String> options) {
     }

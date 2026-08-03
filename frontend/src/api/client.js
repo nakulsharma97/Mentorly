@@ -34,6 +34,19 @@ const client = axios.create({
 
 let activeAuthToken = null;
 
+// One-time migration: sessions created before the token-hardening change may
+// have the refresh token sitting in web storage where XSS could read it. The
+// refresh token now lives only in the httpOnly refresh_token cookie, so purge
+// any legacy copy immediately on app load — even before the user logs out.
+if (typeof window !== "undefined") {
+  try {
+    window.localStorage.removeItem("refreshToken");
+    window.sessionStorage.removeItem("refreshToken");
+  } catch {
+    // ignore storage access errors (e.g. privacy modes)
+  }
+}
+
 function readCookie(name) {
   if (typeof document === "undefined") {
     return null;
@@ -182,9 +195,12 @@ export function resolveAuthResponsePayload(payload) {
 }
 
 export function persistAuthSession(authResponse) {
+  // The refresh token is intentionally NEVER written to localStorage or
+  // sessionStorage. It lives ONLY in the httpOnly refresh_token cookie set by
+  // the server (AuthCookieService), so JavaScript — and therefore XSS — cannot
+  // read it. The access token is still stored because it is short-lived and
+  // needed to attach the Authorization header on page reload.
   const cookieTokenBeforeClear = readStoredCookieAuthToken();
-  const cookieRefreshTokenBeforeClear =
-    readCookie("refresh_token") || readCookie("refreshToken") || null;
 
   clearAuthSessionState({ preserveCookies: true });
 
@@ -194,7 +210,6 @@ export function persistAuthSession(authResponse) {
   // Tree-shaken in production builds via Vite's process.env.NODE_ENV replacement.
   if (process.env.NODE_ENV === 'development') {
     console.debug("[auth] cookieTokenBeforeClear", cookieTokenBeforeClear);
-    console.debug("[auth] cookieRefreshTokenBeforeClear", cookieRefreshTokenBeforeClear);
     console.debug("[auth] normalizedAuthResponse", normalizedAuthResponse);
   }
 
@@ -203,11 +218,6 @@ export function persistAuthSession(authResponse) {
     normalizedAuthResponse?.accessToken ||
     normalizedAuthResponse?.jwt ||
     cookieTokenBeforeClear ||
-    null;
-  const nextRefreshToken =
-    normalizedAuthResponse?.refreshToken ||
-    normalizedAuthResponse?.refresh_token ||
-    cookieRefreshTokenBeforeClear ||
     null;
   const nextEmail =
     normalizedAuthResponse?.email ||
@@ -220,7 +230,6 @@ export function persistAuthSession(authResponse) {
   // Tree-shaken in production builds via Vite's process.env.NODE_ENV replacement.
   if (process.env.NODE_ENV === 'development') {
     console.debug("[auth] nextToken", nextToken);
-    console.debug("[auth] nextRefreshToken", nextRefreshToken);
     console.debug("[auth] nextEmail", nextEmail);
     console.debug("[auth] nextRole", nextRole);
   }
@@ -230,10 +239,6 @@ export function persistAuthSession(authResponse) {
   }
 
   if (typeof window !== "undefined") {
-    if (nextRefreshToken) {
-      window.localStorage.setItem("refreshToken", nextRefreshToken);
-      window.sessionStorage.setItem("refreshToken", nextRefreshToken);
-    }
     if (nextEmail) {
       window.localStorage.setItem("user", nextEmail);
       window.sessionStorage.setItem("user", nextEmail);
@@ -340,6 +345,12 @@ client.interceptors.request.use((config) => {
 
 const RETRYABLE_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 
+// Single-flight lock for the 401 refresh flow: when several requests fail
+// with 401 at once, they share ONE /auth/refresh call instead of firing N
+// concurrent refreshes (which could race the backend's single-use rotation
+// and spuriously log the user out).
+let activeRefreshPromise = null;
+
 client.interceptors.response.use(
   (response) => {
     const startedAt = response?.config?.metadata?.startedAt;
@@ -391,10 +402,17 @@ client.interceptors.response.use(
       !String(config.url || "").includes("/api/v1/auth/signup")
     ) {
       try {
-        const refreshResponse = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
-          withCredentials: true,
-          headers: { "Content-Type": "application/json" },
-        });
+        if (!activeRefreshPromise) {
+          activeRefreshPromise = axios
+            .post(`${API_BASE_URL}/api/v1/auth/refresh`, null, {
+              withCredentials: true,
+              headers: { "Content-Type": "application/json" },
+            })
+            .finally(() => {
+              activeRefreshPromise = null;
+            });
+        }
+        const refreshResponse = await activeRefreshPromise;
 
         // Extract and persist the new token from the refresh response body.
         // Without this, the retried request would still have the old expired token

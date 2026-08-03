@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code UserReport} persistence.
+ */
 public interface UserReportRepository extends JpaRepository<UserReport, Long> {
     List<UserReport> findByReporterIdOrderByCreatedAtDesc(Long reporterId);
 

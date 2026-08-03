@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code SessionRequest} persistence.
+ */
 public interface SessionRequestRepository extends JpaRepository<SessionRequest, Long> {
 
     List<SessionRequest> findByMentorIdAndStatusOrderByCreatedAtDesc(Long mentorId, SessionRequestStatus status);

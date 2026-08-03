@@ -7,6 +7,11 @@
 /frontend/playwright-report-a11y/
 /frontend/test-results/
 /backups/
+# Runtime uploads (user files land under uploads/chat on the server)
+/backend/uploads/
+/contracts/artifacts/
+/contracts/cache/
+/contracts/coverage/
 
 # Root-level artifacts
 node_modules/

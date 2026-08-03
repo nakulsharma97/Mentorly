@@ -4,11 +4,19 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * REST controller exposing learning roadmap endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/roadmaps")
 @RequiredArgsConstructor
@@ -66,6 +74,9 @@ public class LearningRoadmapController {
         return new ApiResponse<>("Roadmap updated", learningRoadmapRepository.save(roadmap));
     }
 
+/**
+ * Immutable data carrier for update roadmap request.
+ */
     public record UpdateRoadmapRequest(String milestones, Integer progressPercent) {
     }
 }

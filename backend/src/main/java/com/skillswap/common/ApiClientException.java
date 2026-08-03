@@ -2,6 +2,9 @@ package com.skillswap.common;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * Encapsulates api client exception.
+ */
 public class ApiClientException extends RuntimeException {
 
     private final HttpStatus status;

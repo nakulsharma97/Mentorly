@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Service implementing stats business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class StatsService {
@@ -31,7 +34,7 @@ public class StatsService {
         // completion rate: percentage of all bookings that reached COMPLETED
         double completionRate = 0.0;
         if (totalBookings > 0) {
-            completionRate = Math.round((completedSwaps * 10000.0) / totalBookings) / 100.0;
+            completionRate = Math.round(completedSwaps * 10000.0 / totalBookings) / 100.0;
         }
 
         // compute overall average rating across mentor and learner reviews

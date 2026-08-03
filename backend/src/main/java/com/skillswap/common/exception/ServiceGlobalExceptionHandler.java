@@ -20,11 +20,14 @@ import java.util.Map;
  * Uses the same {@code ApiResponse} error format as {@code GlobalExceptionHandler}
  * so all error responses are structurally consistent across the entire API.
  */
+/**
+ * Encapsulates service global exception.
+ */
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ServiceGlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ServiceGlobalExceptionHandler.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ServiceGlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Map<String, Object>>> handleResourceNotFound(ResourceNotFoundException ex) {
@@ -42,7 +45,8 @@ public class ServiceGlobalExceptionHandler {
     }
 
     @ExceptionHandler(MeetingProviderException.class)
-    public ResponseEntity<ApiResponse<Map<String, Object>>> handleMeetingProviderException(MeetingProviderException ex) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleMeetingProviderException(
+            MeetingProviderException ex) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "MEETING_PROVIDER_ERROR", ex.getMessage());
     }
 

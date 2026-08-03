@@ -17,6 +17,9 @@ import java.util.List;
  * (certificates, resume, experience, etc.), and the mentor's structured
  * certifications for evidence review.
  */
+/**
+ * Immutable data carrier for mentor verification.
+ */
 public record MentorVerificationDto(
         Long id,
         String status,

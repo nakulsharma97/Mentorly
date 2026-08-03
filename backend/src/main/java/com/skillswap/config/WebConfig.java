@@ -9,19 +9,21 @@ import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
 
+/**
+ * Encapsulates web.
+ */
 @Configuration
 @EnableRetry
 @EnableAsync
 public class WebConfig implements AsyncConfigurer, WebMvcConfigurer {
 
-    private static final Logger log = LoggerFactory.getLogger(WebConfig.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WebConfig.class);
 
     @Bean(name = "emailTaskExecutor")
     public Executor emailTaskExecutor() {
@@ -39,7 +41,7 @@ public class WebConfig implements AsyncConfigurer, WebMvcConfigurer {
     @Override
     public AsyncUncaughtExceptionHandler getAsyncUncaughtExceptionHandler() {
         return (Throwable ex, Method method, Object... params) -> {
-            log.error(
+            LOG.error(
                 "Uncaught async exception in method '{}' of class {} with params: {}",
                 method.getName(),
                 method.getDeclaringClass().getSimpleName(),
@@ -49,9 +51,8 @@ public class WebConfig implements AsyncConfigurer, WebMvcConfigurer {
         };
     }
 
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
-    }
+    // NOTE: /uploads/** is deliberately NOT registered as a public static
+    // resource handler. Uploaded files are served exclusively through
+    // GET /api/v1/files/{id}/content, which enforces ownership, chat
+    // participant, admin, and expiry checks (see StoredFileService).
 }

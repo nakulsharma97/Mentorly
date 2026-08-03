@@ -19,13 +19,18 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * searchable and paginated. Nothing is faked: every entry is a real log line
  * produced by the running application.
  */
+/**
+ * Service implementing log buffer business logic.
+ */
 @Component
 public class LogBufferService {
 
     private static final int MAX_BUFFERED = 2000;
 
-    /** A captured log entry. */
-    public record LogEntry(String timestamp, String service, String level, String message) {}
+/**
+ * Immutable data carrier for log entry.
+ */
+    public record LogEntry(String timestamp, String service, String level, String message) { }
 
     private final ConcurrentLinkedDeque<LogEntry> buffer = new ConcurrentLinkedDeque<>();
 

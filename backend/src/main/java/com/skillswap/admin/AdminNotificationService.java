@@ -41,6 +41,9 @@ import java.util.Map;
  * dashboard stats, history, detail, recipients, and analytics payloads the
  * admin UI renders. Every state-changing call writes an audit log entry.</p>
  */
+/**
+ * Service implementing admin notification business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -70,10 +73,14 @@ public class AdminNotificationService {
 
         List<User> users = new ArrayList<>();
         switch (scope) {
-            case "MENTORS" -> users.addAll(userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.MENTOR));
-            case "LEARNERS" -> users.addAll(userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.LEARNER));
-            case "VERIFIED_MENTORS" -> users.addAll(userRepository.findByRoleAndMentorVerifiedTrueAndEnabledTrue(UserRole.MENTOR));
-            case "UNVERIFIED_MENTORS" -> users.addAll(userRepository.findByRoleAndMentorVerifiedFalseAndEnabledTrue(UserRole.MENTOR));
+            case "MENTORS" -> users.addAll(userRepository
+                    .findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.MENTOR));
+            case "LEARNERS" -> users.addAll(userRepository
+                    .findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.LEARNER));
+            case "VERIFIED_MENTORS" -> users.addAll(userRepository
+                    .findByRoleAndMentorVerifiedTrueAndEnabledTrue(UserRole.MENTOR));
+            case "UNVERIFIED_MENTORS" -> users.addAll(userRepository
+                    .findByRoleAndMentorVerifiedFalseAndEnabledTrue(UserRole.MENTOR));
             case "ROLES" -> {
                 for (Object raw : stringList(detail.get("roles"))) {
                     try {
@@ -87,25 +94,33 @@ public class AdminNotificationService {
             case "SKILLS" -> {
                 for (Object skill : stringList(detail.get("skills"))) {
                     String s = String.valueOf(skill).trim();
-                    if (s.isEmpty()) continue;
-                    users.addAll(userRepository.findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
-                            UserRole.MENTOR, s));
-                    users.addAll(userRepository.findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
-                            UserRole.LEARNER, s));
+                    if (s.isEmpty()) {
+                        continue;
+                    }
+                    users.addAll(userRepository
+                            .findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
+                                    UserRole.MENTOR, s));
+                    users.addAll(userRepository
+                            .findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
+                                    UserRole.LEARNER, s));
                 }
             }
             case "SPECIFIC_USERS" -> {
                 List<Long> ids = longList(detail.get("userIds"));
                 if (!ids.isEmpty()) {
                     for (User u : userRepository.findAllById(ids)) {
-                        if (u.isEnabled()) users.add(u);
+                        if (u.isEnabled()) {
+                            users.add(u);
+                        }
                     }
                 }
             }
             case "SESSION_PARTICIPANTS" -> {
                 for (Object raw : stringList(detail.get("sessionIds"))) {
                     Long sessionId = parseLong(String.valueOf(raw));
-                    if (sessionId == null) continue;
+                    if (sessionId == null) {
+                        continue;
+                    }
                     for (Booking b : bookingRepository.findBySessionId(sessionId)) {
                         if (b.getLearner() != null && b.getLearner().isEnabled()) {
                             users.add(b.getLearner());
@@ -374,7 +389,6 @@ public class AdminNotificationService {
     @Transactional(readOnly = true)
     public Map<String, Object> dashboardStats() {
         OffsetDateTime todayStart = OffsetDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
-        OffsetDateTime now = OffsetDateTime.now();
 
         long totalBroadcasts = broadcastRepository.countByDeletedAtIsNull();
         long sent = broadcastRepository.countByDeletedAtIsNullAndStatus(NotificationBroadcast.STATUS_SENT);
@@ -395,7 +409,7 @@ public class AdminNotificationService {
 
         long delivered = totalNotifications - failedDeliveries;
         double successRate = totalNotifications == 0 ? 0
-                : Math.round((delivered * 100.0 / totalNotifications) * 10.0) / 10.0;
+                : Math.round(delivered * 100.0 / totalNotifications * 10.0) / 10.0;
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("totalBroadcasts", totalBroadcasts);
@@ -541,7 +555,9 @@ public class AdminNotificationService {
         Map<java.time.LocalDate, Long> dailyMap = new java.util.HashMap<>();
         for (Object[] row : dailyRows) {
             java.time.LocalDate d = toLocalDate(row[0]);
-            if (d != null) dailyMap.put(d, ((Number) row[1]).longValue());
+            if (d != null) {
+                dailyMap.put(d, ((Number) row[1]).longValue());
+            }
         }
         java.time.format.DateTimeFormatter dayFmt = java.time.format.DateTimeFormatter.ofPattern("MMM d");
         List<Map<String, Object>> daily = new ArrayList<>();
@@ -555,12 +571,13 @@ public class AdminNotificationService {
         result.put("delivered", delivered);
         result.put("failed", failed);
         result.put("read", read);
-        result.put("readRate", totalDelivered == 0 ? 0 : Math.round((read * 100.0 / totalDelivered) * 10.0) / 10.0);
+        result.put("readRate", totalDelivered == 0 ? 0
+                : Math.round(read * 100.0 / totalDelivered * 10.0) / 10.0);
         result.put("clicked", clicked);
         result.put("clickRate", totalDelivered == 0 ? 0
-                : Math.round((clicked * 100.0 / totalDelivered) * 10.0) / 10.0);
+                : Math.round(clicked * 100.0 / totalDelivered * 10.0) / 10.0);
         result.put("deliverySuccess", (delivered + failed) == 0 ? 0
-                : Math.round((delivered * 100.0 / (delivered + failed)) * 10.0) / 10.0);
+                : Math.round(delivered * 100.0 / (delivered + failed) * 10.0) / 10.0);
         result.put("monthly", monthly);
         result.put("daily", daily);
         result.put("mostOpened", top.stream().map(b -> {
@@ -616,7 +633,9 @@ public class AdminNotificationService {
     }
 
     private static String normalizeType(String type) {
-        if (type == null || type.isBlank()) return "ANNOUNCEMENT";
+        if (type == null || type.isBlank()) {
+            return "ANNOUNCEMENT";
+        }
         String t = type.trim().toUpperCase();
         List<String> valid = List.of("ANNOUNCEMENT", "MAINTENANCE", "PLATFORM_UPDATE", "SECURITY_ALERT",
                 "PAYMENT_NOTIFICATION", "SESSION_REMINDER", "VERIFICATION_UPDATE", "REPORT_RESOLUTION",
@@ -625,14 +644,18 @@ public class AdminNotificationService {
     }
 
     private static String normalizePriority(String priority) {
-        if (priority == null || priority.isBlank()) return "MEDIUM";
+        if (priority == null || priority.isBlank()) {
+            return "MEDIUM";
+        }
         String p = priority.trim().toUpperCase();
         List<String> valid = List.of("LOW", "MEDIUM", "HIGH", "CRITICAL");
         return valid.contains(p) ? p : "MEDIUM";
     }
 
     private static String normalizeRepeat(String repeat) {
-        if (repeat == null || repeat.isBlank()) return "NONE";
+        if (repeat == null || repeat.isBlank()) {
+            return "NONE";
+        }
         String r = repeat.trim().toUpperCase();
         List<String> valid = List.of("NONE", "DAILY", "WEEKLY", "MONTHLY");
         return valid.contains(r) ? r : "NONE";
@@ -643,7 +666,9 @@ public class AdminNotificationService {
     }
 
     private Map<String, Object> parseDetail(String detail) {
-        if (detail == null || detail.isBlank()) return Map.of();
+        if (detail == null || detail.isBlank()) {
+            return Map.of();
+        }
         try {
             return objectMapper.readValue(detail, new TypeReference<Map<String, Object>>() { });
         } catch (Exception e) {
@@ -652,8 +677,12 @@ public class AdminNotificationService {
     }
 
     private static List<Object> stringList(Object value) {
-        if (value == null) return List.of();
-        if (value instanceof List<?> list) return new ArrayList<>(list);
+        if (value == null) {
+            return List.of();
+        }
+        if (value instanceof List<?> list) {
+            return new ArrayList<>(list);
+        }
         return List.of();
     }
 
@@ -662,7 +691,9 @@ public class AdminNotificationService {
         List<Long> out = new ArrayList<>();
         for (Object o : raw) {
             Long l = parseLong(String.valueOf(o));
-            if (l != null) out.add(l);
+            if (l != null) {
+                out.add(l);
+            }
         }
         return out;
     }
@@ -676,7 +707,9 @@ public class AdminNotificationService {
     }
 
     private static OffsetDateTime parseDate(String value, boolean endOfDay) {
-        if (value == null || value.isBlank()) return null;
+        if (value == null || value.isBlank()) {
+            return null;
+        }
         try {
             java.time.LocalDate d = java.time.LocalDate.parse(value);
             return endOfDay ? d.atTime(23, 59, 59).atOffset(java.time.ZoneOffset.UTC)
@@ -687,8 +720,12 @@ public class AdminNotificationService {
     }
 
     private static java.time.LocalDate toLocalDate(Object value) {
-        if (value instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
-        if (value instanceof java.time.LocalDate localDate) return localDate;
+        if (value instanceof java.sql.Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        if (value instanceof java.time.LocalDate localDate) {
+            return localDate;
+        }
         return null;
     }
 

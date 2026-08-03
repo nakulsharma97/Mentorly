@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code AuditLog} persistence.
+ */
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     List<AuditLog> findByUserIdOrderByCreatedAtDesc(Long userId);
@@ -106,10 +109,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     /** Actions actually performed by an admin account — the faithful "admin actions" measure. */
     long countByAdminIdIsNotNullAndArchivedAtIsNullAndCreatedAtAfter(OffsetDateTime after);
 
-    @Query("SELECT a.severity, COUNT(a) FROM AuditLog a WHERE a.archivedAt IS NULL AND a.createdAt >= :since GROUP BY a.severity")
+    @Query("SELECT a.severity, COUNT(a) FROM AuditLog a WHERE a.archivedAt IS NULL"
+            + " AND a.createdAt >= :since GROUP BY a.severity")
     List<Object[]> countGroupedBySeveritySince(@Param("since") OffsetDateTime since);
 
-    @Query("SELECT a.module, COUNT(a) FROM AuditLog a WHERE a.archivedAt IS NULL AND a.createdAt >= :since GROUP BY a.module")
+    @Query("SELECT a.module, COUNT(a) FROM AuditLog a WHERE a.archivedAt IS NULL"
+            + " AND a.createdAt >= :since GROUP BY a.module")
     List<Object[]> countGroupedByModuleSince(@Param("since") OffsetDateTime since);
 
     @Query(value = """
@@ -142,10 +147,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             """)
     List<Object[]> repeatedAccountDisables(@Param("since") OffsetDateTime since);
 
-    @Query("SELECT a FROM AuditLog a WHERE a.action IN ('UPDATE_USER_ROLE','UPDATE_ADMIN_SUB_ROLE') AND a.createdAt >= :since ORDER BY a.createdAt DESC")
+    @Query("SELECT a FROM AuditLog a WHERE a.action IN ('UPDATE_USER_ROLE','UPDATE_ADMIN_SUB_ROLE')"
+            + " AND a.createdAt >= :since ORDER BY a.createdAt DESC")
     List<AuditLog> privilegeChangesSince(@Param("since") OffsetDateTime since, Pageable pageable);
 
-    @Query("SELECT a FROM AuditLog a WHERE a.severity IN ('ERROR','CRITICAL') AND a.createdAt >= :since ORDER BY a.createdAt DESC")
+    @Query("SELECT a FROM AuditLog a WHERE a.severity IN ('ERROR','CRITICAL')"
+            + " AND a.createdAt >= :since ORDER BY a.createdAt DESC")
     List<AuditLog> errorsSince(@Param("since") OffsetDateTime since, Pageable pageable);
 
     // ── Retention ──

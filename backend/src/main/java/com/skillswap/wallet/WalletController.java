@@ -10,11 +10,18 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+/**
+ * REST controller exposing wallet endpoints.
+ */
 @RestController
 @Validated
 @RequestMapping("/api/v1/wallet")
@@ -44,6 +51,9 @@ public class WalletController {
         return new ApiResponse<>("Withdrawal processed", entry);
     }
 
+/**
+ * Immutable data carrier for withdraw request.
+ */
     public record WithdrawRequestDTO(
             @NotNull(message = "Amount is required")
             @DecimalMin(value = "10.00", message = "Minimum withdrawal amount is 10.00 credits")

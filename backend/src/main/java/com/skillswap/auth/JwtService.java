@@ -12,11 +12,16 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Set;
 import java.util.UUID;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Service implementing jwt business logic.
+ */
 @Service
 public class JwtService {
 
@@ -28,6 +33,28 @@ public class JwtService {
 
     @Value("${app.jwt.refresh-expiration-ms:604800000}")
     private long refreshExpirationMs;
+
+    /**
+     * Issuer and audience identifiers added to every issued token and enforced
+     * on parse. Prevents tokens minted by another service (or for a different
+     * audience) from being accepted.
+     */
+    @Value("${app.jwt.issuer:skillswap}")
+    private String issuer;
+
+    @Value("${app.jwt.audience:skillswap-app}")
+    private String audience;
+
+    /**
+     * Known default/example keys that must never be used as a signing key.
+     * These values are public (they appeared in the repository or its docs),
+     * so any token signed with them is forgeable. This is a denylist, not a
+     * secret: rejecting these keys is defense-in-depth on top of the base
+     * {@code application.yml} which no longer ships any default at all.
+     */
+    private static final Set<String> KNOWN_WEAK_KEYS = Set.of(
+            "secure-dev-jwt-secret-for-local-development",
+            "change-me-change-me-change-me-change-me");
 
     private SecretKey signingKey;
 
@@ -42,6 +69,13 @@ public class JwtService {
 
         if (keyBytes.length < 32) {
             throw new IllegalStateException("app.jwt.secret must decode to at least 32 bytes");
+        }
+
+        String decoded = new String(keyBytes, StandardCharsets.UTF_8);
+        if (KNOWN_WEAK_KEYS.contains(decoded)) {
+            throw new IllegalStateException(
+                    "app.jwt.secret is set to a known default/example value. "
+                            + "Generate a strong unique key, e.g. `openssl rand -base64 48`.");
         }
 
         signingKey = Keys.hmacShaKeyFor(keyBytes);
@@ -75,6 +109,8 @@ public class JwtService {
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .claims(claims)
+                .issuer(issuer)
+                .audience().add(audience).and()
                 .subject(userDetails.getUsername())
                 .issuedAt(now)
                 .expiration(expiry)
@@ -89,6 +125,8 @@ public class JwtService {
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
                 .claims(extraClaims)
+                .issuer(issuer)
+                .audience().add(audience).and()
                 .subject(userDetails.getUsername())
                 .issuedAt(now)
                 .expiration(expiry)
@@ -159,6 +197,8 @@ public class JwtService {
         try {
             return Jwts.parser()
                     .verifyWith(getSigningKey())
+                    .requireIssuer(issuer)
+                    .requireAudience(audience)
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();

@@ -16,6 +16,9 @@ import java.time.OffsetDateTime;
 /**
  * DTO for creating a new live session with automatic Google Meet integration.
  */
+/**
+ * Encapsulates create live session request.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

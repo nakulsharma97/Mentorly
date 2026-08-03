@@ -169,7 +169,11 @@ describe("persistAuthSession — account switching", () => {
 
     // Assert: localStorage now holds User B's data
     expect(localStorage.getItem("token")).toBe(USER_B.token);
-    expect(localStorage.getItem("refreshToken")).toBe(USER_B.refreshToken);
+    // SECURITY: the refresh token must never be persisted to web storage — it
+    // lives only in the httpOnly refresh_token cookie. A response body that
+    // contains a refreshToken is intentionally ignored for storage.
+    expect(localStorage.getItem("refreshToken")).toBeNull();
+    expect(sessionStorage.getItem("refreshToken")).toBeNull();
     expect(localStorage.getItem("user")).toBe(USER_B.email);
     expect(JSON.parse(localStorage.getItem("currentUser"))).toEqual({
       email: USER_B.email,
@@ -197,9 +201,11 @@ describe("persistAuthSession — account switching", () => {
     expect(readCookie("access_token")).toBe("user-a-session-cookie");
     expect(readCookie("refresh_token")).toBe("user-a-refresh-cookie");
 
-    // Assert: Token is stored from cookie fallback
+    // Assert: Token is stored from cookie fallback, but the refresh token is
+    // still never written to web storage (cookie-only by design).
     expect(localStorage.getItem("token")).toBe("user-a-session-cookie");
-    expect(localStorage.getItem("refreshToken")).toBe("user-a-refresh-cookie");
+    expect(localStorage.getItem("refreshToken")).toBeNull();
+    expect(sessionStorage.getItem("refreshToken")).toBeNull();
   });
 
   // ── Test 3: Old auth state is fully replaced ──
@@ -213,12 +219,11 @@ describe("persistAuthSession — account switching", () => {
 
     // Assert: User A's data is gone from localStorage
     expect(localStorage.getItem("token")).not.toBe(USER_A.token);
-    expect(localStorage.getItem("refreshToken")).not.toBe(USER_A.refreshToken);
     expect(localStorage.getItem("user")).not.toBe(USER_A.email);
 
-    // Assert: Only User B's data exists
+    // Assert: Only User B's data exists (refresh token stays cookie-only)
     expect(localStorage.getItem("token")).toBe(USER_B.token);
-    expect(localStorage.getItem("refreshToken")).toBe(USER_B.refreshToken);
+    expect(localStorage.getItem("refreshToken")).toBeNull();
     expect(localStorage.getItem("user")).toBe(USER_B.email);
   });
 

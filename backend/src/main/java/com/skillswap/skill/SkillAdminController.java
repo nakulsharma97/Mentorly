@@ -18,7 +18,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -360,12 +368,24 @@ public class SkillAdminController {
     //  DTOs
     // ════════════════════════════════════════════════
 
+/**
+ * Immutable data carrier for skill admin.
+ */
     public record SkillAdminDto(Long id, String name, String category,
-            long watchers, long verificationTasks) {}
+            long watchers, long verificationTasks) { }
 
-    public record EditSkillRequest(@NotBlank String name, @NotBlank String category) {}
+/**
+ * Immutable data carrier for edit skill request.
+ */
+    public record EditSkillRequest(@NotBlank String name, @NotBlank String category) { }
 
-    public record MergeSkillRequest(@NotNull Long targetSkillId) {}
+/**
+ * Immutable data carrier for merge skill request.
+ */
+    public record MergeSkillRequest(@NotNull Long targetSkillId) { }
 
-    public record SkillRequestDecisionRequest(SkillRequestStatus status, String adminNote) {}
+/**
+ * Immutable data carrier for skill request decision request.
+ */
+    public record SkillRequestDecisionRequest(SkillRequestStatus status, String adminNote) { }
 }

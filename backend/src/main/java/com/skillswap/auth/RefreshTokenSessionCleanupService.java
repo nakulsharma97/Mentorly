@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+/**
+ * Service implementing refresh token session cleanup business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenSessionCleanupService {

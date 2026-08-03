@@ -1,5 +1,8 @@
 package com.skillswap.notification;
 
+/**
+ * Encapsulates email templates.
+ */
 public final class EmailTemplates {
 
     private EmailTemplates() {

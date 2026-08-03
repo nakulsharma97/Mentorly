@@ -25,6 +25,9 @@ import java.util.Map;
  * Core moderation workflow. Every mutating action records a timeline event,
  * writes an audit log entry, and (where relevant) notifies the affected user.
  */
+/**
+ * Service implementing content moderation business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

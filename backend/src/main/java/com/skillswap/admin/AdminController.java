@@ -37,7 +37,6 @@ import com.skillswap.messaging.DirectMessage;
 import com.skillswap.messaging.DirectMessageRepository;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
-import com.skillswap.payment.PaymentStatus;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
@@ -79,12 +78,16 @@ import jakarta.validation.constraints.NotNull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * REST controller exposing admin endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
@@ -135,7 +138,8 @@ public class AdminController {
         long mentors = userRepository.countByRole(UserRole.MENTOR);
         long admins = userRepository.countByRole(UserRole.ADMIN);
         long openReports = reportRepository.countByStatus(ReportStatus.OPEN);
-        long pendingMentorVerifications = mentorVerificationRepository.countByStatus(MentorVerificationRequestStatus.PENDING);
+        long pendingMentorVerifications = mentorVerificationRepository
+                .countByStatus(MentorVerificationRequestStatus.PENDING);
 
         return new ApiResponse<>("Admin summary fetched",
                 new AdminSummary(totalUsers, learners, mentors, admins, openReports, pendingMentorVerifications));
@@ -470,7 +474,7 @@ public class AdminController {
         return new ApiResponse<>("Mentor verification queue fetched", dtos);
     }
 
-    private List<MentorCertificationDto> certificationsFor(com.skillswap.user.User mentor) {
+    private List<MentorCertificationDto> certificationsFor(User mentor) {
         if (mentor == null || mentor.getId() == null) {
             return List.of();
         }
@@ -647,7 +651,9 @@ public class AdminController {
 
             // Build DTOs using the lookup maps (no individual queries per booking)
             for (Booking b : bookings) {
-                if (b.getSession() == null) continue;
+                if (b.getSession() == null) {
+                    continue;
+                }
                 ChatMessage lastMsg = lastMsgByBookingId.get(b.getId());
                 String participantName = b.getLearner().getFullName()
                         + " & " + b.getSession().getMentor().getFullName();
@@ -756,7 +762,8 @@ public class AdminController {
         List<ChatMessage> messages = chatMessageRepository.findByBookingIdOrderByCreatedAtAsc(bookingId);
         List<AdminMessageDto> dtos = messages.stream()
                 .map(m -> new AdminMessageDto(m.getId(), "booking", bookingId,
-                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getDisplayUsername(), m.getSender().getEmail(),
+                        m.getSender().getId(), m.getSender().getFullName(),
+                        m.getSender().getDisplayUsername(), m.getSender().getEmail(),
                         m.getContent(), m.isReadByRecipient(), m.getCreatedAt()))
                 .collect(Collectors.toList());
 
@@ -773,7 +780,8 @@ public class AdminController {
         List<DirectMessage> messages = directMessageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
         List<AdminMessageDto> dtos = messages.stream()
                 .map(m -> new AdminMessageDto(m.getId(), "direct", conversationId,
-                        m.getSender().getId(), m.getSender().getFullName(), m.getSender().getDisplayUsername(), m.getSender().getEmail(),
+                        m.getSender().getId(), m.getSender().getFullName(),
+                        m.getSender().getDisplayUsername(), m.getSender().getEmail(),
                         m.getContent(), m.isReadByRecipient(), m.getCreatedAt()))
                 .collect(Collectors.toList());
 
@@ -809,7 +817,10 @@ public class AdminController {
             long aggCount = ((Number) row[2]).longValue();
             switch (aggStatus) {
                 case ESCROWED: totalEscrowed = totalEscrowed.add(aggAmount); escrowedCount = aggCount; break;
-                case RELEASED: totalReleased = totalReleased.add(aggAmount); totalRevenue = totalRevenue.add(aggAmount); break;
+                case RELEASED:
+                    totalReleased = totalReleased.add(aggAmount);
+                    totalRevenue = totalRevenue.add(aggAmount);
+                    break;
                 case REFUNDED: totalRefunded = totalRefunded.add(aggAmount); refundedCount = aggCount; break;
                 case FAILED: failedCount = aggCount; break;
                 default: break;
@@ -843,7 +854,8 @@ public class AdminController {
                     String mentorName = userNameMap.getOrDefault(p.getMentorId(), "Unknown");
                     String mentorUsername = userUsernameMap.getOrDefault(p.getMentorId(), "");
                     return new AdminPaymentDto(p.getId(), p.getOrderId(), p.getPaymentId(),
-                            p.getLearnerId(), learnerName, learnerUsername, p.getMentorId(), mentorName, mentorUsername, p.getSessionId(),
+                            p.getLearnerId(), learnerName, learnerUsername,
+                            p.getMentorId(), mentorName, mentorUsername, p.getSessionId(),
                             p.getAmount(), p.getCurrency(), p.getStatus().name(), p.getGateway(), p.getCreatedAt());
                 })
                 .sorted(Comparator.comparing(AdminPaymentDto::createdAt).reversed())
@@ -898,7 +910,8 @@ public class AdminController {
 
         Page<AdminUserDto> dtoPage = userPage.map(u -> {
             BigDecimal walletBalance = walletService.balance(u).balance();
-            return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(), u.getDisplayUsername(), u.getRole().name(),
+            return new AdminUserDto(u.getId(), u.getEmail(), u.getFullName(),
+                    u.getDisplayUsername(), u.getRole().name(),
                     u.isMentorVerified(), u.isEnabled(), u.getSkills(), u.getCreatedAt(),
                     u.getLastActiveAt(), walletBalance, u.getAdminSubRole());
         });
@@ -942,7 +955,8 @@ public class AdminController {
         WalletService.WalletBalance balance = walletService.balance(user);
 
         return new ApiResponse<>("Wallet fetched",
-                new AdminUserWalletDto(user.getId(), user.getFullName(), user.getDisplayUsername(), balance.balance(), balance.currency(), history));
+                new AdminUserWalletDto(user.getId(), user.getFullName(),
+                        user.getDisplayUsername(), balance.balance(), balance.currency(), history));
     }
 
     // ════════════════════════════════════════════════
@@ -957,7 +971,9 @@ public class AdminController {
             Pageable pageable) {
         ensureAdmin(currentUser);
 
-        SessionStatus statusFilter = (status != null && !status.isBlank()) ? SessionStatus.valueOf(status.toUpperCase()) : null;
+        SessionStatus statusFilter = (status != null && !status.isBlank())
+                ? SessionStatus.valueOf(status.toUpperCase())
+                : null;
         Page<SkillSession> sessionPage = sessionRepository.findByFilters(statusFilter, q, pageable);
 
         Page<AdminSessionDto> dtoPage = sessionPage.map(s -> {
@@ -1086,8 +1102,8 @@ public class AdminController {
         return new ApiResponse<>("Broadcast history fetched", adminNotificationService.history(
                 type, priority, status, scope, q, fromDate, toDate,
                 PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 100),
-                        org.springframework.data.domain.Sort.by(
-                                org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))));
+                        Sort.by(
+                                Sort.Direction.DESC, "createdAt"))));
     }
 
     /** Full detail for one broadcast, including live delivery/read/click counters. */
@@ -1335,7 +1351,7 @@ public class AdminController {
         }
 
         double successRate = last24h == 0 ? 100
-                : Math.round(((last24h - failedLogins24h) * 100.0 / last24h) * 10.0) / 10.0;
+                : Math.round((last24h - failedLogins24h) * 100.0 / last24h * 10.0) / 10.0;
 
         return new ApiResponse<>("Audit stats fetched", new AdminAuditStatsDto(
                 total, today, last24h, security24h, failedLogins24h, adminActions30d, userActions30d,
@@ -1525,7 +1541,9 @@ public class AdminController {
                 continue;
             }
             List<PlatformSettingsCatalog.SettingDef> defs = grouped.getOrDefault(category.id(), List.of());
-            if (defs.isEmpty()) continue;
+            if (defs.isEmpty()) {
+                continue;
+            }
             List<AdminSettingFieldDto> fields = defs.stream()
                     .map(d -> new AdminSettingFieldDto(d.key(), d.type(), d.label(), d.description(),
                             current.getOrDefault(d.key(), d.defaultValue()), d.options()))
@@ -1550,9 +1568,11 @@ public class AdminController {
         // Only persist + audit keys whose value actually changed — no repeated
         // saves or noisy audit entries for untouched fields.
         Map<String, String> before = loadSettingsMap();
-        java.util.Map<String, String> changes = new java.util.LinkedHashMap<>();
+        Map<String, String> changes = new LinkedHashMap<>();
         for (Map.Entry<String, String> entry : settings.entrySet()) {
-            if (entry.getValue() == null) continue;
+            if (entry.getValue() == null) {
+                continue;
+            }
             String oldValue = before.getOrDefault(entry.getKey(), "");
             if (!oldValue.equals(entry.getValue())) {
                 changes.put(entry.getKey(), entry.getValue());
@@ -1693,7 +1713,8 @@ public class AdminController {
         long totalSessions = sessionRepository.count();
         long totalBookings = bookingRepository.count();
         long completedSessionCount = bookingRepository.countByBookingStatus(BookingStatus.COMPLETED);
-        double completionRate = totalBookings == 0 ? 0 : Math.round((completedSessionCount * 100.0 / totalBookings) * 10.0) / 10.0;
+        double completionRate = totalBookings == 0 ? 0
+                : Math.round(completedSessionCount * 100.0 / totalBookings * 10.0) / 10.0;
 
         OffsetDateTime weekAgo = now.minusDays(7);
         OffsetDateTime todayStart = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
@@ -1702,7 +1723,8 @@ public class AdminController {
         long activeUsers7d = userRepository.countByLastActiveAtAfter(weekAgo);
         long joinedToday = userRepository.countByCreatedAtAfter(todayStart);
         long joinedThisWeek = userRepository.countByCreatedAtAfter(weekStart);
-        double mentorRatio = totalUsers == 0 ? 0 : Math.round((totalMentors * 100.0 / totalUsers) * 10.0) / 10.0;
+        double mentorRatio = totalUsers == 0 ? 0
+                : Math.round(totalMentors * 100.0 / totalUsers * 10.0) / 10.0;
 
         // ── Extended KPIs (all real DB counts) ──
         long verifiedMentors = userRepository.countByMentorVerifiedTrue();
@@ -1752,7 +1774,8 @@ public class AdminController {
             int key = m.getYear() * 100 + m.getMonthValue();
             long total = totalBookingMonthMap.getOrDefault(key, 0L);
             long completed = sessionMonthMap.getOrDefault(key, 0L);
-            double rate = total == 0 ? 0 : Math.round((completed * 100.0 / total) * 10.0) / 10.0;
+            double rate = total == 0 ? 0
+                    : Math.round(completed * 100.0 / total * 10.0) / 10.0;
             return new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")), rate);
         }).collect(Collectors.toList());
 
@@ -1760,10 +1783,14 @@ public class AdminController {
         Map<String, Long> skillCounts = new HashMap<>();
         Map<String, String> skillDisplay = new HashMap<>();
         for (String skillsRaw : userRepository.findSkillsByRole(UserRole.MENTOR)) {
-            if (skillsRaw == null || skillsRaw.isBlank()) continue;
+            if (skillsRaw == null || skillsRaw.isBlank()) {
+                continue;
+            }
             for (String raw : skillsRaw.split("[,;\n|]")) {
                 String name = raw.trim();
-                if (name.length() < 2) continue;
+                if (name.length() < 2) {
+                    continue;
+                }
                 String key = name.toLowerCase(Locale.ROOT);
                 skillCounts.merge(key, 1L, Long::sum);
                 skillDisplay.putIfAbsent(key, name);
@@ -1806,7 +1833,7 @@ public class AdminController {
         double platformFees = Math.round(totalReleasedAmount * 0.10 * 100.0) / 100.0;
         // Window-scoped revenue (released payments within the selected range) —
         // makes the date filter actually affect the revenue KPI.
-        java.math.BigDecimal windowRevenueRaw = paymentRepository
+        BigDecimal windowRevenueRaw = paymentRepository
                 .computeRevenueSince(now.minusDays(days));
         double monthlyRevenue = windowRevenueRaw != null ? windowRevenueRaw.doubleValue() : 0;
 
@@ -1825,14 +1852,14 @@ public class AdminController {
 
         // ── Daily activity (signups + logins) for the selected window ──
         OffsetDateTime sinceDays = now.minusDays(days - 1L).withHour(0).withMinute(0).withSecond(0).withNano(0);
-        java.util.Map<java.time.LocalDate, Long> signupDayMap = new java.util.HashMap<>();
+        Map<java.time.LocalDate, Long> signupDayMap = new HashMap<>();
         for (Object[] row : userRepository.countDailySignups(sinceDays)) {
             java.time.LocalDate d = toLocalDate(row[0]);
             if (d != null) {
                 signupDayMap.put(d, ((Number) row[1]).longValue());
             }
         }
-        java.util.Map<java.time.LocalDate, Long> activeDayMap = new java.util.HashMap<>();
+        Map<java.time.LocalDate, Long> activeDayMap = new HashMap<>();
         for (Object[] row : userRepository.countDailyActive(sinceDays)) {
             java.time.LocalDate d = toLocalDate(row[0]);
             if (d != null) {
@@ -1997,8 +2024,9 @@ public class AdminController {
                 : 0.0;
 
         // Monthly referral trend (Java-level grouping for DB portability)
-        java.util.Map<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> monthCounts = new java.util.LinkedHashMap<>();
-        java.time.OffsetDateTime now = java.time.OffsetDateTime.now();
+        Map<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> monthCounts =
+                new LinkedHashMap<>();
+        OffsetDateTime now = OffsetDateTime.now();
         java.time.format.DateTimeFormatter labelFmt = java.time.format.DateTimeFormatter.ofPattern("MMM");
         // Build last 12 months as baseline using YearMonth keys to avoid year collision
         for (int i = 11; i >= 0; i--) {
@@ -2017,7 +2045,8 @@ public class AdminController {
             }
         }
         List<MonthlyBucket> referralTrend = new ArrayList<>();
-        for (java.util.Map.Entry<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> entry : monthCounts.entrySet()) {
+        for (Map.Entry<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> entry
+                : monthCounts.entrySet()) {
             referralTrend.add(new MonthlyBucket(labelFmt.format(entry.getKey()), entry.getValue().doubleValue()));
         }
 
@@ -2033,7 +2062,9 @@ public class AdminController {
             String username = referrerUser != null ? referrerUser.getDisplayUsername() : "";
             topReferrers.add(new AdminReferrerDto(rank, userId, name, username, (int) count, (int) count * 50));
             rank++;
-            if (rank > 10) break; // Top 10
+            if (rank > 10) {
+                break; // Top 10
+            }
         }
 
         return new ApiResponse<>("Referral analytics fetched",
@@ -2189,7 +2220,9 @@ public class AdminController {
                 .filter(b -> b.getBookingStatus() == BookingStatus.COMPLETED)
                 .flatMap(b -> {
                     var reviewOpt = mentorReviewRepository.findByBookingId(b.getId());
-                    return reviewOpt.isPresent() ? java.util.stream.Stream.of(reviewOpt.get()) : java.util.stream.Stream.empty();
+                    return reviewOpt.isPresent()
+                            ? java.util.stream.Stream.of(reviewOpt.get())
+                            : java.util.stream.Stream.empty();
                 })
                 .mapToInt(MentorReview::getRating)
                 .average()
@@ -2206,9 +2239,9 @@ public class AdminController {
         OffsetDateTime now = OffsetDateTime.now();
         List<MonthlyBucket> bookingTrend = new ArrayList<>();
         for (int i = 5; i >= 0; i--) {
-            OffsetDateTime monthStart = now.minusMonths(i).withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+            OffsetDateTime monthStart = now.minusMonths(i).withDayOfMonth(1)
+                    .withHour(0).withMinute(0).withSecond(0).withNano(0);
             String label = monthStart.format(java.time.format.DateTimeFormatter.ofPattern("MMM"));
-            int finalI = i;
             long count = bookings.stream()
                     .filter(b -> b.getCreatedAt() != null
                             && b.getCreatedAt().getMonthValue() == monthStart.getMonthValue()
@@ -2352,7 +2385,8 @@ public class AdminController {
                 r.getCreatedAt(), r.getUpdatedAt());
     }
 
-    private List<MonthlyBucket> buildMonthlyCountBucketsFromMap(List<OffsetDateTime> months, Map<Integer, Long> monthMap) {
+    private List<MonthlyBucket> buildMonthlyCountBucketsFromMap(
+            List<OffsetDateTime> months, Map<Integer, Long> monthMap) {
         return months.stream().map(m -> {
             int key = m.getYear() * 100 + m.getMonthValue();
             return new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
@@ -2360,7 +2394,8 @@ public class AdminController {
         }).collect(Collectors.toList());
     }
 
-    private List<MonthlyBucket> buildMonthlySumBucketsFromMap(List<OffsetDateTime> months, Map<Integer, Double> monthMap) {
+    private List<MonthlyBucket> buildMonthlySumBucketsFromMap(
+            List<OffsetDateTime> months, Map<Integer, Double> monthMap) {
         return months.stream().map(m -> {
             int key = m.getYear() * 100 + m.getMonthValue();
             return new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
@@ -2368,41 +2403,14 @@ public class AdminController {
         }).collect(Collectors.toList());
     }
 
-    private List<MonthlyBucket> buildMonthlyCountBuckets(List<OffsetDateTime> months, List<OffsetDateTime> dates) {
-        Map<String, Long> counts = new java.util.LinkedHashMap<>();
-        for (OffsetDateTime month : months) {
-            counts.put(month.getYear() + "-" + month.getMonthValue(), 0L);
-        }
-        for (OffsetDateTime d : dates) {
-            if (d == null) continue;
-            String key = d.getYear() + "-" + d.getMonthValue();
-            counts.merge(key, 1L, Long::sum);
-        }
-        return months.stream()
-                .map(m -> new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
-                        counts.getOrDefault(m.getYear() + "-" + m.getMonthValue(), 0L)))
-                .collect(Collectors.toList());
-    }
+/**
+ * Immutable data carrier for monthly bucket.
+ */
+    public record MonthlyBucket(String label, double value) { }
 
-    private List<MonthlyBucket> buildMonthlySumBuckets(List<OffsetDateTime> months, List<DatedAmount> items) {
-        Map<String, Double> sums = new java.util.LinkedHashMap<>();
-        for (OffsetDateTime month : months) {
-            sums.put(month.getYear() + "-" + month.getMonthValue(), 0.0);
-        }
-        for (DatedAmount item : items) {
-            if (item.date() == null) continue;
-            String key = item.date().getYear() + "-" + item.date().getMonthValue();
-            sums.merge(key, item.amount(), Double::sum);
-        }
-        return months.stream()
-                .map(m -> new MonthlyBucket(m.format(java.time.format.DateTimeFormatter.ofPattern("MMM")),
-                        Math.round(sums.getOrDefault(m.getYear() + "-" + m.getMonthValue(), 0.0) * 100.0) / 100.0))
-                .collect(Collectors.toList());
-    }
-
-    private record DatedAmount(OffsetDateTime date, double amount) {}
-    public record MonthlyBucket(String label, double value) {}
-
+/**
+ * Immutable data carrier for admin dashboard.
+ */
     public record AdminDashboardDto(
             List<MonthlyBucket> signupTrend, List<MonthlyBucket> revenueTrend,
             List<MonthlyBucket> sessionTrend, List<MonthlyBucket> completionTrend,
@@ -2414,42 +2422,86 @@ public class AdminController {
             List<AdminTopLearnerDto> topLearners,
             List<AdminActivityDto> recentActivity,
             AdminPlatformHealthDto platformHealth,
-            AdminHealthMetrics health) {}
+            AdminHealthMetrics health) { }
 
-    public record DailyBucket(String label, long value) {}
+/**
+ * Immutable data carrier for daily bucket.
+ */
+    public record DailyBucket(String label, long value) { }
 
-    public record AdminNameCountDto(String name, long count) {}
+/**
+ * Immutable data carrier for admin name count.
+ */
+    public record AdminNameCountDto(String name, long count) { }
 
-    public record AdminTopSkillDto(String name, long count) {}
+/**
+ * Immutable data carrier for admin top skill.
+ */
+    public record AdminTopSkillDto(String name, long count) { }
 
-    public record AdminTopMentorDto(Long mentorId, String name, String username, long bookingCount) {}
+/**
+ * Immutable data carrier for admin top mentor.
+ */
+    public record AdminTopMentorDto(Long mentorId, String name, String username, long bookingCount) { }
 
-    public record AdminTopLearnerDto(Long learnerId, String name, String username, long bookingCount) {}
+/**
+ * Immutable data carrier for admin top learner.
+ */
+    public record AdminTopLearnerDto(Long learnerId, String name, String username, long bookingCount) { }
 
+/**
+ * Immutable data carrier for admin activity.
+ */
     public record AdminActivityDto(String type, String title, String detail, String actorName,
-            java.time.OffsetDateTime createdAt) {}
+            OffsetDateTime createdAt) { }
 
+/**
+ * Immutable data carrier for admin platform health.
+ */
     public record AdminPlatformHealthDto(String backendStatus, String databaseStatus,
             long apiResponseTimeMs, long storageUsageMb, long errorRate24h,
-            long notificationQueueToday, long emailQueueToday) {}
+            long notificationQueueToday, long emailQueueToday) { }
 
+/**
+ * Immutable data carrier for admin health metrics.
+ */
     public record AdminHealthMetrics(long totalUsers, long totalMentors, long totalLearners,
             long totalSessions, long totalBookings, long completedSessions, double completionRate,
             long activeUsers7d, double mentorRatio, long joinedToday, long joinedThisWeek,
             double platformFees, double totalReleasedAmount,
             long verifiedMentors, long pendingVerifications, long totalSkills,
             long cancelledSessions, long pendingRequests, long activeConversations,
-            long openReports, long flaggedContent, long totalPayments, double monthlyRevenue) {}
+            long openReports, long flaggedContent, long totalPayments, double monthlyRevenue) { }
 
+/**
+ * Immutable data carrier for admin summary.
+ */
     public record AdminSummary(long totalUsers, long learners, long mentors, long admins,
-            long openReports, long pendingMentorVerifications) {}
-    public record ReportDecisionRequest(@NotNull ReportStatus status, String note, Boolean suspendUser) {}
-    public record ReportAssignRequest(Long adminId) {}
-    public record ReportStatusRequest(ReportStatus status) {}
-    public record ReportPriorityRequest(@NotNull ReportPriority priority) {}
-    public record ReportNoteRequest(String note) {}
+            long openReports, long pendingMentorVerifications) { }
+/**
+ * Immutable data carrier for report decision request.
+ */
+    public record ReportDecisionRequest(@NotNull ReportStatus status, String note, Boolean suspendUser) { }
+/**
+ * Immutable data carrier for report assign request.
+ */
+    public record ReportAssignRequest(Long adminId) { }
+/**
+ * Immutable data carrier for report status request.
+ */
+    public record ReportStatusRequest(ReportStatus status) { }
+/**
+ * Immutable data carrier for report priority request.
+ */
+    public record ReportPriorityRequest(@NotNull ReportPriority priority) { }
+/**
+ * Immutable data carrier for report note request.
+ */
+    public record ReportNoteRequest(String note) { }
 
-    /** Admin queue + detail DTO — everything the reports page needs in one shape. */
+/**
+ * Immutable data carrier for admin report.
+ */
     public record AdminReportDto(
             Long id,
             Long reporterId, String reporterName, String reporterEmail, String reporterUsername,
@@ -2461,64 +2513,115 @@ public class AdminController {
             Long assignedAdminId, String assignedAdminName,
             String moderatorNote, String internalNotes,
             boolean escalated, Integer escalationLevel, String escalationReason, OffsetDateTime escalatedAt,
-            OffsetDateTime createdAt, OffsetDateTime updatedAt) {}
+            OffsetDateTime createdAt, OffsetDateTime updatedAt) { }
 
-    /** Real DB counts for the reports dashboard. */
+/**
+ * Immutable data carrier for admin report stats.
+ */
     public record AdminReportStatsDto(long total, long open, long inReview, long resolved, long rejected,
-            long suspendedUsers) {}
-    public record UserEnabledRequest(boolean enabled) {}
-    public record AdminSubRoleRequest(@NotNull AdminSubRole adminSubRole) {}
-    public record AdminSettingsDto(java.util.Map<String, String> settings) {}
+            long suspendedUsers) { }
+    public record UserEnabledRequest(boolean enabled) { }
+    public record AdminSubRoleRequest(@NotNull AdminSubRole adminSubRole) { }
+    public record AdminSettingsDto(Map<String, String> settings) { }
     public record AdminSettingsCategoryDto(String id, String label, String description,
-            List<AdminSettingFieldDto> fields) {}
+            List<AdminSettingFieldDto> fields) { }
+/**
+ * Immutable data carrier for admin setting field.
+ */
     public record AdminSettingFieldDto(String key, String type, String label, String description,
-            String value, List<String> options) {}
-    public record AdminSettingsResetRequest(String category) {}
-    public record AdminReportScheduleRequest(@NotBlank @jakarta.validation.constraints.Pattern(regexp = "^(none|weekly|monthly)$", message = "Frequency must be none, weekly, or monthly") String frequency) {}
+            String value, List<String> options) { }
+/**
+ * Immutable data carrier for admin settings reset request.
+ */
+    public record AdminSettingsResetRequest(String category) { }
+/**
+ * Immutable data carrier for admin report schedule request.
+ */
+    public record AdminReportScheduleRequest(
+            @NotBlank @jakarta.validation.constraints.Pattern(
+                    regexp = "^(none|weekly|monthly)$",
+                    message = "Frequency must be none, weekly, or monthly")
+            String frequency) { }
 
     // Conversation DTOs
+/**
+ * Immutable data carrier for admin conversation.
+ */
     public record AdminConversationDto(String id, String kind, Long referenceId, String participantName,
             String sessionTitle, String status, String lastMessagePreview, OffsetDateTime lastActivityAt,
             Long participantOneId, String participantOneName, String participantOneUsername, String participantOneEmail,
             Long participantTwoId, String participantTwoName, String participantTwoUsername, String participantTwoEmail,
-            long unreadCount) {}
+            long unreadCount) { }
+/**
+ * Immutable data carrier for admin message.
+ */
     public record AdminMessageDto(Long id, String kind, Long conversationRefId, Long senderId,
             String senderName, String senderUsername, String senderEmail,
-            String content, boolean readByRecipient, OffsetDateTime createdAt) {}
+            String content, boolean readByRecipient, OffsetDateTime createdAt) { }
 
     // Payment DTOs
+/**
+ * Immutable data carrier for admin payment dashboard.
+ */
     public record AdminPaymentDashboardDto(BigDecimal totalRevenue, BigDecimal totalEscrowed,
             BigDecimal totalRefunded, BigDecimal platformFees, long escrowedCount, long refundedCount,
             long failedCount, List<AdminPaymentDto> payments,
-            int totalElements, int totalPages) {}
+            int totalElements, int totalPages) { }
+/**
+ * Immutable data carrier for admin payment.
+ */
     public record AdminPaymentDto(Long id, String orderId, String paymentId, Long learnerId, String learnerName,
             String learnerUsername, Long mentorId, String mentorName, String mentorUsername,
             Long sessionId, BigDecimal amount, String currency,
-            String status, String gateway, OffsetDateTime createdAt) {}
-    public record AdminRefundRequest(String reason) {}
+            String status, String gateway, OffsetDateTime createdAt) { }
+/**
+ * Immutable data carrier for admin refund request.
+ */
+    public record AdminRefundRequest(String reason) { }
 
     // User DTOs
-    public record AdminUserDto(Long id, String email, String fullName, String username, String role, boolean mentorVerified,
+/**
+ * Immutable data carrier for admin user.
+ */
+    public record AdminUserDto(Long id, String email, String fullName, String username,
+            String role, boolean mentorVerified,
             boolean enabled, String skills, OffsetDateTime createdAt, OffsetDateTime lastActiveAt,
-            BigDecimal walletBalance, AdminSubRole adminSubRole) {}
-    public record AdminRoleUpdateRequest(@NotNull UserRole role) {}
+            BigDecimal walletBalance, AdminSubRole adminSubRole) { }
+/**
+ * Immutable data carrier for admin role update request.
+ */
+    public record AdminRoleUpdateRequest(@NotNull UserRole role) { }
+/**
+ * Immutable data carrier for admin user wallet.
+ */
     public record AdminUserWalletDto(Long userId, String userName, String username, BigDecimal balance,
-            String currency, List<WalletLedgerEntry> history) {}
+            String currency, List<WalletLedgerEntry> history) { }
 
     // Session DTOs
+/**
+ * Immutable data carrier for admin session.
+ */
     public record AdminSessionDto(Long id, String title, Long mentorId, String mentorName, String mentorUsername,
             BigDecimal priceAmount, String status, String sessionType, OffsetDateTime startTime, OffsetDateTime endTime,
-            Integer maxParticipants, int participantCount, int bookingCount, OffsetDateTime createdAt) {}
-    public record AdminSessionStatusRequest(@NotNull SessionStatus status) {}
+            Integer maxParticipants, int participantCount, int bookingCount, OffsetDateTime createdAt) { }
+/**
+ * Immutable data carrier for admin session status request.
+ */
+    public record AdminSessionStatusRequest(@NotNull SessionStatus status) { }
 
     // Notification DTOs
+/**
+ * Immutable data carrier for admin broadcast request.
+ */
     public record AdminBroadcastRequest(
             @NotBlank String title,
             @NotBlank String message,
             String targetRole,
-            String type) {}
+            String type) { }
 
-    /** Notification & Broadcast Center — create/edit request. */
+/**
+ * Immutable data carrier for admin notification create request.
+ */
     public record AdminNotificationCreateRequest(
             @NotBlank String title,
             String subtitle,
@@ -2532,9 +2635,11 @@ public class AdminController {
             String repeatType,
             String actionButtonText,
             String actionUrl,
-            Boolean sendNow) {}
+            Boolean sendNow) { }
 
-    /** Notification & Broadcast Center — history/detail row. */
+/**
+ * Immutable data carrier for notification broadcast.
+ */
     public record NotificationBroadcastDto(
             Long id, String title, String subtitle, String message,
             String type, String priority, String status,
@@ -2543,52 +2648,90 @@ public class AdminController {
             String repeatType, String actionButtonText, String actionUrl,
             int totalTargets, int deliveredCount, int readCount, int clickedCount, int failedCount,
             String createdByName, OffsetDateTime createdAt,
-            OffsetDateTime cancelledAt, OffsetDateTime archivedAt) {}
+            OffsetDateTime cancelledAt, OffsetDateTime archivedAt) { }
 
     // Audit Log DTOs
+/**
+ * Immutable data carrier for admin audit log.
+ */
     public record AdminAuditLogDto(Long id, Long adminId, String adminEmail, String action,
             String entityType, Long entityId, String details, OffsetDateTime createdAt,
             String ipAddress, Long userId, String resource, Long resourceId,
             String severity, String module, String outcome, String beforeValue, String afterValue,
             String userAgent, String device, String browser, String os,
-            String requestId, String correlationId, String endpoint, OffsetDateTime archivedAt) {}
+            String requestId, String correlationId, String endpoint, OffsetDateTime archivedAt) { }
 
-    public record NameCountDto(String label, long count) {}
+/**
+ * Immutable data carrier for name count.
+ */
+    public record NameCountDto(String label, long count) { }
 
+/**
+ * Immutable data carrier for admin audit stats.
+ */
     public record AdminAuditStatsDto(long totalLogs, long todayActivities, long last24h,
             long securityEvents24h, long failedLogins24h, long adminActions30d, long userActions30d,
             long warnings24h, long critical24h, double successRate,
-            List<NameCountDto> bySeverity, List<NameCountDto> byModule, List<NameCountDto> dailyTrend) {}
+            List<NameCountDto> bySeverity, List<NameCountDto> byModule, List<NameCountDto> dailyTrend) { }
 
-    public record AlertGroupDto(String key, long count) {}
+/**
+ * Immutable data carrier for alert group.
+ */
+    public record AlertGroupDto(String key, long count) { }
 
+/**
+ * Immutable data carrier for admin security alerts.
+ */
     public record AdminSecurityAlertsDto(long totalAlerts,
             List<AlertGroupDto> repeatedFailedLogins, List<AlertGroupDto> repeatedPasswordResets,
             List<AlertGroupDto> repeatedAccountDisables,
-            List<AdminAuditLogDto> privilegeChanges, List<AdminAuditLogDto> recentErrors) {}
+            List<AdminAuditLogDto> privilegeChanges, List<AdminAuditLogDto> recentErrors) { }
 
-    public record AuditRetentionRequest(@NotNull Integer days) {}
+/**
+ * Immutable data carrier for audit retention request.
+ */
+    public record AuditRetentionRequest(@NotNull Integer days) { }
 
     // Moderation DTOs
-    public record AdminModerationRequest(@NotNull ReportStatus status, String note) {}
+/**
+ * Immutable data carrier for admin moderation request.
+ */
+    public record AdminModerationRequest(@NotNull ReportStatus status, String note) { }
 
     // Health DTOs
 
     // Session Detail DTOs (enhanced with completed/cancelled counts + monthly trend)
+/**
+ * Immutable data carrier for admin session detail.
+ */
     public record AdminSessionDetailDto(Long sessionId, String title, String status, BigDecimal price,
             long totalRevenue, double averageRating, int totalBookings, List<Booking> bookings,
-            long completedCount, long cancelledCount, List<MonthlyBucket> bookingTrend) {}
+            long completedCount, long cancelledCount, List<MonthlyBucket> bookingTrend) { }
 
     // Bulk Action DTOs
-    public record AdminBulkUserIdsRequest(@jakarta.validation.constraints.NotEmpty List<Long> ids) {}
-    public record AdminBulkRoleRequest(@jakarta.validation.constraints.NotEmpty List<Long> ids, @NotBlank String role) {}
+/**
+ * Immutable data carrier for admin bulk user ids request.
+ */
+    public record AdminBulkUserIdsRequest(@jakarta.validation.constraints.NotEmpty List<Long> ids) { }
+/**
+ * Immutable data carrier for admin bulk role request.
+ */
+    public record AdminBulkRoleRequest(
+            @jakarta.validation.constraints.NotEmpty List<Long> ids,
+            @NotBlank String role) { }
 
     // Referral Analytics DTOs
+/**
+ * Immutable data carrier for admin referral analytics.
+ */
     public record AdminReferralAnalyticsDto(
             long totalReferrals, long totalReferrers, long totalCreditsEarned,
             double avgPerReferrer, double conversionRate, long usersWithReferralCode,
-            List<MonthlyBucket> referralTrend, List<AdminReferrerDto> topReferrers) {}
+            List<MonthlyBucket> referralTrend, List<AdminReferrerDto> topReferrers) { }
 
+/**
+ * Immutable data carrier for admin referrer.
+ */
     public record AdminReferrerDto(
-            int rank, Long userId, String name, String username, int referralCount, int creditsEarned) {}
+            int rank, Long userId, String name, String username, int referralCount, int creditsEarned) { }
 }

@@ -284,22 +284,13 @@ export default function NotificationCenter({
       wsRef.current.close();
     }
 
-    // Get JWT token from localStorage for WebSocket auth
-    const token = (() => {
-      try {
-        const t = localStorage.getItem("token");
-        if (t) return encodeURIComponent(t);
-        // Fallback: try to read from cookie
-        const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
-        return match ? encodeURIComponent(match[1]) : null;
-      } catch { return null; }
-    })();
-
+    // SECURITY: authenticate via the httpOnly access_token cookie attached to
+    // the same-origin WebSocket handshake. The JWT is NEVER appended to the URL
+    // as a query parameter — it would leak into proxy access logs, browser
+    // history and referrer headers.
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const wsUrl = token
-      ? `${protocol}//${host}/ws/notifications?token=${token}`
-      : `${protocol}//${host}/ws/notifications`;
+    const wsUrl = `${protocol}//${host}/ws/notifications`;
 
     try {
       const socket = new WebSocket(wsUrl);

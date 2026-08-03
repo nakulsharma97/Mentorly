@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code SkillRequest} persistence.
+ */
 public interface SkillRequestRepository extends JpaRepository<SkillRequest, Long> {
 
     List<SkillRequest> findByStatusOrderByCreatedAtDesc(SkillRequestStatus status);

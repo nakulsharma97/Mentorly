@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Service implementing email notification business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

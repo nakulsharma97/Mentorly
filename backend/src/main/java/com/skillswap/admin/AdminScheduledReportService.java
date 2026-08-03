@@ -12,12 +12,14 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Generates a PDF dashboard report on a configurable schedule and emails it
  * to all admin users. The frequency is controlled by the database-stored
  * {@code report_schedule_frequency} setting (values: {@code weekly}, {@code monthly}, or {@code none}).
+ */
+/**
+ * Service implementing admin scheduled report business logic.
  */
 @Service
 @RequiredArgsConstructor

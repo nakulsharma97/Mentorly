@@ -19,6 +19,16 @@ app:
       max-per-minute: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:12}
     payment:
       max-per-minute: ${APP_RATE_LIMIT_PAYMENT_PER_MINUTE:20}
+  payment:
+    razorpay:
+      # Fail startup if placeholder/test Razorpay keys are configured. The test
+      # secret is public and lets anyone forge webhook signatures.
+      fail-on-placeholder: ${APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER:true}
+  security:
+    # The prod API is fronted by the nginx proxy (frontend/nginx.conf), which
+    # appends the real client IP as the right-most X-Forwarded-For entry and
+    # sets X-Real-IP — so proxy headers are trusted by default.
+    trusted-proxy: ${APP_TRUSTED_PROXY:true}
   oauth2:
     redirect-url: ${OAUTH2_REDIRECT_URL}
   cors:

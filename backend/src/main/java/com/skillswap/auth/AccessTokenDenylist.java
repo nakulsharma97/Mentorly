@@ -11,6 +11,9 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
+/**
+ * Encapsulates access token denylist.
+ */
 @Getter
 @Setter
 @Entity

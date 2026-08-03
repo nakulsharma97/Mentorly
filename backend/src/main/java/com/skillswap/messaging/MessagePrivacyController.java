@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller exposing message privacy endpoints.
+ */
 @RestController
 @RequestMapping("/api/settings/message-privacy")
 @RequiredArgsConstructor
@@ -29,9 +32,15 @@ public class MessagePrivacyController {
                 messagePrivacyService.update(currentUser, request.privacy()));
     }
 
+/**
+ * Immutable data carrier for message privacy request.
+ */
     public record MessagePrivacyRequest(MessagePrivacy privacy) {
     }
 
+/**
+ * Immutable data carrier for message privacy response.
+ */
     public record MessagePrivacyResponse(String privacy) {
         public static MessagePrivacyResponse from(MessagePrivacy privacy) {
             return new MessagePrivacyResponse(privacy == null ? MessagePrivacy.ANYONE.name() : privacy.name());

@@ -9,6 +9,9 @@ import org.aspectj.lang.annotation.Aspect;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+/**
+ * Encapsulates audit log aspect.
+ */
 @Slf4j
 @Aspect
 @Component
@@ -22,7 +25,6 @@ public class AuditLogAspect {
     public void auditOperation(JoinPoint joinPoint, AuditableOperation auditableOperation) {
         try {
             Long userId = extractUserId();
-            Object result = null;
 
             Long resourceId = null;
             Object[] args = joinPoint.getArgs();

@@ -14,6 +14,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.UUID;
 
+/**
+ * Encapsulates request trace filter.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor

@@ -17,6 +17,9 @@ import java.time.OffsetDateTime;
 /**
  * Entity representing a mentor saved (bookmarked) by a learner.
  */
+/**
+ * Encapsulates saved mentor.
+ */
 @Getter
 @Setter
 @Entity

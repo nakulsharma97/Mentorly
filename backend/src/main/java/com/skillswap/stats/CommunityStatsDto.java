@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Encapsulates community stats.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

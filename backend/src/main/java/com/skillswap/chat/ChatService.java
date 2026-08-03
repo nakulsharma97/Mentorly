@@ -10,7 +10,6 @@ import com.skillswap.notification.NotificationService;
 import com.skillswap.safety.UserBlockRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
-import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +27,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Service implementing chat business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -436,7 +438,8 @@ public class ChatService {
                     DirectMessage lastMsg = directMessageRepository
                             .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
                     int unreadCount = (int) directMessageRepository
-                            .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(dc.getId(), currentUser.getEmail());
+                            .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(
+                                    dc.getId(), currentUser.getEmail());
                     return new DirectConversationResponse(
                             dc.getId(),
                             participant.getId(),
@@ -475,6 +478,9 @@ public class ChatService {
                 message.getCreatedAt());
     }
 
+/**
+ * Immutable data carrier for conversation.
+ */
     public record ConversationDto(
             Long bookingId,
             String sessionTitle,
@@ -492,6 +498,9 @@ public class ChatService {
             int unreadCount) {
     }
 
+/**
+ * Immutable data carrier for direct conversation response.
+ */
     public record DirectConversationResponse(
             Long conversationId,
             Long participantId,
@@ -510,7 +519,7 @@ public class ChatService {
 
     @Transactional
     public void markDirectMessagesAsRead(Long conversationId, String readerEmail) {
-        User reader = userRepository.findByEmail(readerEmail)
+        userRepository.findByEmail(readerEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         isParticipantInConversation(readerEmail, conversationId);
         directMessageRepository.markAllAsReadByConversationId(conversationId, readerEmail);
@@ -531,12 +540,16 @@ public class ChatService {
 
         boolean isParticipant = p1Id.equals(currentUser.getId()) || p2Id.equals(currentUser.getId());
         if (!isParticipant) {
-            log.warn("[getDirectConversation] Access denied: user {} is not a participant in conversation {}", currentUser.getId(), conversationId);
+            log.warn("[getDirectConversation] Access denied: user {} is not a participant"
+                    + " in conversation {}", currentUser.getId(), conversationId);
             throw new IllegalArgumentException("Access denied for conversation: " + conversationId);
         }
 
-        User participant = p1Id.equals(currentUser.getId()) ? conversation.getParticipantTwo() : conversation.getParticipantOne();
-        log.info("[getDirectConversation] Participant resolved: id={}, name={}", participant.getId(), participant.getFullName());
+        User participant = p1Id.equals(currentUser.getId())
+                ? conversation.getParticipantTwo()
+                : conversation.getParticipantOne();
+        log.info("[getDirectConversation] Participant resolved: id={}, name={}",
+                participant.getId(), participant.getFullName());
 
         List<DirectMessageView> messages = directMessageRepository
                 .findByConversationIdOrderByCreatedAtAsc(conversationId)
@@ -559,6 +572,9 @@ public class ChatService {
                 messages);
     }
 
+/**
+ * Immutable data carrier for direct conversation detail.
+ */
     public record DirectConversationDetail(
             Long conversationId,
             Long participantId,
@@ -573,6 +589,9 @@ public class ChatService {
             List<DirectMessageView> messages) {
     }
 
+/**
+ * Immutable data carrier for direct message view.
+ */
     public record DirectMessageView(
             Long id,
             Long conversationId,
@@ -587,6 +606,9 @@ public class ChatService {
             OffsetDateTime createdAt) {
     }
 
+/**
+ * Immutable data carrier for chat message view.
+ */
     public record ChatMessageView(
             Long id,
             Long bookingId,

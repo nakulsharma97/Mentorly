@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Encapsulates booking chat web socket.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -63,14 +66,12 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
 
         String email;
         try {
-            // Query parameter token takes priority (newly issued after login);
-            // fall back to cookie for environments where query params are stripped.
-            String token = extractTokenFromQuery(session);
+            // SECURITY: authenticate via the httpOnly access_token cookie in the
+            // handshake ONLY. JWTs are never accepted in the query string — URL
+            // query parameters leak into proxy access logs and browser history.
+            String token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
             if (token == null) {
-                token = extractAccessTokenFromCookie(session.getHandshakeHeaders().getFirst(HttpHeaders.COOKIE));
-            }
-            if (token == null) {
-                log.warn("Booking chat auth failed: no token found in query param or cookie for bookingId={}", bookingIdRaw);
+                log.warn("Booking chat auth failed: no access_token cookie for bookingId={}", bookingIdRaw);
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Unauthorized"));
                 return;
             }
@@ -92,17 +93,6 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
         session.getAttributes().put(ATTR_USER_EMAIL, email);
 
         bookingRooms.computeIfAbsent(bookingId, ignored -> ConcurrentHashMap.newKeySet()).add(session);
-    }
-
-    /**
-     * Extract the JWT token from the "token" query parameter (fallback for proxy environments
-     * where the Cookie header may not be forwarded).
-     */
-    private String extractTokenFromQuery(WebSocketSession session) {
-        URI uri = session.getUri();
-        if (uri == null) return null;
-        var params = UriComponentsBuilder.fromUri(uri).build().getQueryParams();
-        return params.getFirst("token");
     }
 
     private String extractAccessTokenFromCookie(String cookieHeader) {

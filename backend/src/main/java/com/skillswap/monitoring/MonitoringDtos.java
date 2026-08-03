@@ -2,7 +2,9 @@ package com.skillswap.monitoring;
 
 import java.util.List;
 
-/** DTO records for the admin platform-health monitoring dashboard. */
+/**
+ * Encapsulates monitoring dtos.
+ */
 public final class MonitoringDtos {
 
     private MonitoringDtos() {
@@ -10,6 +12,9 @@ public final class MonitoringDtos {
 
     // ── Top-level payload (keeps legacy field names so the previous UI contract holds) ──
 
+/**
+ * Immutable data carrier for admin health.
+ */
     public record AdminHealthDto(
             String status,
             String overallStatus,
@@ -32,10 +37,13 @@ public final class MonitoringDtos {
             List<AlertDto> alerts,
             List<NamedChartDto> charts,
             List<LogBufferService.LogEntry> logs,
-            long totalLogs) {}
+            long totalLogs) { }
 
     // ── System (JVM) metrics ──
 
+/**
+ * Immutable data carrier for system metrics.
+ */
     public record SystemMetricsDto(
             long uptimeSeconds,
             String uptimeLabel,
@@ -57,10 +65,13 @@ public final class MonitoringDtos {
             String os,
             String timezone,
             String serverTime,
-            String appVersion) {}
+            String appVersion) { }
 
     // ── Database health ──
 
+/**
+ * Immutable data carrier for database health.
+ */
     public record DatabaseHealthDto(
             String status,
             double responseTimeMs,
@@ -73,10 +84,13 @@ public final class MonitoringDtos {
             long slowQueries,
             long connectionErrors,
             double dbSizeMb,
-            String driver) {}
+            String driver) { }
 
     // ── API monitoring ──
 
+/**
+ * Immutable data carrier for api monitoring.
+ */
     public record ApiMonitoringDto(
             int totalApis,
             long totalRequests,
@@ -87,49 +101,64 @@ public final class MonitoringDtos {
             double slowestEndpointMs,
             String mostRequestedEndpoint,
             long mostRequestedCount,
-            long failedToday) {}
+            long failedToday) { }
 
     // ── Microservice (logical module) health ──
 
+/**
+ * Immutable data carrier for microservice health.
+ */
     public record MicroserviceHealthDto(
             String name,
             String status,
             double latencyMs,
             String uptime,
-            String version) {}
+            String version) { }
 
     // ── Queues ──
 
+/**
+ * Immutable data carrier for queue health.
+ */
     public record QueueHealthDto(
             long notificationQueue,
             long emailQueue,
             long backgroundJobs,
             long retryQueue,
             long failedJobs,
-            long pendingJobs) {}
+            long pendingJobs) { }
 
     // ── Security monitoring ──
 
+/**
+ * Immutable data carrier for security metrics.
+ */
     public record SecurityMetricsDto(
             long failedLogins24h,
             long blockedUsers,
             long suspiciousRequests24h,
             long jwtValidationErrors24h,
             long unauthorizedRequests24h,
-            long securityEvents24h) {}
+            long securityEvents24h) { }
 
     // ── Error monitoring ──
 
+/**
+ * Immutable data carrier for error metrics.
+ */
     public record ErrorMetricsDto(
             long errorsToday,
             long criticalErrors24h,
             long warnings24h,
             long exceptions24h,
             List<LogBufferService.LogEntry> recentStackTraces,
-            List<NamedChartDto> trend) {}
+            List<NamedChartDto> trend) { }
 
     // ── Activity monitoring ──
 
+/**
+ * Immutable data carrier for activity metrics.
+ */
     public record ActivityMetricsDto(
             long usersOnline,
             long mentorsOnline,
@@ -137,17 +166,24 @@ public final class MonitoringDtos {
             long activeSessions,
             long loginsToday,
             long registrationsToday,
-            long bookingsToday) {}
+            long bookingsToday) { }
 
     // ── Alerts (threshold derived) ──
 
-    public record AlertDto(String severity, String title, String message) {}
+/**
+ * Immutable data carrier for alert.
+ */
+    public record AlertDto(String severity, String title, String message) { }
 
     // ── Chart series (real sampled / aggregated data) ──
 
-    /** One point of a named chart series. */
-    public record ChartSeriesDto(String label, long value) {}
+/**
+ * Immutable data carrier for chart series.
+ */
+    public record ChartSeriesDto(String label, long value) { }
 
-    /** A named chart (e.g. cpu, memory, apiResponse, dbResponse, userActivity, errorTrend). */
-    public record NamedChartDto(String key, String label, List<ChartSeriesDto> points) {}
+/**
+ * Immutable data carrier for named chart.
+ */
+    public record NamedChartDto(String key, String label, List<ChartSeriesDto> points) { }
 }

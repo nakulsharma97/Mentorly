@@ -21,7 +21,7 @@ import java.util.Map;
 @Component
 public class RazorpayAdapter implements PaymentGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(RazorpayAdapter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RazorpayAdapter.class);
 
     @Value("${app.payment.razorpay.key-id:rzp_test_xxxxxxxxxxxx}")
     private String keyId;
@@ -29,16 +29,36 @@ public class RazorpayAdapter implements PaymentGateway {
     @Value("${app.payment.razorpay.key-secret:rzp_test_secret}")
     private String keySecret;
 
+    /**
+     * When true (default off, must be enabled explicitly in prod/staging via
+     * {@code APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER}), startup aborts if the
+     * publicly-known placeholder keys are configured. The test secret
+     * {@code rzp_test_secret} ships with the SDK docs and lets anyone forge
+     * webhook signatures, so deploying with it is a critical misconfiguration.
+     */
+    @Value("${app.payment.razorpay.fail-on-placeholder:false}")
+    private boolean failOnPlaceholder;
+
     @PostConstruct
     void validateKeys() {
-        if (keyId == null || keyId.isBlank()
-                || "rzp_test_xxxxxxxxxxxx".equals(keyId)) {
-            log.warn("⚠ Razorpay key-id is using the default/test placeholder! "
+        boolean idIsPlaceholder = keyId == null || keyId.isBlank()
+                || "rzp_test_xxxxxxxxxxxx".equals(keyId);
+        boolean secretIsPlaceholder = keySecret == null || keySecret.isBlank()
+                || "rzp_test_secret".equals(keySecret);
+
+        if (failOnPlaceholder && (idIsPlaceholder || secretIsPlaceholder)) {
+            throw new IllegalStateException(
+                    "Razorpay keys are using default/test placeholder values. "
+                            + "Set APP_PAYMENT_RAZORPAY_KEY_ID and APP_PAYMENT_RAZORPAY_KEY_SECRET "
+                            + "to real credentials before starting this profile.");
+        }
+
+        if (idIsPlaceholder) {
+            LOG.warn("⚠ Razorpay key-id is using the default/test placeholder! "
                     + "Set APP_PAYMENT_RAZORPAY_KEY_ID in production.");
         }
-        if (keySecret == null || keySecret.isBlank()
-                || "rzp_test_secret".equals(keySecret)) {
-            log.warn("⚠ Razorpay key-secret is using the default/test placeholder! "
+        if (secretIsPlaceholder) {
+            LOG.warn("⚠ Razorpay key-secret is using the default/test placeholder! "
                     + "Set APP_PAYMENT_RAZORPAY_KEY_SECRET in production.");
         }
     }
@@ -61,7 +81,7 @@ public class RazorpayAdapter implements PaymentGateway {
         response.put("attempts", 0);
         response.put("notes", Map.of("internal_order_id", orderId));
 
-        log.info("Razorpay order created: orderId={}, razorpayOrderId={}, amount={} {}",
+        LOG.info("Razorpay order created: orderId={}, razorpayOrderId={}, amount={} {}",
                 orderId, response.get("id"), amount, currency);
 
         return response;
@@ -90,12 +110,12 @@ public class RazorpayAdapter implements PaymentGateway {
             String expectedSignature = hexString.toString();
             boolean verified = expectedSignature.equals(signature);
 
-            log.info("Razorpay payment verification: paymentId={}, orderId={}, verified={}",
+            LOG.info("Razorpay payment verification: paymentId={}, orderId={}, verified={}",
                     paymentId, orderId, verified);
 
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("Razorpay signature verification failed", e);
+            LOG.error("Razorpay signature verification failed", e);
             return false;
         }
     }
@@ -105,7 +125,7 @@ public class RazorpayAdapter implements PaymentGateway {
         // In production: use RazorpayClient.Payments.refund()
         String refundId = "rfnd_" + paymentId + "_" + System.currentTimeMillis();
 
-        log.info("Razorpay refund processed: paymentId={}, amount={}, refundId={}, reason={}",
+        LOG.info("Razorpay refund processed: paymentId={}, amount={}, refundId={}, reason={}",
                 paymentId, amount, refundId, reason);
 
         return refundId;
@@ -114,7 +134,7 @@ public class RazorpayAdapter implements PaymentGateway {
     @Override
     public String fetchPaymentStatus(String paymentId) {
         // In production: use RazorpayClient.Payments.fetch()
-        log.info("Razorpay payment status fetched: paymentId={}", paymentId);
+        LOG.info("Razorpay payment status fetched: paymentId={}", paymentId);
         return "captured";
     }
 
@@ -123,7 +143,7 @@ public class RazorpayAdapter implements PaymentGateway {
         // Razorpay sends the signature in the "x-razorpay-signature" header.
         // The HMAC is computed over the raw request body using the key secret.
         if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
-            log.warn("Razorpay webhook signature header missing or empty");
+            LOG.warn("Razorpay webhook signature header missing or empty");
             return false;
         }
         try {
@@ -135,7 +155,9 @@ public class RazorpayAdapter implements PaymentGateway {
             StringBuilder hexString = new StringBuilder();
             for (byte b : hmacBytes) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
                 hexString.append(hex);
             }
 
@@ -147,10 +169,10 @@ public class RazorpayAdapter implements PaymentGateway {
                             java.util.HexFormat.of().parseHex(expectedSignature))
                             .equals(signatureHeader);
 
-            log.info("Razorpay webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            LOG.info("Razorpay webhook signature verification: {}", verified ? "PASSED" : "FAILED");
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("Razorpay webhook signature verification failed", e);
+            LOG.error("Razorpay webhook signature verification failed", e);
             return false;
         }
     }

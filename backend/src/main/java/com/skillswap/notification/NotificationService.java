@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 
+/**
+ * Service implementing notification business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationService {

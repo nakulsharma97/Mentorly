@@ -12,6 +12,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code FlaggedContent} persistence.
+ */
 public interface FlaggedContentRepository extends JpaRepository<FlaggedContent, Long> {
 
     /**

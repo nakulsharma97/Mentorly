@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service implementing message privacy business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class MessagePrivacyService {

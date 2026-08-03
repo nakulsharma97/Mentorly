@@ -1,15 +1,21 @@
 package com.skillswap.payment;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code Payment} persistence.
+ */
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByLearnerIdOrMentorId(Long learnerId, Long mentorId);
@@ -23,6 +29,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByPaymentId(String paymentId);
 
     Optional<Payment> findByOrderId(String orderId);
+
+    /**
+     * Load a payment with a pessimistic write lock so concurrent refund
+     * attempts serialize on the row — prevents duplicate refunds.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Payment p WHERE p.id = :id")
+    Optional<Payment> findByIdWithLock(@Param("id") Long id);
 
     // ── Admin pagination queries ──
     @Query("SELECT p FROM Payment p WHERE "
@@ -50,7 +64,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
      */
     @Query(value = "SELECT YEAR(u.created_at) * 100 + MONTH(u.created_at) AS ym, COUNT(*) AS cnt "
             + "FROM users u WHERE u.created_at >= :since GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
-    List<Object[]> computeMonthlySignupTrend(@Param("since") java.time.OffsetDateTime since);
+    List<Object[]> computeMonthlySignupTrend(@Param("since") OffsetDateTime since);
 
     /**
      * Monthly released-payment revenue trend - returns [monthIndex, sum(amount)].
@@ -58,7 +72,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query(value = "SELECT YEAR(p.created_at) * 100 + MONTH(p.created_at) AS ym, COALESCE(SUM(p.amount), 0) AS total "
             + "FROM payments p WHERE p.status = 'RELEASED' AND p.created_at >= :since "
             + "GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
-    List<Object[]> computeMonthlyRevenueTrend(@Param("since") java.time.OffsetDateTime since);
+    List<Object[]> computeMonthlyRevenueTrend(@Param("since") OffsetDateTime since);
 
     /**
      * Monthly completed-bookings trend - returns [monthIndex, count] for the last N months.
@@ -66,7 +80,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query(value = "SELECT YEAR(b.created_at) * 100 + MONTH(b.created_at) AS ym, COUNT(*) AS cnt "
             + "FROM bookings b WHERE b.booking_status = 'COMPLETED' AND b.created_at >= :since "
             + "GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
-    List<Object[]> computeMonthlySessionTrend(@Param("since") java.time.OffsetDateTime since);
+    List<Object[]> computeMonthlySessionTrend(@Param("since") OffsetDateTime since);
 
     /**
      * Total released revenue since a timestamp — returns a single [SUM(amount)]
@@ -74,7 +88,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
      */
     @Query(value = "SELECT COALESCE(SUM(p.amount), 0) FROM payments p "
             + "WHERE p.status = 'RELEASED' AND p.created_at >= :since", nativeQuery = true)
-    java.math.BigDecimal computeRevenueSince(@Param("since") java.time.OffsetDateTime since);
+    BigDecimal computeRevenueSince(@Param("since") OffsetDateTime since);
 
     /** Recent payments (newest first) — feeds the recent-activity timeline. */
     List<Payment> findTop5ByOrderByCreatedAtDesc();

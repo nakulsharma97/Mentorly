@@ -7,17 +7,24 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.user.User;
-import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * REST controller exposing review endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/reviews")
 @RequiredArgsConstructor
@@ -49,7 +56,8 @@ public class ReviewController {
             distribution.put(star, count);
         }
 
-        int recommendationRate = totalReviews == 0 ? 0 : (int) Math.round((recommended * 100.0) / totalReviews);
+        int recommendationRate = totalReviews == 0 ? 0
+                : (int) Math.round(recommended * 100.0 / totalReviews);
         return new ApiResponse<>("Mentor reviews fetched",
                 new ReviewSummaryResponse(
                         Math.round(averageRating * 10.0) / 10.0,
@@ -92,7 +100,8 @@ public class ReviewController {
                         BookingStatus.COMPLETED)
                 .stream()
                 .filter(booking -> !mentorReviewRepository.existsByBookingId(booking.getId()))
-                .filter(booking -> booking.getPaymentStatus() != null && successStatuses.contains(booking.getPaymentStatus()))
+                .filter(booking -> booking.getPaymentStatus() != null
+                        && successStatuses.contains(booking.getPaymentStatus()))
                 .map(EligibleBookingResponse::from)
                 .toList();
 
@@ -242,9 +251,15 @@ public class ReviewController {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
+/**
+ * Immutable data carrier for create review request.
+ */
     public record CreateReviewRequest(Long bookingId, Long mentorId, Integer rating, String comment) {
     }
 
+/**
+ * Immutable data carrier for eligible booking response.
+ */
     public record EligibleBookingResponse(Long bookingId, Long sessionId, String sessionTitle, String completedAt) {
         static EligibleBookingResponse from(Booking booking) {
             return new EligibleBookingResponse(
@@ -255,6 +270,9 @@ public class ReviewController {
         }
     }
 
+/**
+ * Immutable data carrier for review item response.
+ */
     public record ReviewItemResponse(
             Long id,
             Long mentorId,
@@ -279,6 +297,9 @@ public class ReviewController {
         }
     }
 
+/**
+ * Immutable data carrier for review summary response.
+ */
     public record ReviewSummaryResponse(
             Double averageRating,
             Long totalReviews,
@@ -288,6 +309,9 @@ public class ReviewController {
             List<ReviewItemResponse> reviews) {
     }
 
+/**
+ * Immutable data carrier for reply review request.
+ */
     public record ReplyReviewRequest(String replyText) {
     }
 }

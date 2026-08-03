@@ -4,6 +4,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code UserAvailabilitySlot} persistence.
+ */
 public interface UserAvailabilitySlotRepository extends JpaRepository<UserAvailabilitySlot, Long> {
     List<UserAvailabilitySlot> findByUserIdAndActiveTrue(Long userId);
 

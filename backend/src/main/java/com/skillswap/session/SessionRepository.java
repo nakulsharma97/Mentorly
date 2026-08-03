@@ -14,6 +14,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code Session} persistence.
+ */
 public interface SessionRepository extends JpaRepository<SkillSession, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

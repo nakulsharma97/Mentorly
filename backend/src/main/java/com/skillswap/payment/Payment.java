@@ -1,6 +1,15 @@
 package com.skillswap.payment;
 
-import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -12,6 +21,9 @@ import java.time.OffsetDateTime;
 import java.util.Map;
 
 
+/**
+ * Encapsulates payment.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,6 +43,11 @@ public class Payment {
     @Column(name = "payment_id")
     private String paymentId;
 
+    /**
+     * Gateway HMAC signature. Never serialized to clients — it is a secret-ish
+     * value used only for server-side verification (webhook / verify flows).
+     */
+    @JsonIgnore
     @Column(name = "signature")
     private String signature;
 

@@ -15,6 +15,9 @@ import java.time.OffsetDateTime;
  * The meeting link is NEVER exposed in normal session responses.
  * It's only returned through the secure join endpoint after authorization.
  */
+/**
+ * Encapsulates live session response.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

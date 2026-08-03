@@ -5,11 +5,21 @@ import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * REST controller exposing skill verification endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/verification")
 @RequiredArgsConstructor
@@ -115,12 +125,21 @@ public class SkillVerificationController {
         return String.join(", ", skills);
     }
 
+/**
+ * Immutable data carrier for create task request.
+ */
     public record CreateTaskRequest(String skillName, String title, String instructions, Boolean active) {
     }
 
+/**
+ * Immutable data carrier for submit task request.
+ */
     public record SubmitTaskRequest(String submissionText) {
     }
 
+/**
+ * Immutable data carrier for review submission request.
+ */
     public record ReviewSubmissionRequest(SubmissionStatus status, String reviewNote) {
     }
 }

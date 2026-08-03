@@ -2,6 +2,7 @@ package com.skillswap.common;
 
 import com.skillswap.admin.AdminSetting;
 import com.skillswap.admin.AdminSettingRepository;
+import com.skillswap.config.ClientIpResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +23,9 @@ class AuditLogServiceTest {
     void setUp() {
         auditLogRepository = mock(AuditLogRepository.class);
         adminSettingRepository = mock(AdminSettingRepository.class);
-        auditLogService = new AuditLogService(auditLogRepository, adminSettingRepository);
+        // Proxy headers are not trusted in unit tests (trusted-proxy off).
+        auditLogService = new AuditLogService(auditLogRepository, adminSettingRepository,
+                new ClientIpResolver(false));
     }
 
     private void stubRetentionSetting(String rawValue) {

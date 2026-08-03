@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code AppNotification} persistence.
+ */
 public interface AppNotificationRepository extends JpaRepository<AppNotification, Long> {
     List<AppNotification> findByUserIdOrderByCreatedAtDesc(Long userId);
 

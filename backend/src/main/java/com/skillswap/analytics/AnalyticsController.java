@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller exposing analytics endpoints.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/analytics")
@@ -78,9 +81,15 @@ public class AnalyticsController {
         return Math.max(7, Math.min(365, rangeDays));
     }
 
+/**
+ * Immutable data carrier for share request.
+ */
     public record ShareRequest(Integer rangeDays) {
     }
 
+/**
+ * Immutable data carrier for event request.
+ */
     public record EventRequest(String name, Map<String, Object> payload) {
     }
 }

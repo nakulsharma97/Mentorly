@@ -11,7 +11,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -19,6 +26,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * REST controller exposing user endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -102,13 +112,13 @@ public class UserController {
     }
 
     @GetMapping("/mentors/live")
-    public ApiResponse<java.util.List<LiveMentorResponse>> liveMentors(
+    public ApiResponse<List<LiveMentorResponse>> liveMentors(
             @RequestParam(defaultValue = "24") int recentHours) {
         int safeRecentHours = Math.max(1, Math.min(168, recentHours));
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime cutoff = now.minusHours(safeRecentHours);
 
-        java.util.List<LiveMentorResponse> mentors = userRepository
+        List<LiveMentorResponse> mentors = userRepository
                 .findByRoleAndEnabledTrueAndLastActiveAtAfterOrderByLastActiveAtDesc(UserRole.MENTOR, cutoff)
                 .stream()
                 .map(mentor -> {
@@ -164,7 +174,14 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateProfile(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody UserProfileUpdateRequest req) {
-        log.info("updateProfile userId={} payload={}", user.getId(), req);
+        // Log only the userId + which fields changed — never the payload itself
+        // (aboutMe/resumeUrl/certificates contain personal data / PII).
+        log.info("updateProfile userId={} fields=[skills={},aboutMe={},githubUrl={},linkedinUrl={},profileImageUrl={},"
+                        + "projects={},certificates={},pastTeachingSessions={},resumeUrl={}]",
+                user.getId(),
+                req.skills() != null, req.aboutMe() != null, req.githubUrl() != null,
+                req.linkedinUrl() != null, req.profileImageUrl() != null, req.projects() != null,
+                req.certificates() != null, req.pastTeachingSessions() != null, req.resumeUrl() != null);
         if (req.skills() != null) {
             user.setSkills(trimToNull(req.skills()));
         }
@@ -317,7 +334,7 @@ public class UserController {
 
         int total = 7;
         int completed = total - missing.size();
-        int percent = Math.round((completed / (float) total) * 100);
+        int percent = Math.round(completed / (float) total * 100);
 
         return new ProfileCompletion(percent, missing);
     }
@@ -329,12 +346,21 @@ public class UserController {
     private record ProfileCompletion(int percent, List<String> missing) {
     }
 
+/**
+ * Immutable data carrier for wallet update request.
+ */
     public record WalletUpdateRequest(String walletAddress) {
     }
 
+/**
+ * Immutable data carrier for role update request.
+ */
     public record RoleUpdateRequest(UserRole role) {
     }
 
+/**
+ * Immutable data carrier for user profile update request.
+ */
     public record UserProfileUpdateRequest(
             @Size(max = 500) String skills,
             @Size(max = 2000) String aboutMe,
@@ -356,7 +382,7 @@ public class UserController {
         return new ApiResponse<>("Username check", new UsernameAvailabilityResponse(available, suggestion));
     }
 
-    private static final java.util.Set<String> RESERVED_USERNAMES = java.util.Set.of(
+    private static final Set<String> RESERVED_USERNAMES = Set.of(
             "admin", "support", "login", "register", "signup", "mentor", "learner",
             "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
             "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
@@ -375,12 +401,15 @@ public class UserController {
         return base + System.currentTimeMillis() % 10000;
     }
 
-    public record UsernameAvailabilityResponse(boolean available, String suggestion) {}
+/**
+ * Immutable data carrier for username availability response.
+ */
+    public record UsernameAvailabilityResponse(boolean available, String suggestion) { }
 
     @PutMapping("/me/username")
     public ApiResponse<UserProfileResponse> updateUsername(
             @AuthenticationPrincipal User user,
-            @RequestBody @jakarta.validation.Valid UsernameUpdateRequest req) {
+            @RequestBody @Valid UsernameUpdateRequest req) {
         String normalized = req.username().toLowerCase(java.util.Locale.ROOT).trim();
         if (!USERNAME_PATTERN.matcher(normalized).matches()) {
             throw new IllegalArgumentException(
@@ -397,9 +426,16 @@ public class UserController {
         return new ApiResponse<>("Username updated", UserProfileResponse.from(user));
     }
 
+/**
+ * Immutable data carrier for username update request.
+ */
     public record UsernameUpdateRequest(
-            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 3, max = 20) String username) {}
+            @jakarta.validation.constraints.NotBlank
+            @Size(min = 3, max = 20) String username) { }
 
+/**
+ * Immutable data carrier for user profile response.
+ */
     public record UserProfileResponse(
             Long id,
             String email,
@@ -445,6 +481,9 @@ public class UserController {
         }
     }
 
+/**
+ * Immutable data carrier for public mentor profile response.
+ */
     public record PublicMentorProfileResponse(
             Long id,
             String createdAt,
@@ -489,6 +528,9 @@ public class UserController {
         }
     }
 
+/**
+ * Immutable data carrier for live mentor response.
+ */
     public record LiveMentorResponse(
             Long id,
             String fullName,
@@ -517,6 +559,9 @@ public class UserController {
         }
     }
 
+/**
+ * Immutable data carrier for referral summary response.
+ */
     public record ReferralSummaryResponse(
             String referralCode,
             int totalReferrals,

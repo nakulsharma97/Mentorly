@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * One-time migration service that reads the {@code User.certificates} text field
@@ -31,6 +30,9 @@ import java.util.Locale;
  *
  * <p>Users who already have structured certifications are <b>skipped</b> to
  * avoid duplicates. Users with no text-field data are also skipped.
+ */
+/**
+ * Service implementing cert migration business logic.
  */
 @Slf4j
 @Service
@@ -82,7 +84,8 @@ public class CertMigrationService {
                     ParsedCert parsed = parseLine(line);
                     if (parsed == null) {
                         parseErrors++;
-                        log.warn("PARSE_FAILED userId={} — unable to parse line: '{}'", user.getId(), truncate(line, 80));
+                        log.warn("PARSE_FAILED userId={} — unable to parse line: '{}'",
+                                user.getId(), truncate(line, 80));
                         continue;
                     }
 
@@ -104,7 +107,8 @@ public class CertMigrationService {
                     certsCreated++;
                 } catch (Exception e) {
                     parseErrors++;
-                    log.warn("PARSE_EXCEPTION userId={} — line='{}' error={}", user.getId(), truncate(line, 80), e.getMessage());
+                    log.warn("PARSE_EXCEPTION userId={} — line='{}' error={}",
+                            user.getId(), truncate(line, 80), e.getMessage());
                 }
             }
 
@@ -131,7 +135,9 @@ public class CertMigrationService {
      * Accepts newlines, pipes, semicolons, and asterisks as separators.
      */
     static List<String> parseLines(String raw) {
-        if (raw == null) return List.of();
+        if (raw == null) {
+            return List.of();
+        }
         String[] parts = raw.split("\\r?\\n|\\||;|\\*");
         List<String> result = new ArrayList<>();
         for (String part : parts) {
@@ -158,7 +164,9 @@ public class CertMigrationService {
      * Returns {@code null} if the line cannot produce a meaningful certification name.
      */
     static ParsedCert parseLine(String line) {
-        if (line == null || line.trim().isEmpty()) return null;
+        if (line == null || line.trim().isEmpty()) {
+            return null;
+        }
         String working = line.trim();
 
         // Try to extract a 4-digit year anywhere in the string
@@ -201,10 +209,13 @@ public class CertMigrationService {
             if (commaParts.length >= 2) {
                 name = commaParts[0].trim();
                 organization = commaParts[1].replaceAll("\\s*\\d{4}\\s*$", "").trim();
-                if (organization.isEmpty()) organization = "Unknown Organization";
+                if (organization.isEmpty()) {
+                    organization = "Unknown Organization";
+                }
             } else {
                 // Attempt 3: try to extract "(Year)" pattern
-                java.util.regex.Matcher parenMatcher = java.util.regex.Pattern.compile("(.+?)\\s*\\((\\d{4})\\)").matcher(working);
+                java.util.regex.Matcher parenMatcher = java.util.regex.Pattern
+                        .compile("(.+?)\\s*\\((\\d{4})\\)").matcher(working);
                 if (parenMatcher.matches()) {
                     name = parenMatcher.group(1).trim();
                     organization = "Unknown Organization";
@@ -218,19 +229,25 @@ public class CertMigrationService {
 
         // Clean up the name
         name = name.replaceAll("\\s*\\d{4}\\s*$", "").trim();
-        if (name.isEmpty()) return null;
+        if (name.isEmpty()) {
+            return null;
+        }
 
         return new ParsedCert(name, organization, issueDate, description);
     }
 
     private static String truncate(String value, int maxLen) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         return value.length() <= maxLen ? value : value.substring(0, maxLen) + "…";
     }
 
     // ── DTOs ─────────────────────────────────────────────────────────────
 
-    /** Result summary returned to the caller. */
+/**
+ * Immutable data carrier for migration result.
+ */
     public record MigrationResult(
             int usersProcessed,
             int certsCreated,
@@ -241,11 +258,12 @@ public class CertMigrationService {
         @Override
         public String toString() {
             return String.format(
-                    "MigrationResult{usersProcessed=%d, certsCreated=%d, skippedNoText=%d, skippedAlreadyMigrated=%d, parseErrors=%d}",
+                    "MigrationResult{usersProcessed=%d, certsCreated=%d, skippedNoText=%d,"
+                            + " skippedAlreadyMigrated=%d, parseErrors=%d}",
                     usersProcessed, certsCreated, usersSkippedNoText, usersSkippedAlreadyMigrated, parseErrors);
         }
     }
 
     /** Internal parsed representation of a single certification line. */
-    record ParsedCert(String name, String organization, LocalDate issueDate, String description) {}
+    record ParsedCert(String name, String organization, LocalDate issueDate, String description) { }
 }

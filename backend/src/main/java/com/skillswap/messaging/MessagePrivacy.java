@@ -1,5 +1,8 @@
 package com.skillswap.messaging;
 
+/**
+ * Enumerates message privacy.
+ */
 public enum MessagePrivacy {
     ANYONE,
     CONNECTED_ONLY,

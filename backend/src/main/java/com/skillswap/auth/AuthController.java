@@ -1,6 +1,7 @@
 package com.skillswap.auth;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.config.ClientIpResolver;
 import com.skillswap.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -11,10 +12,18 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import static com.skillswap.auth.AuthDtos.*;
 
+/**
+ * REST controller exposing auth endpoints.
+ */
 @Tag(name = "Authentication", description = "User signup, login, and token refresh operations")
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -23,12 +32,13 @@ public class AuthController {
 
     private final AuthService authService;
     private final AuthCookieService authCookieService;
+    private final ClientIpResolver clientIpResolver;
 
     @PostMapping("/signup")
     public ApiResponse<AuthSessionResponse> signup(@Valid @RequestBody SignupRequest request,
             HttpServletResponse response,
-            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor);
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
         AuthResponse authResponse = authService.signup(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Signup successful", sanitize(authResponse));
@@ -37,8 +47,8 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request,
             HttpServletResponse response,
-            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor);
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
         AuthResponse authResponse = authService.login(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Login successful", sanitize(authResponse));
@@ -47,13 +57,14 @@ public class AuthController {
     @PostMapping("/refresh")
     public ApiResponse<AuthSessionResponse> refresh(
             @CookieValue(value = AuthCookieService.REFRESH_TOKEN_COOKIE, required = false) String refreshTokenCookie,
-            @RequestBody(required = false) RefreshTokenRequest request,
             HttpServletResponse response) {
-        String refreshToken = refreshTokenCookie;
-        if ((refreshToken == null || refreshToken.isBlank()) && request != null) {
-            refreshToken = request.refreshToken();
-        }
-        AuthResponse authResponse = authService.refreshToken(refreshToken);
+        // SECURITY: the refresh token is accepted ONLY from the httpOnly
+        // refresh_token cookie. Tokens sent in the request body are never
+        // honored — body tokens could be exfiltrated by XSS and replayed, and
+        // accepting them would undermine the cookie-only session model.
+        // A missing cookie falls through to authService, which rejects with
+        // "Refresh token is required".
+        AuthResponse authResponse = authService.refreshToken(refreshTokenCookie);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Token refreshed", sanitize(authResponse));
     }
@@ -82,8 +93,8 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
-            @RequestHeader(value = "X-Forwarded-For", required = false) String xForwardedFor) {
-        String clientIp = resolveClientIp(xForwardedFor);
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
         authService.forgotPassword(request, clientIp);
         return new ApiResponse<>("If this email is registered, a reset link has been sent.", null);
     }
@@ -104,15 +115,6 @@ public class AuthController {
     private AuthSessionResponse sanitize(AuthResponse authResponse) {
         return new AuthSessionResponse(authResponse.email(), authResponse.role(), authResponse.token(),
                 authResponse.refreshToken(), authResponse.username());
-    }
-
-    private static String resolveClientIp(String xForwardedFor) {
-        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // X-Forwarded-For can be comma-separated; take the first (client) IP
-            int comma = xForwardedFor.indexOf(',');
-            return comma > 0 ? xForwardedFor.substring(0, comma).trim() : xForwardedFor.trim();
-        }
-        return "unknown";
     }
 
     private String resolveAccessToken(String accessTokenCookie, String authorizationHeader) {

@@ -3,7 +3,17 @@ package com.skillswap.moderation;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.skillswap.safety.ReportPriority;
 import com.skillswap.user.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,6 +23,9 @@ import java.time.OffsetDateTime;
  * A single piece of flagged content in the moderation center. Separate from
  * {@code UserReport} (the manual complaints queue) so automated detection
  * pipelines and content-level flags live in their own table.
+ */
+/**
+ * Encapsulates flagged content.
  */
 @Getter
 @Setter

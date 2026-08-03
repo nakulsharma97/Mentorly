@@ -15,6 +15,7 @@ import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -47,7 +48,11 @@ import java.util.TimeZone;
  * Nothing is hardcoded or seeded; when a probe fails (e.g. MySQL status vars are
  * unavailable) the metric degrades to a safe neutral value rather than throwing.
  */
+/**
+ * Service implementing system health business logic.
+ */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SystemHealthService {
 
@@ -118,7 +123,7 @@ public class SystemHealthService {
                 failedLogins24h + unauthorized24h + suspicious24h);
 
         // ── Errors ──
-        MonitoringDtos.ErrorMetricsDto errors = collectErrorMetrics(now, todayStart, dayAgo);
+        MonitoringDtos.ErrorMetricsDto errors = collectErrorMetrics(todayStart, dayAgo);
 
         // ── Activity ──
         MonitoringDtos.ActivityMetricsDto activity = new MonitoringDtos.ActivityMetricsDto(
@@ -169,14 +174,14 @@ public class SystemHealthService {
         Runtime rt = Runtime.getRuntime();
         long usedMemory = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
         long maxMemory = rt.maxMemory() / (1024 * 1024);
-        double memoryPercent = Math.round((usedMemory * 100.0 / Math.max(maxMemory, 1)) * 10.0) / 10.0;
+        double memoryPercent = Math.round(usedMemory * 100.0 / Math.max(maxMemory, 1) * 10.0) / 10.0;
 
         MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
         MemoryUsage heap = mem.getHeapMemoryUsage();
         MemoryUsage nonHeap = mem.getNonHeapMemoryUsage();
         long heapUsed = heap.getUsed() / (1024 * 1024);
         long heapMax = heap.getMax() > 0 ? heap.getMax() / (1024 * 1024) : maxMemory;
-        double heapPercent = Math.round((heapUsed * 100.0 / Math.max(heapMax, 1)) * 10.0) / 10.0;
+        double heapPercent = Math.round(heapUsed * 100.0 / Math.max(heapMax, 1) * 10.0) / 10.0;
 
         double cpuPercent = 0;
         double loadAvg = 0;
@@ -188,13 +193,14 @@ public class SystemHealthService {
             loadAvg = osBean.getSystemLoadAverage() < 0 ? 0 : osBean.getSystemLoadAverage();
         } catch (Exception ex) {
             // Older JDKs / restricted environments — keep neutral values.
+            log.debug("Could not read OS metrics: {}", ex.getMessage());
         }
 
         File disk = new File(".");
         long diskTotal = disk.getTotalSpace() / (1024 * 1024);
         long diskUsable = disk.getUsableSpace() / (1024 * 1024);
         double diskPercent = diskTotal <= 0 ? 0
-                : Math.round(((diskTotal - diskUsable) * 100.0 / diskTotal) * 10.0) / 10.0;
+                : Math.round((diskTotal - diskUsable) * 100.0 / diskTotal * 10.0) / 10.0;
 
         ThreadMXBean threads = ManagementFactory.getThreadMXBean();
         long uptimeSeconds = ManagementFactory.getRuntimeMXBean().getUptime() / 1000;
@@ -259,7 +265,7 @@ public class SystemHealthService {
         }
 
         double poolPercent = poolMax <= 0 ? 0
-                : Math.round((active * 100.0 / poolMax) * 10.0) / 10.0;
+                : Math.round(active * 100.0 / poolMax * 10.0) / 10.0;
 
         return new MonitoringDtos.DatabaseHealthDto(
                 up ? "UP" : "DOWN", dbResponseMs, active, idle, total, waiting,
@@ -309,7 +315,7 @@ public class SystemHealthService {
         long totalRequests = requestStatsService.totalRequests();
         long failedRequests = requestStatsService.failedRequests();
         double successRate = totalRequests == 0 ? 100
-                : Math.round(((totalRequests - failedRequests) * 100.0 / totalRequests) * 10.0) / 10.0;
+                : Math.round((totalRequests - failedRequests) * 100.0 / totalRequests * 10.0) / 10.0;
         double avgMs = Math.round(requestStatsService.avgResponseTimeMs() * 10.0) / 10.0;
 
         String slowest = "—";
@@ -357,18 +363,18 @@ public class SystemHealthService {
         try {
             probe.getAsLong();
             return new MonitoringDtos.MicroserviceHealthDto(
-                    name, "UP", Math.round(((System.nanoTime() - start) / 1_000_000.0) * 10.0) / 10.0,
+                    name, "UP", Math.round((System.nanoTime() - start) / 1_000_000.0 * 10.0) / 10.0,
                     uptime, appVersion);
         } catch (Exception ex) {
             return new MonitoringDtos.MicroserviceHealthDto(
-                    name, "DOWN", Math.round(((System.nanoTime() - start) / 1_000_000.0) * 10.0) / 10.0,
+                    name, "DOWN", Math.round((System.nanoTime() - start) / 1_000_000.0 * 10.0) / 10.0,
                     uptime, appVersion);
         }
     }
 
     // ── Errors ────────────────────────────────────────────────────
 
-    private MonitoringDtos.ErrorMetricsDto collectErrorMetrics(OffsetDateTime now, OffsetDateTime todayStart,
+    private MonitoringDtos.ErrorMetricsDto collectErrorMetrics(OffsetDateTime todayStart,
             OffsetDateTime dayAgo) {
         long errorsToday = auditLogRepository
                 .countByActionContainingIgnoreCaseAndCreatedAtAfter("ERROR", todayStart);
@@ -558,8 +564,8 @@ public class SystemHealthService {
             return seconds + "s";
         }
         long days = seconds / 86400;
-        long hours = (seconds % 86400) / 3600;
-        long minutes = (seconds % 3600) / 60;
+        long hours = seconds % 86400 / 3600;
+        long minutes = seconds % 3600 / 60;
         if (days > 0) {
             return days + "d " + hours + "h";
         }

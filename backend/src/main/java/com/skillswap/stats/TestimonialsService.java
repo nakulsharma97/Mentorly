@@ -15,6 +15,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Service implementing testimonials business logic.
+ */
 @Service
 @RequiredArgsConstructor
 public class TestimonialsService {

@@ -17,6 +17,9 @@ import java.time.OffsetDateTime;
 /**
  * Entity representing a skill that a learner is tracking in their watchlist.
  */
+/**
+ * Encapsulates skill watchlist.
+ */
 @Getter
 @Setter
 @Entity

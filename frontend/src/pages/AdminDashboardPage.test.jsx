@@ -68,16 +68,13 @@ const mockDashboardResponse = {
         joinedThisWeek: 12,
         platformFees: 1500,
         totalReleasedAmount: 12000,
+        pendingVerifications: 7,
       },
     },
   },
 };
 
 const mockSkillsResponse = { data: { data: [{ id: 1 }, { id: 2 }, { id: 3 }] } };
-
-const mockSummaryResponse = {
-  data: { data: { pendingMentorVerifications: 7 } },
-};
 
 describe("AdminDashboardPage", () => {
   afterEach(() => {
@@ -99,9 +96,6 @@ describe("AdminDashboardPage", () => {
       }
       if (url === "/api/v1/skills") {
         return Promise.resolve(mockSkillsResponse);
-      }
-      if (url === "/api/v1/admin/summary") {
-        return Promise.resolve(mockSummaryResponse);
       }
       return Promise.resolve({ data: { data: [] } });
     });
@@ -150,9 +144,6 @@ describe("AdminDashboardPage", () => {
       if (url === "/api/v1/skills") {
         return Promise.resolve({ data: { data: [] } });
       }
-      if (url === "/api/v1/admin/summary") {
-        return Promise.resolve({ data: { data: {} } });
-      }
       return Promise.resolve({ data: { data: [] } });
     });
 
@@ -174,9 +165,6 @@ describe("AdminDashboardPage", () => {
       }
       if (url === "/api/v1/skills") {
         return Promise.resolve(mockSkillsResponse);
-      }
-      if (url === "/api/v1/admin/summary") {
-        return Promise.resolve(mockSummaryResponse);
       }
       return Promise.resolve({ data: { data: [] } });
     });

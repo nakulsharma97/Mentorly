@@ -300,14 +300,32 @@ class BookingControllerIntegrationTest {
 
     @Test
     void startBookingReturnsSuccess() throws Exception {
+        setSecurityContext(MENTOR);
+
         Booking booking = buildBooking(700L, LEARNER, MENTOR, BookingStatus.CONFIRMED);
-        when(bookingLifecycleService.startBooking(700L)).thenReturn(booking);
+        when(bookingLifecycleService.startBooking(700L, MENTOR)).thenReturn(booking);
 
         mockMvc.perform(post("/api/v1/bookings/700/start")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Booking started"))
                 .andExpect(jsonPath("$.data.bookingStatus").value("CONFIRMED"));
+    }
+
+    @Test
+    void startBookingRejectsUnrelatedUser() throws Exception {
+        User otherUser = createUser(99L, UserRole.LEARNER, "Other Learner");
+        setSecurityContext(otherUser);
+
+        when(bookingLifecycleService.startBooking(700L, otherUser))
+                .thenThrow(new IllegalArgumentException(
+                        "Only the session mentor, assigned learner, or an admin can start a booking"));
+
+        mockMvc.perform(post("/api/v1/bookings/700/start")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error")
+                        .value("Only the session mentor, assigned learner, or an admin can start a booking"));
     }
 
     // ═══════════════════════════════════════════════════════

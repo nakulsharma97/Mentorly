@@ -6,6 +6,7 @@ import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
+import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.referral.ReferralService;
 import com.skillswap.roadmap.LearningRoadmap;
@@ -44,6 +45,9 @@ class BookingLifecycleServiceTest {
 
     @Mock
     private PaymentRepository paymentRepository;
+
+    @Mock
+    private PaymentService paymentService;
 
     @Mock
     private CertificationService certificationService;
@@ -270,15 +274,81 @@ class BookingLifecycleServiceTest {
     // ── startBooking ────────────────────────────────────
 
     @Test
-    void startBookingSuccess() {
+    void startBookingByMentorSuccess() {
         booking.setBookingStatus(BookingStatus.CONFIRMED);
         session.setStartTime(OffsetDateTime.now().minusHours(1));
         when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        Booking result = bookingLifecycleService.startBooking(100L);
+        Booking result = bookingLifecycleService.startBooking(100L, mentor);
 
         assertEquals(BookingStatus.IN_PROGRESS, result.getBookingStatus());
+    }
+
+    @Test
+    void startBookingByAssignedLearnerSuccess() {
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Booking result = bookingLifecycleService.startBooking(100L, learner);
+
+        assertEquals(BookingStatus.IN_PROGRESS, result.getBookingStatus());
+    }
+
+    @Test
+    void startBookingByAdminSuccess() {
+        User admin = new User();
+        admin.setId(99L);
+        admin.setRole(UserRole.ADMIN);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Booking result = bookingLifecycleService.startBooking(100L, admin);
+
+        assertEquals(BookingStatus.IN_PROGRESS, result.getBookingStatus());
+    }
+
+    @Test
+    void startBookingRejectsUnrelatedLearner() {
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.startBooking(100L, otherUser));
+
+        assertEquals("Only the session mentor, assigned learner, or an admin can start a booking",
+                ex.getMessage());
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void startBookingRejectsUnrelatedMentor() {
+        User otherMentor = new User();
+        otherMentor.setId(42L);
+        otherMentor.setRole(UserRole.MENTOR);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.startBooking(100L, otherMentor));
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void startBookingRejectsNullUser() {
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.startBooking(100L, null));
+        verify(bookingRepository, never()).save(any());
     }
 
     @Test
@@ -288,7 +358,17 @@ class BookingLifecycleServiceTest {
         when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
 
         assertThrows(IllegalArgumentException.class,
-                () -> bookingLifecycleService.startBooking(100L));
+                () -> bookingLifecycleService.startBooking(100L, mentor));
+    }
+
+    @Test
+    void startBookingRejectsWrongState() {
+        booking.setBookingStatus(BookingStatus.PENDING);
+        session.setStartTime(OffsetDateTime.now().minusHours(1));
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.startBooking(100L, mentor));
     }
 
     // ── completeBooking ─────────────────────────────────
@@ -401,28 +481,78 @@ class BookingLifecycleServiceTest {
     // ── refundEscrowForCancelledBooking ──────────────────
 
     @Test
-    void refundEscrowReturnsFundsToLearner() {
+    void refundEscrowReturnsFundsToLearnerForWalletEscrow() {
+        // Wallet-gateway escrow: the learner's wallet is credited AND the
+        // gateway-first primitive is invoked (which is idempotent + skips the
+        // external call for wallet payments).
         Payment escrowedPayment = Payment.builder()
                 .id(200L)
                 .amount(new BigDecimal("100.00"))
                 .status(PaymentStatus.ESCROWED)
+                .gateway("wallet")
                 .build();
         booking.setPayment(escrowedPayment);
-        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentService.refundForCancellation(200L, new BigDecimal("100.00"), "Booking cancelled"))
+                .thenReturn(escrowedPayment);
 
         int refundPercent = bookingLifecycleService.refundEscrowForCancelledBooking(booking);
 
         assertEquals(100, refundPercent);
+        verify(paymentService).refundForCancellation(200L, new BigDecimal("100.00"), "Booking cancelled");
         verify(walletService).addEntryForUser(eq(learner.getId()),
                 argThat(req -> req.amount().compareTo(new BigDecimal("100.00")) == 0 &&
                         req.type() == WalletTransactionType.REFUND));
-        verify(paymentRepository).save(argThat(p -> p.getStatus() == PaymentStatus.REFUNDED));
+    }
+
+    @Test
+    void refundEscrowForExternalGatewayCreditsNoWallet() {
+        // External-gateway escrow: money goes back to the payer at the gateway,
+        // so no wallet credit is issued (prevents a double refund).
+        Payment escrowedPayment = Payment.builder()
+                .id(201L)
+                .amount(new BigDecimal("100.00"))
+                .status(PaymentStatus.ESCROWED)
+                .gateway("razorpay")
+                .build();
+        booking.setPayment(escrowedPayment);
+        when(paymentService.refundForCancellation(201L, new BigDecimal("100.00"), "Booking cancelled"))
+                .thenReturn(escrowedPayment);
+
+        int refundPercent = bookingLifecycleService.refundEscrowForCancelledBooking(booking);
+
+        assertEquals(100, refundPercent);
+        verify(paymentService).refundForCancellation(201L, new BigDecimal("100.00"), "Booking cancelled");
+        verify(walletService, never()).addEntryForUser(anyLong(), any());
     }
 
     @Test
     void refundEscrowSkipsIfNoPayment() {
         assertEquals(0, bookingLifecycleService.refundEscrowForCancelledBooking(booking));
+        verify(paymentService, never()).refundForCancellation(anyLong(), any(), anyString());
         verify(walletService, never()).addEntryForUser(anyLong(), any());
+    }
+
+    @Test
+    void cancelConfirmedBookingRequestsGatewayRefund() {
+        // Direct POST /bookings/{id}/cancel on a confirmed booking must route
+        // through the gateway-first primitive (not just flip the DB status).
+        Payment escrowedPayment = Payment.builder()
+                .id(202L)
+                .amount(new BigDecimal("100.00"))
+                .status(PaymentStatus.ESCROWED)
+                .gateway("razorpay")
+                .build();
+        booking.setPayment(escrowedPayment);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentService.refundForCancellation(202L, new BigDecimal("100.00"), "Booking cancelled"))
+                .thenReturn(escrowedPayment);
+
+        Booking result = bookingLifecycleService.cancelBooking(100L, learner);
+
+        assertEquals(BookingStatus.CANCELLED, result.getBookingStatus());
+        verify(paymentService).refundForCancellation(202L, new BigDecimal("100.00"), "Booking cancelled");
     }
 
     // ── handleStatusUpdate (switch) ─────────────────────

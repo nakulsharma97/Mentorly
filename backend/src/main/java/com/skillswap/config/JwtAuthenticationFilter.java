@@ -27,11 +27,14 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+/**
+ * Encapsulates jwt authentication filter.
+ */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private static final String HEALTH_PATH = "/api/v1/health";
 
@@ -40,6 +43,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
     private final UserRepository userRepository;
     private final PlatformTransactionManager transactionManager;
+
+    /**
+     * Comma-separated list of origins allowed to authenticate via the
+     * access_token cookie. Used to reject cross-site cookie replay (CSRF on the
+     * cookie fallback path): a request carrying an Origin header that is not in
+     * this list is treated as unauthenticated even if the cookie is present.
+     * Kept in sync with {@code app.cors.allowed-origins} (same default).
+     */
+    @org.springframework.beans.factory.annotation.Value(
+            "${app.cors.allowed-origins:http://localhost:5174,http://127.0.0.1:5174}")
+    private String allowedOrigins;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -93,7 +107,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     } catch (Exception ex) {
                         // A failed activity ping must never break authentication,
                         // but it should be visible in the logs (not silently swallowed).
-                        log.warn("Failed to update lastActiveAt for {}", userEmail, ex);
+                        LOG.warn("Failed to update lastActiveAt for {}", userEmail, ex);
                     }
                 }
             }
@@ -110,16 +124,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Cookies are checked as a fallback for WebSocket connections or OAuth
         // flows that may not include an explicit Bearer header.
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")
+                && !authHeader.substring(7).trim().isBlank()) {
             return authHeader.substring(7).trim();
         }
 
         String cookieToken = resolveTokenFromCookie(request);
-        if (cookieToken != null && !cookieToken.isBlank()) {
+        if (cookieToken != null && !cookieToken.isBlank()
+                && isCookieOriginTrusted(request)) {
             return cookieToken;
         }
 
         return null;
+    }
+
+    /**
+     * CSRF mitigation for the cookie fallback path. The access_token cookie is
+     * only honored when the request is same-origin: either no Origin header is
+     * present (WebSocket upgrades, non-browser clients, same-origin navigations)
+     * or the Origin matches the configured CORS allowlist. A cross-site request
+     * (attacker page triggering a form/multipart upload) carries a foreign
+     * Origin, so the cookie is ignored and the request stays unauthenticated.
+     */
+    private boolean isCookieOriginTrusted(HttpServletRequest request) {
+        String origin = request.getHeader("Origin");
+        if (origin == null || origin.isBlank()) {
+            return true;
+        }
+        if (allowedOrigins == null || allowedOrigins.isBlank()) {
+            return false;
+        }
+        String normalized = origin.trim().toLowerCase(java.util.Locale.ROOT);
+        for (String entry : allowedOrigins.split(",")) {
+            String candidate = entry.trim().toLowerCase(java.util.Locale.ROOT);
+            if (!candidate.isBlank() && candidate.equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String resolveTokenFromCookie(HttpServletRequest request) {

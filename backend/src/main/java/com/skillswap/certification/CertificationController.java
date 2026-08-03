@@ -4,11 +4,17 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 
+/**
+ * REST controller exposing certification endpoints.
+ */
 @RestController
 @RequestMapping("/api/v1/certifications")
 @RequiredArgsConstructor
@@ -32,6 +38,9 @@ public class CertificationController {
         return new ApiResponse<>("Certification evaluation completed", items);
     }
 
+/**
+ * Immutable data carrier for certification item.
+ */
     public record CertificationItem(
             Long id,
             String code,

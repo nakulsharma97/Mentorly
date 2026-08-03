@@ -7,6 +7,9 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
+/**
+ * Immutable data carrier for payment intent request.
+ */
 public record PaymentIntentRequest(
         @NotNull @Min(1) Long bookingId,
         @NotNull @DecimalMin(value = "0.01") BigDecimal amount,

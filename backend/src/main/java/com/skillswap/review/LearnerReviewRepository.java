@@ -5,6 +5,9 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
+/**
+ * Spring Data repository for {@code LearnerReview} persistence.
+ */
 public interface LearnerReviewRepository extends JpaRepository<LearnerReview, Long> {
     boolean existsByBookingId(Long bookingId);
 
@@ -18,6 +21,7 @@ public interface LearnerReviewRepository extends JpaRepository<LearnerReview, Lo
     @Query("select coalesce(sum(r.rating), 0) from LearnerReview r")
     Double sumRating();
 
-    @Query("SELECT r FROM LearnerReview r JOIN FETCH r.mentor LEFT JOIN FETCH r.booking b LEFT JOIN FETCH b.session ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM LearnerReview r JOIN FETCH r.mentor LEFT JOIN FETCH r.booking b"
+            + " LEFT JOIN FETCH b.session ORDER BY r.createdAt DESC")
     List<LearnerReview> findAllWithRelations(org.springframework.data.domain.Pageable pageable);
 }

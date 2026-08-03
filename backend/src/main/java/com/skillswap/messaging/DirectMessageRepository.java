@@ -8,6 +8,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code DirectMessage} persistence.
+ */
 public interface DirectMessageRepository extends JpaRepository<DirectMessage, Long> {
     List<DirectMessage> findByConversationIdOrderByCreatedAtAsc(Long conversationId);
 
@@ -51,5 +54,6 @@ public interface DirectMessageRepository extends JpaRepository<DirectMessage, Lo
                 and m.sender.email <> :readerEmail
                 and m.readByRecipient = false
             """)
-    int markAllAsReadByConversationId(@Param("conversationId") Long conversationId, @Param("readerEmail") String readerEmail);
+    int markAllAsReadByConversationId(@Param("conversationId") Long conversationId,
+            @Param("readerEmail") String readerEmail);
 }

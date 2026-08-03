@@ -22,7 +22,7 @@ import java.util.Map;
 @Component
 public class PayPalAdapter implements PaymentGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(PayPalAdapter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PayPalAdapter.class);
 
     @Value("${app.payment.paypal.client-id:test_client_id}")
     private String clientId;
@@ -34,12 +34,12 @@ public class PayPalAdapter implements PaymentGateway {
     void validateKeys() {
         if (clientId == null || clientId.isBlank()
                 || "test_client_id".equals(clientId)) {
-            log.warn("⚠ PayPal client-id is using the default/test placeholder! "
+            LOG.warn("⚠ PayPal client-id is using the default/test placeholder! "
                     + "Set APP_PAYMENT_PAYPAL_CLIENT_ID in production.");
         }
         if (clientSecret == null || clientSecret.isBlank()
                 || "test_client_secret".equals(clientSecret)) {
-            log.warn("⚠ PayPal client-secret is using the default/test placeholder! "
+            LOG.warn("⚠ PayPal client-secret is using the default/test placeholder! "
                     + "Set APP_PAYMENT_PAYPAL_CLIENT_SECRET in production.");
         }
     }
@@ -54,7 +54,8 @@ public class PayPalAdapter implements PaymentGateway {
         response.put("purchase_units", java.util.List.of(Map.of(
                 "reference_id", orderId,
                 "amount", Map.of(
-                        "currency_code", currency,                                        "value", amount.setScale(2, RoundingMode.HALF_UP).toString()
+                        "currency_code", currency,
+                        "value", amount.setScale(2, RoundingMode.HALF_UP).toString()
                 )
         )));
         response.put("create_time", java.time.OffsetDateTime.now().toString());
@@ -64,7 +65,7 @@ public class PayPalAdapter implements PaymentGateway {
                         "method", "GET")
         ));
 
-        log.info("PayPal order created: orderId={}, paypalOrderId={}, amount={} {}",
+        LOG.info("PayPal order created: orderId={}, paypalOrderId={}, amount={} {}",
                 orderId, response.get("id"), amount, currency);
 
         return response;
@@ -93,12 +94,12 @@ public class PayPalAdapter implements PaymentGateway {
             String expectedSignature = hexString.toString();
             boolean verified = expectedSignature.equals(signature);
 
-            log.info("PayPal payment verification: paymentId={}, orderId={}, verified={}",
+            LOG.info("PayPal payment verification: paymentId={}, orderId={}, verified={}",
                     paymentId, orderId, verified);
 
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("PayPal signature verification failed", e);
+            LOG.error("PayPal signature verification failed", e);
             return false;
         }
     }
@@ -108,7 +109,7 @@ public class PayPalAdapter implements PaymentGateway {
         // In production: use PayPal Capture API refund()
         String refundId = "PAYPAL_REFUND_" + paymentId + "_" + System.currentTimeMillis();
 
-        log.info("PayPal refund processed: paymentId={}, amount={}, refundId={}, reason={}",
+        LOG.info("PayPal refund processed: paymentId={}, amount={}, refundId={}, reason={}",
                 paymentId, amount, refundId, reason);
 
         return refundId;
@@ -117,7 +118,7 @@ public class PayPalAdapter implements PaymentGateway {
     @Override
     public String fetchPaymentStatus(String paymentId) {
         // In production: use PayPal Orders API getOrder()
-        log.info("PayPal payment status fetched: paymentId={}", paymentId);
+        LOG.info("PayPal payment status fetched: paymentId={}", paymentId);
         return "COMPLETED";
     }
 
@@ -127,7 +128,7 @@ public class PayPalAdapter implements PaymentGateway {
         // with the webhook ID, the raw payload, and headers.
         // In this simulation, we use HMAC-SHA256 with the client secret as a simplified check.
         if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
-            log.warn("PayPal webhook signature header missing or empty");
+            LOG.warn("PayPal webhook signature header missing or empty");
             return false;
         }
         try {
@@ -139,16 +140,18 @@ public class PayPalAdapter implements PaymentGateway {
             StringBuilder hexString = new StringBuilder();
             for (byte b : hmacBytes) {
                 String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
                 hexString.append(hex);
             }
 
             boolean verified = hexString.toString().equals(signatureHeader);
             // In production: call PayPal's /v1/notifications/verify-webhook-signature
-            log.info("PayPal webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            LOG.info("PayPal webhook signature verification: {}", verified ? "PASSED" : "FAILED");
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {
-            log.error("PayPal webhook signature verification failed", e);
+            LOG.error("PayPal webhook signature verification failed", e);
             return false;
         }
     }

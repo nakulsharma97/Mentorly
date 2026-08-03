@@ -6,6 +6,9 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data repository for {@code MentorReview} persistence.
+ */
 public interface MentorReviewRepository extends JpaRepository<MentorReview, Long> {
     boolean existsByBookingId(Long bookingId);
 
@@ -21,6 +24,7 @@ public interface MentorReviewRepository extends JpaRepository<MentorReview, Long
     @Query("select coalesce(sum(r.rating), 0) from MentorReview r")
     Double sumRating();
 
-    @Query("SELECT r FROM MentorReview r JOIN FETCH r.learner LEFT JOIN FETCH r.booking b LEFT JOIN FETCH b.session ORDER BY r.createdAt DESC")
+    @Query("SELECT r FROM MentorReview r JOIN FETCH r.learner LEFT JOIN FETCH r.booking b"
+            + " LEFT JOIN FETCH b.session ORDER BY r.createdAt DESC")
     List<MentorReview> findAllWithRelations(org.springframework.data.domain.Pageable pageable);
 }

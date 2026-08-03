@@ -7,7 +7,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -23,6 +27,9 @@ import java.util.List;
  * </ul>
  *
  * Approval of proposed categories happens in {@link SkillAdminController}.
+ */
+/**
+ * REST controller exposing skill endpoints.
  */
 @RestController
 @RequestMapping("/api/v1/skills")
@@ -108,5 +115,8 @@ public class SkillController {
                 request.getUpdatedAt());
     }
 
-    public record SubmitSkillRequest(@NotBlank String name, @NotBlank String category) {}
+/**
+ * Immutable data carrier for submit skill request.
+ */
+    public record SubmitSkillRequest(@NotBlank String name, @NotBlank String category) { }
 }

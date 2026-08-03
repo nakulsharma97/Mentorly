@@ -17,7 +17,7 @@ import java.util.List;
 @Component
 public class EnvironmentConfigValidator implements InitializingBean {
 
-    private static final Logger log = LoggerFactory.getLogger(EnvironmentConfigValidator.class);
+    private static final Logger LOG = LoggerFactory.getLogger(EnvironmentConfigValidator.class);
 
     private final Environment env;
 
@@ -59,18 +59,18 @@ public class EnvironmentConfigValidator implements InitializingBean {
 
         if (!errors.isEmpty()) {
             String message = String.format(
-                    "❌ Application startup blocked: %d required environment variable(s) are missing.%n%n" +
-                    "Please set the following variables before starting the application:%n",
+                    "❌ Application startup blocked: %d required environment variable(s) are missing.%n%n"
+                    + "Please set the following variables before starting the application:%n",
                     errors.size());
             for (String error : errors) {
                 message += "   • " + error + "\n";
             }
             message += "\nSee backend/.env.example for a complete list of configuration options.";
-            log.error(message);
+            LOG.error(message);
             throw new IllegalStateException(message);
         }
 
-        log.info("✅ Environment configuration validated successfully (profile: {})",
+        LOG.info("✅ Environment configuration validated successfully (profile: {})",
                 activeProfiles.length > 0 ? String.join(", ", activeProfiles) : "default");
     }
 
@@ -79,14 +79,16 @@ public class EnvironmentConfigValidator implements InitializingBean {
         if (value == null || value.isBlank()) {
             errors.add(String.format("%s (${%s})", envVar, propertyKey));
         } else if (isPlaceholder(value)) {
-            errors.add(String.format("%s (${%s}) — resolved to unresolved placeholder: '%s'", envVar, propertyKey, value));
+            errors.add(String.format(
+                    "%s (${%s}) — resolved to unresolved placeholder: '%s'",
+                    envVar, propertyKey, value));
         }
     }
 
     private static void warnIfDefault(Environment env, String envVar, String propertyKey, String defaultValue) {
         String value = env.getProperty(propertyKey);
         if (value != null && value.equals(defaultValue)) {
-            log.warn("⚠️  {} is using its default value '{}'. Set {} explicitly in production for security.",
+            LOG.warn("⚠️  {} is using its default value '{}'. Set {} explicitly in production for security.",
                     envVar, defaultValue, envVar);
         }
     }

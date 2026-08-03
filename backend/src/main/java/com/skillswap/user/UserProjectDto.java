@@ -6,6 +6,9 @@ import lombok.Data;
 
 import java.time.LocalDate;
 
+/**
+ * Encapsulates user project.
+ */
 @Data
 public class UserProjectDto {
 

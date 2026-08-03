@@ -13,7 +13,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -277,18 +276,36 @@ public class ContentModerationController {
                 f.getCreatedAt(), f.getUpdatedAt());
     }
 
-    public record AssignRequest(Long moderatorId) {}
-    public record EscalateRequest(Integer level, String reason) {}
-    public record NoteRequest(@NotBlank String note) {}
-    public record UserEnabledRequest(boolean enabled) {}
+/**
+ * Immutable data carrier for assign request.
+ */
+    public record AssignRequest(Long moderatorId) { }
+/**
+ * Immutable data carrier for escalate request.
+ */
+    public record EscalateRequest(Integer level, String reason) { }
+/**
+ * Immutable data carrier for note request.
+ */
+    public record NoteRequest(@NotBlank String note) { }
+/**
+ * Immutable data carrier for user enabled request.
+ */
+    public record UserEnabledRequest(boolean enabled) { }
 
+/**
+ * Immutable data carrier for scan request.
+ */
     public record ScanRequest(
             @NotBlank String contentType,
             Long contentId,
             String contentPreview,
             Long ownerId,
-            DetectionSource detectionSource) {}
+            DetectionSource detectionSource) { }
 
+/**
+ * Immutable data carrier for moderation item.
+ */
     public record ModerationItemDto(
             Long id,
             ContentType contentType, Long contentId, String contentPreview,
@@ -301,9 +318,12 @@ public class ContentModerationController {
             Long assignedModeratorId, String assignedModeratorName,
             String internalNotes,
             Integer escalationLevel, String escalationReason, java.time.OffsetDateTime escalatedAt,
-            java.time.OffsetDateTime createdAt, java.time.OffsetDateTime updatedAt) {}
+            java.time.OffsetDateTime createdAt, java.time.OffsetDateTime updatedAt) { }
 
+/**
+ * Immutable data carrier for moderation event.
+ */
     public record ModerationEventDto(
             Long id, String action, String actorName,
-            String fromStatus, String toStatus, String note, java.time.OffsetDateTime createdAt) {}
+            String fromStatus, String toStatus, String note, java.time.OffsetDateTime createdAt) { }
 }

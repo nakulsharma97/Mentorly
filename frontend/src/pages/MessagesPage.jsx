@@ -784,6 +784,10 @@ export default function MessagesPage({ profile, notify }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // Tie the attachment to this conversation so the recipient (booking
+      // learner/mentor or direct-chat participant) is authorized to view it.
+      formData.append('contextType', selConv.kind === 'booking' ? 'BOOKING_CHAT' : 'DIRECT_CHAT');
+      formData.append('contextId', selConv.convId);
       const uploadRes = await client.post('/api/v1/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (p) => {

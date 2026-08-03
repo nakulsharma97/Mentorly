@@ -2,11 +2,14 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant ARBITER_ROLE = keccak256("ARBITER_ROLE");
 
     enum EscrowStatus {
@@ -60,6 +63,7 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
         require(mentor != address(0), "Invalid mentor");
         require(amount > 0, "Amount must be > 0");
         require(feeBps <= 1000, "Fee too high");
+        require(deadline > block.timestamp, "Deadline must be in the future");
 
         escrowId = nextEscrowId++;
         escrows[escrowId] = Escrow({
@@ -87,7 +91,7 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
             require(msg.value == e.amount, "Incorrect native amount");
         } else {
             require(msg.value == 0, "No native value allowed");
-            IERC20(e.tokenAddress).transferFrom(msg.sender, address(this), e.amount);
+            IERC20(e.tokenAddress).safeTransferFrom(msg.sender, address(this), e.amount);
         }
 
         e.status = EscrowStatus.FUNDED;
@@ -103,10 +107,13 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
 
     function releaseFunds(uint256 escrowId) external whenNotPaused nonReentrant {
         Escrow storage e = escrows[escrowId];
+        require(
+            msg.sender == e.learner || msg.sender == e.mentor || hasRole(ARBITER_ROLE, msg.sender),
+            "Not authorized to release"
+        );
         require(e.status == EscrowStatus.COMPLETED, "Escrow not completed");
 
-        uint256 fee = (e.amount * e.feeBps) / 10000;
-        uint256 payout = e.amount - fee;
+        (uint256 fee, uint256 payout) = _feeAndPayout(e.amount, e.feeBps);
         e.status = EscrowStatus.RELEASED;
 
         _payout(e.tokenAddress, e.mentor, payout);
@@ -129,8 +136,7 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
         Escrow storage e = escrows[escrowId];
         require(e.status == EscrowStatus.DISPUTED, "Not disputed");
 
-        uint256 fee = (e.amount * e.feeBps) / 10000;
-        uint256 payout = e.amount - fee;
+        (uint256 fee, uint256 payout) = _feeAndPayout(e.amount, e.feeBps);
         e.status = EscrowStatus.RELEASED;
 
         _payout(e.tokenAddress, e.mentor, payout);
@@ -153,10 +159,10 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
         emit EscrowRefunded(escrowId, e.learner, e.amount);
     }
 
-    function autoRefundAfterTimeout(uint256 escrowId) external nonReentrant {
+    function autoRefundAfterTimeout(uint256 escrowId) external whenNotPaused nonReentrant {
         Escrow storage e = escrows[escrowId];
         require(e.status == EscrowStatus.FUNDED, "Invalid status");
-        require(block.timestamp > e.deadline, "Deadline not reached");
+        require(block.timestamp >= e.deadline, "Deadline not reached");
 
         e.status = EscrowStatus.REFUNDED;
         _payout(e.tokenAddress, e.learner, e.amount);
@@ -177,12 +183,24 @@ contract SessionEscrow is AccessControl, ReentrancyGuard, Pausable {
         _unpause();
     }
 
+    /// @dev Computes the platform fee (floor rounding) and the mentor payout.
+    ///      Guarantees fee + payout == amount, so no dust is ever stranded in
+    ///      the contract for either token or native escrows.
+    function _feeAndPayout(uint256 amount, uint256 feeBps)
+        internal
+        pure
+        returns (uint256 fee, uint256 payout)
+    {
+        fee = (amount * feeBps) / 10000;
+        payout = amount - fee;
+    }
+
     function _payout(address tokenAddress, address to, uint256 amount) internal {
         if (tokenAddress == address(0)) {
             (bool ok,) = payable(to).call{value: amount}("");
             require(ok, "Native transfer failed");
         } else {
-            IERC20(tokenAddress).transfer(to, amount);
+            IERC20(tokenAddress).safeTransfer(to, amount);
         }
     }
 }

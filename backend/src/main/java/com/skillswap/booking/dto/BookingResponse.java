@@ -12,6 +12,9 @@ import java.time.OffsetDateTime;
 /**
  * DTO for booking response with admin approval information.
  */
+/**
+ * Encapsulates booking response.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

@@ -2,7 +2,9 @@ package com.skillswap.common;
 
 import com.skillswap.admin.AdminSetting;
 import com.skillswap.admin.AdminSettingRepository;
+import com.skillswap.config.ClientIpResolver;
 import com.skillswap.user.User;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +20,9 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Service implementing audit log business logic.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -25,6 +30,20 @@ public class AuditLogService {
 
     private final AuditLogRepository auditLogRepository;
     private final AdminSettingRepository adminSettingRepository;
+    private final ClientIpResolver clientIpResolver;
+
+    /**
+     * The injected resolver, mirrored to a static field so the widely-used
+     * static {@link #extractClientIp()} helpers stay compatible with callers
+     * outside this service. Set once at startup; the resolver itself is a
+     * stateless read-only bean, so the mirror cannot go stale.
+     */
+    private static volatile ClientIpResolver resolver;
+
+    @PostConstruct
+    void init() {
+        resolver = clientIpResolver;
+    }
 
     // ── Severity constants ──
     public static final String SEV_INFO = "INFO";
@@ -181,7 +200,9 @@ public class AuditLogService {
 
     /** Best-effort severity inference from the action name. */
     public static String inferSeverity(String action) {
-        if (action == null) return SEV_INFO;
+        if (action == null) {
+            return SEV_INFO;
+        }
         String a = action.toUpperCase();
         if (a.contains("DELETE") || a.contains("SUSPEND") || a.contains("FAILED")
                 || a.contains("ERROR") || a.contains("CRITICAL") || a.contains("BLOCK")
@@ -202,20 +223,42 @@ public class AuditLogService {
 
     /** Best-effort module inference from the action name. */
     public static String inferModule(String action) {
-        if (action == null) return MOD_SYSTEM;
+        if (action == null) {
+            return MOD_SYSTEM;
+        }
         String a = action.toUpperCase();
         if (a.contains("LOGIN") || a.contains("LOGOUT") || a.contains("PASSWORD") || a.contains("SIGNUP")
-                || a.contains("OAUTH") || a.contains("REFRESH")) return MOD_AUTH;
-        if (a.contains("USER") || a.contains("ROLE") || a.contains("PROFILE")) return MOD_USER;
-        if (a.contains("SESSION") || a.contains("BOOKING")) return MOD_SESSION;
-        if (a.contains("SKILL") || a.contains("CERTIF")) return MOD_SKILL;
-        if (a.contains("REPORT")) return MOD_REPORT;
-        if (a.contains("MODERAT") || a.contains("FLAGGED") || a.contains("WARN_USER")) return MOD_MODERATION;
+                || a.contains("OAUTH") || a.contains("REFRESH")) {
+            return MOD_AUTH;
+        }
+        if (a.contains("USER") || a.contains("ROLE") || a.contains("PROFILE")) {
+            return MOD_USER;
+        }
+        if (a.contains("SESSION") || a.contains("BOOKING")) {
+            return MOD_SESSION;
+        }
+        if (a.contains("SKILL") || a.contains("CERTIF")) {
+            return MOD_SKILL;
+        }
+        if (a.contains("REPORT")) {
+            return MOD_REPORT;
+        }
+        if (a.contains("MODERAT") || a.contains("FLAGGED") || a.contains("WARN_USER")) {
+            return MOD_MODERATION;
+        }
         if (a.contains("PAYMENT") || a.contains("WALLET") || a.contains("REFUND")
-                || a.contains("ESCROW") || a.contains("RELEASE")) return MOD_PAYMENT;
-        if (a.contains("NOTIF") || a.contains("BROADCAST") || a.contains("EMAIL")) return MOD_NOTIFICATION;
-        if (a.contains("SETTINGS") || a.contains("CONFIG") || a.contains("RESET_ALL")) return MOD_ADMIN;
-        if (a.contains("FAILED") || a.contains("SECURITY") || a.contains("ATTEMPT")) return MOD_SECURITY;
+                || a.contains("ESCROW") || a.contains("RELEASE")) {
+            return MOD_PAYMENT;
+        }
+        if (a.contains("NOTIF") || a.contains("BROADCAST") || a.contains("EMAIL")) {
+            return MOD_NOTIFICATION;
+        }
+        if (a.contains("SETTINGS") || a.contains("CONFIG") || a.contains("RESET_ALL")) {
+            return MOD_ADMIN;
+        }
+        if (a.contains("FAILED") || a.contains("SECURITY") || a.contains("ATTEMPT")) {
+            return MOD_SECURITY;
+        }
         return MOD_SYSTEM;
     }
 
@@ -229,7 +272,9 @@ public class AuditLogService {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder
                     .getRequestAttributes();
-            if (attributes == null) return;
+            if (attributes == null) {
+                return;
+            }
             HttpServletRequest request = attributes.getRequest();
 
             if (auditLog.getIpAddress() == null) {
@@ -272,7 +317,9 @@ public class AuditLogService {
 
     /** Lightweight User-Agent parser — fills device, browser and os on the entry. */
     static void parseUserAgent(AuditLog auditLog, String userAgent) {
-        if (userAgent == null || userAgent.isBlank()) return;
+        if (userAgent == null || userAgent.isBlank()) {
+            return;
+        }
         try {
             Matcher m;
             m = OS_PATTERN.matcher(userAgent);
@@ -282,19 +329,20 @@ public class AuditLogService {
             m = BROWSER_PATTERN.matcher(userAgent);
             if (m.find()) {
                 String b = m.group(1);
-                auditLog.setBrowser(switch (b) {
+                String browser = switch (b) {
                     case "Edg", "Edge" -> "Edge";
                     case "OPR" -> "Opera";
                     case "CriOS" -> "Chrome (iOS)";
                     case "FxiOS" -> "Firefox (iOS)";
                     case "MSIE", "Trident" -> "Internet Explorer";
                     default -> b;
-                });
+                };
+                auditLog.setBrowser(browser);
             }
             m = DEVICE_PATTERN.matcher(userAgent);
             if (m.find()) {
                 String d = m.group(1);
-                auditLog.setDevice(switch (d) {
+                String device = switch (d) {
                     case "iPhone" -> "Phone";
                     case "iPad" -> "Tablet";
                     case "Macintosh" -> "Desktop";
@@ -302,7 +350,8 @@ public class AuditLogService {
                     case "Windows" -> "Desktop";
                     case "Linux" -> "Desktop";
                     default -> d;
-                });
+                };
+                auditLog.setDevice(device);
             }
         } catch (Exception e) {
             log.debug("Could not parse user agent", e);
@@ -311,8 +360,9 @@ public class AuditLogService {
 
     /**
      * Resolves the originating client IP from the current request context,
-     * honoring X-Forwarded-For (first entry) when present. Falls back to
-     * "unknown" when no servlet request is active (e.g. background jobs).
+     * delegating to {@link ClientIpResolver} so spoofable forwarded headers are
+     * only honored when the deployment is behind a trusted proxy. Falls back
+     * to "unknown" when no servlet request is active (e.g. background jobs).
      */
     public static String extractClientIp() {
         try {
@@ -329,10 +379,12 @@ public class AuditLogService {
 
     private static String extractClientIp(HttpServletRequest request) {
         try {
-            String xForwardedFor = request.getHeader("X-Forwarded-For");
-            if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-                return xForwardedFor.split(",")[0].trim();
+            ClientIpResolver current = resolver;
+            if (current != null) {
+                return current.resolve(request);
             }
+            // Resolver not wired yet (e.g. direct construction in tests):
+            // never trust forwarded headers in that case.
             return request.getRemoteAddr();
         } catch (Exception e) {
             return "unknown";

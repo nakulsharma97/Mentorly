@@ -10,6 +10,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Collection;
 
+/**
+ * Spring Data repository for {@code Booking} persistence.
+ */
 public interface BookingRepository extends JpaRepository<Booking, Long> {
         long countBySessionMentorId(Long mentorId);
 
@@ -80,7 +83,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
          */
         @Query(value = "SELECT YEAR(b.created_at) * 100 + MONTH(b.created_at) AS ym, COUNT(*) AS cnt "
                 + "FROM bookings b WHERE b.created_at >= :since GROUP BY ym ORDER BY ym ASC", nativeQuery = true)
-        List<Object[]> computeMonthlyBookingTrend(@Param("since") java.time.OffsetDateTime since);
+        List<Object[]> computeMonthlyBookingTrend(@Param("since") OffsetDateTime since);
 
         /**
          * Most active mentors ranked by number of bookings they received —
