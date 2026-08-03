@@ -31,7 +31,17 @@ if (-not $env:SPRING_PROFILES_ACTIVE) {
 # environment configuration. Values already set in the environment win.
 # Note: the parser is intentionally simple (KEY=VALUE, no quoting or inline
 # comments) to match the format produced by scripts/env-setup.sh.
+#
+# Fallback: if there is no project-root .env, load backend/.env instead so the
+# backend starts even when the env file lives inside the backend directory
+# (the location scripts/env-setup.sh produces when run from backend/).
 $envFile = Join-Path $PSScriptRoot "..\.env"
+if (-not (Test-Path $envFile)) {
+  $fallbackEnvFile = Join-Path $PSScriptRoot ".env"
+  if (Test-Path $fallbackEnvFile) {
+    $envFile = $fallbackEnvFile
+  }
+}
 if (Test-Path $envFile) {
   Write-Host "Loading environment variables from $envFile"
   Get-Content $envFile | ForEach-Object {
@@ -45,7 +55,7 @@ if (Test-Path $envFile) {
     }
   }
 } else {
-  Write-Host "No .env file found at $envFile — make sure JWT_SECRET (and SPRING_DATASOURCE_PASSWORD) are set in the environment."
+  Write-Host "No .env file found at $envFile - make sure JWT_SECRET (and SPRING_DATASOURCE_PASSWORD) are set in the environment."
 }
 
 Write-Host "Starting backend on port $Port..."
