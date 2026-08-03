@@ -69,6 +69,18 @@ npm run dev
 
 The frontend uses Vite and expects the backend API at `VITE_API_BASE_URL`.
 
+#### Development seed data
+
+Demo accounts and sample data (test users, demo mentors/learners, sample
+bookings/reviews) are seeded **only** on `dev`/`local` profiles by
+`DevDataSeeder` — production/staging databases are purged of this data by
+the Flyway migration `V50__purge_seeded_demo_data.sql`.
+
+- Login accounts (password `password`): `mentor@test.com`, `learner@test.com`,
+  plus demo mentors/learners under `*.example.com` (e.g. `priya.sharma@example.com`).
+- The seeder is idempotent: it skips when the demo accounts already exist and
+  never touches data you created on top of them.
+
 ## Environment variables
 
 The Docker Compose stack supports these defaults:

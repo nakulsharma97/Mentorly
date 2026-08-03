@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import Icon from "../modules/common/dashboard/Icon";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";

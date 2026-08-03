@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import Icon from "./Icon";
 
 /** Reusable titled card used by every dashboard section. */

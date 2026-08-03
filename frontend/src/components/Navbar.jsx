@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { t } from "../utils/i18n";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router";
 import { useOptionalTheme } from "../context/ThemeContext";
 import OptimizedImage from "./OptimizedImage";
 

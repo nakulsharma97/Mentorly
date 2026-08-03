@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import client from "../api/client";
 import SsIcon from "../components/ui/SsIcon";
 import "./LearnerDashboard.css";

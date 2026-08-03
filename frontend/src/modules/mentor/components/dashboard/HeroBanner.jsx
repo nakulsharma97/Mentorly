@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import Icon from "../../../common/dashboard/Icon";
 import { formatMoney } from "../../../common/dashboard/dashboardUtils";
 

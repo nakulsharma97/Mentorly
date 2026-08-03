@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import App from "./App";
 import client from "./api/client";
 
@@ -62,7 +62,7 @@ vi.mock("./pages/NotFoundPage", () => ({
 }));
 vi.mock("./components/Navbar", () => ({ default: () => <div>Navbar</div> }));
 vi.mock("./modules/admin/layouts/AdminLayout", () => {
-  const { Outlet } = require("react-router-dom");
+  const { Outlet } = require("react-router");
   return {
     default: () => (
       <div>

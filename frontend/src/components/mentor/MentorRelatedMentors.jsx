@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 const parseFirstSkill = (rawSkills) => {
   if (!rawSkills) return null;

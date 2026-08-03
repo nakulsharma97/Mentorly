@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import MobileBottomNav from "../components/MobileBottomNav";
 import { getApiErrorMessage } from "../utils/apiErrors";

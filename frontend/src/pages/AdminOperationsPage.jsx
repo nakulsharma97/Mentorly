@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
 import StatsCard from '../modules/common/dashboard/StatsCard';

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import "./CommunityStats.css";
 
 function useInterval(callback, delay) {
-  const savedRef = useRef();
+  const savedRef = useRef(null);
   useEffect(() => {
     savedRef.current = callback;
   }, [callback]);
@@ -18,7 +18,7 @@ function useInterval(callback, delay) {
 function CountUp({ value }) {
   const [display, setDisplay] = useState(0);
   const displayRef = useRef(0);
-  const rafRef = useRef();
+  const rafRef = useRef(null);
   useEffect(() => {
     const start = performance.now();
     const from = Number(displayRef.current);

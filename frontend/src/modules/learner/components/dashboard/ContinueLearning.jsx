@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import SectionCard, { EmptyState } from "../../../common/dashboard/SectionCard";
 import Icon from "../../../common/dashboard/Icon";
 import { getRoadmapMilestoneCount } from "../../../../utils/dashboard";

@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router";
 import { useOptionalTheme } from "../context/ThemeContext";
 
 const BASE_CLASS =

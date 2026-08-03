@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import "./PremiumFooter.css";
 
 export default function PremiumFooter({ onScrollToSection }) {

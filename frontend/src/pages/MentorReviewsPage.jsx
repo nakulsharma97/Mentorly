@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/no-noninteractive-element-interactions -- overlay backdrop */
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "../modules/mentor/mentor-pages.css";

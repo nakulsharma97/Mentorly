@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import ReportModal from "../components/ReportModal";

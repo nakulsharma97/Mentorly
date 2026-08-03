@@ -35,15 +35,19 @@ This document describes all environment variables used by the Skill Swapping Pla
 
 ### Email Configuration
 
-| Variable                                            | Purpose                 | Default                | Example               |
-| --------------------------------------------------- | ----------------------- | ---------------------- | --------------------- |
-| `SPRING_MAIL_HOST`                                  | SMTP server             | `smtp.gmail.com`       | `smtp.gmail.com`      |
-| `SPRING_MAIL_PORT`                                  | SMTP port               | `587`                  | `587`                 |
-| `SPRING_MAIL_USERNAME`                              | Gmail account           | None (required)        | `noreply@example.com` |
-| `SPRING_MAIL_PASSWORD`                              | Gmail app password      | None (required)        | `xxxx xxxx xxxx xxxx` |
-| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH`             | SMTP authentication     | `true`                 | `true`                |
-| `SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLED` | TLS enabled             | `true`                 | `true`                |
-| `APP_MAIL_FROM`                                     | From address for emails | `noreply@skillswap.io` | `noreply@example.com` |
+Email sending is **optional and disabled by default** (`APP_EMAIL_ENABLED=false`). The
+`/actuator/health` mail probe only runs when email is enabled, so deployments without
+SMTP configured still report a green health endpoint. If you enable email,
+`MAIL_PASSWORD` is required — a broken SMTP connection will then fail the health check.
+
+| Variable            | Purpose                                             | Default                   | Example                    |
+| ------------------- | --------------------------------------------------- | ------------------------- | -------------------------- |
+| `APP_EMAIL_ENABLED` | Master switch for email sending + mail health probe | `false`                   | `true`                     |
+| `MAIL_HOST`         | SMTP server                                         | `smtp.resend.com`         | `smtp.resend.com`          |
+| `MAIL_PORT`         | SMTP port (implicit TLS)                            | `465`                     | `465`                      |
+| `MAIL_USERNAME`     | SMTP username                                       | `resend`                  | `resend`                   |
+| `MAIL_PASSWORD`     | SMTP password (required when email enabled)         | None (required)           | `re_xxx...`                |
+| `APP_EMAIL_FROM`    | From address for emails                             | `no-reply@skillswap.app`  | `no-reply@skillswap.app`   |
 
 ### Payment Processing
 
@@ -248,7 +252,7 @@ Check for any `WARN` about missing required variables.
 ```bash
 SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/skillswap
 JWT_SECRET=dev-secret-not-secure
-SPRING_MAIL_ENABLED=false
+APP_EMAIL_ENABLED=false
 STRIPE_SECRET_KEY=sk_test_xxx
 ```
 

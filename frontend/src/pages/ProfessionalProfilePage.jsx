@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";

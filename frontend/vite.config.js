@@ -45,7 +45,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) return 'vendor';
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor';
           if (id.includes('node_modules/react')) return 'react-core';
           if (id.includes('node_modules/@sentry')) return 'sentry';
           if (id.includes('node_modules/axios')) return 'libs';

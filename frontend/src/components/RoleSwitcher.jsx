@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import client from "../api/client";
 
 export default function RoleSwitcher({ profile, onProfileUpdated }) {

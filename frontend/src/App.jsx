@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import LazyLoadingFallback from "./components/LazyLoadingFallback";
 import AppRoutes from "./components/AppRoutes";
 import AuthModal from "./components/AuthModal";

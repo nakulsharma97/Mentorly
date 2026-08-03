@@ -1,5 +1,5 @@
 import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router';
 import { http, HttpResponse } from 'msw';
 import LearnerDashboard from './LearnerDashboard';
 import { server } from '../test/mocks/server';

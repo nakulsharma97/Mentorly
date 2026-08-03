@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import client from "../api/client";
 import { SkeletonTable } from "../components/SkeletonLoaders";
 import ReportModal from "../components/ReportModal";

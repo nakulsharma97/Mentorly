@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate, useParams } from "react-router";
 import AuthPage from "../pages/AuthPage";
 import AdminLoginPage from "../pages/AdminLoginPage";
 import TestChecklistPage from "../pages/TestChecklistPage";

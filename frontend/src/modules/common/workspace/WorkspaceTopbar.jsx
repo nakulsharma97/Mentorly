@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useTheme } from "../../../context/ThemeContext";
 import client from "../../../api/client";
 import SsIcon from "../../../components/ui/SsIcon";

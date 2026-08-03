@@ -6,7 +6,7 @@
  *   <UsernameDisplay name="Pritil" username="pritil9783" size="sm" />
  *   <UsernameDisplay name="Pritil" username="pritil9783" size="md" link={true} profilePath="/mentor/@pritil9783" />
  */
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 const SIZE_MAP = {
   sm: { name: "0.85rem", username: "0.72rem", gap: "1px" },

@@ -2,8 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// ── Mock react-router-dom (used by LearnerPages.jsx components) ──
-vi.mock("react-router-dom", () => ({
+// ── Mock react-router (used by LearnerPages.jsx components) ──
+vi.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => (
     <a href={to} {...props}>{children}</a>
   ),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import client from "../api/client";
 import SsIcon from "../components/ui/SsIcon";
 import { SsStatCard, SsBadge } from "../components/ui/SsCard";

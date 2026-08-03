@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import SectionCard, {

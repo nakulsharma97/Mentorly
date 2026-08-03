@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router";
 import client from "../api/client";
 import { getErrorFeedback, getInfoFeedback } from "../utils/comingSoon";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";

@@ -157,6 +157,20 @@ management:
       enabled: true
     readinessState:
       enabled: true
+    # The built-in MailHealthIndicator pings the SMTP server on every health
+    # request. With MAIL_PASSWORD empty (the default) that probe fails and flips
+    # the whole /actuator/health endpoint to DOWN/503 — which breaks the
+    # deploy.yml smoke test and the deploy.sh health gate even though email is
+    # an optional feature (app.email.enabled defaults to false).
+    #
+    # Fix: run the mail probe only when email is actually enabled. Operators who
+    # set APP_EMAIL_ENABLED=true must also configure MAIL_HOST / MAIL_USERNAME /
+    # MAIL_PASSWORD — and then a broken SMTP connection correctly surfaces as
+    # unhealthy (fail-fast), instead of silently reddening every deployment.
+    mail:
+      # Follows app.email.enabled (single source of truth) — mail probe only
+      # runs when the email feature is actually switched on.
+      enabled: ${app.email.enabled:false}
   metrics:
     export:
       simple:
