@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
+import { normalizeSkills } from "../utils/skills";
 import Icon from "../modules/common/dashboard/Icon";
 import { useFavorites } from "../hooks/useFavorites";
 import "./LearnerPages.css";
@@ -20,34 +21,6 @@ function initials(value) {
     .toUpperCase();
 }
 
-function splitSkills(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => splitSkills(item))
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-  const text = String(value).trim();
-  if (!text) return [];
-  if (text.startsWith("[") && text.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .flatMap((item) => splitSkills(item?.name ?? item))
-          .map((part) => part.trim())
-          .filter(Boolean);
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return text
-    .split(/[\n,;|]+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
 
 function favoriteMentorId(item) {
   return item?.mentorId ?? item?.mentor?.id ?? item?.id ?? null;
@@ -55,8 +28,8 @@ function favoriteMentorId(item) {
 
 function FavoriteMentorCard({ favorite, pending, onRemove }) {
   const id = favoriteMentorId(favorite);
-  const skills = splitSkills(favorite.skills);
-  const languages = splitSkills(favorite.languages);
+  const skills = normalizeSkills(favorite.skills);
+  const languages = normalizeSkills(favorite.languages);
   const rating = Number(favorite.averageRating || 0);
   const reviews = Number(favorite.totalReviews || 0);
   const price = favorite.minSessionPrice ?? favorite.hourlyRate ?? null;
@@ -203,7 +176,7 @@ export default function LearnerSavedMentorsPage({ notify }) {
     if (q) {
       list = list.filter((favorite) => {
         const name = String(favorite.mentorName || "").toLowerCase();
-        const skills = splitSkills(favorite.skills).join(" ").toLowerCase();
+        const skills = normalizeSkills(favorite.skills).join(" ").toLowerCase();
         const headline = String(favorite.headline || "").toLowerCase();
         return name.includes(q) || skills.includes(q) || headline.includes(q);
       });
@@ -375,7 +348,7 @@ export default function LearnerSavedMentorsPage({ notify }) {
             <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>translate</span></div>
           </div>
           <p className="mp-stat__value">
-            {new Set(favorites.flatMap((f) => splitSkills(f.languages))).size}
+            {new Set(favorites.flatMap((f) => normalizeSkills(f.languages))).size}
           </p>
           <p className="mp-stat__label">Languages</p>
           <p className="mp-stat__desc">Among saved mentors</p>

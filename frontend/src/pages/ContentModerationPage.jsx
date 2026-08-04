@@ -3,6 +3,7 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import "./AdminOperationsPage.css";
 import "./ContentModerationPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -825,7 +826,7 @@ export default function ContentModerationPage({ notify }) {
 
   return (
     <section className="admin-page">
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+      <div className="admin-hero">
         <div>
           <p className="admin-eyebrow">Moderation</p>
           <h1>Content Moderation Center</h1>

@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./PlatformHealthPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 const LEVELS = ["INFO", "WARN", "ERROR", "DEBUG"];
 
@@ -417,7 +418,7 @@ export default function PlatformHealthPage({ notify }) {
   if (loading && !health) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+        <div className="admin-hero">
           <p className="admin-eyebrow">Monitoring</p>
           <h1>Platform Health</h1>
           <p>Loading live monitoring data…</p>
@@ -434,7 +435,7 @@ export default function PlatformHealthPage({ notify }) {
   if (error && !health) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+        <div className="admin-hero">
           <p className="admin-eyebrow">Monitoring</p>
           <h1>Platform Health</h1>
           <p>Could not load monitoring data. Start the backend and ensure you are signed in as an admin.</p>
@@ -476,7 +477,7 @@ export default function PlatformHealthPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero + global status ── */}
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+      <div className="admin-hero">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div>
             <p className="admin-eyebrow">Monitoring</p>

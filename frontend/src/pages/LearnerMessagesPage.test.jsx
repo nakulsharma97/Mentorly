@@ -180,10 +180,10 @@ function renderPage(initialRoute = "/learner/messages") {
   );
 }
 
-/** Await the component to finish loading conversations. */
+/** Await the component to finish loading conversations and auto-select the first one. */
 async function waitForLoaded() {
   await waitFor(() => {
-    expect(screen.queryByText(/Start your first conversation/i)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Mentor Jane/i }).length).toBeGreaterThan(0);
   });
 }
 

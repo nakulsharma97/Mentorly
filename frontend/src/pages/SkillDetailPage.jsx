@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import { normalizeSkills } from "../utils/skills";
 import ReportModal from "../components/ReportModal";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
@@ -169,21 +170,6 @@ function slugify(name) {
     .replace(/^-|-$/g, "");
 }
 
-function parseSkills(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value.flatMap((v) => parseSkills(v?.name ?? v)).map((s) => String(s).trim()).filter(Boolean);
-  }
-  const text = String(value).trim();
-  if (!text) return [];
-  if (text.startsWith("[") && text.endsWith("]")) {
-    try {
-      return JSON.parse(text).flatMap((v) => parseSkills(v?.name ?? v)).map((s) => String(s).trim()).filter(Boolean);
-    } catch { /* fall through */ }
-  }
-  return text.split(/[\n,;|]+/).map((p) => String(p).trim()).filter(Boolean);
-}
-
 function unwrap(payload) {
   if (payload && typeof payload === "object" && "data" in payload && "message" in payload) return payload.data;
   return payload;
@@ -265,7 +251,7 @@ export default function SkillDetailPage({ notify }) {
           id: m.id ?? m.mentorId,
           fullName: m.fullName || m.mentorName || "Mentor",
           company: m.company || m.currentCompany || "",
-          skills: parseSkills(m.skills),
+          skills: normalizeSkills(m.skills),
           profileImageUrl: m.profileImageUrl,
           averageRating: Number(m.averageRating || 0),
           totalReviews: Number(m.totalReviews || 0),

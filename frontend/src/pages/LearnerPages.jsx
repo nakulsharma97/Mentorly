@@ -6,6 +6,7 @@ import SectionCard, {
   EmptyState,
 } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
+import { normalizeSkills } from "../utils/skills";
 import "./LearnerPages.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
@@ -170,45 +171,9 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function splitSkills(value) {
-  if (!value) {
-    return [];
-  }
-
-  if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => splitSkills(item))
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-
-  const text = String(value).trim();
-  if (!text) {
-    return [];
-  }
-
-  if (text.startsWith("[") && text.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .flatMap((item) => splitSkills(item?.name ?? item))
-          .map((part) => part.trim())
-          .filter(Boolean);
-      }
-    } catch {
-      // fall through to delimiter parsing
-    }
-  }
-
-  return text
-    .split(/[\n,;|]+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 function parseMilestones(value) {
-  return splitSkills(value).map((entry, index) => ({
+  // Roadmap milestones share the skills storage format — normalize first.
+  return normalizeSkills(value).map((entry, index) => ({
     id: `${index}-${entry}`,
     title: entry,
   }));
@@ -492,7 +457,9 @@ function MentorSkeletonCard() {
 // Premium mentor card
 // ─────────────────────────────────────────────────────────────────────────────
 function PremiumMentorCard({ mentor, saved, onSaveToggle, rawData }) {
-  const skills = mentor.skills || EMPTY_ARRAY;
+  // Never trust the API shape — mentor.skills can be a CSV string, a JSON
+  // string, an array, or null. normalizeSkills always yields a safe array.
+  const skills = normalizeSkills(mentor.skills);
   const rating = Number(mentor.averageRating || rawData?.averageRating || 0);
   const reviews = Number(mentor.totalReviews || rawData?.totalReviews || 0);
   const sessions = Number(rawData?.totalCompletedSessions || 0);
@@ -615,7 +582,7 @@ export function LearnerMentorsPage() {
   const liveMentors = useMemo(() => rawMentors.map((m) => ({
     id: m.mentorId,
     fullName: m.mentorName,
-    skills: splitSkills(m.skills),
+    skills: normalizeSkills(m.skills),
     profileImageUrl: m.profileImageUrl,
     averageRating: Number(m.averageRating || 0),
     totalReviews: Number(m.totalReviews || 0),
@@ -773,7 +740,7 @@ export function LearnerMentorsPage() {
               const normalized = {
                 id: mentorId,
                 fullName: mentor.fullName || item.fullName || 'Saved mentor',
-                skills: splitSkills(mentor.skills || item.skills),
+                skills: normalizeSkills(mentor.skills || item.skills),
                 profileImageUrl: mentor.profileImageUrl || item.profileImageUrl,
                 averageRating: Number(mentor.averageRating || item.averageRating || 0),
                 totalReviews: Number(mentor.totalReviews || item.totalReviews || 0),
@@ -897,7 +864,7 @@ export function LearnerSkillsPage() {
     if (skills.length && skills[0]?.mentorCount !== undefined) {
       skills.forEach((s) => counts.set(s.name.toLowerCase(), s.mentorCount));
     } else {
-      mentors.forEach((m) => splitSkills(m.skills).forEach((sk) => {
+      mentors.forEach((m) => normalizeSkills(m.skills).forEach((sk) => {
         const k = sk.toLowerCase(); counts.set(k, (counts.get(k) || 0) + 1);
       }));
     }
@@ -1287,7 +1254,7 @@ function LearningSummary({ data, onRefresh }) {
               <div>
                 <span>Primary skills</span>
                 <strong>
-                  {splitSkills(profile?.skills).slice(0, 3).join(", ") ||
+                  {normalizeSkills(profile?.skills).slice(0, 3).join(", ") ||
                     "Add skills in profile"}
                 </strong>
               </div>
@@ -2333,7 +2300,7 @@ export function LearnerProfilePage() {
               <div>
                 <span>Skills</span>
                 <strong>
-                  {splitSkills(profile?.skills).join(", ") || "No skills added"}
+                  {normalizeSkills(profile?.skills).join(", ") || "No skills added"}
                 </strong>
               </div>
               <div>

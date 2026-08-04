@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
+import { normalizeSkills } from '../utils/skills';
 import ReportModal from '../components/ReportModal';
 
 const formatDateTime = (value) => {
@@ -28,13 +29,7 @@ const formatCredits = (value) => {
   return `${amount.toFixed(2)} CREDITS`;
 };
 
-const parseSkills = (rawSkills) => {
-  const text = String(rawSkills || '').trim();
-  if (!text) {
-    return [];
-  }
-  return [...new Set(text.split(/[\n,;|]+/).map((part) => part.trim()).filter(Boolean))].slice(0, 8);
-};
+
 
 /**
  * Load the Razorpay checkout script dynamically.
@@ -76,7 +71,10 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [showReport, setShowReport] = useState(false);
   const razorpayLoadedRef = useRef(false);
 
-  const mentorSkills = useMemo(() => parseSkills(session?.mentor?.skills), [session?.mentor?.skills]);
+  const mentorSkills = useMemo(
+    () => normalizeSkills(session?.mentor?.skills, { limit: 8 }),
+    [session?.mentor?.skills],
+  );
 
   useEffect(() => {
     let cancelled = false;

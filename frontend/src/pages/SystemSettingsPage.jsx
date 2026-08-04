@@ -4,6 +4,7 @@ import { getApiErrorMessage as errorMessage } from "../utils/apiErrors";
 import Icon from "../modules/common/dashboard/Icon";
 import "./AdminOperationsPage.css";
 import "./SystemSettingsPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 /* ── Helpers ───────────────────────────────────────────────────── */
 
@@ -288,7 +289,7 @@ export default function SystemSettingsPage({ notify }) {
   if (loading) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+        <div className="admin-hero">
           <div>
             <p className="admin-eyebrow">Configuration</p>
             <h1>Platform Configuration Center</h1>
@@ -306,7 +307,7 @@ export default function SystemSettingsPage({ notify }) {
 
   return (
     <section className="admin-page">
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+      <div className="admin-hero">
         <div>
           <p className="admin-eyebrow">Super Admin</p>
           <h1>Platform Configuration Center</h1>

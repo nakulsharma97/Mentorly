@@ -21,6 +21,7 @@ const AnalyticsPage = lazy(() => import("../pages/AnalyticsPage"));
 const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
 const TeachingPage = lazy(() => import("../pages/TeachingPage"));
 const ProfileSetup = lazy(() => import("../pages/ProfileSetup"));
+const BecomeMentorPage = lazy(() => import("../pages/BecomeMentorPage"));
 const MentorProfilePage = lazy(() => import("../pages/MentorProfilePage"));
 const ProfessionalProfilePage = lazy(() => import("../pages/ProfessionalProfilePage"));
 const MessagesPage = lazy(() => import("../pages/MessagesPage"));
@@ -173,6 +174,14 @@ export default function AppRoutes({
             onLogout={handleLogout}
             language={language}
           />
+        )}
+      />
+      {/* Become a Mentor — available to any authenticated user (learner applying,
+          or mentor re-submitting after more-information/rejection). */}
+      <Route
+        path="/become-a-mentor"
+        element={rc("become-a-mentor",
+          <BecomeMentorPage profile={profile} notify={notify} />
         )}
       />
       <Route path="/" element={<Navigate to={roleRoot(profile?.role)} replace />} />

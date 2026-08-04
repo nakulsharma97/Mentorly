@@ -184,6 +184,23 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /**
+     * Broadcast a reaction update to all participants in a conversation room.
+     * Used by the REST controller so reactions applied over HTTP reach every
+     * connected WebSocket session in real-time.
+     */
+    public void broadcastReaction(Long conversationId, ChatService.DirectMessageView message) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "type", "REACTION",
+                    "message", message));
+            broadcastToRoom(conversationId, payload);
+        } catch (IOException e) {
+            log.warn("[broadcastReaction] Failed to broadcast reaction to conversation {}: {}",
+                    conversationId, e.getMessage());
+        }
+    }
+
     private void broadcastToRoom(Long conversationId, String payload) throws IOException {
         Set<WebSocketSession> room = conversationRooms.getOrDefault(conversationId, Set.of());
         for (WebSocketSession member : room) {

@@ -2,16 +2,25 @@ import { http, HttpResponse, ws } from "msw";
 
 const now = Date.now();
 
+// Mirrors the REAL backend shape: users.skills is a comma-separated string and
+// SkillSession serializes a computed sessionSkills: List<String> array. Any
+// test rendering these must normalize before .map/.slice (see utils/skills.js).
 const mockBookings = [
   {
     id: 101,
     bookingStatus: "PENDING",
+    paymentStatus: "PENDING",
     learner: { id: 11, fullName: "Learner One" },
     session: {
       id: 501,
       title: "React Fundamentals",
       startTime: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-      mentor: { id: 21, fullName: "Mentor Prime" },
+      endTime: new Date(now + 24 * 60 * 60 * 1000 + 60 * 60000).toISOString(),
+      priceAmount: 999,
+      meetingProvider: "GOOGLE_CALENDAR",
+      liveSessionStatus: "SCHEDULED",
+      sessionSkills: ["React", "JavaScript", "Redux"],
+      mentor: { id: 21, fullName: "Mentor Prime", skills: "React, JavaScript, Redux" },
       skill: { name: "React" },
     },
     payment: { amount: 0 },
@@ -19,12 +28,18 @@ const mockBookings = [
   {
     id: 102,
     bookingStatus: "COMPLETED",
+    paymentStatus: "COMPLETED",
     learner: { id: 12, fullName: "Learner Two" },
     session: {
       id: 502,
       title: "Spring Boot API Design",
       startTime: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      mentor: { id: 21, fullName: "Mentor Prime" },
+      endTime: new Date(now - 7 * 24 * 60 * 60 * 1000 + 90 * 60000).toISOString(),
+      priceAmount: 1499,
+      meetingProvider: "GOOGLE_CALENDAR",
+      liveSessionStatus: "ENDED",
+      sessionSkills: ["Java", "Spring Boot", "REST APIs"],
+      mentor: { id: 21, fullName: "Mentor Prime", skills: "Java, Spring Boot, REST APIs" },
       skill: { name: "Spring Boot" },
     },
     payment: { amount: 1000 },

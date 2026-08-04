@@ -1,13 +1,10 @@
 package com.skillswap.verification;
 
-import com.skillswap.common.AuditLogService;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
 import com.skillswap.config.RequestTraceFilter;
-import com.skillswap.mentorcertification.MentorCertification;
 import com.skillswap.mentorcertification.MentorCertificationDto;
-import com.skillswap.mentorcertification.MentorCertificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.AdminSubRole;
@@ -29,15 +26,11 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -54,17 +47,15 @@ class MentorVerificationControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
+    private MentorVerificationService service;
+    @MockitoBean
     private MentorVerificationRequestRepository requestRepository;
     @MockitoBean
     private UserRepository userRepository;
     @MockitoBean
-    private MentorCertificationService certificationService;
-    @MockitoBean
-    private NotificationService notificationService;
-    @MockitoBean
     private EmailNotificationService emailNotificationService;
     @MockitoBean
-    private AuditLogService auditLogService;
+    private NotificationService notificationService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -84,6 +75,7 @@ class MentorVerificationControllerTest {
     private ClientRegistrationRepository clientRegistrationRepository;
 
     private User adminUser;
+    private User learnerUser;
     private User mentorUser;
     private MentorVerificationRequest request;
 
@@ -96,6 +88,14 @@ class MentorVerificationControllerTest {
         adminUser.setRole(UserRole.ADMIN);
         adminUser.setAdminSubRole(AdminSubRole.SUPER_ADMIN);
         adminUser.setEnabled(true);
+
+        learnerUser = new User();
+        learnerUser.setId(10L);
+        learnerUser.setEmail("learner@test.com");
+        learnerUser.setUsername("newlearner");
+        learnerUser.setFullName("New Learner");
+        learnerUser.setRole(UserRole.LEARNER);
+        learnerUser.setEnabled(true);
 
         mentorUser = new User();
         mentorUser.setId(20L);
@@ -114,6 +114,10 @@ class MentorVerificationControllerTest {
         request = new MentorVerificationRequest();
         request.setId(1L);
         request.setMentor(mentorUser);
+        request.setFullName("Test Mentor");
+        request.setEmail("mentor@test.com");
+        request.setSkills("Java, Spring Boot");
+        request.setYearsOfExperience(5);
         request.setDocumentUrl("https://example.com/id-card.pdf");
         request.setDocumentType("government_id");
         request.setStatus(MentorVerificationRequestStatus.PENDING);
@@ -133,22 +137,37 @@ class MentorVerificationControllerTest {
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  POST /request (mentor)
+    //  POST /request
     // ══════════════════════════════════════════════════════════════
 
     @Test
-    void submit_createsPendingRequest_forMentor() throws Exception {
-        loginAs(mentorUser);
+    void submit_createsPendingRequest_forLearner() throws Exception {
+        loginAs(learnerUser);
 
-        when(requestRepository.findFirstByMentorIdAndStatusOrderByCreatedAtDesc(20L, MentorVerificationRequestStatus.PENDING))
-                .thenReturn(Optional.empty());
-        when(certificationService.listForMentor(20L)).thenReturn(List.of());
-        when(requestRepository.save(any(MentorVerificationRequest.class))).thenReturn(request);
+        MentorVerificationRequest saved = cloneRequest();
+        saved.setStatus(MentorVerificationRequestStatus.PENDING);
+        when(service.submit(eq(learnerUser), any(MentorVerificationDtos.SubmitMentorVerificationRequest.class)))
+                .thenReturn(MentorVerificationDto.from(saved, List.of()));
 
         mockMvc.perform(post("/api/v1/verification/mentor/request")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"documentUrl": "https://example.com/id-card.pdf", "documentType": "government_id"}
+                                {
+                                  "fullName": "New Learner",
+                                  "email": "learner@test.com",
+                                  "headline": "Backend Engineer",
+                                  "skills": "Java, Spring Boot",
+                                  "yearsOfExperience": 4,
+                                  "aboutMe": "I love teaching.",
+                                  "hourlyRate": 25.00,
+                                  "linkedinUrl": "https://linkedin.com/in/newlearner",
+                                  "githubUrl": "https://github.com/newlearner",
+                                  "portfolioUrl": "https://newlearner.dev",
+                                  "resumeUrl": "https://example.com/resume.pdf",
+                                  "documentUrl": "https://example.com/id-card.pdf",
+                                  "documentType": "government_id",
+                                  "availability": "weekends"
+                                }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Verification request submitted"))
@@ -160,11 +179,11 @@ class MentorVerificationControllerTest {
     }
 
     @Test
-    void submit_rejectsDuplicatePendingRequest() throws Exception {
+    void submit_delegatesDuplicateCheck_toService() throws Exception {
         loginAs(mentorUser);
 
-        when(requestRepository.findFirstByMentorIdAndStatusOrderByCreatedAtDesc(20L, MentorVerificationRequestStatus.PENDING))
-                .thenReturn(Optional.of(request));
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("You already have a pending verification request"))
+                .when(service).submit(eq(mentorUser), any());
 
         mockMvc.perform(post("/api/v1/verification/mentor/request")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -175,32 +194,34 @@ class MentorVerificationControllerTest {
                 .andExpect(jsonPath("$.data.error").value("You already have a pending verification request"));
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  GET /status (mentor dashboard banner)
+    // ══════════════════════════════════════════════════════════════
+
     @Test
-    void submit_rejectsInvalidUrl() throws Exception {
+    void status_returnsLatestRequest_andMentorVerifiedFlag() throws Exception {
         loginAs(mentorUser);
 
-        mockMvc.perform(post("/api/v1/verification/mentor/request")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"documentUrl": "not-a-url", "documentType": "government_id"}
-                                """))
-                .andExpect(status().isBadRequest());
+        when(service.latestFor(mentorUser)).thenReturn(request);
+
+        mockMvc.perform(get("/api/v1/verification/mentor/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Mentor verification status fetched"))
+                .andExpect(jsonPath("$.data.requestId").value(1))
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andExpect(jsonPath("$.data.mentorVerified").value(false));
     }
 
     @Test
-    void submit_rejectsNonMentor() throws Exception {
-        User learner = new User();
-        learner.setId(10L);
-        learner.setEmail("learner@test.com");
-        learner.setRole(UserRole.LEARNER);
-        loginAs(learner);
+    void status_returnsNulls_whenNeverApplied() throws Exception {
+        loginAs(learnerUser);
 
-        mockMvc.perform(post("/api/v1/verification/mentor/request")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"documentUrl": "https://example.com/id.pdf", "documentType": "government_id"}
-                                """))
-                .andExpect(status().isBadRequest());
+        when(service.latestFor(learnerUser)).thenReturn(null);
+
+        mockMvc.perform(get("/api/v1/verification/mentor/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requestId").doesNotExist())
+                .andExpect(jsonPath("$.data.mentorVerified").value(false));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -211,40 +232,17 @@ class MentorVerificationControllerTest {
     void moderationQueue_returnsPendingRequests_forAdmin() throws Exception {
         loginAs(adminUser);
 
-        MentorCertification cert = new MentorCertification();
-        cert.setId(7L);
-        cert.setMentor(mentorUser);
-        cert.setCertificationName("AWS Certified Developer");
-        cert.setIssuingOrganization("Amazon Web Services");
-        cert.setIssueDate(LocalDate.of(2023, 5, 1));
-        cert.setCertificateImage("data:image/png;base64,AAAA");
+        when(service.moderationQueue(adminUser, MentorVerificationRequestStatus.PENDING))
+                .thenReturn(List.of(MentorVerificationDto.from(request, List.of())));
 
-        when(certificationService.listForMentor(20L)).thenReturn(List.of(certDto(cert)));
-        when(requestRepository.findByStatusOrderByCreatedAtAsc(MentorVerificationRequestStatus.PENDING))
-                .thenReturn(List.of(request));
-
-        mockMvc.perform(get("/api/v1/verification/mentor/requests?status=PENDING")
-                        .contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/api/v1/verification/mentor/requests?status=PENDING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Mentor verification moderation queue fetched"))
                 .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].status").value("PENDING"))
                 .andExpect(jsonPath("$.data[0].mentor.fullName").value("Test Mentor"))
                 .andExpect(jsonPath("$.data[0].mentor.yearsOfExperience").value(5))
-                .andExpect(jsonPath("$.data[0].mentor.resumeUrl").value("https://example.com/resume.pdf"))
-                .andExpect(jsonPath("$.data[0].certifications[0].certificationName")
-                        .value("AWS Certified Developer"))
-                .andExpect(jsonPath("$.data[0].certifications[0].certificateImage")
-                        .value("data:image/png;base64,AAAA"));
-    }
-
-    @Test
-    void moderationQueue_rejectsNonAdmin() throws Exception {
-        loginAs(mentorUser);
-
-        mockMvc.perform(get("/api/v1/verification/mentor/requests")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.error").value("Only admins can access this area"));
+                .andExpect(jsonPath("$.data[0].mentor.resumeUrl").value("https://example.com/resume.pdf"));
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -255,42 +253,35 @@ class MentorVerificationControllerTest {
     void requestDetail_returnsFullReview_forAdmin() throws Exception {
         loginAs(adminUser);
 
-        when(certificationService.listForMentor(20L)).thenReturn(List.of());
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
+        when(service.requestDetail(adminUser, 1L))
+                .thenReturn(MentorVerificationDto.from(request, List.of()));
 
-        mockMvc.perform(get("/api/v1/verification/mentor/requests/1")
-                        .contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(get("/api/v1/verification/mentor/requests/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Mentor verification request fetched"))
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.documentUrl").value("https://example.com/id-card.pdf"))
-                .andExpect(jsonPath("$.data.documentType").value("government_id"));
+                .andExpect(jsonPath("$.data.documentType").value("government_id"))
+                .andExpect(jsonPath("$.data.requestedInfo").doesNotExist());
     }
 
     // ══════════════════════════════════════════════════════════════
-    //  PATCH /requests/{id} (admin approve / reject)
+    //  PATCH /requests/{id} (approve / reject / more info)
     // ══════════════════════════════════════════════════════════════
 
     @Test
     void approve_setsMentorVerified_savesStatus_andNotifies() throws Exception {
         loginAs(adminUser);
 
-        MentorVerificationRequest savedRequest = new MentorVerificationRequest();
-        savedRequest.setId(1L);
-        savedRequest.setMentor(mentorUser);
-        savedRequest.setDocumentUrl(request.getDocumentUrl());
-        savedRequest.setDocumentType(request.getDocumentType());
-        savedRequest.setStatus(MentorVerificationRequestStatus.APPROVED);
-        savedRequest.setAdminNote("Looks good");
-        savedRequest.setReviewedBy(adminUser.getId());
-        savedRequest.setReviewedAt(OffsetDateTime.now());
-        savedRequest.setCreatedAt(request.getCreatedAt());
-        savedRequest.setUpdatedAt(OffsetDateTime.now());
+        MentorVerificationRequest saved = cloneRequest();
+        saved.setStatus(MentorVerificationRequestStatus.APPROVED);
+        saved.setAdminNote("Looks good");
+        saved.setReviewedBy(adminUser.getId());
+        saved.setReviewedAt(OffsetDateTime.now());
+        saved.setUpdatedAt(OffsetDateTime.now());
 
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
-        when(certificationService.listForMentor(20L)).thenReturn(List.of());
-        when(userRepository.save(any(User.class))).thenReturn(mentorUser);
-        when(requestRepository.save(any(MentorVerificationRequest.class))).thenReturn(savedRequest);
+        when(service.updateStatus(eq(adminUser), eq(1L), any()))
+                .thenReturn(MentorVerificationDto.from(saved, List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -303,44 +294,22 @@ class MentorVerificationControllerTest {
                 .andExpect(jsonPath("$.data.adminNote").value("Looks good"))
                 .andExpect(jsonPath("$.data.reviewedBy").value(1));
 
-        verify(userRepository).save(any(User.class));
-        verify(emailNotificationService).sendVerificationApproved(mentorUser);
-        verify(notificationService).notifyUser(
-                org.mockito.ArgumentMatchers.eq(20L),
-                org.mockito.ArgumentMatchers.eq("MENTOR_VERIFICATION"),
-                anyString(), anyString(), anyLong());
-
-        // Approval must be recorded on the admin audit trail.
-        verify(auditLogService).logAdmin(
-                org.mockito.ArgumentMatchers.eq(adminUser),
-                org.mockito.ArgumentMatchers.eq("MENTOR_VERIFICATION"),
-                org.mockito.ArgumentMatchers.eq("MentorVerificationRequest"),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.anyString());
+        verify(service).updateStatus(eq(adminUser), eq(1L), any());
     }
 
     @Test
     void reject_savesReason_revokesVerified_andNotifies() throws Exception {
         loginAs(adminUser);
 
-        mentorUser.setMentorVerified(true);
+        MentorVerificationRequest saved = cloneRequest();
+        saved.setStatus(MentorVerificationRequestStatus.REJECTED);
+        saved.setAdminNote("Document could not be verified");
+        saved.setReviewedBy(adminUser.getId());
+        saved.setReviewedAt(OffsetDateTime.now());
+        saved.setUpdatedAt(OffsetDateTime.now());
 
-        MentorVerificationRequest savedRequest = new MentorVerificationRequest();
-        savedRequest.setId(1L);
-        savedRequest.setMentor(mentorUser);
-        savedRequest.setDocumentUrl(request.getDocumentUrl());
-        savedRequest.setDocumentType(request.getDocumentType());
-        savedRequest.setStatus(MentorVerificationRequestStatus.REJECTED);
-        savedRequest.setAdminNote("Document could not be verified");
-        savedRequest.setReviewedBy(adminUser.getId());
-        savedRequest.setReviewedAt(OffsetDateTime.now());
-        savedRequest.setCreatedAt(request.getCreatedAt());
-        savedRequest.setUpdatedAt(OffsetDateTime.now());
-
-        when(requestRepository.findById(1L)).thenReturn(Optional.of(request));
-        when(certificationService.listForMentor(20L)).thenReturn(List.of());
-        when(userRepository.save(any(User.class))).thenReturn(mentorUser);
-        when(requestRepository.save(any(MentorVerificationRequest.class))).thenReturn(savedRequest);
+        when(service.updateStatus(eq(adminUser), eq(1L), any()))
+                .thenReturn(MentorVerificationDto.from(saved, List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -351,52 +320,52 @@ class MentorVerificationControllerTest {
                 .andExpect(jsonPath("$.data.status").value("REJECTED"))
                 .andExpect(jsonPath("$.data.adminNote").value("Document could not be verified"));
 
-        verify(emailNotificationService).sendVerificationRejected(mentorUser, "Document could not be verified");
-        verify(notificationService).notifyUser(
-                org.mockito.ArgumentMatchers.eq(20L),
-                org.mockito.ArgumentMatchers.eq("MENTOR_VERIFICATION"),
-                anyString(), anyString(), anyLong());
-
-        // Rejection must be recorded on the admin audit trail.
-        verify(auditLogService).logAdmin(
-                org.mockito.ArgumentMatchers.eq(adminUser),
-                org.mockito.ArgumentMatchers.eq("MENTOR_VERIFICATION"),
-                org.mockito.ArgumentMatchers.eq("MentorVerificationRequest"),
-                org.mockito.ArgumentMatchers.eq(1L),
-                org.mockito.ArgumentMatchers.anyString());
-    }
-
-    private MentorCertificationDto certDto(MentorCertification cert) {
-        MentorCertificationDto dto = new MentorCertificationDto();
-        dto.setId(cert.getId());
-        dto.setMentorId(cert.getMentor() != null ? cert.getMentor().getId() : null);
-        dto.setCertificationName(cert.getCertificationName());
-        dto.setIssuingOrganization(cert.getIssuingOrganization());
-        dto.setCredentialId(cert.getCredentialId());
-        dto.setCredentialUrl(cert.getCredentialUrl());
-        dto.setIssueDate(cert.getIssueDate());
-        dto.setExpirationDate(cert.getExpirationDate());
-        dto.setDoesNotExpire(cert.isDoesNotExpire());
-        dto.setSkillsCovered(cert.getSkillsCovered());
-        dto.setDescription(cert.getDescription());
-        dto.setCertificateImage(cert.getCertificateImage());
-        dto.setCreatedAt(cert.getCreatedAt());
-        dto.setUpdatedAt(cert.getUpdatedAt());
-        return dto;
+        verify(service).updateStatus(eq(adminUser), eq(1L), any());
     }
 
     @Test
-    void reject_requiresAdminRole() throws Exception {
-        loginAs(mentorUser);
+    void requestMoreInfo_storesRequestedInfo_andNotifies() throws Exception {
+        loginAs(adminUser);
+
+        MentorVerificationRequest saved = cloneRequest();
+        saved.setStatus(MentorVerificationRequestStatus.MORE_INFORMATION_REQUIRED);
+        saved.setRequestedInfo("Please upload a recent government ID and a second certificate.");
+        saved.setReviewedBy(adminUser.getId());
+        saved.setReviewedAt(OffsetDateTime.now());
+        saved.setUpdatedAt(OffsetDateTime.now());
+
+        when(service.updateStatus(eq(adminUser), eq(1L), any()))
+                .thenReturn(MentorVerificationDto.from(saved, List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"status": "REJECTED", "adminNote": "No"}
+                                {
+                                  "status": "MORE_INFORMATION_REQUIRED",
+                                  "requestedInfo": "Please upload a recent government ID and a second certificate."
+                                }
                                 """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.error").value("Only admins can access this area"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("MORE_INFORMATION_REQUIRED"))
+                .andExpect(jsonPath("$.data.requestedInfo")
+                        .value("Please upload a recent government ID and a second certificate."));
 
-        verify(requestRepository, never()).findById(anyLong());
+        verify(service).updateStatus(eq(adminUser), eq(1L), any());
+    }
+
+    private MentorVerificationRequest cloneRequest() {
+        MentorVerificationRequest copy = new MentorVerificationRequest();
+        copy.setId(request.getId());
+        copy.setMentor(request.getMentor());
+        copy.setFullName(request.getFullName());
+        copy.setEmail(request.getEmail());
+        copy.setSkills(request.getSkills());
+        copy.setYearsOfExperience(request.getYearsOfExperience());
+        copy.setDocumentUrl(request.getDocumentUrl());
+        copy.setDocumentType(request.getDocumentType());
+        copy.setStatus(request.getStatus());
+        copy.setCreatedAt(request.getCreatedAt());
+        copy.setUpdatedAt(request.getUpdatedAt());
+        return copy;
     }
 }

@@ -8,6 +8,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./AuditLogPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 /* ── Static config ─────────────────────────────────────────────── */
 
@@ -648,7 +649,7 @@ export default function AuditLogPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero ── */}
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+      <div className="admin-hero">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div>
             <p className="admin-eyebrow">Monitoring · Security</p>

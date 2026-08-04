@@ -3,6 +3,7 @@ package com.skillswap.verification;
 import com.skillswap.mentorcertification.MentorCertificationDto;
 import com.skillswap.user.User;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -13,9 +14,10 @@ import java.util.List;
  * Unlike returning the raw {@link MentorVerificationRequest} entity (which
  * would serialize the {@link User} entity — including the password hash —
  * directly to the client), this DTO exposes only the fields the admin review
- * workflow needs: the request itself, a curated mentor profile summary
- * (certificates, resume, experience, etc.), and the mentor's structured
- * certifications for evidence review.
+ * workflow needs: the request itself (with the applicant's submitted
+ * application snapshot), a curated mentor profile summary (certificates,
+ * resume, experience, etc.), and the mentor's structured certifications for
+ * evidence review.
  */
 /**
  * Immutable data carrier for mentor verification.
@@ -26,10 +28,27 @@ public record MentorVerificationDto(
         String documentUrl,
         String documentType,
         String adminNote,
+        String requestedInfo,
         Long reviewedBy,
         String reviewedAt,
+        String submittedAt,
         String createdAt,
         String updatedAt,
+        // Application snapshot — exactly what the applicant submitted (the
+        // user may have edited their profile since). Nullable for requests
+        // created before the V52 application-form migration.
+        String fullName,
+        String email,
+        String skills,
+        Integer yearsOfExperience,
+        String bio,
+        String resumeUrl,
+        String certificateUrls,
+        String linkedinUrl,
+        String githubUrl,
+        String portfolioUrl,
+        String hourlyRate,
+        String availability,
         MentorSummaryDto mentor,
         List<MentorCertificationDto> certifications) {
 
@@ -44,10 +63,24 @@ public record MentorVerificationDto(
                 request.getDocumentUrl(),
                 request.getDocumentType(),
                 request.getAdminNote(),
+                request.getRequestedInfo(),
                 request.getReviewedBy(),
                 format(request.getReviewedAt()),
+                format(request.getSubmittedAt()),
                 format(request.getCreatedAt()),
                 format(request.getUpdatedAt()),
+                request.getFullName(),
+                request.getEmail(),
+                request.getSkills(),
+                request.getYearsOfExperience(),
+                request.getBio(),
+                request.getResumeUrl(),
+                request.getCertificateUrls(),
+                request.getLinkedinUrl(),
+                request.getGithubUrl(),
+                request.getPortfolioUrl(),
+                request.getHourlyRate() == null ? null : request.getHourlyRate().toPlainString(),
+                request.getAvailability(),
                 MentorSummaryDto.from(request.getMentor()),
                 certifications);
     }

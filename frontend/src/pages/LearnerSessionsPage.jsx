@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import { normalizeSkills, skillsMatchQuery } from "../utils/skills";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -146,6 +147,110 @@ function formatDuration(startTime, endTime) {
   return `${minutes} min`;
 }
 
+function formatPrice(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "Free";
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatMeetingType(session) {
+  const raw =
+    session?.meetingPlatform || session?.meetingProvider || session?.sessionType || "";
+  if (!raw) return "Online";
+  const upper = String(raw).toUpperCase();
+  if (upper.includes("GOOGLE")) return "Google Meet";
+  if (upper.includes("ZOOM")) return "Zoom";
+  if (upper.includes("MEET")) return "Google Meet";
+  if (upper.includes("TEAMS")) return "Microsoft Teams";
+  return String(raw);
+}
+
+/* ── Client-side receipt download (mirrors AdminPaymentsPage pattern) ── */
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function generateSessionReceiptHtml(booking) {
+  const session = booking?.session || {};
+  const mentor = session?.mentor || {};
+  const status = String(booking?.paymentStatus || "PENDING").toUpperCase();
+  const statusColor =
+    status === "RELEASED" || status === "COMPLETED" ? "#059669"
+    : status === "ESCROWED" ? "#2563eb"
+    : status === "REFUNDED" ? "#7c3aed"
+    : status === "FAILED" ? "#dc2626" : "#92400e";
+  const paid = ["RELEASED", "COMPLETED", "ESCROWED"].includes(status);
+  const safe = (v) => String(v ?? "").replace(/[<>&"]/g, (c) => ({
+    "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;",
+  }[c]));
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Receipt #${booking?.id ?? "N/A"}</title>
+<style>
+  body { font-family: 'Inter', -apple-system, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #0f172a; }
+  .receipt { border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.06); }
+  .receipt__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid #f1f5f9; }
+  .receipt__brand { font-size: 1.2rem; font-weight: 800; color: #0f766e; }
+  .receipt__status { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; background: ${statusColor}15; color: ${statusColor}; }
+  .receipt__title { font-size: 1.5rem; font-weight: 800; margin: 0 0 4px; }
+  .receipt__sub { color: #64748b; font-size: 0.85rem; margin: 0 0 20px; }
+  .receipt__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .receipt__field { padding: 8px 0; }
+  .receipt__field-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 2px; }
+  .receipt__field-value { font-size: 0.95rem; font-weight: 600; }
+  .receipt__amount { text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 16px; }
+  .receipt__amount-value { font-size: 2.2rem; font-weight: 900; color: #0f172a; }
+  .receipt__amount-label { font-size: 0.78rem; color: #64748b; }
+  .receipt__footer { text-align: center; font-size: 0.75rem; color: #94a3b8; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+  .receipt__divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
+</style></head>
+<body>
+<div class="receipt">
+  <div class="receipt__header">
+    <div class="receipt__brand">SkillSwap</div>
+    <span class="receipt__status">${status}</span>
+  </div>
+  <h1 class="receipt__title">${paid ? "Payment Receipt" : "Booking Receipt"}</h1>
+  <p class="receipt__sub">Booking #${safe(booking?.id)} · ${formatDate(booking?.createdAt)}</p>
+  <div class="receipt__amount">
+    <div class="receipt__amount-value">${formatPrice(session?.priceAmount)}</div>
+    <div class="receipt__amount-label">Total Amount</div>
+  </div>
+  <div class="receipt__grid">
+    <div class="receipt__field"><div class="receipt__field-label">Mentor</div><div class="receipt__field-value">${safe(mentor?.fullName || "Unknown")}</div></div>
+    <div class="receipt__field"><div class="receipt__field-label">Session</div><div class="receipt__field-value">${safe(session?.title || "Session")}</div></div>
+    <div class="receipt__field"><div class="receipt__field-label">Date</div><div class="receipt__field-value">${safe(formatDateTime(session?.startTime))}</div></div>
+    <div class="receipt__field"><div class="receipt__field-label">Duration</div><div class="receipt__field-value">${safe(formatDuration(session?.startTime, session?.endTime))}</div></div>
+    <div class="receipt__field"><div class="receipt__field-label">Meeting</div><div class="receipt__field-value">${safe(formatMeetingType(session))}</div></div>
+    <div class="receipt__field"><div class="receipt__field-label">Status</div><div class="receipt__field-value">${safe(String(booking?.bookingStatus || "PENDING"))}</div></div>
+  </div>
+  <div class="receipt__divider"></div>
+  <div class="receipt__footer">
+    SkillSwap Platform · Generated ${new Date().toLocaleString()}<br>
+    This is a computer-generated receipt.
+  </div>
+</div>
+</body></html>`;
+}
+
+function downloadBookingReceipt(booking) {
+  if (!booking?.id) return;
+  const html = generateSessionReceiptHtml(booking);
+  downloadBlob(
+    new Blob([html], { type: "text/html;charset=utf-8;" }),
+    `receipt-booking-${booking.id}.html`,
+  );
+}
+
 function initials(value) {
   return String(value || "?")
     .split(/\s+/)
@@ -273,40 +378,84 @@ function MiniCalendar({ sessions }) {
    Premium Session Card
    ══════════════════════════════════════════════════════════════════════════ */
 
-function PremiumSessionCard({ booking, onCancel }) {
+function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
   const session = booking?.session || {};
   const mentor = session?.mentor || {};
-  const rawStatus = String(booking?.bookingStatus || "PENDING").toUpperCase();
-  const statusKey =
-    rawStatus === "CONFIRMED" || rawStatus === "ACCEPTED" ? "UPCOMING" : rawStatus;
+
+  /* ── Status derivation (booking → live → payment precedence) ── */
+  const bookingStatus = String(booking?.bookingStatus || "PENDING").toUpperCase();
+  const paymentStatus = String(booking?.paymentStatus || "PENDING").toUpperCase();
+  const liveStatus = String(session?.liveSessionStatus || "").toUpperCase();
+
+  const isCancelled = bookingStatus === "CANCELLED" || bookingStatus === "REJECTED";
+  const isCompleted = bookingStatus === "COMPLETED";
+  const isOngoing = liveStatus === "LIVE" || bookingStatus === "IN_PROGRESS";
+  const priceAmount = Number(session?.priceAmount || 0);
+  const isPaid =
+    paymentStatus === "COMPLETED" ||
+    paymentStatus === "RELEASED" ||
+    paymentStatus === "ESCROWED" ||
+    priceAmount <= 0; // free sessions never need payment
+  const isUpcoming = !isCancelled && !isCompleted && !isOngoing;
+  const needsPayment = isUpcoming && !isPaid;
+  const canCancel = !isCancelled && !isCompleted;
+  const hasLink = Boolean(session?.meetingLink);
+
+  let statusKey = "PENDING";
+  if (isCancelled) statusKey = bookingStatus === "REJECTED" ? "REJECTED" : "CANCELLED";
+  else if (isCompleted) statusKey = "COMPLETED";
+  else if (isOngoing) statusKey = "ONGOING";
+  else if (isPaid && liveStatus === "SCHEDULED") statusKey = "SCHEDULED";
+  else if (isPaid) statusKey = "PAID";
+  else if (bookingStatus === "ACCEPTED" || bookingStatus === "CONFIRMED") statusKey = "ACCEPTED";
 
   const statusMeta = {
-    UPCOMING: { label: "Upcoming", class: "ls-badge--upcoming", icon: "event" },
+    ACCEPTED: { label: "Accepted", class: "ls-badge--accepted", icon: "check_circle" },
+    PAID: { label: "Paid", class: "ls-badge--paid", icon: "payments" },
+    SCHEDULED: { label: "Scheduled", class: "ls-badge--scheduled", icon: "event" },
+    ONGOING: { label: "Ongoing", class: "ls-badge--ongoing", icon: "play_circle" },
     COMPLETED: { label: "Completed", class: "ls-badge--completed", icon: "task_alt" },
     CANCELLED: { label: "Cancelled", class: "ls-badge--cancelled", icon: "cancel" },
-    PENDING: { label: "Pending Payment", class: "ls-badge--pending", icon: "payments" },
-  }[statusKey] || { label: rawStatus, class: "ls-badge--pending", icon: "schedule" };
+    REJECTED: { label: "Rejected", class: "ls-badge--cancelled", icon: "cancel" },
+    PENDING: { label: "Pending", class: "ls-badge--pending", icon: "hourglass_top" },
+  }[statusKey] || { label: statusKey, class: "ls-badge--pending", icon: "schedule" };
 
-  const hasLink = Boolean(session.meetingLink);
-  const isUpcoming = statusKey === "UPCOMING" || statusKey === "PENDING";
-  const isCompleted = statusKey === "COMPLETED";
-  const mentorName = mentor.fullName || "Mentor";
-  const sessionTitle = session.title || "Untitled session";
-  const sessionSkills = mentor.skills || EMPTY_ARRAY;
+  const paymentMeta = (() => {
+    if (paymentStatus === "COMPLETED" || paymentStatus === "RELEASED")
+      return { label: "Payment completed", class: "ls-pay--paid", icon: "verified_user" };
+    if (paymentStatus === "ESCROWED")
+      return { label: "Payment escrowed", class: "ls-pay--escrowed", icon: "lock" };
+    if (paymentStatus === "REFUNDED")
+      return { label: "Refunded", class: "ls-pay--refunded", icon: "currency_rupee" };
+    if (paymentStatus === "FAILED")
+      return { label: "Payment failed", class: "ls-pay--failed", icon: "error" };
+    return { label: "Payment pending", class: "ls-pay--pending", icon: "schedule" };
+  })();
+
+  /* ── Safe skill chips — NEVER call .slice/.map on raw mentor.skills ── */
+  const skills = normalizeSkills(session?.sessionSkills ?? mentor?.skills);
+  const mentorName = mentor?.fullName || "Mentor";
+  const sessionTitle = session?.title || "Untitled session";
+  const price = formatPrice(session?.priceAmount);
+
+  const joinTarget = hasLink ? session.meetingLink : null;
 
   return (
-    <article className="ls-session-card md-animate">
+    <article
+      className={`ls-session-card ls-session-card--${statusKey.toLowerCase()} md-animate`}
+      data-testid={`session-card-${booking?.id ?? ""}`}
+    >
       <div className="ls-session-card__inner">
         <div className="ls-session-card__left">
           <div className="ls-session-card__avatar-wrap">
-            {mentor.profileImageUrl ? (
+            {mentor?.profileImageUrl ? (
               <img className="ls-session-card__avatar" src={mentor.profileImageUrl} alt={mentorName} />
             ) : (
               <div className="ls-session-card__avatar ls-session-card__avatar--fallback">
                 {initials(mentorName)}
               </div>
             )}
-            <span className={`ls-session-card__presence${mentor.liveNow ? " is-online" : ""}`} />
+            <span className={`ls-session-card__presence${mentor?.liveNow ? " is-online" : ""}`} />
           </div>
         </div>
 
@@ -315,7 +464,7 @@ function PremiumSessionCard({ booking, onCancel }) {
             <div className="ls-session-card__info">
               <div className="ls-session-card__name-row">
                 <h3 className="ls-session-card__mentor">{mentorName}</h3>
-                {mentor.mentorVerified && (
+                {mentor?.mentorVerified && (
                   <span className="ls-session-card__verified">
                     <Icon name="verified" /> Verified
                   </span>
@@ -332,22 +481,20 @@ function PremiumSessionCard({ booking, onCancel }) {
           <div className="ls-session-card__meta">
             <span className="ls-session-card__meta-item">
               <Icon name="calendar_today" />
-              <span>{formatDate(session.startTime)}</span>
+              <span>{formatDate(session?.startTime)}</span>
             </span>
             <span className="ls-session-card__meta-item">
               <Icon name="schedule" />
-              <span>{formatTime(session.startTime)}</span>
+              <span>{formatTime(session?.startTime)}</span>
             </span>
             <span className="ls-session-card__meta-item">
               <Icon name="timelapse" />
-              <span>{formatDuration(session.startTime, session.endTime)}</span>
+              <span>{formatDuration(session?.startTime, session?.endTime)}</span>
             </span>
-            {session.meetingPlatform && (
-              <span className="ls-session-card__meta-item">
-                <Icon name="videocam" />
-                <span>{session.meetingPlatform}</span>
-              </span>
-            )}
+            <span className="ls-session-card__meta-item">
+              <Icon name="videocam" />
+              <span>{formatMeetingType(session)}</span>
+            </span>
             {hasLink && (
               <a
                 href={session.meetingLink}
@@ -361,61 +508,111 @@ function PremiumSessionCard({ booking, onCancel }) {
             )}
           </div>
 
-          {sessionSkills.length > 0 && (
+          {skills.length > 0 ? (
             <div className="ls-session-card__skills">
-              {sessionSkills.slice(0, 4).map((skill, i) => (
-                <span key={i} className="ls-session-card__skill-chip">{skill}</span>
+              {skills.slice(0, 4).map((skill, i) => (
+                <span key={`${skill}-${i}`} className="ls-session-card__skill-chip">{skill}</span>
               ))}
-              {sessionSkills.length > 4 && (
-                <span className="ls-session-card__skill-more">+{sessionSkills.length - 4}</span>
+              {skills.length > 4 && (
+                <span className="ls-session-card__skill-more">+{skills.length - 4}</span>
               )}
             </div>
+          ) : (
+            <p className="ls-session-card__no-skills">No skills available</p>
           )}
 
+          <div className="ls-session-card__footer">
+            <div className="ls-session-card__price-wrap">
+              <span className="ls-session-card__price-label">Price</span>
+              <strong className="ls-session-card__price">{price}</strong>
+            </div>
+            <span className={`ls-session-card__payment-badge ${paymentMeta.class}`}>
+              <Icon name={paymentMeta.icon} />
+              {paymentMeta.label}
+            </span>
+          </div>
+
           <div className="ls-session-card__actions">
-            {isUpcoming && hasLink && (
-              <a
-                href={session.meetingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="ls-btn ls-btn--primary"
-              >
-                <Icon name="videocam" /> Join Session
-              </a>
-            )}
-            {isUpcoming && !hasLink && (
-              <Link to={`/mentors/${mentor.id}`} className="ls-btn ls-btn--primary">
-                <Icon name="person" /> View Mentor
-              </Link>
-            )}
-            {isUpcoming && (
+            {/* Cancelled / Rejected — actions disabled, rebook only */}
+            {isCancelled ? (
               <>
-                <Link to="/learner/messages" className="ls-btn ls-btn--outline">
-                  <Icon name="event_repeat" /> Reschedule
+                <Link to="/learner/mentors" className="ls-btn ls-btn--primary">
+                  <Icon name="person_search" /> Book Again
                 </Link>
-                <button type="button" className="ls-btn ls-btn--ghost" onClick={() => onCancel?.(booking)}>
-                  <Icon name="cancel" /> Cancel
+                <button type="button" className="ls-btn ls-btn--ghost" disabled title="This session was cancelled">
+                  <Icon name="block" /> Cancelled
                 </button>
               </>
-            )}
-            {isCompleted && (
+            ) : isCompleted ? (
               <>
-                <Link to={`/mentors/${mentor.id}`} className="ls-btn ls-btn--primary">
-                  <Icon name="star" /> Rate Mentor
+                <Link to={`/mentors/${mentor?.id ?? ""}`} className="ls-btn ls-btn--primary">
+                  <Icon name="star" /> Leave Review
                 </Link>
                 <Link to="/learner/mentors" className="ls-btn ls-btn--outline">
                   <Icon name="person_search" /> Book Again
                 </Link>
               </>
+            ) : needsPayment ? (
+              <>
+                <button
+                  type="button"
+                  className="ls-btn ls-btn--primary"
+                  onClick={() => onPayNow?.(booking)}
+                >
+                  <Icon name="lock" /> Pay Now
+                </button>
+                {hasLink && (
+                  <a href={joinTarget} target="_blank" rel="noreferrer" className="ls-btn ls-btn--outline">
+                    <Icon name="videocam" /> Meeting Link
+                  </a>
+                )}
+              </>
+            ) : (
+              <>
+                {hasLink ? (
+                  <a href={joinTarget} target="_blank" rel="noreferrer" className="ls-btn ls-btn--primary">
+                    <Icon name={isOngoing ? "play_circle" : "videocam"} />
+                    {isOngoing ? "Join Now" : "Join Session"}
+                  </a>
+                ) : (
+                  <span className="ls-btn ls-btn--ghost ls-btn--disabled" title="Meeting link will appear closer to the session time">
+                    <Icon name="hourglass_top" /> Link available soon
+                  </span>
+                )}
+              </>
             )}
-            {!isUpcoming && !isCompleted && (
-              <Link to="/learner/mentors" className="ls-btn ls-btn--primary">
-                <Icon name="person_search" /> Book Again
-              </Link>
+
+            {mentor?.id != null && (
+              <button
+                type="button"
+                className="ls-btn ls-btn--outline"
+                onClick={() => onChat?.(mentor.id)}
+                title={`Chat with ${mentorName}`}
+              >
+                <Icon name="chat" /> Chat
+              </button>
             )}
-            <button type="button" className="ls-btn ls-btn--icon" title="More options" aria-label="More options">
-              <Icon name="more_vert" />
-            </button>
+
+            {(isPaid || paymentStatus === "REFUNDED") && (
+              <button
+                type="button"
+                className="ls-btn ls-btn--ghost"
+                onClick={() => downloadBookingReceipt(booking)}
+                title="Download receipt"
+              >
+                <Icon name="receipt_long" /> Receipt
+              </button>
+            )}
+
+            {canCancel && (
+              <button
+                type="button"
+                className="ls-btn ls-btn--ghost ls-btn--danger"
+                onClick={() => onCancel?.(booking)}
+              >
+                <Icon name="cancel" /> Cancel
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -596,6 +793,7 @@ function RightSidebar({ stats, allBookings }) {
 
 export default function LearnerSessionsPage() {
   useDocumentTitle("Booked Sessions");
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("upcoming");
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
@@ -604,8 +802,16 @@ export default function LearnerSessionsPage() {
   const [viewMode, setViewMode] = useState("list"); // "list" | "grid"
   const [refreshKey, setRefreshKey] = useState(0);
 
+  /* ── Payment modal state ── */
+  const [payingBooking, setPayingBooking] = useState(null);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState("");
+
   const { loading, data, error } = useResource(() => apiGet("/api/v1/bookings"), [refreshKey]);
-  const allBookings = data || EMPTY_ARRAY;
+  // Never trust the API shape — if the payload is not an array, treat it as
+  // empty instead of crashing on .forEach/.filter downstream.
+  const allBookings = Array.isArray(data) ? data : EMPTY_ARRAY;
 
   // Auto-refresh when the tab regains focus (e.g. the learner switches back to
   // this tab after the mentor confirmed a session elsewhere) so the list and
@@ -660,7 +866,7 @@ export default function LearnerSessionsPage() {
     }
   }, [activeTab, grouped, allBookings]);
 
-  // Filtered sessions
+  // Filtered sessions (search covers mentor name, session title, date, status AND skills)
   const filtered = useMemo(() => {
     return tabSessions.filter((b) => {
       const mentor = b?.session?.mentor?.fullName || "";
@@ -670,7 +876,18 @@ export default function LearnerSessionsPage() {
 
       if (debouncedQ) {
         const q = debouncedQ.toLowerCase();
-        if (!`${mentor} ${title} ${date} ${status}`.toLowerCase().includes(q)) return false;
+        // Match against mentor name, title, date, status, and normalized skills
+        // (CSV string / JSON string / array handled uniformly).
+        const baseMatch =
+          mentor.toLowerCase().includes(q) ||
+          title.toLowerCase().includes(q) ||
+          date.toLowerCase().includes(q) ||
+          status.toLowerCase().includes(q);
+        const skillMatch = skillsMatchQuery(
+          b?.session?.sessionSkills ?? b?.session?.mentor?.skills,
+          q,
+        );
+        if (!baseMatch && !skillMatch) return false;
       }
       if (mentorFilter && mentor !== mentorFilter) return false;
       if (statusFilter && statusFilter !== "all" && status !== statusFilter) return false;
@@ -740,6 +957,105 @@ export default function LearnerSessionsPage() {
       setRefreshKey((v) => v + 1);
     } catch (e) {
       window.console.error(e);
+    }
+  }
+
+  /* ── Pay Now — Razorpay intent + checkout (mirrors LearnerSessionRequestsPage) ── */
+  async function runPayment(booking) {
+    if (!booking?.id) return;
+    setPaying(true);
+    setPaymentError("");
+    setPaymentSuccess("");
+    try {
+      const session = booking?.session || {};
+      const priceAmount = Number(session.priceAmount || 0);
+      if (priceAmount <= 0) {
+        setPaymentError("This session is free — no payment needed. You can join it from your sessions.");
+        return;
+      }
+
+      const paymentRes = await client.post("/api/v1/payments/intent", {
+        bookingId: booking.id,
+        amount: priceAmount,
+        gateway: "razorpay",
+      });
+      const payment = paymentRes?.data?.data;
+      if (!payment?.gatewayResponse?.id) {
+        setPaymentError("Payment gateway not available. Please try again.");
+        return;
+      }
+
+      const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+      if (!razorpayKeyId || razorpayKeyId === "rzp_test_xxxxxxxxxxxx") {
+        setPaymentError("Online payments are not configured yet. Please try again later or contact support.");
+        return;
+      }
+
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.onload = resolve;
+          script.onerror = () => reject(new Error("Failed to load Razorpay"));
+          document.body.appendChild(script);
+        });
+      }
+
+      const razorpayOrderId = payment.gatewayResponse.id;
+      const amountPaise = payment.gatewayResponse.amount || priceAmount * 100;
+      const rzpOptions = {
+        key: razorpayKeyId,
+        amount: amountPaise,
+        currency: payment.gatewayResponse.currency || "INR",
+        name: "Skill Swapper",
+        description: `Payment for session with ${booking?.session?.mentor?.fullName || "mentor"}`,
+        order_id: razorpayOrderId,
+        theme: { color: "#0f766e" },
+        handler: async (response) => {
+          try {
+            await client.post("/api/v1/payments/verify", {
+              paymentId: payment.id,
+              gatewayPaymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              extraParams: { razorpay_order_id: response.razorpay_order_id },
+            });
+            setPaymentSuccess("Payment successful! Your session is confirmed.");
+          } catch {
+            setPaymentSuccess("Booking confirmed! Payment verification may be pending.");
+          }
+          window.setTimeout(() => {
+            setPayingBooking(null);
+            setRefreshKey((v) => v + 1);
+          }, 1200);
+        },
+        modal: { confirm_close: true },
+      };
+
+      const rzp = new window.Razorpay(rzpOptions);
+      rzp.on("payment.failed", (resp) => {
+        setPaymentError(resp.error?.description || "Payment failed. Please try again.");
+      });
+      rzp.open();
+    } catch (err) {
+      setPaymentError(err?.response?.data?.message || err?.message || "Payment could not be processed.");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  /* ── Chat — open (or create) the direct conversation with the mentor ── */
+  async function openChat(mentorId) {
+    if (mentorId == null) {
+      navigate("/learner/messages");
+      return;
+    }
+    try {
+      const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
+      const conversationId = res?.data?.data?.conversationId;
+      navigate(conversationId ? `/learner/messages/${conversationId}` : "/learner/messages");
+    } catch {
+      navigate("/learner/messages");
     }
   }
 
@@ -1059,7 +1375,13 @@ export default function LearnerSessionsPage() {
           ) : sorted.length > 0 ? (
             <div className={viewMode === "grid" ? "ls-grid" : "ls-list"}>
               {sorted.map((b) => (
-                <PremiumSessionCard key={b.id} booking={b} onCancel={cancelBooking} />
+                <PremiumSessionCard
+                  key={b.id}
+                  booking={b}
+                  onCancel={cancelBooking}
+                  onPayNow={setPayingBooking}
+                  onChat={openChat}
+                />
               ))}
             </div>
           ) : (
@@ -1070,6 +1392,113 @@ export default function LearnerSessionsPage() {
         {/* Right Sidebar (desktop only) */}
         <RightSidebar stats={stats} allBookings={allBookings} />
       </div>
+
+      {/* ── Payment Modal ── */}
+      {payingBooking && (
+        <div
+          className="mp-overlay mp-overlay--center"
+          onClick={(e) => { if (e.target === e.currentTarget) setPayingBooking(null); }}
+          role="presentation"
+        >
+          <div
+            className="mp-drawer"
+            style={{
+              width: "min(480px, 100%)",
+              height: "auto",
+              maxHeight: "80vh",
+              borderRadius: "var(--mp-radius-xl)",
+              borderLeft: "none",
+            }}
+          >
+            <div className="mp-drawer__head">
+              <div className="mp-drawer__head-main">
+                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                  Complete Payment
+                </p>
+                <h3 className="mp-drawer__title">Pay for Your Session</h3>
+              </div>
+              <button
+                type="button"
+                className="mp-icon-btn"
+                onClick={() => setPayingBooking(null)}
+                aria-label="Close"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+
+            <div className="mp-drawer__body" style={{ gap: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className="mp-cell-user__avatar">
+                    {payingBooking?.session?.mentor?.profileImageUrl ? (
+                      <img
+                        src={payingBooking.session.mentor.profileImageUrl}
+                        alt={payingBooking.session.mentor.fullName || "Mentor"}
+                      />
+                    ) : (
+                      <span>{String(payingBooking?.session?.mentor?.fullName || "?").charAt(0)}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: 700, margin: 0 }}>
+                      {payingBooking?.session?.mentor?.fullName || "Mentor"}
+                    </p>
+                    <p style={{ fontSize: "0.78rem", color: "var(--mp-text-muted, #94a3b8)", margin: "2px 0 0" }}>
+                      {payingBooking?.session?.title || "Session"}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: 10, background: "rgba(15, 118, 110, 0.06)", fontSize: "0.9rem" }}>
+                  <span style={{ fontWeight: 600 }}>Amount due</span>
+                  <strong>{formatPrice(payingBooking?.session?.priceAmount)}</strong>
+                </div>
+
+                <p style={{ fontSize: "0.82rem", color: "var(--mp-text-muted, #94a3b8)", margin: 0 }}>
+                  Complete your payment to confirm the session. Your payment is secure and protected.
+                </p>
+
+                {paymentSuccess && (
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(22, 163, 74, 0.08)", color: "#16A34A", fontSize: "0.84rem" }}>
+                    <Icon name="check_circle" /> {paymentSuccess}
+                  </div>
+                )}
+
+                {paymentError && (
+                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(239, 68, 68, 0.08)", color: "#EF4444", fontSize: "0.84rem" }}>
+                    <Icon name="error" /> {paymentError}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mp-drawer__foot">
+              <button
+                type="button"
+                className="md-btn md-btn--outline md-btn--sm"
+                onClick={() => setPayingBooking(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="md-btn md-btn--brand md-btn--sm"
+                disabled={paying || !!paymentSuccess}
+                onClick={() => runPayment(payingBooking)}
+              >
+                {paying ? (
+                  <>Processing…</>
+                ) : paymentSuccess ? (
+                  "✓ Paid"
+                ) : (
+                  <><Icon name="lock" /> Pay Now — Secure Payment</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

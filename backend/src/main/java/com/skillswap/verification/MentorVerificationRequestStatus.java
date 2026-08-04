@@ -6,5 +6,6 @@ package com.skillswap.verification;
 public enum MentorVerificationRequestStatus {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED,
+    MORE_INFORMATION_REQUIRED
 }

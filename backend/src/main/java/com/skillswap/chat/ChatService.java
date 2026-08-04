@@ -1,5 +1,6 @@
 package com.skillswap.chat;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.messaging.DirectConversation;
@@ -8,6 +9,7 @@ import com.skillswap.messaging.DirectMessage;
 import com.skillswap.messaging.DirectMessageRepository;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.safety.UserBlockRepository;
+import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -43,6 +46,7 @@ public class ChatService {
     private final NotificationService notificationService;
     private final DirectConversationRepository directConversationRepository;
     private final DirectMessageRepository directMessageRepository;
+    private final ObjectMapper objectMapper;
 
     public List<ConversationDto> listConversations(User currentUser, String query, String filter) {
         List<Booking> bookings = loadBookingsForUser(currentUser);
@@ -53,8 +57,61 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-    public List<ConversationDto> searchConversations(User currentUser, String query, String filter) {
-        return listConversations(currentUser, query, filter);
+    /**
+     * Unified conversation search across booking chats AND direct chats.
+     * Matches participant name, username, email, skills, session title,
+     * conversation id, booking id, and the last message preview.
+     */
+    public List<UnifiedConversationDto> searchConversations(User currentUser, String query) {
+        String q = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        if (q.isEmpty()) {
+            return List.of();
+        }
+
+        List<UnifiedConversationDto> results = new ArrayList<>();
+
+        // Booking chats
+        for (Booking booking : loadBookingsForUser(currentUser)) {
+            ConversationDto conv = toConversation(currentUser, booking);
+            if (matchesSearch(conv, q)) {
+                results.add(UnifiedConversationDto.fromBooking(conv));
+            }
+        }
+
+        // Direct chats
+        for (DirectConversationResponse dc : listDirectConversations(currentUser)) {
+            if (matchesDirectSearch(dc, q)) {
+                results.add(UnifiedConversationDto.fromDirect(dc));
+            }
+        }
+
+        results.sort(Comparator.comparing(UnifiedConversationDto::lastMessageAt).reversed());
+        return results;
+    }
+
+    private static boolean matchesSearch(ConversationDto conv, String q) {
+        return contains(conv.participantName(), q)
+                || contains(conv.participantUsername(), q)
+                || contains(conv.participantRole(), q)
+                || contains(conv.participantEmail(), q)
+                || contains(conv.participantSkills(), q)
+                || contains(conv.sessionTitle(), q)
+                || contains(conv.lastMessagePreview(), q)
+                || String.valueOf(conv.bookingId()).contains(q);
+    }
+
+    private static boolean matchesDirectSearch(DirectConversationResponse dc, String q) {
+        return contains(dc.participantName(), q)
+                || contains(dc.participantUsername(), q)
+                || contains(dc.participantRole(), q)
+                || contains(dc.participantEmail(), q)
+                || contains(dc.participantSkills(), q)
+                || contains(dc.lastMessagePreview(), q)
+                || String.valueOf(dc.conversationId()).contains(q);
+    }
+
+    private static boolean contains(String value, String q) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(q);
     }
 
     public List<ChatMessageView> listMessages(User currentUser, Long bookingId, OffsetDateTime before, int limit) {
@@ -204,9 +261,10 @@ public class ChatService {
         boolean online = participant.getLastActiveAt() != null && participant.getLastActiveAt()
                 .isAfter(OffsetDateTime.now().minusMinutes(5));
 
+        SkillSession session = booking.getSession();
         return new ConversationDto(
                 booking.getId(),
-                booking.getSession().getTitle(),
+                session.getTitle(),
                 participant.getId(),
                 participant.getFullName(),
                 participant.getDisplayUsername(),
@@ -216,9 +274,16 @@ public class ChatService {
                 participant.isMentorVerified(),
                 online,
                 computePresenceText(participant),
+                participant.getEmail(),
                 lastPreview,
                 lastAt,
-                unreadCount);
+                unreadCount,
+                booking.getBookingStatus().name(),
+                session.getStartTime(),
+                session.getDurationMinutes(),
+                booking.getPaymentStatus() == null ? null : booking.getPaymentStatus().name(),
+                session.getMeetingLink(),
+                session.getMeetingProvider() == null ? null : session.getMeetingProvider().name());
     }
 
     private User getConversationParticipant(User currentUser, Booking booking) {
@@ -276,26 +341,10 @@ public class ChatService {
             throw new IllegalArgumentException("Cannot start a conversation with this user");
         }
 
-        // Check if direct conversation already exists
+        // Check if direct conversation already exists — never create duplicates.
         Optional<DirectConversation> existing = directConversationRepository.findBetweenUsers(currentUser, target);
         if (existing.isPresent()) {
-            DirectConversation dc = existing.get();
-            int unreadCount = (int) directMessageRepository
-                    .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(dc.getId(), currentUser.getEmail());
-            return new DirectConversationResponse(
-                    dc.getId(),
-                    target.getId(),
-                    target.getFullName(),
-                    target.getDisplayUsername(),
-                    target.getRole().name(),
-                    target.getSkills() == null ? "" : target.getSkills(),
-                    target.getProfileImageUrl(),
-                    target.isMentorVerified(),
-                    isUserOnline(target),
-                    computePresenceText(target),
-                    "",
-                    dc.getCreatedAt(),
-                    unreadCount);
+            return toDirectConversationResponse(currentUser, existing.get());
         }
 
         // Create new direct conversation
@@ -314,20 +363,7 @@ public class ChatService {
                 currentUser.getFullName() + " started a conversation with you",
                 saved.getId());
 
-        return new DirectConversationResponse(
-                saved.getId(),
-                target.getId(),
-                target.getFullName(),
-                target.getDisplayUsername(),
-                target.getRole().name(),
-                target.getSkills() == null ? "" : target.getSkills(),
-                target.getProfileImageUrl(),
-                target.isMentorVerified(),
-                false,
-                "Offline",
-                "",
-                saved.getCreatedAt(),
-                0);
+        return toDirectConversationResponse(currentUser, saved);
     }
 
     public List<DirectMessageView> listDirectMessages(User currentUser, Long conversationId) {
@@ -347,7 +383,138 @@ public class ChatService {
     }
 
     /**
-     * Lightweight check — validates the user is a participant in a direct conversation
+     * Deletes one of the caller's own direct messages. Only the sender may
+     * delete; the other participant sees the message disappear on next load.
+     */
+    @Transactional
+    public boolean deleteDirectMessage(User currentUser, Long conversationId, Long messageId) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+        ensureParticipant(conversation, currentUser);
+
+        DirectMessage message = directMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        if (!message.getConversation().getId().equals(conversationId)) {
+            throw new IllegalArgumentException("Message does not belong to this conversation");
+        }
+        if (!message.getSender().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("You can only delete your own messages");
+        }
+        directMessageRepository.delete(message);
+        return true;
+    }
+
+    /**
+     * Deletes one of the caller's own booking-chat messages.
+     */
+    @Transactional
+    public boolean deleteBookingMessage(User currentUser, Long bookingId, Long messageId) {
+        Booking booking = getBookingIfParticipant(currentUser, bookingId);
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        if (!message.getBooking().getId().equals(bookingId)) {
+            throw new IllegalArgumentException("Message does not belong to this booking");
+        }
+        if (!message.getSender().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("You can only delete your own messages");
+        }
+        chatMessageRepository.delete(message);
+        return true;
+    }
+
+    /**
+     * Toggles an emoji reaction by the current user on a direct message.
+     * Reactions are stored as a JSON object mapping emoji -> [userIds].
+     */
+    @Transactional
+    public DirectMessageView toggleReaction(User currentUser, Long conversationId, Long messageId, String emoji) {
+        if (emoji == null || emoji.isBlank()) {
+            throw new IllegalArgumentException("Emoji is required");
+        }
+        String cleanEmoji = emoji.trim();
+        if (cleanEmoji.length() > 8) {
+            throw new IllegalArgumentException("Emoji must be a single emoji");
+        }
+
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+        ensureParticipant(conversation, currentUser);
+
+        DirectMessage message = directMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("Message not found"));
+        if (!message.getConversation().getId().equals(conversationId)) {
+            throw new IllegalArgumentException("Message does not belong to this conversation");
+        }
+
+        try {
+            Map<String, List<Long>> reactions = new java.util.HashMap<>();
+            String raw = message.getReactions();
+            if (raw != null && !raw.isBlank()) {
+                reactions = objectMapper.readValue(raw,
+                        new com.fasterxml.jackson.core.type.TypeReference<Map<String, List<Long>>>() {
+                        });
+            }
+            List<Long> users = new ArrayList<>(reactions.getOrDefault(cleanEmoji, List.of()));
+            boolean removed = users.removeIf(id -> id.equals(currentUser.getId()));
+            if (!removed) {
+                users.add(currentUser.getId());
+            }
+            if (users.isEmpty()) {
+                reactions.remove(cleanEmoji);
+            } else {
+                reactions.put(cleanEmoji, users);
+            }
+            message.setReactions(reactions.isEmpty() ? null : objectMapper.writeValueAsString(reactions));
+            directMessageRepository.save(message);
+        } catch (IllegalArgumentException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Could not update reactions", ex);
+        }
+
+        return toDirectMessageView(message);
+    }
+
+    /**
+     * Pins or unpins a direct conversation for the current user.
+     */
+    @Transactional
+    public DirectConversationResponse setPinned(User currentUser, Long conversationId, boolean pinned) {
+        DirectConversation conversation = findConversationFor(currentUser, conversationId);
+        conversation.setPinned(pinned);
+        directConversationRepository.save(conversation);
+        return toDirectConversationResponse(currentUser, conversation);
+    }
+
+    /**
+     * Archives or unarchives a direct conversation for the current user.
+     */
+    @Transactional
+    public DirectConversationResponse setArchived(User currentUser, Long conversationId, boolean archived) {
+        DirectConversation conversation = findConversationFor(currentUser, conversationId);
+        conversation.setArchived(archived);
+        directConversationRepository.save(conversation);
+        return toDirectConversationResponse(currentUser, conversation);
+    }
+
+    private DirectConversation findConversationFor(User currentUser, Long conversationId) {
+        DirectConversation conversation = directConversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+        ensureParticipant(conversation, currentUser);
+        return conversation;
+    }
+
+    private static void ensureParticipant(DirectConversation conversation, User user) {
+        boolean isParticipant = conversation.getParticipantOne().getId().equals(user.getId())
+                || conversation.getParticipantTwo().getId().equals(user.getId());
+        if (!isParticipant) {
+            throw new IllegalArgumentException("Access denied");
+        }
+    }
+
+    /**
+     * Lightweight check — validates the user is a participant in a direct
+     * conversation
      * without fetching any messages. Throws on failure, returns true on success.
      */
     @Transactional(readOnly = true)
@@ -431,31 +598,37 @@ public class ChatService {
         all.sort(Comparator.comparing(DirectConversation::getUpdatedAt).reversed());
 
         return all.stream()
-                .map(dc -> {
-                    User participant = dc.getParticipantOne().getId().equals(currentUser.getId())
-                            ? dc.getParticipantTwo()
-                            : dc.getParticipantOne();
-                    DirectMessage lastMsg = directMessageRepository
-                            .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
-                    int unreadCount = (int) directMessageRepository
-                            .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(
-                                    dc.getId(), currentUser.getEmail());
-                    return new DirectConversationResponse(
-                            dc.getId(),
-                            participant.getId(),
-                            participant.getFullName(),
-                            participant.getDisplayUsername(),
-                            participant.getRole().name(),
-                            participant.getSkills() == null ? "" : participant.getSkills(),
-                            participant.getProfileImageUrl(),
-                            participant.isMentorVerified(),
-                            isUserOnline(participant),
-                            computePresenceText(participant),
-                            lastMsg == null ? "No messages yet" : lastMsg.getContent(),
-                            lastMsg == null ? dc.getCreatedAt() : lastMsg.getCreatedAt(),
-                            unreadCount);
-                })
+                .map(dc -> toDirectConversationResponse(currentUser, dc))
                 .collect(Collectors.toList());
+    }
+
+    /** Shared mapper so list/create/pin/archive all return the same shape. */
+    private DirectConversationResponse toDirectConversationResponse(User currentUser, DirectConversation dc) {
+        User participant = dc.getParticipantOne().getId().equals(currentUser.getId())
+                ? dc.getParticipantTwo()
+                : dc.getParticipantOne();
+        DirectMessage lastMsg = directMessageRepository
+                .findTopByConversationIdOrderByCreatedAtDesc(dc.getId()).orElse(null);
+        int unreadCount = (int) directMessageRepository
+                .countByConversationIdAndSenderEmailNotAndReadByRecipientFalse(
+                        dc.getId(), currentUser.getEmail());
+        return new DirectConversationResponse(
+                dc.getId(),
+                participant.getId(),
+                participant.getFullName(),
+                participant.getDisplayUsername(),
+                participant.getRole().name(),
+                participant.getSkills() == null ? "" : participant.getSkills(),
+                participant.getProfileImageUrl(),
+                participant.isMentorVerified(),
+                isUserOnline(participant),
+                computePresenceText(participant),
+                participant.getEmail(),
+                lastMsg == null ? "No messages yet" : lastMsg.getContent(),
+                lastMsg == null ? dc.getCreatedAt() : lastMsg.getCreatedAt(),
+                unreadCount,
+                dc.isPinned(),
+                dc.isArchived());
     }
 
     private boolean isUserOnline(User user) {
@@ -464,6 +637,7 @@ public class ChatService {
     }
 
     private DirectMessageView toDirectMessageView(DirectMessage message) {
+        Map<String, List<Long>> reactions = parseReactions(message.getReactions());
         return new DirectMessageView(
                 message.getId(),
                 message.getConversation().getId(),
@@ -475,12 +649,26 @@ public class ChatService {
                 message.getSender().getProfileImageUrl(),
                 message.getContent(),
                 message.isReadByRecipient(),
-                message.getCreatedAt());
+                message.getCreatedAt(),
+                reactions);
     }
 
-/**
- * Immutable data carrier for conversation.
- */
+    private Map<String, List<Long>> parseReactions(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(raw,
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, List<Long>>>() {
+                    });
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * Immutable data carrier for conversation.
+     */
     public record ConversationDto(
             Long bookingId,
             String sessionTitle,
@@ -493,14 +681,21 @@ public class ChatService {
             boolean participantVerified,
             boolean participantOnline,
             String participantPresenceText,
+            String participantEmail,
             String lastMessagePreview,
             OffsetDateTime lastMessageAt,
-            int unreadCount) {
+            int unreadCount,
+            String bookingStatus,
+            OffsetDateTime startTime,
+            Long durationMinutes,
+            String paymentStatus,
+            String meetingLink,
+            String meetingPlatform) {
     }
 
-/**
- * Immutable data carrier for direct conversation response.
- */
+    /**
+     * Immutable data carrier for direct conversation response.
+     */
     public record DirectConversationResponse(
             Long conversationId,
             Long participantId,
@@ -512,9 +707,76 @@ public class ChatService {
             boolean participantVerified,
             boolean participantOnline,
             String participantPresenceText,
+            String participantEmail,
+            String lastMessagePreview,
+            OffsetDateTime lastMessageAt,
+            int unreadCount,
+            boolean pinned,
+            boolean archived) {
+    }
+
+    /**
+     * Immutable data carrier for a unified conversation search result.
+     * Normalizes booking chats and direct chats into a single shape so the
+     * messaging search can render both types identically.
+     */
+    public record UnifiedConversationDto(
+            String kind, // "booking" | "direct"
+            Long id, // bookingId for booking, conversationId for direct
+            Long participantId,
+            String participantName,
+            String participantUsername,
+            String participantRole,
+            String participantSkills,
+            String participantProfileImageUrl,
+            boolean participantVerified,
+            boolean participantOnline,
+            String participantPresenceText,
+            String participantEmail,
+            String sessionTitle,
             String lastMessagePreview,
             OffsetDateTime lastMessageAt,
             int unreadCount) {
+
+        static UnifiedConversationDto fromBooking(ConversationDto conv) {
+            return new UnifiedConversationDto(
+                    "booking",
+                    conv.bookingId(),
+                    conv.participantId(),
+                    conv.participantName(),
+                    conv.participantUsername(),
+                    conv.participantRole(),
+                    conv.participantSkills(),
+                    conv.participantProfileImageUrl(),
+                    conv.participantVerified(),
+                    conv.participantOnline(),
+                    conv.participantPresenceText(),
+                    conv.participantEmail(),
+                    conv.sessionTitle(),
+                    conv.lastMessagePreview(),
+                    conv.lastMessageAt(),
+                    conv.unreadCount());
+        }
+
+        static UnifiedConversationDto fromDirect(DirectConversationResponse dc) {
+            return new UnifiedConversationDto(
+                    "direct",
+                    dc.conversationId(),
+                    dc.participantId(),
+                    dc.participantName(),
+                    dc.participantUsername(),
+                    dc.participantRole(),
+                    dc.participantSkills(),
+                    dc.participantProfileImageUrl(),
+                    dc.participantVerified(),
+                    dc.participantOnline(),
+                    dc.participantPresenceText(),
+                    dc.participantEmail(),
+                    "",
+                    dc.lastMessagePreview(),
+                    dc.lastMessageAt(),
+                    dc.unreadCount());
+        }
     }
 
     @Transactional
@@ -572,9 +834,9 @@ public class ChatService {
                 messages);
     }
 
-/**
- * Immutable data carrier for direct conversation detail.
- */
+    /**
+     * Immutable data carrier for direct conversation detail.
+     */
     public record DirectConversationDetail(
             Long conversationId,
             Long participantId,
@@ -589,9 +851,9 @@ public class ChatService {
             List<DirectMessageView> messages) {
     }
 
-/**
- * Immutable data carrier for direct message view.
- */
+    /**
+     * Immutable data carrier for direct message view.
+     */
     public record DirectMessageView(
             Long id,
             Long conversationId,
@@ -603,12 +865,13 @@ public class ChatService {
             String senderProfileImageUrl,
             String content,
             boolean readByRecipient,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt,
+            Map<String, List<Long>> reactions) {
     }
 
-/**
- * Immutable data carrier for chat message view.
- */
+    /**
+     * Immutable data carrier for chat message view.
+     */
     public record ChatMessageView(
             Long id,
             Long bookingId,

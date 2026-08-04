@@ -1,6 +1,8 @@
 package com.skillswap.session;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillswap.user.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,11 +14,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Encapsulates skill session.
@@ -109,5 +116,63 @@ public class SkillSession {
             return 0L;
         }
         return java.time.temporal.ChronoUnit.MINUTES.between(startTime, endTime);
+    }
+
+    private static final ObjectMapper SKILLS_MAPPER = new ObjectMapper();
+
+    /**
+     * Skills covered by this session, derived from the mentor's skills column.
+     *
+     * <p>The {@code users.skills} column stores skills as a comma-separated
+     * string (e.g. {@code "Java,Spring Boot,React"}) and occasionally as a JSON
+     * array. API consumers (e.g. the learner Booked Sessions page) must always
+     * receive a JSON <b>array</b> — never a raw string, object, or null — so this
+     * computed property is exposed as {@code sessionSkills: List<String>} on the
+     * serialized session and is guaranteed to be an empty list rather than null.
+     *
+     * <p>It is {@code @Transient} so JPA never attempts to persist it.
+     *
+     * @return a non-null, deduplicated list of trimmed skill names
+     */
+    @Transient
+    public List<String> getSessionSkills() {
+        if (mentor == null) {
+            return List.of();
+        }
+        String raw = mentor.getSkills();
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        String trimmed = raw.trim();
+
+        // Stored as a JSON array, e.g. ["Java","Spring Boot"] or [{"name":"Java"}]
+        if (trimmed.startsWith("[")) {
+            try {
+                JsonNode node = SKILLS_MAPPER.readTree(trimmed);
+                List<String> parsed = new ArrayList<>();
+                if (node != null && node.isArray()) {
+                    for (JsonNode item : node) {
+                        String value = item != null && item.isTextual()
+                                ? item.asText()
+                                : (item != null && item.has("name") ? item.get("name").asText() : null);
+                        if (value != null && !value.isBlank()) {
+                            parsed.add(value.trim());
+                        }
+                    }
+                }
+                if (!parsed.isEmpty()) {
+                    return parsed.stream().distinct().collect(Collectors.toList());
+                }
+            } catch (Exception ignored) {
+                // Not a parseable JSON array — fall back to CSV splitting below.
+            }
+        }
+
+        // Comma (or ;, |, newline) separated CSV string
+        return Arrays.stream(trimmed.split("[,;|\\r\\n]+"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

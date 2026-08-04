@@ -6,6 +6,7 @@ import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
 import "./AdminOperationsPage.css";
 import "./AdminDashboardPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 const formatNumber = (value) => {
   const n = Number(value ?? 0);

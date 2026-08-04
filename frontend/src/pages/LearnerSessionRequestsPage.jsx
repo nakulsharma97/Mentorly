@@ -1,43 +1,75 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  Hourglass,
+  Inbox,
+  Search,
+  SlidersHorizontal,
+  X,
+  XCircle,
+} from "lucide-react";
 import client from "../api/client";
-import Icon from "../modules/common/dashboard/Icon";
-import StatsCard from "../modules/common/dashboard/StatsCard";
-import MentorPageHero from "../modules/mentor/components/MentorPageHero";
-import "../modules/mentor/mentor-pages.css";
+import { normalizeSkills } from "../utils/skills";
+import {
+  RequestCard,
+  RequestDetailsModal,
+  RequestPaymentModal,
+  RequestReplyModal,
+  RequestStatCard,
+  RequestsEmptyState,
+  RequestsSkeleton,
+  SORT_OPTIONS,
+  STATUS_FILTERS,
+} from "../modules/learner/components/requests";
 
-const STATUS_CONFIG = {
-  PENDING: { label: "Pending", icon: "hourglass_empty", className: "mp-pill mp-pill--pending" },
-  ACCEPTED: { label: "Accepted", icon: "check_circle", className: "mp-pill mp-pill--active" },
-  DECLINED: { label: "Declined", icon: "cancel", className: "mp-pill mp-pill--cancelled" },
+const STATUS_ORDER = { PENDING: 0, ACCEPTED: 1, DECLINED: 2, COMPLETED: 3, CANCELLED: 4 };
+
+const matchesSearch = (request, query) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    request.mentor?.fullName,
+    request.subject,
+    request.message,
+    ...normalizeSkills(request.mentor?.skills),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(q);
 };
 
-const formatDate = (value) => {
-  if (!value) return "";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+const goBack = () => {
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    window.location.href = "/learner/dashboard";
+  }
 };
 
 export default function LearnerSessionRequestsPage() {
   const [searchParams] = useSearchParams();
-
   const highlightRequestId = searchParams.get("requestId");
   const highlightRef = useRef(null);
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState("newest");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+
+  const [detailsRequest, setDetailsRequest] = useState(null);
+  const [replyRequest, setReplyRequest] = useState(null);
+  const [payRequest, setPayRequest] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
-  const [replyModalId, setReplyModalId] = useState(null);
-  const [replyMessage, setReplyMessage] = useState("");
-  const [replySending, setReplySending] = useState(false);
-  const replyTextareaRef = useRef(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [payingRequest, setPayingRequest] = useState(null);
-  const [paymentSending, setPaymentSending] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
-  const [paymentSuccess, setPaymentSuccess] = useState("");
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
@@ -46,8 +78,7 @@ export default function LearnerSessionRequestsPage() {
       const res = await client.get("/api/v1/session-requests");
       setRequests(res?.data?.data || []);
     } catch (err) {
-      const msg = err?.response?.data?.message || "Could not load your requests.";
-      setError(msg);
+      setError(err?.response?.data?.message || "Could not load your requests.");
     } finally {
       setLoading(false);
     }
@@ -58,23 +89,33 @@ export default function LearnerSessionRequestsPage() {
     loadRequests();
   }, [loadRequests]);
 
-  // Scroll to highlighted request when data loads
+  // Scroll to a highlighted request once data is ready
   useEffect(() => {
     if (!loading && highlightRequestId && highlightRef.current) {
-      setTimeout(() => {
+      const t = window.setTimeout(() => {
         highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 150);
+      return () => window.clearTimeout(t);
     }
+    return undefined;
   }, [loading, highlightRequestId]);
 
-  // Focus the reply modal textarea when it opens
+  // Close the filter popover on outside click / Escape
   useEffect(() => {
-    if (replyModalId && replyTextareaRef.current) {
-      setTimeout(() => {
-        replyTextareaRef.current?.focus();
-      }, 50);
-    }
-  }, [replyModalId]);
+    if (!filterOpen) return undefined;
+    const onDown = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [filterOpen]);
 
   const stats = useMemo(() => {
     const pending = requests.filter((r) => r.status === "PENDING").length;
@@ -83,515 +124,306 @@ export default function LearnerSessionRequestsPage() {
     return { total: requests.length, pending, accepted, declined };
   }, [requests]);
 
+  const visibleRequests = useMemo(() => {
+    let list = requests.filter((r) => matchesSearch(r, query));
+    if (statusFilter !== "ALL") list = list.filter((r) => r.status === statusFilter);
+    // Guard against missing/invalid timestamps so the sort never produces NaN
+    const timeOf = (value) => {
+      const t = Date.parse(value);
+      return Number.isNaN(t) ? 0 : t;
+    };
+    return [...list].sort((a, b) => {
+      if (sortBy === "oldest") return timeOf(a.createdAt) - timeOf(b.createdAt);
+      if (sortBy === "status") return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      return timeOf(b.createdAt) - timeOf(a.createdAt);
+    });
+  }, [requests, query, statusFilter, sortBy]);
+
+  const statusCounts = useMemo(() => {
+    const counts = { PENDING: 0, ACCEPTED: 0, DECLINED: 0 };
+    requests.forEach((r) => {
+      if (r.status in counts) counts[r.status] += 1;
+    });
+    return counts;
+  }, [requests]);
+
+  const activeFilter = statusFilter !== "ALL";
+
+  const cancelRequest = async (request) => {
+    if (cancellingId) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm("Cancel this session request?")) return;
+    setCancellingId(request.id);
+    setError("");
+    try {
+      await client.post(`/api/v1/session-requests/${request.id}/cancel`);
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      if (detailsRequest?.id === request.id) setDetailsRequest(null);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not cancel request.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handleReplySent = (request, message) => {
+    setRequests((prev) =>
+      prev.map((r) => (r.id === request.id ? { ...r, replyMessage: message } : r)),
+    );
+  };
+
   return (
-    <div className="md-page">
-      <MentorPageHero
-        eyebrow="Learner › Requests"
-        icon="handshake"
-        title="My Session Requests"
-        sub="Track the custom session requests you have sent to mentors. Once accepted, your session will appear in Booked Sessions."
+    <div className="lqr-page">
+      <motion.div
+        className="lqr-inner"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
-        <Link to="/learner/mentors" className="md-btn md-btn--outline md-btn--sm">
-          <Icon name="person_search" /> Find Mentors
-        </Link>
-        <Link to="/learner/sessions" className="md-btn md-btn--ghost md-btn--sm">
-          <Icon name="calendar_month" /> Booked Sessions
-        </Link>
-      </MentorPageHero>
+        {/* ─── Top header ─── */}
+        <header className="lqr-header">
+          <div className="lqr-header__left">
+            <div className="lqr-header__crumbs">
+              <button
+                type="button"
+                className="lqr-back"
+                onClick={goBack}
+                aria-label="Go back"
+              >
+                <ArrowLeft size={19} />
+              </button>
+              <nav className="lqr-breadcrumb" aria-label="Breadcrumb">
+                <span>Learner</span>
+                <span className="lqr-breadcrumb__sep"><ChevronRight size={14} /></span>
+                <span className="lqr-breadcrumb__current">My Requests</span>
+              </nav>
+            </div>
+            <div className="lqr-header__titles">
+              <h1>My Requests</h1>
+              <p>Track and manage all your mentor requests in one place.</p>
+            </div>
+          </div>
 
-      <div className="md-stats md-animate" style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
-        <StatsCard icon="handshake" label="Total Requests" value={stats.total} description="All requests sent" />
-        <StatsCard icon="hourglass_empty" label="Pending" value={stats.pending} description="Awaiting mentor response" />
-        <StatsCard icon="check_circle" label="Accepted" value={stats.accepted} description="Ready for setup" />
-        <StatsCard icon="cancel" label="Declined" value={stats.declined} description="Not accepted" />
-      </div>
+          <div className="lqr-tools">
+            <div className="lqr-search">
+              <span className="lqr-search__icon" aria-hidden="true">
+                <Search size={19} />
+              </span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search mentor, skill, request..."
+                aria-label="Search requests"
+                autoComplete="off"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="lqr-search__clear"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
 
-      <div className="md-card md-animate" style={{ gap: 16 }}>
-        <div className="mp-head">
-          <div>
-            <h2 className="mp-head__title">Your Requests</h2>
-            <p className="mp-head__sub">
-              View and track the status of sessions you have requested from mentors.
-            </p>
-          </div>
-        </div>
+            <div className="lqr-filter-wrap" ref={filterRef}>
+              <button
+                type="button"
+                className="lqr-filter-btn"
+                onClick={() => setFilterOpen((v) => !v)}
+                aria-label="Filter by status"
+                aria-haspopup="listbox"
+                aria-expanded={filterOpen}
+              >
+                <SlidersHorizontal size={20} />
+                {activeFilter && <span className="lqr-filter-badge">1</span>}
+              </button>
 
-        {loading ? (
-          <div className="mp-skeleton" style={{ padding: "24px 0" }}>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="mp-skeleton__row" />
-            ))}
-          </div>
-        ) : error ? (
-          <div className="md-empty">
-            <div className="md-empty__icon"><Icon name="error_outline" /></div>
-            <p className="md-empty__title">Could not load requests</p>
-            <p className="md-empty__desc">{error}</p>
-            <button type="button" className="md-btn md-btn--brand md-btn--sm" onClick={loadRequests}>
-              Retry
-            </button>
-          </div>
-        ) : requests.length === 0 ? (
-          <div className="md-empty">
-            <div className="md-empty__icon"><Icon name="handshake" /></div>
-            <p className="md-empty__title">No session requests yet</p>
-            <p className="md-empty__desc">
-              Browse mentors and request a custom session. Once a mentor accepts, you will get a notification.
-            </p>
-            <Link to="/learner/mentors" className="md-btn md-btn--brand md-btn--sm">
-              <Icon name="person_search" /> Browse Mentors
-            </Link>
-          </div>
-        ) : (
-          <div className="mp-table-wrap">
-            <table className="mp-table">
-              <thead>
-                <tr>
-                  <th>Mentor</th>
-                  <th>Your Message / Mentor's Response</th>
-                  <th>Status</th>
-                  <th>Sent On</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((req) => {
-                  const config = STATUS_CONFIG[req.status] || STATUS_CONFIG.PENDING;
-                  return (
-                    <tr
-                    key={req.id}
-                    ref={highlightRequestId === String(req.id) ? highlightRef : null}
-                    style={highlightRequestId === String(req.id) ? {
-                      background: "rgba(15, 118, 110, 0.06)",
-                      boxShadow: "inset 3px 0 0 var(--mp-primary, #0f766e)",
-                    } : {}}
+              <AnimatePresence>
+                {filterOpen && (
+                  <motion.div
+                    className="lqr-filter-menu"
+                    role="listbox"
+                    aria-label="Filter by status"
+                    initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: -4 }}
+                    transition={{ duration: 0.16 }}
                   >
-                      <td>
-                        <div className="mp-cell-user">
-                          <div className="mp-cell-user__avatar">
-                            {req.mentor?.profileImageUrl ? (
-                              <img src={req.mentor.profileImageUrl} alt={req.mentor.fullName} />
-                            ) : (
-                              <span>{String(req.mentor?.fullName || "?").charAt(0)}</span>
-                            )}
-                          </div>
-                          <div>
-                            <p className="mp-cell-user__name">
-                              <Link to={`/mentors/${req.mentor?.id}`} className="md-link">
-                                {req.mentor?.fullName || `Mentor #${req.mentor?.id}`}
-                              </Link>
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ maxWidth: 300 }}>
-                        <p style={{ fontSize: "0.84rem", margin: 0 }}>{req.message || "—"}</p>
-                        {req.declineReason && req.status === "DECLINED" && (
-                          <p style={{ fontSize: "0.78rem", margin: "4px 0 0", color: "var(--mp-danger, #ef4444)" }}>
-                            ↳ Mentor said: {req.declineReason}
-                          </p>
-                        )}
-                        {req.replyMessage && req.status === "DECLINED" && (
-                          <p style={{ fontSize: "0.78rem", margin: "4px 0 0", color: "var(--mp-text-muted, #94a3b8)", fontStyle: "italic" }}>
-                            Your reply: "{req.replyMessage}"
-                          </p>
-                        )}
-                      </td>
-                      <td>
-                        <span className={config.className}>{config.label}</span>
-                      </td>
-                      <td style={{ fontSize: "0.82rem" }}>{formatDate(req.createdAt)}</td>
-                      <td>
-                        {req.status === "PENDING" && (
-                          <button
-                            type="button"
-                            className="md-btn md-btn--outline md-btn--sm"
-                            disabled={cancellingId === req.id}
-                            onClick={async () => {
-                              if (!window.confirm("Cancel this session request?")) return;
-                              setCancellingId(req.id);
-                              try {
-                                await client.post(`/api/v1/session-requests/${req.id}/cancel`);
-                                setRequests((prev) => prev.filter((r) => r.id !== req.id));
-                              } catch (err) {
-                                const msg = err?.response?.data?.message || "Could not cancel request.";
-                                setError(msg);
-                              } finally {
-                                setCancellingId(null);
-                              }
-                            }}
-                          >
-                            {cancellingId === req.id ? "..." : "Cancel"}
-                          </button>
-                        )}
-                        {req.status === "ACCEPTED" && !req.sessionId && (
-                          <span style={{ fontSize: "0.78rem", color: "var(--mp-warning, #d97706)" }}>
-                            Awaiting session setup
-                          </span>
-                        )}
-                        {req.status !== "PENDING" && !req.replyMessage && (
-                          <button
-                            type="button"
-                            className="md-btn md-btn--outline md-btn--sm"
-                            onClick={() => { setReplyModalId(req.id); setReplyMessage(""); }}
-                          >
-                            Reply to Mentor
-                          </button>
-                        )}
-                        {req.sessionId && (
-                          <>
-                            {req.status === "ACCEPTED" && (
-                              <button
-                                type="button"
-                                className="md-btn md-btn--brand md-btn--sm"
-                                onClick={() => {
-                                  setPayingRequest(req);
-                                  setPaymentError("");
-                                  setPaymentSuccess("");
-                                  setShowPaymentModal(true);
-                                }}
-                              >
-                                Pay Now
-                              </button>
-                            )}
-                            <Link to="/learner/sessions" className="md-btn md-btn--ghost md-btn--sm">
-                              View Session
-                            </Link>
-                          </>
-                        )}
-                        {req.status === "DECLINED" && req.declineReason && (
-                          <span style={{ fontSize: "0.78rem", color: "var(--mp-text-muted, #94a3b8)" }}>
-                            Reason: {req.declineReason}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                    <p className="lqr-filter-menu__label">Status</p>
+                    {STATUS_FILTERS.map((option) => {
+                      const selected = statusFilter === option.value;
+                      const count = option.value === "ALL" ? requests.length : statusCounts[option.value] || 0;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className="lqr-filter-option"
+                          onClick={() => {
+                            setStatusFilter(option.value);
+                            setFilterOpen(false);
+                          }}
+                        >
+                          <span>{option.label}</span>
+                          <span className="lqr-filter-option__count">{count}</span>
+                          {selected && (
+                            <span className="lqr-filter-option__check" aria-hidden="true">
+                              <Check size={16} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        )}
-      </div>
+        </header>
 
-      {/* ─── Payment Modal ─── */}
-      {showPaymentModal && payingRequest && (
-        <div
-          className="mp-overlay mp-overlay--center"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPaymentModal(false); }}
-        >
-          <div
-            className="mp-drawer"
-            style={{
-              width: "min(480px, 100%)",
-              height: "auto",
-              maxHeight: "80vh",
-              borderRadius: "var(--mp-radius-xl)",
-              borderLeft: "none",
-            }}
-          >
-            <div className="mp-drawer__head">
-              <div className="mp-drawer__head-main">
-                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
-                  Complete Payment
+        {/* ─── Summary cards ─── */}
+        <section className="lqr-stats" aria-label="Request summary">
+          <RequestStatCard
+            icon={Inbox}
+            label="Total Requests"
+            value={stats.total}
+            description="All requests sent"
+            tone="total"
+            index={0}
+          />
+          <RequestStatCard
+            icon={Hourglass}
+            label="Pending"
+            value={stats.pending}
+            description="Awaiting mentor response"
+            tone="pending"
+            index={1}
+          />
+          <RequestStatCard
+            icon={CheckCircle2}
+            label="Accepted"
+            value={stats.accepted}
+            description="Ready for setup"
+            tone="accepted"
+            index={2}
+          />
+          <RequestStatCard
+            icon={XCircle}
+            label="Declined"
+            value={stats.declined}
+            description="Not accepted"
+            tone="declined"
+            index={3}
+          />
+        </section>
+
+        {/* ─── Requests section ─── */}
+        <section className="lqr-section" aria-label="Your requests">
+          <div className="lqr-section__head">
+            <div>
+              <h2 className="lqr-section__title">Your Requests</h2>
+              <p className="lqr-section__sub">Track and manage all your requests.</p>
+              {!loading && (
+                <p className="lqr-section__results">
+                  {visibleRequests.length} of {requests.length} request{requests.length === 1 ? "" : "s"}
                 </p>
-                <h3 className="mp-drawer__title">Pay for Your Session</h3>
-              </div>
-              <button
-                type="button"
-                className="mp-icon-btn"
-                onClick={() => setShowPaymentModal(false)}
-                aria-label="Close"
-              >
-                <Icon name="close" />
-              </button>
+              )}
             </div>
-
-            <div className="mp-drawer__body" style={{ gap: 16 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div className="mp-cell-user__avatar">
-                    {payingRequest.mentor?.profileImageUrl ? (
-                      <img src={payingRequest.mentor.profileImageUrl} alt={payingRequest.mentor.fullName} />
-                    ) : (
-                      <span>{String(payingRequest.mentor?.fullName || "?").charAt(0)}</span>
-                    )}
-                  </div>
-                  <div>
-                    <p style={{ fontWeight: 700, margin: 0 }}>{payingRequest.mentor?.fullName || "Mentor"}</p>
-                    <p style={{ fontSize: "0.78rem", color: "var(--mp-text-muted, #94a3b8)", margin: "2px 0 0" }}>
-                      Custom session request
-                    </p>
-                  </div>
-                </div>
-
-                {payingRequest.subject && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(15, 118, 110, 0.06)", fontSize: "0.84rem" }}>
-                    <span style={{ fontWeight: 600 }}>Topic:</span> {payingRequest.subject}
-                  </div>
-                )}
-
-                <div style={{ borderTop: "1px solid var(--mp-line, #e2e8f0)", paddingTop: 12 }}>
-                  <p style={{ fontSize: "0.82rem", color: "var(--mp-text-muted, #94a3b8)", margin: "0 0 4px" }}>
-                    Complete your payment to confirm the session. Your payment is secure and protected.
-                  </p>
-                </div>
-
-                {paymentSuccess && (
-                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(22, 163, 74, 0.08)", color: "#16A34A", fontSize: "0.84rem" }}>
-                    ✅ {paymentSuccess}
-                  </div>
-                )}
-
-                {paymentError && (
-                  <div style={{ padding: "12px", borderRadius: 8, background: "rgba(239, 68, 68, 0.08)", color: "#EF4444", fontSize: "0.84rem" }}>
-                    ❌ {paymentError}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mp-drawer__foot">
-              <button
-                type="button"
-                className="md-btn md-btn--outline md-btn--sm"
-                onClick={() => setShowPaymentModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="md-btn md-btn--brand md-btn--sm"
-                disabled={paymentSending || !!paymentSuccess}
-                onClick={async () => {
-                  setPaymentSending(true);
-                  setPaymentError("");
-                  try {
-                    // 1. Find the booking for this session
-                    const bookingsRes = await client.get("/api/v1/bookings");
-                    const allBookings = bookingsRes?.data?.data || [];
-                    const booking = allBookings.find(
-                      b => String(b.session?.id) === String(payingRequest.sessionId) ||
-                           String(b.sessionId) === String(payingRequest.sessionId)
-                    );
-                    if (!booking) {
-                      setPaymentError("Could not find booking. Please contact support.");
-                      setPaymentSending(false);
-                      return;
-                    }
-
-                    // 2. Get the price from the session
-                    let priceAmount = 0;
-                    try {
-                      const sessionRes = await client.get(`/api/v1/sessions/${payingRequest.sessionId}`);
-                      priceAmount = Number(sessionRes?.data?.data?.priceAmount || 0);
-                    } catch {
-                      priceAmount = 0;
-                    }
-
-                    if (priceAmount <= 0) {
-                      setPaymentError("This session is free — no payment needed. You can view it in your sessions.");
-                      setPaymentSending(false);
-                      return;
-                    }
-
-                    // 3. Create payment intent
-                    const idempotencyKey = `request_pay_${payingRequest.id}_${Date.now()}`;
-                    const paymentRes = await client.post("/api/v1/payments/intent", {
-                      bookingId: booking.id,
-                      amount: priceAmount,
-                      gateway: "razorpay",
-                    }, {
-                      headers: { "Idempotency-Key": idempotencyKey },
-                    });
-                    const payment = paymentRes?.data?.data;
-
-                    if (!payment?.gatewayResponse?.id) {
-                      setPaymentError("Payment gateway not available. Please try again.");
-                      setPaymentSending(false);
-                      return;
-                    }
-
-                    // 4. Load and open Razorpay
-                    // Fail closed first: never fetch the SDK or open checkout with
-                    // a missing/placeholder key.
-                    const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
-                    if (!razorpayKeyId || razorpayKeyId === "rzp_test_xxxxxxxxxxxx") {
-                      setPaymentError("Online payments are not configured yet. Please try again later or contact support.");
-                      setPaymentSending(false);
-                      return;
-                    }
-
-                    if (!window.Razorpay) {
-                      await new Promise((resolve, reject) => {
-                        const script = document.createElement("script");
-                        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-                        script.async = true;
-                        script.onload = resolve;
-                        script.onerror = () => reject(new Error("Failed to load Razorpay"));
-                        document.body.appendChild(script);
-                      });
-                    }
-
-                    const razorpayOrderId = payment.gatewayResponse.id;
-                    const amountPaise = payment.gatewayResponse.amount || priceAmount * 100;
-
-                    const rzpOptions = {
-                      key: razorpayKeyId,
-                      amount: amountPaise,
-                      currency: payment.gatewayResponse.currency || "INR",
-                      name: "Skill Swapper",
-                      description: `Payment for session with ${payingRequest.mentor?.fullName || "mentor"}`,
-                      order_id: razorpayOrderId,
-                      theme: { color: "#0f766e" },
-                      handler: async (response) => {
-                        try {
-                          await client.post("/api/v1/payments/verify", {
-                            paymentId: payment.id,
-                            gatewayPaymentId: response.razorpay_payment_id,
-                            signature: response.razorpay_signature,
-                            extraParams: { razorpay_order_id: response.razorpay_order_id },
-                          });
-                          setPaymentSuccess("Payment successful! Your session is confirmed.");
-                        } catch {
-                          setPaymentSuccess("Booking confirmed! Payment verification may be pending.");
-                        }
-                        loadRequests();
-                      },
-                      modal: { confirm_close: true },
-                    };
-
-                    const rzp = new window.Razorpay(rzpOptions);
-                    rzp.on("payment.failed", (resp) => {
-                      setPaymentError(resp.error?.description || "Payment failed. Please try again.");
-                    });
-                    rzp.open();
-                  } catch (err) {
-                    const msg = err?.response?.data?.message || err?.message || "Payment could not be processed.";
-                    setPaymentError(msg);
-                  } finally {
-                    setPaymentSending(false);
-                  }
-                }}
-              >
-                {paymentSending ? (
-                  <>                            <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite", verticalAlign: "middle", marginRight: 4 }} />
-                            Processing…
-                  </>
-                ) : paymentSuccess ? (
-                  "✓ Paid"
-                ) : (
-                  <>                  <Icon name="lock" /> Pay Now — Secure Payment</>
-                )}
-              </button>
-            </div>
+            <label className="lqr-sort">
+              <span aria-hidden="true">
+                <SlidersHorizontal size={16} />
+              </span>
+              <span className="sr-only">Sort requests</span>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </div>
-      )}
 
-      {/* ─── Reply Modal ─── */}
-      {replyModalId && (
-        <div
-          className="mp-overlay mp-overlay--center"
-          onClick={(e) => { if (e.target === e.currentTarget) setReplyModalId(null); }}
-        >
-          <div
-            className="mp-drawer"
-            style={{
-              width: "min(480px, 100%)",
-              height: "auto",
-              maxHeight: "80vh",
-              borderRadius: "var(--mp-radius-xl)",
-              borderLeft: "none",
-            }}
-          >
-            <div className="mp-drawer__head">
-              <div className="mp-drawer__head-main">
-                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
-                  Reply to Mentor
-                </p>
-                <h3 className="mp-drawer__title">
-                  Reply to {requests.find(r => r.id === replyModalId)?.mentor?.fullName || "Mentor"}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="mp-icon-btn"
-                onClick={() => setReplyModalId(null)}
-                aria-label="Close"
-              >
-                <Icon name="close" />
+          {error && (
+            <div className="lqr-banner lqr-banner--error" role="alert">
+              <span>{error}</span>
+              <button type="button" className="lqr-banner__retry" onClick={loadRequests}>
+                Retry
               </button>
             </div>
+          )}
 
-            <div className="mp-drawer__body" style={{ gap: 16 }}>
-              {(() => {
-                const req = requests.find(r => r.id === replyModalId);
-                if (!req) return null;
-                return (
-                  <>
-                    {req.declineReason && req.status === "DECLINED" && (
-                      <div style={{ padding: "12px", background: "rgba(239, 68, 68, 0.06)", borderRadius: "var(--mp-radius-md, 8px)", fontSize: "0.84rem" }}>
-                        <strong>Mentor said:</strong> {req.declineReason}
-                      </div>
-                    )}
-                    <div className="mp-field">
-                      <label className="mp-label" htmlFor="reply-msg">Your Reply</label>
-                      <textarea
-                        id="reply-msg"
-                        className="mp-textarea"
-                        rows={4}
-                        value={replyMessage}
-                        onChange={(e) => setReplyMessage(e.target.value)}
-                        placeholder="Write your reply to the mentor..."
-                      ref={replyTextareaRef}
-                      />
-                    </div>
-                  </>
-                );
-              })()}
+          {loading ? (
+            <RequestsSkeleton count={4} />
+          ) : requests.length === 0 ? (
+            <RequestsEmptyState />
+          ) : visibleRequests.length === 0 ? (
+            <RequestsEmptyState
+              title="No matching requests"
+              description={`Nothing matches "${query || statusFilter.toLowerCase()}". Try a different search or filter.`}
+              filtered
+            />
+          ) : (
+            <div className="lqr-list">
+              <AnimatePresence initial={false} mode="popLayout">
+                {visibleRequests.map((request, index) => (
+                  <RequestCard
+                    key={request.id}
+                    request={request}
+                    index={index}
+                    highlighted={highlightRequestId === String(request.id)}
+                    innerRef={highlightRequestId === String(request.id) ? highlightRef : undefined}
+                    cancelling={cancellingId === request.id}
+                    onViewDetails={setDetailsRequest}
+                    onCancel={cancelRequest}
+                    onPay={setPayRequest}
+                    onReply={setReplyRequest}
+                  />
+                ))}
+              </AnimatePresence>
             </div>
+          )}
+        </section>
 
-            <div className="mp-drawer__foot">
-              <button
-                type="button"
-                className="md-btn md-btn--outline md-btn--sm"
-                onClick={() => setReplyModalId(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="md-btn md-btn--brand md-btn--sm"
-                disabled={replySending || !replyMessage.trim()}
-                onClick={async () => {
-                  if (!replyMessage.trim() || !replyModalId) return;
-                  setReplySending(true);
-                  try {
-                    await client.post(`/api/v1/session-requests/${replyModalId}/reply`, {
-                      message: replyMessage.trim(),
-                    });
-                    setRequests((prev) =>
-                      prev.map((r) =>
-                        r.id === replyModalId ? { ...r, replyMessage: replyMessage.trim() } : r
-                      )
-                    );
-                    setReplyModalId(null);
-                    setReplyMessage("");
-                  } catch (err) {
-                    const msg = err?.response?.data?.message || "Could not send reply.";
-                    setError(msg);
-                  } finally {
-                    setReplySending(false);
-                  }
-                }}
-              >
-                {replySending ? "Sending…" : "Send Reply"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+        {/* ─── Modals ─── */}
+        <AnimatePresence>
+          {detailsRequest && (
+            <RequestDetailsModal
+              key="details"
+              request={detailsRequest}
+              onClose={() => setDetailsRequest(null)}
+              onReply={(req) => {
+                setDetailsRequest(null);
+                setReplyRequest(req);
+              }}
+            />
+          )}
+          {replyRequest && (
+            <RequestReplyModal
+              key="reply"
+              request={replyRequest}
+              onClose={() => setReplyRequest(null)}
+              onSent={handleReplySent}
+            />
+          )}
+          {payRequest && (
+            <RequestPaymentModal
+              key="pay"
+              request={payRequest}
+              onClose={() => setPayRequest(null)}
+              onPaid={() => {
+                setPayRequest(null);
+                loadRequests();
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }

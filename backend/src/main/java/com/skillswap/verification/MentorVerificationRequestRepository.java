@@ -17,6 +17,12 @@ public interface MentorVerificationRequestRepository extends JpaRepository<Mento
     Optional<MentorVerificationRequest> findFirstByMentorIdAndStatusOrderByCreatedAtDesc(
             Long mentorId, MentorVerificationRequestStatus status);
 
+    /**
+     * Latest request (by creation) for a mentor regardless of status — feeds
+     * the mentor dashboard status banner and duplicate-application checks.
+     */
+    Optional<MentorVerificationRequest> findFirstByMentorIdOrderByCreatedAtDesc(Long mentorId);
+
     long countByStatus(MentorVerificationRequestStatus status);
 
     /**

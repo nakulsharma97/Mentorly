@@ -59,9 +59,9 @@ export default function PremiumFooter({ onScrollToSection }) {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="footer-link">
+                  <Link to="/become-a-mentor" className="footer-link">
                     Become a Mentor
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="footer-link">

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import { normalizeSkills } from "../utils/skills";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -109,19 +110,6 @@ function initials(val) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-}
-
-function parseSkills(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.flatMap((v) => parseSkills(v)).map((s) => s.trim()).filter(Boolean);
-  const text = String(value).trim();
-  if (!text) return [];
-  if (text.startsWith("[") && text.endsWith("]")) {
-    try {
-      return JSON.parse(text).flatMap((v) => parseSkills(v?.name ?? v)).map((s) => s.trim()).filter(Boolean);
-    } catch { /* fall through */ }
-  }
-  return text.split(/[\n,;|]+/).map((p) => p.trim()).filter(Boolean);
 }
 
 function getErrorMessage(error) {
@@ -385,11 +373,14 @@ function MentorMiniCard({ mentor }) {
             <span className="sk-mentor--catalog__sessions">{mentor.totalSessions} sessions</span>
           ) : null}
         </div>
-        {mentor.skills && mentor.skills.length > 0 && (
-          <div className="sk-mentor--catalog__skills">
-            {mentor.skills.slice(0, 2).map((s) => <span key={s}>{s}</span>)}
-          </div>
-        )}
+        {(() => {
+          const chips = normalizeSkills(mentor.skills);
+          return chips.length > 0 ? (
+            <div className="sk-mentor--catalog__skills">
+              {chips.slice(0, 2).map((s) => <span key={s}>{s}</span>)}
+            </div>
+          ) : null;
+        })()}
       </div>
       <div className="sk-mentor--catalog__actions">
         <Link to={`/mentors/${mentor.id}`} className="sk-card__roadmap-link">
@@ -477,7 +468,7 @@ export default function LearnerSkillsPage() {
     if (debouncedQuery) {
       const q = debouncedQuery.toLowerCase();
       list = list.filter((m) => {
-        const skills = parseSkills(m.skills);
+        const skills = normalizeSkills(m.skills);
         return skills.some((s) => s.toLowerCase().includes(q));
       });
     }
@@ -485,7 +476,7 @@ export default function LearnerSkillsPage() {
       id: m.id || m.mentorId,
       fullName: m.fullName || m.mentorName || "Mentor",
       company: m.company || m.currentCompany || "",
-      skills: parseSkills(m.skills),
+      skills: normalizeSkills(m.skills),
       profileImageUrl: m.profileImageUrl,
       averageRating: Number(m.averageRating || 0),
       totalReviews: Number(m.totalReviews || 0),

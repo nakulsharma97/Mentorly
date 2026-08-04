@@ -1,9 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Banknote, Download, RefreshCw, Wallet as WalletIcon, X } from 'lucide-react';
 import client from '../api/client';
-import Icon from '../modules/common/dashboard/Icon';
 import SectionCard from '../modules/common/dashboard/SectionCard';
 import TrendChart from '../modules/common/dashboard/TrendChart';
-import './AdminOperationsPage.css';
+import {
+  AuAvatar,
+  AuBadge,
+  AuButton,
+  AuEmpty,
+  AuPageHeader,
+  AuPagination,
+  AuStat,
+  AuTable,
+  AuToolbar,
+  toneFor,
+} from '../modules/admin/ui';
 import './AdminPaymentsPage.css';
 
 /* Stable empty array reference to avoid creating a new [] on every render */
@@ -172,12 +183,10 @@ export default function AdminPaymentsPage({ notify }) {
   const [actionLoading, setActionLoading] = useState(null); // 'refund-id' | 'payout-id' | 'bulk' | 'receipt-id'
   const [exporting, setExporting] = useState({ csv: false, json: false });
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [selectAll, setSelectAll] = useState(false);
   const [activeTab, setActiveTab] = useState('all'); // all | escrowed | released | refunded | failed
   const [payoutModal, setPayoutModal] = useState(null); // payment object or null
   const [payoutAmount, setPayoutAmount] = useState('');
   const [payoutProcessing, setPayoutProcessing] = useState(false);
-  const searchRef = useRef(null);
 
   /* ── Data Loading ── */
   const loadPayments = useCallback(async (pageOverride) => {
@@ -311,22 +320,10 @@ export default function AdminPaymentsPage({ notify }) {
       else next.add(id);
       return next;
     });
-    setSelectAll(false);
-  };
-
-  const toggleSelectAll = () => {
-    if (selectAll) {
-      setSelectedIds(new Set());
-      setSelectAll(false);
-    } else {
-      setSelectedIds(new Set(pagedPayments.map((p) => p.id)));
-      setSelectAll(true);
-    }
   };
 
   useEffect(() => {
     setSelectedIds(new Set());
-    setSelectAll(false);
   }, [activeTab, statusFilter, gatewayFilter, search, dateRange, page]);
 
   const selectedPayments = useMemo(
@@ -371,7 +368,6 @@ export default function AdminPaymentsPage({ notify }) {
       message: `${success} refunded, ${failed} failed.`,
     });
     setSelectedIds(new Set());
-    setSelectAll(false);
     setActionLoading(null);
     loadPayments();
   };
@@ -442,10 +438,6 @@ export default function AdminPaymentsPage({ notify }) {
     } catch {
       notify?.({ type: 'error', title: 'Export failed', message: 'Could not generate JSON.' });
     } finally { setExporting((prev) => ({ ...prev, json: false })); }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') { loadPayments(); }
   };
 
   /* ── Custom Chart Components ── */
@@ -542,7 +534,7 @@ export default function AdminPaymentsPage({ notify }) {
         </div>
         {data.length === 0 && (
           <div className="admin-empty-state" style={{ padding: '20px 10px' }}>
-            <Icon name="account_balance" />
+            <Banknote size={40} />
             <p>No gateway data available.</p>
           </div>
         )}
@@ -552,32 +544,12 @@ export default function AdminPaymentsPage({ notify }) {
 
   /* ── Render helpers ── */
   const renderStats = () => (
-    <div className="admin-payment-stats">
-      <div className="admin-payment-stat">
-        <span>Total Revenue</span>
-        <strong>{formatCurrency(totalRevenue)}</strong>
-        <small>All released payments</small>
-      </div>
-      <div className="admin-payment-stat">
-        <span>Escrowed</span>
-        <strong>{formatCurrency(totalEscrowed)}</strong>
-        <small>{escrowedCount} payments awaiting release</small>
-      </div>
-      <div className="admin-payment-stat">
-        <span>Refunded</span>
-        <strong>{formatCurrency(totalRefunded)}</strong>
-        <small>{refundedCount} payments returned</small>
-      </div>
-      <div className="admin-payment-stat">
-        <span>Platform Fees (10%)</span>
-        <strong>{formatCurrency(platformFees)}</strong>
-        <small>Collected from released payments</small>
-      </div>
-      <div className="admin-payment-stat admin-payment-stat--warn">
-        <span>Failed</span>
-        <strong>{failedCount}</strong>
-        <small>Payments that did not complete</small>
-      </div>
+    <div className="au-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+      <AuStat icon={Banknote} label="Total Revenue" value={formatCurrency(totalRevenue)} subtitle="All released payments" tone="green" index={0} />
+      <AuStat icon={WalletIcon} label="Escrowed" value={formatCurrency(totalEscrowed)} subtitle={`${escrowedCount} awaiting release`} tone="blue" index={1} />
+      <AuStat icon={RefreshCw} label="Refunded" value={formatCurrency(totalRefunded)} subtitle={`${refundedCount} payments returned`} tone="violet" index={2} />
+      <AuStat icon={Banknote} label="Platform Fees (10%)" value={formatCurrency(platformFees)} subtitle="From released payments" tone="amber" index={3} />
+      <AuStat icon={Banknote} label="Failed" value={failedCount} subtitle="Did not complete" tone="red" index={4} />
     </div>
   );
 
@@ -603,40 +575,12 @@ export default function AdminPaymentsPage({ notify }) {
     </div>
   );
 
-  const renderFilters = () => (
-    <div className="ap-filters">
-      <div className="ap-search">
-        <Icon name="search" />
-        <input
-          ref={searchRef}
-          type="text"
-          placeholder="Search by ID, order, gateway, name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-      </div>
-      <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
-        {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <select value={gatewayFilter} onChange={(e) => { setGatewayFilter(e.target.value); setPage(0); }}>
-        {GATEWAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <select value={dateRange} onChange={(e) => setDateRange(e.target.value)}>
-        {DATE_RANGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      <button type="button" className="admin-refresh-btn" onClick={() => loadPayments()} disabled={loading}>
-        <Icon name="search" /> Filter
-      </button>
-    </div>
-  );
-
   const renderBulkActions = () => {
     if (selectedIds.size === 0) return null;
     return (
       <div className="ap-bulk-bar">
         <span className="ap-bulk-bar__count">
-          <Icon name="checklist" /> {selectedIds.size} selected
+          {selectedIds.size} selected
           {selectedEscrowed.length > 0 && ` (${selectedEscrowed.length} refundable)`}
         </span>
         <div className="ap-bulk-bar__actions">
@@ -653,7 +597,7 @@ export default function AdminPaymentsPage({ notify }) {
           <button
             type="button"
             className="admin-action-btn admin-action-cancel"
-            onClick={() => { setSelectedIds(new Set()); setSelectAll(false); }}
+            onClick={() => setSelectedIds(new Set())}
           >
             Clear selection
           </button>
@@ -665,186 +609,103 @@ export default function AdminPaymentsPage({ notify }) {
   const renderTable = () => {
     if (loading) {
       return (
-        <div className="admin-table-wrap">
-          <div className="ap-loading">
-            <div className="ap-loading-spinner" />
-            <span>Loading payments...</span>
-          </div>
+        <div className="au-table-card">
+          <div style={{ padding: 40, textAlign: "center", color: "var(--au-text-3)" }}>Loading payments...</div>
         </div>
       );
     }
 
     if (pagedPayments.length === 0) {
       return (
-        <div className="admin-table-wrap">
-          <div className="admin-empty-state">
-            <Icon name="payments" />
-            <p>No payments match the current filters.</p>
-            <button type="button" className="admin-refresh-btn" onClick={() => { setSearch(''); setStatusFilter(''); setGatewayFilter(''); setDateRange('all'); setActiveTab('all'); }}>
-              Clear filters
-            </button>
-          </div>
+        <div className="au-table-card">
+          <AuEmpty
+            icon={Banknote}
+            title="No payments match the current filters"
+            description="Try adjusting your search or filters."
+            action={
+              <AuButton size="sm" onClick={() => { setSearch(""); setStatusFilter(""); setGatewayFilter(""); setDateRange("all"); setActiveTab("all"); }}>
+                Clear filters
+              </AuButton>
+            }
+          />
         </div>
       );
     }
 
     return (
-      <div className="admin-table-wrap">
-        <table className="admin-table ap-table">
-          <thead>
-            <tr>
-              <th style={{ width: 40 }}>
-                <input type="checkbox" checked={selectAll} onChange={toggleSelectAll} />
-              </th>
-              <th>ID</th>
-              <th>Order</th>
-              <th>Learner</th>
-              <th>Mentor</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Gateway</th>
-              <th>Date</th>
-              <th style={{ width: 200 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pagedPayments.map((p) => {
-              const isActionLoading = actionLoading === `refund-${p.id}` || actionLoading === `payout-${p.id}`;
-              return (
-                <tr key={p.id} className={selectedIds.has(p.id) ? 'ap-row--selected' : ''}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(p.id)}
-                      onChange={() => toggleSelect(p.id)}
-                    />
-                  </td>
-                  <td className="ap-cell-id">#{p.id}</td>
-                  <td className="ap-cell-mono">{p.orderId}</td>
-                  <td>{p.learnerName}</td>
-                  <td>{p.mentorName}</td>
-                  <td className="ap-cell-num">{formatCurrency(p.amount, p.currency)}</td>
-                  <td>
-                    <span className={`admin-status-pill admin-status-pill--${p.status.toLowerCase()}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td>{p.gateway}</td>
-                  <td className="ap-cell-date">{formatShortDate(p.createdAt)}</td>
-                  <td>
-                    <div className="ap-actions">
-                      {/* Refund (escrowed only) */}
-                      {p.status === 'ESCROWED' && (
-                        <>
-                          <button
-                            type="button"
-                            className="admin-action-btn admin-action-refund"
-                            disabled={isActionLoading}
-                            onClick={() => handleRefund(p.id)}
-                            title="Refund payment"
-                          >
-                            {actionLoading === `refund-${p.id}` ? '...' : 'Refund'}
-                          </button>
-                          <button
-                            type="button"
-                            className="ap-btn ap-btn--payout"
-                            disabled={isActionLoading}
-                            onClick={() => handleOpenPayout(p)}
-                            title="Release payout to mentor"
-                          >
-                            Payout
-                          </button>
-                        </>
-                      )}
-                      {/* Receipt download (any payment) */}
-                      <button
-                        type="button"
-                        className="ap-btn ap-btn--receipt"
-                        onClick={() => handleDownloadReceipt(p)}
-                        title="Download receipt"
-                      >
-                        <Icon name="receipt_long" />
+      <AuTable
+        columns={[
+          { key: "sel", label: "", style: { width: 44 } },
+          { key: "id", label: "ID" },
+          { key: "order", label: "Order" },
+          { key: "learner", label: "Learner" },
+          { key: "mentor", label: "Mentor" },
+          { key: "amount", label: "Amount" },
+          { key: "status", label: "Status" },
+          { key: "gateway", label: "Gateway" },
+          { key: "date", label: "Date" },
+          { key: "actions", label: "Actions", style: { textAlign: "right" } },
+        ]}
+        busy={loading}
+        minWidth={1080}
+      >
+        {pagedPayments.map((p) => {
+          const isActionLoading = actionLoading === `refund-${p.id}` || actionLoading === `payout-${p.id}`;
+          return (
+            <tr key={p.id} className={selectedIds.has(p.id) ? "is-selected" : ""}>
+              <td>
+                <input type="checkbox" checked={selectedIds.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={`Select payment ${p.id}`} />
+              </td>
+              <td style={{ fontWeight: 700, color: "var(--au-primary-dark)" }}>#{p.id}</td>
+              <td style={{ fontFamily: "'SF Mono','Consolas',monospace", fontSize: 13 }}>{p.orderId}</td>
+              <td>
+                <div className="au-user">
+                  <AuAvatar name={p.learnerName} size="sm" />
+                  <div style={{ minWidth: 0 }}><p className="au-user__name">{p.learnerName}</p></div>
+                </div>
+              </td>
+              <td>{p.mentorName}</td>
+              <td style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{formatCurrency(p.amount, p.currency)}</td>
+              <td><AuBadge tone={toneFor(p.status)} dot>{p.status}</AuBadge></td>
+              <td>{p.gateway}</td>
+              <td style={{ fontSize: 13, color: "var(--au-text-2)" }}>{formatShortDate(p.createdAt)}</td>
+              <td>
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  {p.status === "ESCROWED" && (
+                    <>
+                      <button type="button" className="au-btn au-btn--danger au-btn--sm" disabled={isActionLoading} onClick={() => handleRefund(p.id)} title="Refund payment">
+                        {actionLoading === `refund-${p.id}` ? "..." : "Refund"}
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      <button type="button" className="au-btn au-btn--primary au-btn--sm" disabled={isActionLoading} onClick={() => handleOpenPayout(p)} title="Release payout to mentor">
+                        Payout
+                      </button>
+                    </>
+                  )}
+                  <button type="button" className="au-btn au-btn--ghost au-btn--sm" onClick={() => handleDownloadReceipt(p)} title="Download receipt">
+                    <Download size={15} />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </AuTable>
     );
   };
 
   const renderPagination = () => {
     if (filteredPayments.length <= PAGE_SIZE) return null;
     return (
-      <div className="ap-pagination">
-        <span className="ap-pagination__info">
-          Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filteredPayments.length)} of {filteredPayments.length}
-        </span>
-        <div className="ap-pagination__buttons">
-          <button
-            type="button"
-            className="admin-action-btn admin-action-cancel"
-            disabled={page === 0}
-            onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-          >
-            <Icon name="chevron_left" /> Prev
-          </button>
-          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-            // Show pages around current
-            const start = Math.max(0, Math.min(page - 3, totalPages - 7));
-            const p = start + i;
-            if (p >= totalPages) return null;
-            return (
-              <button
-                key={p}
-                type="button"
-                className={`ap-pagination__page ${page === p ? 'ap-pagination__page--active' : ''}`}
-                onClick={() => setPage(p)}
-              >
-                {p + 1}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            className="admin-action-btn admin-action-cancel"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
-          >
-            Next <Icon name="chevron_right" />
-          </button>
-        </div>
-      </div>
+      <AuPagination
+        page={page}
+        totalPages={totalPages}
+        totalElements={filteredPayments.length}
+        pageSize={PAGE_SIZE}
+        onChange={setPage}
+        loading={loading}
+      />
     );
   };
-
-  const renderExportBar = () => (
-    <div className="ap-export-bar">
-      <span className="ap-export-bar__label"><Icon name="download" /> Export</span>
-      <button
-        type="button"
-        className="admin-refresh-btn"
-        onClick={handleExportCsv}
-        disabled={exporting.csv || filteredPayments.length === 0}
-        style={{ background: '#059669' }}
-      >
-        {exporting.csv ? 'Exporting...' : 'CSV'}
-      </button>
-      <button
-        type="button"
-        className="admin-refresh-btn"
-        onClick={handleExportJson}
-        disabled={exporting.json || filteredPayments.length === 0}
-        style={{ background: '#2563eb' }}
-      >
-        {exporting.json ? 'Exporting...' : 'JSON'}
-      </button>
-      <span className="ap-export-bar__count">{filteredPayments.length} payments loaded</span>
-    </div>
-  );
 
   /* ── Payout Modal ── */
   const renderPayoutModal = () => {
@@ -855,9 +716,9 @@ export default function AdminPaymentsPage({ notify }) {
       <div className="ap-modal-overlay" onClick={() => !payoutProcessing && setPayoutModal(null)}>
         <div className="ap-modal" onClick={(e) => e.stopPropagation()}>
           <div className="ap-modal__head">
-            <h3><Icon name="account_balance" /> Release Payout</h3>
+            <h3><Banknote size={18} /> Release Payout</h3>
             <button type="button" className="ap-modal__close" onClick={() => setPayoutModal(null)} disabled={payoutProcessing}>
-              <Icon name="close" />
+              <X size={18} />
             </button>
           </div>
           <div className="ap-modal__body">
@@ -937,75 +798,79 @@ export default function AdminPaymentsPage({ notify }) {
 
   /* ── Main Render ── */
   return (
-    <main className="admin-page">
-      {/* Hero */}
-      <section className="admin-hero">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
-          <div>
-            <p className="admin-eyebrow">Finance</p>
-            <h1>Payment Management</h1>
-            <p>Monitor, refund, and release payments across the platform. Search payments, process bulk refunds, download receipts, and manage mentor payouts.</p>
+    <div className="au au-page">
+      <div className="au-inner">
+        <AuPageHeader
+          crumb={["Admin", "Payments"]}
+          title="Payment Management"
+          subtitle="Monitor, refund, and release payments across the platform. Search payments, process bulk refunds, download receipts, and manage mentor payouts."
+          actions={
+            <AuButton variant="outline" icon={RefreshCw} onClick={() => loadPayments()} disabled={loading}>
+              {loading ? "Loading..." : "Refresh"}
+            </AuButton>
+          }
+        />
+
+        {/* Stats */}
+        {paymentsData && renderStats()}
+
+        {/* Charts Section */}
+        {paymentsData && allPayments.length > 0 && (
+          <div className="ap-charts-grid">
+            <SectionCard title="Revenue Trend" icon="trending_up" headerExtra={
+              <span className="admin-count-badge">{revenueTrend.filter((m) => m.value > 0).length} months</span>
+            }>
+              <TrendChart
+                data={revenueTrend}
+                type="area"
+                height={160}
+                gradientId="apRevenueGrad"
+                valueFormatter={(v) => formatCurrency(v)}
+              />
+            </SectionCard>
+
+            <SectionCard title="Escrowed vs Released" icon="account_balance">
+              <DonutChart data={escrowedVsReleased} />
+            </SectionCard>
+
+            <SectionCard title="Gateway Breakdown" icon="account_balance">
+              <GatewayChart data={gatewayBreakdown} />
+            </SectionCard>
           </div>
-          <button
-            type="button"
-            className="admin-refresh-btn"
-            onClick={() => loadPayments()}
-            disabled={loading}
-            style={{ background: '#fff', color: '#0f172a', borderColor: '#fff' }}
-          >
-            <Icon name="refresh" /> {loading ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-      </section>
+        )}
 
-      {/* Stats */}
-      {paymentsData && renderStats()}
+        {/* Tabs */}
+        {renderTabs()}
 
-      {/* Charts Section */}
-      {paymentsData && allPayments.length > 0 && (
-        <div className="ap-charts-grid">
-          <SectionCard title="Revenue Trend" icon="trending_up" headerExtra={
-            <span className="admin-count-badge">{revenueTrend.filter((m) => m.value > 0).length} months</span>
-          }>
-            <TrendChart
-              data={revenueTrend}
-              type="area"
-              height={160}
-              gradientId="apRevenueGrad"
-              valueFormatter={(v) => formatCurrency(v)}
-            />
-          </SectionCard>
+        {/* Filters */}
+        <AuToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ID, order, gateway, name..."
+          selects={[
+            { label: "Filter by status", value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
+            { label: "Filter by gateway", value: gatewayFilter, onChange: setGatewayFilter, options: GATEWAY_OPTIONS },
+            { label: "Date range", value: dateRange, onChange: setDateRange, options: DATE_RANGE_OPTIONS },
+          ]}
+          actions={[
+            { label: "CSV", icon: "download", disabled: exporting.csv || filteredPayments.length === 0, onClick: handleExportCsv },
+            { label: "JSON", icon: "download", disabled: exporting.json || filteredPayments.length === 0, onClick: handleExportJson },
+          ]}
+          count={`${filteredPayments.length} payments`}
+        />
 
-          <SectionCard title="Escrowed vs Released" icon="account_balance">
-            <DonutChart data={escrowedVsReleased} />
-          </SectionCard>
+        {/* Bulk actions */}
+        {renderBulkActions()}
 
-          <SectionCard title="Gateway Breakdown" icon="account_balance">
-            <GatewayChart data={gatewayBreakdown} />
-          </SectionCard>
-        </div>
-      )}
+        {/* Table */}
+        {renderTable()}
 
-      {/* Tabs */}
-      {renderTabs()}
+        {/* Pagination */}
+        {renderPagination()}
 
-      {/* Filters */}
-      {renderFilters()}
-
-      {/* Bulk actions */}
-      {renderBulkActions()}
-
-      {/* Export bar */}
-      {renderExportBar()}
-
-      {/* Table */}
-      {renderTable()}
-
-      {/* Pagination */}
-      {renderPagination()}
-
-      {/* Payout Modal */}
-      {renderPayoutModal()}
-    </main>
+        {/* Payout Modal */}
+        {renderPayoutModal()}
+      </div>
+    </div>
   );
 }

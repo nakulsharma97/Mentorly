@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { BookOpen, Edit3, GitMerge, PlusCircle, Trash2, X } from 'lucide-react';
 import client from '../api/client';
-import Icon from '../modules/common/dashboard/Icon';
-import './AdminOperationsPage.css';
+import {
+  AuBadge,
+  AuButton,
+  AuEmpty,
+  AuPageHeader,
+  AuSkeleton,
+  AuTable,
+  AuToolbar,
+  toneFor,
+} from '../modules/admin/ui';
 import './SkillManagementPage.css';
 
 const REQUEST_STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
@@ -173,187 +183,147 @@ export default function SkillManagementPage({ notify }) {
     if (decision === 'APPROVED') loadSkills();
   };
 
-  const closeModal = (e) => {
-    if (e?.target === e?.currentTarget) {
-      setEditingSkill(null);
-      setMergingSkill(null);
-    }
-  };
-
   const mergeCandidates = useMemo(
     () => skills.filter((s) => s.id !== mergingSkill?.id),
     [skills, mergingSkill],
   );
 
   return (
-    <section className="admin-page">
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: '0 0 18px 18px' }}>
-        <div>
-          <p className="admin-eyebrow">Administration</p>
-          <h1>Skill Management</h1>
-          <p>
-            Manage the skill catalog: edit or delete skills, merge duplicates into a single
-            canonical entry, and approve new skill categories proposed by users.
-          </p>
-        </div>
-      </div>
+    <div className="au au-page">
+      <div className="au-inner">
+        <AuPageHeader
+          crumb={["Admin", "Skills"]}
+          title="Skill Management"
+          subtitle="Manage the skill catalog: edit or delete skills, merge duplicates into a single canonical entry, and approve new skill categories proposed by users."
+        />
 
-      {/* Tabs */}
-      <div className="admin-tabs" style={{ marginTop: 18 }}>
-        <button type="button" className={`admin-tab${tab === 'skills' ? ' admin-tab--active' : ''}`} onClick={() => setTab('skills')}>
-          <Icon name="workspaces" /> Skill Catalog
-        </button>
-        <button type="button" className={`admin-tab${tab === 'requests' ? ' admin-tab--active' : ''}`} onClick={() => setTab('requests')}>
-          <Icon name="task_alt" /> Skill Requests
-          {requestsLoading ? null : requests.length > 0 && tab !== 'requests' && (
-            <span className="admin-count-badge" style={{ marginLeft: 6 }}>{requests.length}</span>
-          )}
-        </button>
-      </div>
+        {/* Tabs */}
+        <div className="au-card" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap", width: "fit-content" }}>
+          <button type="button"
+            className={`au-btn au-btn--sm ${tab === "skills" ? "au-btn--primary" : "au-btn--ghost"}`}
+            onClick={() => setTab("skills")}>
+            <BookOpen size={16} /> Skill Catalog
+          </button>
+          <button type="button"
+            className={`au-btn au-btn--sm ${tab === "requests" ? "au-btn--primary" : "au-btn--ghost"}`}
+            onClick={() => setTab("requests")}>
+            <PlusCircle size={16} /> Skill Requests
+            {requestsLoading ? null : requests.length > 0 && tab !== "requests" && (
+              <span className="au-badge au-badge--purple" style={{ marginLeft: 6, height: 22, padding: "0 8px" }}>{requests.length}</span>
+            )}
+          </button>
+        </div>
 
       {/* ═══════════ SKILL CATALOG ═══════════ */}
       {tab === 'skills' && (
-        <div className="admin-panel" style={{ padding: 0, marginTop: 0 }}>
-          <div className="admin-section-heading" style={{ padding: '16px 22px', borderBottom: '1px solid var(--admin-border)', margin: 0 }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1rem' }}>All Skills</h3>
-              <p className="admin-text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-                {skills.length} skills in the catalog · {skills.reduce((sum, s) => sum + Number(s.watchers || 0), 0)} total watchers
-              </p>
-            </div>
-            <div className="admin-field-group">
-              <div className="admin-search" style={{ minWidth: 220 }}>
-                <Icon name="search" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search skills or categories..."
-                />
-                {search && (
-                  <button type="button" className="admin-search-clear" onClick={() => setSearch('')} aria-label="Clear search">
-                    <Icon name="close" />
-                  </button>
-                )}
-              </div>
-              <button type="button" className="admin-refresh-btn" onClick={loadSkills} disabled={loading}>
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <AuToolbar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search skills or categories..."
+            actions={[{ label: "Refresh", icon: "download", disabled: loading, onClick: loadSkills }]}
+            count={`${skills.length} skills · ${skills.reduce((sum, s) => sum + Number(s.watchers || 0), 0)} watchers`}
+          />
 
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Category</th>
-                  <th>Watchers</th>
-                  <th>Verif. Tasks</th>
-                  <th>Actions</th>
+          {loading ? (
+            <AuSkeleton rows={6} label="Loading skills" />
+          ) : filteredSkills.length === 0 ? (
+            <div className="au-table-card">
+              <AuEmpty icon={BookOpen} title="No skills found" description="Try a different search term." />
+            </div>
+          ) : (
+            <AuTable
+              columns={[
+                { key: "id", label: "ID" },
+                { key: "name", label: "Name" },
+                { key: "category", label: "Category" },
+                { key: "watchers", label: "Watchers" },
+                { key: "tasks", label: "Verif. Tasks" },
+                { key: "actions", label: "Actions", style: { textAlign: "right" } },
+              ]}
+              busy={loading}
+            >
+              {filteredSkills.map((s) => (
+                <tr key={s.id}>
+                  <td style={{ fontWeight: 700, color: "var(--au-primary-dark)" }}>#{s.id}</td>
+                  <td><strong>{s.name}</strong></td>
+                  <td><AuBadge tone="green">{s.category || "—"}</AuBadge></td>
+                  <td>{Number(s.watchers || 0)}</td>
+                  <td>{Number(s.verificationTasks || 0)}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button type="button" className="au-btn au-btn--ghost au-btn--sm" onClick={() => openEdit(s)}>
+                        <Edit3 size={15} /> Edit
+                      </button>
+                      <button type="button" className="au-btn au-btn--outline au-btn--sm" onClick={() => { setMergingSkill(s); setMergeTargetId(""); }} title="Merge this skill into another to remove duplicates">
+                        <GitMerge size={15} /> Merge
+                      </button>
+                      <button type="button" className="au-btn au-btn--danger au-btn--sm" onClick={() => deleteSkill(s)}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="6" style={{ padding: 32, textAlign: 'center', color: 'var(--admin-empty)' }}>Loading...</td></tr>
-                ) : filteredSkills.length === 0 ? (
-                  <tr><td colSpan="6">
-                    <div className="admin-empty-state"><Icon name="workspaces" /><p>No skills found.</p></div>
-                  </td></tr>
-                ) : (
-                  filteredSkills.map((s) => (
-                    <tr key={s.id}>
-                      <td className="admin-cell-mono">#{s.id}</td>
-                      <td><strong>{s.name}</strong></td>
-                      <td><span className="admin-status-pill admin-status-pill--released">{s.category || '—'}</span></td>
-                      <td>{Number(s.watchers || 0)}</td>
-                      <td>{Number(s.verificationTasks || 0)}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <button type="button" className="admin-action-btn admin-action-cancel" onClick={() => openEdit(s)}>
-                            <Icon name="edit" style={{ fontSize: 15 }} /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="admin-action-btn admin-action-approve"
-                            onClick={() => { setMergingSkill(s); setMergeTargetId(''); }}
-                            title="Merge this skill into another to remove duplicates"
-                          >
-                            <Icon name="call_merge" style={{ fontSize: 15 }} /> Merge
-                          </button>
-                          <button type="button" className="admin-action-btn admin-action-delete" onClick={() => deleteSkill(s)}>
-                            <Icon name="delete" /> Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </AuTable>
+          )}
         </div>
       )}
 
       {/* ═══════════ SKILL REQUESTS ═══════════ */}
       {tab === 'requests' && (
-        <div className="admin-panel" style={{ padding: 0, marginTop: 0 }}>
-          <div className="admin-section-heading" style={{ padding: '16px 22px', borderBottom: '1px solid var(--admin-border)', margin: 0 }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1rem' }}>Skill Category Requests</h3>
-              <p className="admin-text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-                Approve proposals to add new skills, or reject them with a reason.
-              </p>
-            </div>
-            <div className="admin-field-group">
-              <label className="admin-field" htmlFor="request-status-filter">
-                <Icon name="filter_alt" style={{ fontSize: 18 }} /> Status
-              </label>
-              <select id="request-status-filter" value={requestStatus} onChange={(e) => setRequestStatus(e.target.value)}>
-                {REQUEST_STATUSES.map((status) => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <AuToolbar
+            search=""
+            onSearchChange={() => {}}
+            placeholder=""
+            selects={[{
+              label: "Filter by request status",
+              value: requestStatus,
+              onChange: setRequestStatus,
+              options: REQUEST_STATUSES.map((status) => ({ value: status, label: status })),
+            }]}
+            count={`${requests.length} requests`}
+          />
 
           {requestsLoading ? (
-            <div className="admin-empty-state"><p>Loading requests...</p></div>
+            <AuSkeleton rows={4} label="Loading requests" />
           ) : requests.length === 0 ? (
-            <div className="admin-empty-state">
-              <Icon name="task_alt" />
-              <p>No {requestStatus.toLowerCase()} requests.</p>
+            <div className="au-table-card">
+              <AuEmpty icon={PlusCircle} title={`No ${requestStatus.toLowerCase()} requests`} description="Approve proposals to add new skills, or reject them with a reason." />
             </div>
           ) : (
-            <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
               {requests.map((req) => (
-                <div key={req.id} className="skill-req-card" style={{}}>
-                  <div className="skill-req-card__head">
+                <motion.div
+                  key={req.id}
+                  className="au-card"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
                     <div>
-                      <strong className="skill-req-card__name">{req.name}</strong>
-                      <span className="admin-status-pill admin-status-pill--released">{req.category}</span>
+                      <strong style={{ fontSize: 16 }}>{req.name}</strong>
+                      <div style={{ marginTop: 6 }}><AuBadge tone="green">{req.category}</AuBadge></div>
                     </div>
-                    <span className={`admin-status-pill admin-status-pill--${req.status.toLowerCase()}`}>{req.status}</span>
+                    <AuBadge tone={toneFor(req.status)} dot>{req.status}</AuBadge>
                   </div>
-                  <div className="skill-req-card__meta">
-                    <span><Icon name="person" style={{ fontSize: 15 }} /> {req.requestedByName || 'Unknown user'}</span>
-                    <span><Icon name="calendar_today" style={{ fontSize: 15 }} /> {formatDate(req.createdAt)}</span>
-                  </div>
+                  <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--au-text-2)" }}>
+                    Requested by {req.requestedByName || "Unknown user"} · {formatDate(req.createdAt)}
+                  </p>
                   {req.adminNote && (
-                    <p className="skill-req-card__note"><strong>Admin note:</strong> {req.adminNote}</p>
+                    <p style={{ margin: "0 0 12px", padding: 10, borderRadius: 10, background: "var(--au-hover)", fontSize: 13, color: "var(--au-text-2)" }}>
+                      <strong>Admin note:</strong> {req.adminNote}
+                    </p>
                   )}
-                  {req.status === 'PENDING' && (
-                    <div className="admin-verification-actions" style={{ marginTop: 10 }}>
-                      <button type="button" className="admin-action-btn admin-action-approve" onClick={() => decideRequest(req, 'APPROVED')}>
-                        <Icon name="check" style={{ fontSize: 15 }} /> Approve
-                      </button>
-                      <button type="button" className="admin-action-btn admin-action-reject" onClick={() => decideRequest(req, 'REJECTED')}>
-                        <Icon name="close" style={{ fontSize: 15 }} /> Reject
-                      </button>
+                  {req.status === "PENDING" && (
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <AuButton size="sm" variant="success" onClick={() => decideRequest(req, "APPROVED")}>Approve</AuButton>
+                      <AuButton size="sm" variant="danger" onClick={() => decideRequest(req, "REJECTED")}>Reject</AuButton>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
@@ -362,65 +332,67 @@ export default function SkillManagementPage({ notify }) {
 
       {/* ── Edit modal ── */}
       {editingSkill && (
-        <div className="skill-modal-backdrop" onClick={closeModal}>
-          <div className="skill-modal" role="dialog" aria-modal="true" aria-label="Edit skill">
-            <div className="skill-modal__head">
-              <h3>Edit Skill</h3>
-              <button type="button" className="skill-modal__close" onClick={() => setEditingSkill(null)} aria-label="Close">
-                <Icon name="close" />
-              </button>
+        <motion.div className="au-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setEditingSkill(null); }} role="presentation">
+          <motion.div className="au-modal" role="dialog" aria-modal="true" aria-label="Edit skill"
+            initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>Edit Skill</h3>
+              <button type="button" className="au-icon-btn" onClick={() => setEditingSkill(null)} aria-label="Close"><X size={18} /></button>
             </div>
-            <div className="skill-modal__body">
-              <label className="skill-modal__label" htmlFor="edit-name">Skill name</label>
-              <input id="edit-name" className="skill-modal__input" value={editName}
-                onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Kubernetes" />
-              <label className="skill-modal__label" htmlFor="edit-category">Category</label>
-              <input id="edit-category" className="skill-modal__input" value={editCategory}
-                onChange={(e) => setEditCategory(e.target.value)} placeholder="e.g. DevOps" />
+            <div className="au-modal__body">
+              <label className="au-field" htmlFor="edit-name">
+                <span className="au-field__label">Skill name</span>
+                <input id="edit-name" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="e.g. Kubernetes" />
+              </label>
+              <label className="au-field" htmlFor="edit-category" style={{ marginTop: 12 }}>
+                <span className="au-field__label">Category</span>
+                <input id="edit-category" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} placeholder="e.g. DevOps" />
+              </label>
             </div>
-            <div className="skill-modal__foot">
-              <button type="button" className="admin-action-btn admin-action-cancel" onClick={() => setEditingSkill(null)}>Cancel</button>
-              <button type="button" className="admin-action-btn admin-action-approve" disabled={saving} onClick={saveEdit}>
-                {saving ? 'Saving...' : 'Save'}
-              </button>
+            <div className="au-modal__foot">
+              <AuButton onClick={() => setEditingSkill(null)}>Cancel</AuButton>
+              <AuButton variant="primary" disabled={saving} onClick={saveEdit}>{saving ? "Saving..." : "Save"}</AuButton>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* ── Merge modal ── */}
       {mergingSkill && (
-        <div className="skill-modal-backdrop" onClick={closeModal}>
-          <div className="skill-modal" role="dialog" aria-modal="true" aria-label="Merge skill">
-            <div className="skill-modal__head">
-              <h3>Merge Skill</h3>
-              <button type="button" className="skill-modal__close" onClick={() => setMergingSkill(null)} aria-label="Close">
-                <Icon name="close" />
-              </button>
+        <motion.div className="au-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) setMergingSkill(null); }} role="presentation">
+          <motion.div className="au-modal" role="dialog" aria-modal="true" aria-label="Merge skill"
+            initial={{ opacity: 0, scale: 0.95, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>Merge Skill</h3>
+              <button type="button" className="au-icon-btn" onClick={() => setMergingSkill(null)} aria-label="Close"><X size={18} /></button>
             </div>
-            <div className="skill-modal__body">
-              <p style={{ margin: '0 0 8px', color: 'var(--admin-muted)', fontSize: '0.85rem' }}>
-                Merge <strong>{mergingSkill.name}</strong> into another skill. Watchlists and
+            <div className="au-modal__body">
+              <p style={{ margin: "0 0 12px", fontSize: 14, color: "var(--au-text-2)" }}>
+                Merge <strong style={{ color: "var(--au-text)" }}>{mergingSkill.name}</strong> into another skill. Watchlists and
                 verification tasks will be re-pointed to the target, then the duplicate is removed.
               </p>
-              <label className="skill-modal__label" htmlFor="merge-target">Merge into</label>
-              <select id="merge-target" className="skill-modal__input" value={mergeTargetId}
-                onChange={(e) => setMergeTargetId(e.target.value)}>
-                <option value="">Choose target skill...</option>
-                {mergeCandidates.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
-                ))}
-              </select>
+              <label className="au-field" htmlFor="merge-target">
+                <span className="au-field__label">Merge into</span>
+                <select id="merge-target" value={mergeTargetId} onChange={(e) => setMergeTargetId(e.target.value)}>
+                  <option value="">Choose target skill...</option>
+                  {mergeCandidates.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.category})</option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="skill-modal__foot">
-              <button type="button" className="admin-action-btn admin-action-cancel" onClick={() => setMergingSkill(null)}>Cancel</button>
-              <button type="button" className="admin-action-btn admin-action-approve" disabled={saving} onClick={mergeSkill}>
-                {saving ? 'Merging...' : 'Merge'}
-              </button>
+            <div className="au-modal__foot">
+              <AuButton onClick={() => setMergingSkill(null)}>Cancel</AuButton>
+              <AuButton variant="primary" disabled={saving} onClick={mergeSkill}>{saving ? "Merging..." : "Merge"}</AuButton>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
-    </section>
+      </div>
+    </div>
   );
 }

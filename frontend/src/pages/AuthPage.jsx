@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { normalizeSkills } from "../utils/skills";
 import client from "../api/client";
 import OptimizedImage from "../components/OptimizedImage";
 import PremiumFooter from "../components/PremiumFooter";
@@ -23,28 +24,11 @@ const getMentorInitials = (fullName) => {
 };
 
 const getSkillTags = (rawSkills) => {
-  const value = String(rawSkills || "").trim();
-  if (!value) {
-    return ["Mentorship"];
-  }
-
-  if (value.startsWith("[") && value.includes('"name"')) {
-    const matches = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)]
-      .map((match) => String(match[1] || "").trim())
-      .filter(Boolean);
-    if (matches.length) {
-      return [...new Set(matches)].slice(0, 2);
-    }
-  }
-
-  return [
-    ...new Set(
-      value
-        .split(/[\n,;|]+/)
-        .map((part) => part.trim())
-        .filter(Boolean),
-    ),
-  ].slice(0, 2);
+  // Unified with the shared normalizer — CSV / JSON-string / array shapes are
+  // all handled identically; the landing card falls back to "Mentorship" when
+  // a mentor has no skills.
+  const tags = normalizeSkills(rawSkills, { limit: 2 });
+  return tags.length ? tags : ["Mentorship"];
 };
 
 const scrollToSection = (sectionId) => (event) => {
@@ -385,7 +369,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               <button
                 className="landing-button landing-button-soft"
                 type="button"
-                onClick={onSelectSignup}
+                onClick={() => navigate("/become-a-mentor")}
               >
                 Become a Mentor
               </button>

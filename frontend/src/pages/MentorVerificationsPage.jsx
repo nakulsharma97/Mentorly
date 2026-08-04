@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import client from "../api/client";
+import { normalizeSkills } from "../utils/skills";
 import Icon from "../modules/common/dashboard/Icon";
 import "./MentorVerificationsPage.css";
 import "./AdminOperationsPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 /* ── Status configuration ─────────────────────────────────── */
 
@@ -10,9 +12,10 @@ const STATUS_META = {
   PENDING: { label: "Pending", icon: "hourglass_top", className: "mv-status--pending" },
   APPROVED: { label: "Approved", icon: "verified", className: "mv-status--approved" },
   REJECTED: { label: "Rejected", icon: "cancel", className: "mv-status--rejected" },
+  MORE_INFORMATION_REQUIRED: { label: "More info", icon: "contact_support", className: "mv-status--more-info" },
 };
 
-const STATUS_ORDER = ["PENDING", "APPROVED", "REJECTED"];
+const STATUS_ORDER = ["PENDING", "MORE_INFORMATION_REQUIRED", "APPROVED", "REJECTED"];
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -34,18 +37,6 @@ const splitLines = (value) =>
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
-
-const parseSkillChips = (raw) => {
-  const value = String(raw || "").trim();
-  if (!value) return [];
-  if (value.startsWith("[") && value.includes('"name"')) {
-    const matches = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)]
-      .map((m) => m[1].trim())
-      .filter(Boolean);
-    if (matches.length) return [...new Set(matches)];
-  }
-  return [...new Set(value.split(/[,\n;|]+/).map((s) => s.trim()).filter(Boolean))];
-};
 
 const initials = (name) => String(name || "M").trim().charAt(0).toUpperCase();
 
@@ -205,12 +196,15 @@ function ResumeSection({ request }) {
   const mentor = request?.mentor || {};
   const items = [];
 
-  if (mentor.resumeUrl) {
+  // Prefer the application snapshot (what was actually submitted) over the
+  // user's current profile — the profile may have changed since submission.
+  const resumeUrl = request?.resumeUrl || mentor.resumeUrl;
+  if (resumeUrl) {
     items.push({
       icon: "description",
       title: "Resume",
-      hint: "Download the resume this mentor attached to their profile.",
-      href: mentor.resumeUrl,
+      hint: "The resume attached with this verification application.",
+      href: resumeUrl,
       external: true,
     });
   }
@@ -263,7 +257,7 @@ function ExperienceSection({ request }) {
   const mentor = request?.mentor || {};
   const teaching = splitLines(mentor.pastTeachingSessions);
   const projects = splitLines(mentor.projects);
-  const verifiedSkills = parseSkillChips(mentor.verifiedSkills);
+  const verifiedSkills = normalizeSkills(mentor.verifiedSkills);
 
   return (
     <div className="mv-section">
@@ -333,7 +327,7 @@ function ExperienceSection({ request }) {
 
 function OverviewSection({ request }) {
   const mentor = request?.mentor || {};
-  const skills = parseSkillChips(mentor.skills);
+  const skills = normalizeSkills(mentor.skills);
 
   return (
     <div className="mv-section">
@@ -347,10 +341,18 @@ function OverviewSection({ request }) {
         </DetailRow>
         <DetailRow label="Username">@{mentor.username}</DetailRow>
         <DetailRow label="Joined">{formatDate(mentor.createdAt)}</DetailRow>
-        <DetailRow label="Requested">{formatDate(request?.createdAt)}</DetailRow>
+        <DetailRow label="Submitted">{formatDate(request?.submittedAt || request?.createdAt)}</DetailRow>
         <DetailRow label="Reviewed by">{request?.reviewedBy ? `Admin #${request.reviewedBy}` : "Not reviewed yet"}</DetailRow>
         <DetailRow label="Reviewed at">{request?.reviewedAt ? formatDate(request.reviewedAt) : "—"}</DetailRow>
-        <DetailRow label="Admin note">{request?.adminNote || "—"}</DetailRow>
+        {request?.requestedInfo && (
+          <DetailRow label="Requested info">{request.requestedInfo}</DetailRow>
+        )}
+        {request?.adminNote && <DetailRow label="Admin note">{request.adminNote}</DetailRow>}
+        {request?.portfolioUrl && (
+          <DetailRow label="Portfolio">
+            <a href={request.portfolioUrl} target="_blank" rel="noopener noreferrer">{request.portfolioUrl}</a>
+          </DetailRow>
+        )}
         {mentor.githubUrl && (
           <DetailRow label="GitHub">
             <a href={mentor.githubUrl} target="_blank" rel="noopener noreferrer">{mentor.githubUrl}</a>
@@ -404,6 +406,9 @@ export default function MentorVerificationsPage({ notify }) {
   const [rejectOpenFor, setRejectOpenFor] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectError, setRejectError] = useState("");
+  const [infoOpenFor, setInfoOpenFor] = useState(null);
+  const [infoRequest, setInfoRequest] = useState("");
+  const [infoError, setInfoError] = useState("");
 
   const loadQueue = useCallback(async (status) => {
     setLoading(true);
@@ -442,6 +447,50 @@ export default function MentorVerificationsPage({ notify }) {
     setRejectOpenFor(null);
     setRejectReason("");
     setRejectError("");
+    setInfoOpenFor(null);
+    setInfoRequest("");
+    setInfoError("");
+  };
+
+  const openRequestInfo = (request) => {
+    setInfoOpenFor(request.id);
+    setInfoRequest("");
+    setInfoError("");
+  };
+
+  const submitRequestInfo = async (request) => {
+    const requestedInfo = infoRequest.trim();
+    if (!requestedInfo) {
+      setInfoError("Tell the applicant what information you need.");
+      return;
+    }
+    setUpdatingId(request.id);
+    try {
+      await client.patch(`/api/v1/verification/mentor/requests/${request.id}`, {
+        status: "MORE_INFORMATION_REQUIRED",
+        requestedInfo,
+      });
+      setInfoOpenFor(null);
+      setInfoRequest("");
+      await loadQueue(activeStatus);
+      if (selectedId === request.id) {
+        setSelectedId(null);
+        setDetailTab("overview");
+      }
+      notify?.({
+        type: "success",
+        title: "More information requested",
+        message: `${request?.mentor?.fullName || `Mentor #${request.id}`} was asked for more information and notified.`,
+      });
+    } catch (err) {
+      notify?.({
+        type: "error",
+        title: "Request failed",
+        message: err?.response?.data?.data?.error || err?.response?.data?.message || "Could not request more information.",
+      });
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const approve = async (request) => {
@@ -596,7 +645,7 @@ export default function MentorVerificationsPage({ notify }) {
             {requests.map((request) => {
               const mentor = request?.mentor || {};
               const isSelected = selectedId === request.id;
-              const skills = parseSkillChips(mentor.skills).slice(0, 4);
+              const skills = normalizeSkills(mentor.skills).slice(0, 4);
               return (
                 <button
                   type="button"
@@ -610,11 +659,11 @@ export default function MentorVerificationsPage({ notify }) {
                   <MentorAvatar mentor={mentor} size={46} />
                   <span className="mv-list-item__body">
                     <span className="mv-list-item__top">
-                      <strong>{mentor.fullName || `Mentor #${request.id}`}</strong>
+                      <strong>{mentor.fullName || request.fullName || `Mentor #${request.id}`}</strong>
                       <StatusBadge status={request.status} />
                     </span>
                     <span className="mv-list-item__sub">
-                      {mentor.headline || mentor.email || "No headline set"}
+                      {mentor.headline || request.fullName || mentor.email || "No headline set"}
                     </span>
                     <span className="mv-list-item__sub">
                       {mentor.company
@@ -626,11 +675,11 @@ export default function MentorVerificationsPage({ notify }) {
                     {skills.length > 0 && (
                       <span className="mv-list-item__skills">
                         {skills.join(" · ")}
-                        {parseSkillChips(mentor.skills).length > skills.length && " …"}
+                        {normalizeSkills(mentor.skills).length > skills.length && " …"}
                       </span>
                     )}
                     <span className="mv-list-item__meta">
-                      Requested {formatDate(request.createdAt)}
+                      Submitted {formatDate(request.submittedAt || request.createdAt)}
                     </span>
                   </span>
                 </button>
@@ -668,7 +717,7 @@ export default function MentorVerificationsPage({ notify }) {
                     </p>
                   </div>
                   <div className="mv-detail__actions">
-                    {selected.status === "PENDING" && (
+                    {(selected.status === "PENDING" || selected.status === "MORE_INFORMATION_REQUIRED") && (
                       <>
                         <button
                           type="button"
@@ -680,6 +729,14 @@ export default function MentorVerificationsPage({ notify }) {
                         </button>
                         <button
                           type="button"
+                          className="admin-action-btn admin-action-cancel"
+                          disabled={updatingId === selected.id}
+                          onClick={() => openRequestInfo(selected)}
+                        >
+                          <Icon name="contact_support" /> Request more info
+                        </button>
+                        <button
+                          type="button"
                           className="admin-action-btn admin-action-reject"
                           disabled={updatingId === selected.id}
                           onClick={() => openReject(selected)}
@@ -687,6 +744,24 @@ export default function MentorVerificationsPage({ notify }) {
                           <Icon name="cancel" /> Reject
                         </button>
                       </>
+                    )}
+                    {selected.mentor?.email && (
+                      <a
+                        className="admin-action-btn admin-action-send"
+                        href={`mailto:${encodeURIComponent(selected.mentor.email)}?subject=${encodeURIComponent("SkillSwap: Your mentor verification application")}&body=${encodeURIComponent(`Hi ${selected.mentor.fullName || "there"},\n\nRegarding your mentor verification application (#${selected.id}, status: ${selected.status || "PENDING"}).\n\n${selected.resumeUrl ? `We've reviewed the resume you submitted: ${selected.resumeUrl}\n` : ""}${selected.documentUrl ? `Verification document: ${selected.documentUrl}\n` : ""}\nBest regards,\nThe SkillSwap team`)}`}
+                      >
+                        <Icon name="send" /> Send message
+                      </a>
+                    )}
+                    {(selected.resumeUrl || selected.mentor?.resumeUrl) && (
+                      <a
+                        className="admin-action-btn admin-action-cancel"
+                        href={selected.resumeUrl || selected.mentor.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Icon name="download" /> Resume
+                      </a>
                     )}
                   </div>
                 </header>
@@ -719,6 +794,41 @@ export default function MentorVerificationsPage({ notify }) {
                         className="admin-action-btn admin-action-cancel"
                         disabled={updatingId === selected.id}
                         onClick={() => setRejectOpenFor(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {infoOpenFor === selected.id && (
+                  <div className="mv-reject-form">
+                    <label htmlFor="mv-info-reason">What information do you need? (sent to the applicant)</label>
+                    <textarea
+                      id="mv-info-reason"
+                      rows={3}
+                      value={infoRequest}
+                      onChange={(e) => {
+                        setInfoRequest(e.target.value);
+                        setInfoError("");
+                      }}
+                      placeholder="e.g., Please upload a recent government ID and a second certificate."
+                    />
+                    {infoError && <p className="mv-reject-error">{infoError}</p>}
+                    <div className="mv-reject-form__actions">
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-approve"
+                        disabled={updatingId === selected.id}
+                        onClick={() => submitRequestInfo(selected)}
+                      >
+                        {updatingId === selected.id ? "Sending…" : "Send request"}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-cancel"
+                        disabled={updatingId === selected.id}
+                        onClick={() => setInfoOpenFor(null)}
                       >
                         Cancel
                       </button>

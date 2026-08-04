@@ -5,6 +5,7 @@ import {
   updateCertification,
   deleteCertification,
 } from "../../api/certifications";
+import { normalizeSkills } from "../../utils/skills";
 import { getApiErrorMessage } from "../../utils/apiErrors";
 import "./MentorCertifications.css";
 
@@ -66,12 +67,6 @@ const validate = (form) => {
     }
   }
   return "";
-};
-
-/** Parse skills string into array */
-const parseSkills = (raw) => {
-  if (!raw) return [];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
 };
 
 /** Serialize skills array to comma-separated string */
@@ -144,14 +139,14 @@ export default function MentorCertificationsManager({ mentorId, notify, readonly
   const addSkill = () => {
     const trimmed = skillInput.trim();
     if (!trimmed) return;
-    const currentSkills = parseSkills(form.skillsCovered);
+    const currentSkills = normalizeSkills(form.skillsCovered);
     if (currentSkills.includes(trimmed)) return;
     setForm((prev) => ({ ...prev, skillsCovered: serializeSkills([...currentSkills, trimmed]) }));
     setSkillInput("");
   };
 
   const removeSkill = (skill) => {
-    const currentSkills = parseSkills(form.skillsCovered);
+    const currentSkills = normalizeSkills(form.skillsCovered);
     setForm((prev) => ({ ...prev, skillsCovered: serializeSkills(currentSkills.filter((s) => s !== skill)) }));
   };
 
@@ -392,7 +387,7 @@ export default function MentorCertificationsManager({ mentorId, notify, readonly
                     list="mcm-skill-suggestions"
                   />
                   <datalist id="mcm-skill-suggestions">
-                    {DEFAULT_SKILLS.filter(s => !parseSkills(form.skillsCovered).includes(s)).map(s => (
+                    {DEFAULT_SKILLS.filter(s => !normalizeSkills(form.skillsCovered).includes(s)).map(s => (
                       <option key={s} value={s} />
                     ))}
                   </datalist>
@@ -400,9 +395,9 @@ export default function MentorCertificationsManager({ mentorId, notify, readonly
                     Add
                   </button>
                 </div>
-                {parseSkills(form.skillsCovered).length > 0 && (
+                {normalizeSkills(form.skillsCovered).length > 0 && (
                   <div className="mcm-form__chips">
-                    {parseSkills(form.skillsCovered).map((skill) => (
+                    {normalizeSkills(form.skillsCovered).map((skill) => (
                       <span key={skill} className="mcm-chip">
                         {skill}
                         <button type="button" className="mcm-chip__remove" onClick={() => removeSkill(skill)} aria-label={`Remove ${skill}`}>
@@ -496,7 +491,7 @@ export default function MentorCertificationsManager({ mentorId, notify, readonly
         <div className="mcm-grid">
           {certifications.map((cert) => {
             const isExpanded = expandedId === cert.id;
-            const skills = parseSkills(cert.skillsCovered);
+            const skills = normalizeSkills(cert.skillsCovered);
             return (
               <div key={cert.id} className={`mcm-card-item ${isExpanded ? "mcm-card-item--expanded" : ""}`}>
                 <div className="mcm-card-item__top">

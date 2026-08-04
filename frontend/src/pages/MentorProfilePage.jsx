@@ -4,6 +4,7 @@ import client from "../api/client";
 import { getErrorFeedback, getInfoFeedback } from "../utils/comingSoon";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import ReportModal from "../components/ReportModal";
+import { normalizeSkills } from "../utils/skills";
 import BookingFlowPage from "./BookingFlowPage";
 import "./MentorProfilePage.css";
 
@@ -31,18 +32,6 @@ const formatDateTime = (value) => {
   if (!value) return "TBD";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : d.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-};
-
-const parseSkillChips = (raw) => {
-  const value = String(raw || "").trim();
-  if (!value) return [];
-  // Empty JSON arrays "[]" or "[ ]" should not produce chips
-  if (/^\s*\[\s*\]\s*$/.test(value)) return [];
-  if (value.startsWith("[") && value.includes('"name"')) {
-    const m = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)].map(x => x[1].trim()).filter(Boolean);
-    if (m.length) return [...new Set(m)].slice(0, 12);
-  }
-  return [...new Set(value.split(/[,\n;|]+/).map(s => s.trim()).filter(Boolean))].slice(0, 12);
 };
 
 const parseLines = (text) => String(text || "").split(/\r?\n|\||\*|;/).map(s => s.trim()).filter(Boolean);
@@ -207,7 +196,10 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
     return () => obs.disconnect();
   }, [loading]);
 
-  const skillChips = useMemo(() => parseSkillChips(mentor?.skills), [mentor?.skills]);
+  const skillChips = useMemo(
+    () => normalizeSkills(mentor?.skills, { limit: 12 }),
+    [mentor?.skills],
+  );
   const certList = useMemo(() => parseLines(mentor?.certificates).slice(0, 6), [mentor?.certificates]);
 
   const achievementItems = useMemo(() => {
@@ -1126,7 +1118,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               </div>
               <div className="mpr-similar-grid">
                 {relatedMentors.slice(0, 3).map(m => {
-                  const mSkills = parseSkillChips(m.skills);
+                  const mSkills = normalizeSkills(m.skills, { limit: 12 });
                   return (
                     <Link key={m.id} to={`/mentors/${m.id}`} className="mpr-similar-card">
                       <div className="mpr-similar-card__avatar">

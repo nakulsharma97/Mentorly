@@ -36,6 +36,14 @@ public class DirectConversation {
     @JoinColumn(name = "participant_two_id", nullable = false)
     private User participantTwo;
 
+    /** Pinned by the current participant (per-user flag). */
+    @Column(name = "pinned", nullable = false)
+    private boolean pinned = false;
+
+    /** Archived by the current participant (per-user flag). */
+    @Column(name = "archived", nullable = false)
+    private boolean archived = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 

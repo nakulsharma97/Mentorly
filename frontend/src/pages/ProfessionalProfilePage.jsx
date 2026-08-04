@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { normalizeSkills } from "../utils/skills";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
@@ -15,16 +16,6 @@ const formatNum = (n) => {
   const v = Number(n);
   if (v >= 1000) return (v / 1000).toFixed(1) + "k";
   return v.toLocaleString();
-};
-
-const parseSkillChips = (raw) => {
-  const value = String(raw || "").trim();
-  if (!value) return [];
-  if (value.startsWith("[") && value.includes('"name"')) {
-    const m = [...value.matchAll(/"name"\s*:\s*"([^"]+)"/g)].map((x) => x[1].trim()).filter(Boolean);
-    if (m.length) return [...new Set(m)];
-  }
-  return [...new Set(value.split(/[,\n;|]+/).map((s) => s.trim()).filter(Boolean))];
 };
 
 const skillChipsToString = (chips) => chips.join(", ");
@@ -165,7 +156,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
       certificates: profile.certificates || "",
       resumeUrl: profile.resumeUrl || "",
     });
-    setSkillChips(parseSkillChips(profile.skills));
+    setSkillChips(normalizeSkills(profile.skills));
     setImgError(false);
   }, [profile]);
 
@@ -188,7 +179,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
 
   /* ── Stats ── */
   const stats = useMemo(() => {
-    const chips = parseSkillChips(profile?.skills);
+    const chips = normalizeSkills(profile?.skills);
     return [
       { icon: "auto_awesome", value: chips.length, label: "Skills" },
       { icon: "workspace_premium", value: formatNum(profile?.profileCompletionPercent || 0), label: "Completion", suffix: "%" },
@@ -272,7 +263,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
       certificates: profile.certificates || "",
       resumeUrl: profile.resumeUrl || "",
     });
-    setSkillChips(parseSkillChips(profile.skills));
+    setSkillChips(normalizeSkills(profile.skills));
     setDirty(false);
   }, [profile]);
 

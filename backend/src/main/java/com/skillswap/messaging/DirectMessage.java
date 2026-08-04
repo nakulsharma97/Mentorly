@@ -42,6 +42,10 @@ public class DirectMessage {
     @Column(name = "read_by_recipient", nullable = false)
     private boolean readByRecipient = false;
 
+    /** Reactions as a JSON object mapping emoji -> [userIds], e.g. {"👍":[1,5]}. */
+    @Column(name = "reactions", columnDefinition = "TEXT")
+    private String reactions;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 }

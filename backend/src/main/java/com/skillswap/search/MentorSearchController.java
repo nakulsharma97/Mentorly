@@ -3,18 +3,22 @@ package com.skillswap.search;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.review.MentorReviewRepository;
+import com.skillswap.safety.UserBlockRepository;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,6 +33,8 @@ public class MentorSearchController {
 
         private final UserRepository userRepository;
         private final BookingRepository bookingRepository;
+        private final DirectConversationRepository directConversationRepository;
+        private final UserBlockRepository userBlockRepository;
         private final MentorReviewRepository mentorReviewRepository;
         private final SessionRepository sessionRepository;
 
@@ -38,32 +44,105 @@ public class MentorSearchController {
          */
         @GetMapping("/users")
         public ApiResponse<List<UserSearchResult>> searchUsers(
+                        @AuthenticationPrincipal User currentUser,
                         @RequestParam(required = false) String q,
                         @RequestParam(defaultValue = "10") int size) {
 
                 String normalizedQuery = q == null ? "" : q.trim();
                 int safeSize = Math.max(1, Math.min(size, 20));
 
-                if (normalizedQuery.isBlank()) {
-                        return new ApiResponse<>("Users fetched", List.of());
-                }
+                List<User> users = normalizedQuery.isBlank()
+                                ? userRepository.findSuggestedForMessaging(safeSize)
+                                : userRepository.searchUsersForMessaging(escapeLike(normalizedQuery), safeSize);
 
-                // Escape SQL LIKE wildcards so "%" / "_" in the query match
-                // literally instead of broadening the pattern (abuse, not
-                // injection — params are bound, but wildcard characters would
-                // otherwise let a query like "%" return every user).
-                List<User> users = userRepository.searchUsersByName(escapeLike(normalizedQuery), safeSize);
+                OffsetDateTime onlineCutoff = OffsetDateTime.now().minusMinutes(5);
 
                 List<UserSearchResult> results = users.stream()
+                                .filter(u -> currentUser == null || !u.getId().equals(currentUser.getId()))
                                 .map(u -> new UserSearchResult(
                                                 u.getId(),
                                                 u.getFullName(),
                                                 u.getDisplayUsername(),
+                                                u.getEmail(),
                                                 u.getProfileImageUrl(),
-                                                u.getRole().name()))
+                                                u.getRole().name(),
+                                                u.getSkills(),
+                                                u.getHeadline(),
+                                                u.getCompany(),
+                                                u.getYearsOfExperience(),
+                                                u.isMentorVerified(),
+                                                u.getLastActiveAt() != null
+                                                                && u.getLastActiveAt().isAfter(onlineCutoff),
+                                                computeAvailabilityText(u, onlineCutoff),
+                                                u.getRole() == UserRole.MENTOR ? getAverageRating(u.getId()) : null,
+                                                currentUser != null && canStartDirect(currentUser, u)))
                                 .collect(Collectors.toList());
 
                 return new ApiResponse<>("Users fetched", results);
+        }
+
+        private String computeAvailabilityText(User user, OffsetDateTime onlineCutoff) {
+                if (user.getLastActiveAt() != null && user.getLastActiveAt().isAfter(onlineCutoff)) {
+                        return "Online now";
+                }
+                Integer response = user.getResponseTimeMinutes();
+                if (response != null && response > 0) {
+                        return "Usually replies in " + response + " min";
+                }
+                if (user.getLastActiveAt() != null) {
+                        return "Active recently";
+                }
+                return "Availability unknown";
+        }
+
+        private boolean canStartDirect(User currentUser, User target) {
+                if (currentUser == null || target == null) {
+                        return false;
+                }
+                if (currentUser.getId().equals(target.getId())) {
+                        return false;
+                }
+                boolean blocked = userBlockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), target.getId())
+                                || userBlockRepository.existsByBlockerIdAndBlockedId(target.getId(),
+                                                currentUser.getId());
+                if (blocked) {
+                        return false;
+                }
+
+                if (directConversationRepository.findBetweenUsers(currentUser, target).isPresent()) {
+                        return true;
+                }
+
+                return hasAcceptedSession(currentUser.getId(), target.getId());
+        }
+
+        private boolean hasAcceptedSession(Long currentUserId, Long targetUserId) {
+                for (BookingStatus status : List.of(
+                                BookingStatus.ACCEPTED,
+                                BookingStatus.CONFIRMED,
+                                BookingStatus.IN_PROGRESS,
+                                BookingStatus.COMPLETED)) {
+                        boolean hasForward = !bookingRepository
+                                        .findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(
+                                                        currentUserId,
+                                                        targetUserId,
+                                                        status)
+                                        .isEmpty();
+                        if (hasForward) {
+                                return true;
+                        }
+
+                        boolean hasReverse = !bookingRepository
+                                        .findBySessionMentorIdAndLearnerIdAndBookingStatusOrderByCreatedAtDesc(
+                                                        currentUserId,
+                                                        targetUserId,
+                                                        status)
+                                        .isEmpty();
+                        if (hasReverse) {
+                                return true;
+                        }
+                }
+                return false;
         }
 
         /**
@@ -73,8 +152,18 @@ public class MentorSearchController {
                         Long userId,
                         String fullName,
                         String username,
+                        String email,
                         String profileImageUrl,
-                        String role) {
+                        String role,
+                        String skills,
+                        String headline,
+                        String company,
+                        Integer yearsOfExperience,
+                        boolean mentorVerified,
+                        boolean online,
+                        String availability,
+                        Double rating,
+                        boolean canStartDirect) {
         }
 
         @GetMapping("/mentors")
@@ -106,10 +195,10 @@ public class MentorSearchController {
                                                 safeMinPrice,
                                                 safeMaxPrice,
                                                 safeMinRating,
-                                                null,  // minExperience - not filtered by default
-                                                null,  // onlineCutoff - not filtered by default
-                                                null,  // savedLearnerId - not filtered by default
-                                                "recent",  // default sort
+                                                null, // minExperience - not filtered by default
+                                                null, // onlineCutoff - not filtered by default
+                                                null, // savedLearnerId - not filtered by default
+                                                "recent", // default sort
                                                 safeSize,
                                                 offset)
                                 : userRepository.findByRole(UserRole.MENTOR).stream()
@@ -166,9 +255,9 @@ public class MentorSearchController {
                 return mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
         }
 
-/**
- * Immutable data carrier for mentor search result.
- */
+        /**
+         * Immutable data carrier for mentor search result.
+         */
         public record MentorSearchResult(
                         Long mentorId,
                         String mentorName,

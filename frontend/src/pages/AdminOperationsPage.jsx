@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
+import {
+  ArrowRight, BadgeCheck, BarChart3, CreditCard, Flag, LayoutDashboard,
+  MessageSquare, Share2, Users as UsersIcon, Wallet as WalletIcon,
+} from 'lucide-react';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
-import StatsCard from '../modules/common/dashboard/StatsCard';
 import SectionCard from '../modules/common/dashboard/SectionCard';
 import TrendChart from '../modules/common/dashboard/TrendChart';
+import {
+  AuHero,
+  AuPageHeader,
+  AuSkeleton,
+  AuStat,
+} from '../modules/admin/ui';
 import './AdminOperationsPage.css';
 
 const statusOptions = ['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
@@ -44,11 +53,11 @@ const initialsOf = (name) => {
 };
 
 const TABS = [
-  { key: 'overview', label: 'Overview', icon: 'dashboard' },
-  { key: 'reports', label: 'Reports', icon: 'flag' },
-  { key: 'conversations', label: 'Conversations', icon: 'forum' },
-  { key: 'payments', label: 'Payments', icon: 'payments' },
-  { key: 'referral', label: 'Referrals', icon: 'share' },
+  { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { key: 'reports', label: 'Reports', icon: Flag },
+  { key: 'conversations', label: 'Conversations', icon: MessageSquare },
+  { key: 'payments', label: 'Payments', icon: CreditCard },
+  { key: 'referral', label: 'Referrals', icon: Share2 },
 ];
 
 const PATH_TAB_MAP = {
@@ -319,19 +328,11 @@ export default function AdminOperationsPage({ notify }) {
         </div>
       ) : (
         <>
-          <div className="admin-payment-stats" style={{ marginBottom: 18 }}>
-            <StatsCard icon="group_add" label="Total Referrals"
-              value={formatNumber(referralAnalytics.totalReferrals)}
-              description={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} />
-            <StatsCard icon="payments" label="Credits Earned"
-              value={formatNumber(referralAnalytics.totalCreditsEarned)}
-              description={`${referralAnalytics.avgPerReferrer} avg per referrer`} />
-            <StatsCard icon="trending_up" label="Conversion Rate"
-              value={`${referralAnalytics.conversionRate}%`}
-              description="Of all users have referred someone" />
-            <StatsCard icon="groups" label="Users w/ Referral Code"
-              value={formatNumber(referralAnalytics.usersWithReferralCode)}
-              description="Total users who can refer" />
+          <div className="au-stats" style={{ marginBottom: 18 }}>
+            <AuStat icon={Share2} label="Total Referrals" value={formatNumber(referralAnalytics.totalReferrals)} subtitle={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} tone="blue" index={0} />
+            <AuStat icon={WalletIcon} label="Credits Earned" value={formatNumber(referralAnalytics.totalCreditsEarned)} subtitle={`${referralAnalytics.avgPerReferrer} avg per referrer`} tone="green" index={1} />
+            <AuStat icon={BarChart3} label="Conversion Rate" value={`${referralAnalytics.conversionRate}%`} subtitle="Of all users have referred someone" tone="violet" index={2} />
+            <AuStat icon={UsersIcon} label="Users w/ Referral Code" value={formatNumber(referralAnalytics.usersWithReferralCode)} subtitle="Total users who can refer" tone="amber" index={3} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
@@ -387,12 +388,12 @@ export default function AdminOperationsPage({ notify }) {
 
   // ── Render helpers ──
   const renderSummary = () => (
-    <section className="admin-summary-grid" aria-label="Platform summary">
-      <SummaryCard label="Users" value={summary.totalUsers} />
-      <SummaryCard label="Learners" value={summary.learners} />
-      <SummaryCard label="Mentors" value={summary.mentors} />
-      <SummaryCard label="Open reports" value={summary.openReports} />
-      <SummaryCard label="Pending verifications" value={summary.pendingMentorVerifications} />
+    <section className="au-stats" aria-label="Platform summary">
+      <AuStat icon={UsersIcon} label="Users" value={summary.totalUsers} subtitle="Total accounts" tone="slate" index={0} />
+      <AuStat icon={UsersIcon} label="Learners" value={summary.learners} subtitle="Learners" tone="blue" index={1} />
+      <AuStat icon={UsersIcon} label="Mentors" value={summary.mentors} subtitle="Mentors" tone="violet" index={2} />
+      <AuStat icon={Flag} label="Open reports" value={summary.openReports} subtitle="Awaiting review" tone="rose" index={3} />
+      <AuStat icon={BadgeCheck} label="Pending verifications" value={summary.pendingMentorVerifications} subtitle="Mentor checks" tone="amber" index={4} />
     </section>
   );
 
@@ -734,42 +735,58 @@ export default function AdminOperationsPage({ notify }) {
   // ── Main render ──
   if (loading && activeTab === 'overview') {
     return (
-      <main className="admin-page">
-        <section className="admin-hero">
-          <h1>Admin operations</h1>
-          <p>Loading moderation queue...</p>
-        </section>
-      </main>
+      <div className="au au-page">
+        <div className="au-inner">
+          <AuPageHeader crumb={["Admin", "Dashboard"]} title="Admin Control Center" subtitle="Loading moderation queue..." />
+          <AuSkeleton rows={5} label="Loading dashboard" />
+        </div>
+      </div>
     );
   }
 
   return (
-    <main className="admin-page">
-      <section className="admin-hero">
-        <div>
-          <p className="admin-eyebrow">Operations</p>
-          <h1>Admin control center</h1>
-          <p>Review reports, track mentor verification, monitor conversations, and manage payments.</p>
+    <div className="au au-page">
+      <div className="au-inner">
+        <AuPageHeader
+          crumb={["Admin", "Dashboard"]}
+          title="Admin Control Center"
+          subtitle="Review reports, track mentor verification, monitor conversations, and manage payments."
+        />
+
+        <AuHero
+          variant="dashboard"
+          label="Operations Overview"
+          title="Platform command center"
+          description="Everything your moderation and finance team needs to keep SkillSwap safe, verified and running smoothly — all in one place."
+          icon={BarChart3}
+          cta={
+            <button type="button" className="au-hero__cta" onClick={() => setActiveTab('reports')}>
+              Review reports queue
+              <ArrowRight size={16} aria-hidden="true" />
+            </button>
+          }
+        />
+
+        {/* Summary cards (always visible) */}
+        {summary && renderSummary()}
+
+        {/* Tabs */}
+        <div className="au-card" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap", width: "fit-content" }} role="tablist" aria-label="Admin sections">
+          {TABS.map((tab) => {
+            const IconCmp = tab.icon;
+            return (
+              <button key={tab.key} type="button" role="tab" aria-selected={activeTab === tab.key}
+                className={`au-btn au-btn--sm ${activeTab === tab.key ? 'au-btn--primary' : 'au-btn--ghost'}`}
+                onClick={() => setActiveTab(tab.key)}>
+                <IconCmp size={16} />
+                {tab.label}
+                {tab.key === 'referral' && referralAnalytics && (
+                  <span className="au-badge au-badge--purple" style={{ marginLeft: 4, height: 22, padding: "0 8px" }}>{referralAnalytics.totalReferrals}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
-      </section>
-
-      {/* Summary cards (always visible) */}
-      {summary && renderSummary()}
-
-      {/* Tabs */}
-      <div className="admin-tabs" role="tablist" aria-label="Admin sections">
-        {TABS.map((tab) => (
-          <button key={tab.key} type="button"
-            className={`admin-tab ${activeTab === tab.key ? 'admin-tab--active' : ''}`}
-            onClick={() => setActiveTab(tab.key)}>
-            <Icon name={tab.icon} />
-            {tab.label}
-            {tab.key === 'referral' && referralAnalytics && (
-              <span className="admin-count-badge">{referralAnalytics.totalReferrals}</span>
-            )}
-          </button>
-        ))}
-      </div>
 
       {/* Tab content */}
       {activeTab === 'overview' && (
@@ -912,7 +929,8 @@ export default function AdminOperationsPage({ notify }) {
       {activeTab === 'conversations' && renderConversationsTab()}
       {activeTab === 'payments' && renderPaymentsTab()}
       {activeTab === 'referral' && renderReferralTab()}
-    </main>
+      </div>
+    </div>
   );
 }
 
@@ -929,11 +947,4 @@ function MigrationStat({ label, value, color }) {
   );
 }
 
-function SummaryCard({ label, value }) {
-  return (
-    <article className="admin-stat">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
-  );
-}
+

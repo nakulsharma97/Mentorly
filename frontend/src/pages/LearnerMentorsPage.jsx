@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import { normalizeSkills } from "../utils/skills";
 import { useFavorites } from "../hooks/useFavorites";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
@@ -88,35 +89,6 @@ function initials(value) {
     .toUpperCase();
 }
 
-function splitSkills(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => splitSkills(item))
-      .map((part) => part.trim())
-      .filter(Boolean);
-  }
-  const text = String(value).trim();
-  if (!text) return [];
-  if (text.startsWith("[") && text.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .flatMap((item) => splitSkills(item?.name ?? item))
-          .map((part) => part.trim())
-          .filter(Boolean);
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return text
-    .split(/[\n,;|]+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 /* ==========================================================================
    Mentor extras helper (mirrored from LearnerPages.jsx)
    ========================================================================== */
@@ -128,7 +100,7 @@ function mentorExtras(rawData) {
   const company = rawData?.company || rawData?.currentCompany || null;
   const role = rawData?.headline || rawData?.title || null;
   const price = rawData?.minSessionPrice ?? rawData?.hourlyRate ?? null;
-  const languages = splitSkills(rawData?.languages);
+  const languages = normalizeSkills(rawData?.languages);
   const responseMinutes = Number(rawData?.responseTimeMinutes || 0);
   const sessions = Number(rawData?.totalCompletedSessions || 0);
   return {
@@ -151,7 +123,9 @@ function mentorExtras(rawData) {
    ========================================================================== */
 
 function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData }) {
-  const skills = mentor.skills || [];
+  // mentor.skills can be a CSV string, JSON string, array, or null — never
+  // call .slice/.map/.length on it directly.
+  const skills = normalizeSkills(mentor.skills);
   const rating = Number(mentor.averageRating || rawData?.averageRating || 0);
   const reviews = Number(mentor.totalReviews || rawData?.totalReviews || 0);
   const liveNow = mentor.liveNow || rawData?.liveNow || false;
@@ -473,7 +447,7 @@ export default function LearnerMentorsPage({ notify }) {
       rawMentors.map((m) => ({
         id: m.mentorId,
         fullName: m.mentorName,
-        skills: splitSkills(m.skills),
+        skills: normalizeSkills(m.skills),
         profileImageUrl: m.profileImageUrl,
         averageRating: Number(m.averageRating || 0),
         totalReviews: Number(m.totalReviews || 0),

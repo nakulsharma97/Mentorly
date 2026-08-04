@@ -255,6 +255,18 @@
   gap: 6px;
 }
 
+.admin-action-send {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+[data-theme="dark"] .admin-action-send {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.4);
+  color: #7dd3fc;
+}
+
 /* ── Reject form ─────────────────────────────────────────── */
 
 .mv-reject-form {

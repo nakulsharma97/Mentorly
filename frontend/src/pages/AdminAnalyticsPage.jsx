@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./AdminAnalyticsPage.css";
+import "../modules/admin/ui/admin-ui.css";
 
 /* ── Range presets (mapped to the backend `days` window) ─────────── */
 const RANGES = [
@@ -467,7 +468,7 @@ export default function AdminAnalyticsPage({ notify }) {
   if (loading && !dashboard) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+        <div className="admin-hero">
           <p className="admin-eyebrow">Analytics</p>
           <h1>Platform Analytics</h1>
           <p>Loading dashboard data…</p>
@@ -484,7 +485,7 @@ export default function AdminAnalyticsPage({ notify }) {
   if (error && !dashboard) {
     return (
       <section className="admin-page">
-        <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+        <div className="admin-hero">
           <p className="admin-eyebrow">Analytics</p>
           <h1>Platform Analytics</h1>
           <p>Could not load dashboard data. Start the backend and ensure you are signed in as an admin.</p>
@@ -528,7 +529,7 @@ export default function AdminAnalyticsPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero ── */}
-      <div className="admin-hero" style={{ marginBottom: 0, borderRadius: "0 0 18px 18px" }}>
+      <div className="admin-hero">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
           <div>
             <p className="admin-eyebrow">Analytics</p>
