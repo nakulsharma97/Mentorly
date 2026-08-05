@@ -3,6 +3,8 @@ import { NavLink } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
+import { formatUnreadCount } from "../../messages/unreadMessagesStore";
+import { useUnreadMessageCount } from "./useUnreadMessages";
 
 const DRAWER_TRANSITION = { duration: 0.3, ease: "easeInOut" };
 
@@ -24,9 +26,9 @@ export default function WorkspaceSidebar({
   collapsed = false,
   isDesktop = true,
   mobileOpen = false,
-  unreadNotifications = 0,
   onCloseMobile,
 }) {
+  const unreadMessages = useUnreadMessageCount();
   const fullName = String(profile?.fullName || brand?.title || "User").trim();
   const asideRef = useRef(null);
   const touchStartX = useRef(null);
@@ -101,8 +103,15 @@ export default function WorkspaceSidebar({
         <span className="ws-sb__link-rail" />
         <span className="ws-sb__link-icon-wrap">
           <SsIcon name={item.icon} size={20} className="ws-sb__link-icon" />
-          {isMessages && unreadNotifications > 0 && (
-            <span className="ws-sb__link-dot" aria-hidden="true" />
+          {isMessages && unreadMessages > 0 && (
+            <span
+              key={unreadMessages}
+              className="ws-sb__link-badge"
+              role="status"
+              aria-label={`${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"}`}
+            >
+              {formatUnreadCount(unreadMessages)}
+            </span>
           )}
         </span>
         <span className="ws-sb__link-label">{item.label}</span>

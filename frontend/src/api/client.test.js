@@ -404,6 +404,27 @@ describe("setAuthToken and getActiveAuthToken", () => {
     setAuthToken(expiredToken);
     expect(getActiveAuthToken()).toBeNull();
   });
+
+  it("does NOT destroy the session when the access token is expired (refresh cookie survives)", () => {
+    const expiredPayload = {
+      userId: 17,
+      sub: "test@test.com",
+      exp: Math.floor(Date.now() / 1000) - 10, // 10 seconds in the past
+    };
+    const expiredToken = createTestJwt(expiredPayload);
+    // Simulate a logged-in session: stored access token + httpOnly-style
+    // refresh cookie that JS must never delete.
+    setAuthToken(expiredToken);
+    document.cookie = "refresh_token=user-refresh-cookie; path=/";
+
+    expect(getActiveAuthToken()).toBeNull();
+
+    // The refresh cookie AND the stored token must survive an expired access
+    // token, otherwise the 401 → /auth/refresh flow fails with 400 and the
+    // user is logged out on every expiry / page refresh.
+    expect(readCookie("refresh_token")).toBe("user-refresh-cookie");
+    expect(localStorage.getItem("token")).toBe(expiredToken);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

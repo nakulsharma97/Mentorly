@@ -277,6 +277,13 @@ afterEach(() => {
 // ──────────────────────────────────────────────
 
 describe("LearnerMessagesPage — WebSocket integration", () => {
+  // ── Tab title regression (issue: messages pages left tab at "SkillSwap") ──
+  it("sets the browser tab title to 'Messages | SkillSwap'", async () => {
+    renderPage();
+    await waitForLoaded();
+    expect(document.title).toBe("Messages | SkillSwap");
+  });
+
   // ── Test 1: Loads conversations and shows the list ──
   it("loads conversations and renders the conversation list", async () => {
     renderPage();

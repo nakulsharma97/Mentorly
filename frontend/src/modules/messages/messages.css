@@ -299,6 +299,29 @@
   box-shadow: 0 4px 14px rgba(20, 184, 166, 0.08);
 }
 
+/* Unread conversation: teal left border, soft highlight, bold name + preview.
+   Indicators clear automatically once the conversation is opened (backend
+   marks messages read and the list refetches with unreadCount = 0). */
+.ms-conv-card-v2.has-unread {
+  background: rgba(20, 184, 166, 0.06);
+  border-left: 3px solid var(--ms-primary);
+}
+
+.ms-conv-card-v2.has-unread .ms-conv-card-v2__name {
+  font-weight: 800;
+  color: var(--ms-text);
+}
+
+.ms-conv-card-v2.has-unread .ms-conv-card-v2__msg {
+  font-weight: 600;
+  color: var(--ms-text);
+}
+
+.ms-conv-card-v2.has-unread .ms-conv-card-v2__time {
+  color: var(--ms-primary-dark);
+  font-weight: 700;
+}
+
 .ms-conv-card-v2__avatar-container {
   position: relative;
   flex-shrink: 0;

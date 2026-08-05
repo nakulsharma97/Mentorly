@@ -62,8 +62,14 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     return () => window.removeEventListener("scroll", updateActiveSection);
   }, []);
 
+  // Scroll-reveal observer. The mentor cards mount only AFTER the mentors
+  // fetch resolves (mentorsLoading flips to false), so the observer must
+  // re-run then — otherwise the freshly rendered cards keep opacity:0 forever
+  // and the section looks "empty" while headings are visible.
   useEffect(() => {
-    const elements = document.querySelectorAll(".landing-reveal");
+    const elements = document.querySelectorAll(
+      ".landing-reveal:not(.is-visible)",
+    );
     if (!elements.length) {
       return undefined;
     }
@@ -82,7 +88,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, []);
+  }, [mentorsLoading]);
 
   useEffect(() => {
     let isMounted = true;
@@ -530,13 +536,33 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
           <div className="landing-mentor-grid">
             {mentorsLoading ? (
-              <div className="landing-mentor-empty">
-                Loading mentor profiles...
-              </div>
+              [0, 1, 2].map((key) => (
+                <div
+                  className="landing-mentor-card landing-mentor-card--skeleton"
+                  key={key}
+                >
+                  <div className="skeleton landing-mentor-skeleton-img" />
+                  <div className="landing-mentor-body">
+                    <div className="skeleton landing-skeleton-line landing-skeleton-line--lg" />
+                    <div className="skeleton landing-skeleton-line" />
+                    <div className="skeleton landing-skeleton-line landing-skeleton-line--sm" />
+                  </div>
+                </div>
+              ))
             ) : displayMentors.length === 0 ? (
               <div className="landing-mentor-empty">
-                <p>No mentors are available right now.</p>
-                <p>Check back soon for new mentors joining the marketplace.</p>
+                <span
+                  className="landing-mentor-empty-icon material-symbols-outlined"
+                  aria-hidden="true"
+                >
+                  groups
+                </span>
+                <p className="landing-mentor-empty-title">
+                  No verified mentors available yet.
+                </p>
+                <p className="landing-mentor-empty-sub">
+                  Check back soon for new mentors joining the marketplace.
+                </p>
               </div>
             ) : (
               displayMentors.map((mentor) => {

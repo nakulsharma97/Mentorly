@@ -208,16 +208,43 @@
   flex-shrink: 0;
 }
 
-.ws-sb__link-dot {
+/* Unread message count badge on the Messages nav item. Rendered only when
+   the backend reports unread messages > 0 (absolutely positioned, so it
+   never reserves space while hidden). */
+.ws-sb__link-badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
   background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid var(--panel);
-  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.35);
+  animation: ws-badge-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ws-badge-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Hover states */

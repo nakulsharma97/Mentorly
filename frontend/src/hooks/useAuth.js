@@ -6,6 +6,7 @@ import client, {
   getActiveAuthToken,
   onMaintenanceMode,
 } from "../api/client";
+import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
 import { isPublicPath, roleRoot } from "../modules/common/routeUtils";
 
 const isProfileComplete = (profile) => {
@@ -53,6 +54,9 @@ export function useAuthProfile({ notify }) {
     setProfile(null);
     setProfileChecked(false);
     setUnreadNotifications(0);
+    // Clear the unread-message badge so a previous user's count never leaks
+    // into the next session (polling repopulates it with fresh data).
+    setUnreadMessages(0);
   }, []);
 
   const syncCurrentUser = useCallback(async () => {
@@ -71,10 +75,17 @@ export function useAuthProfile({ notify }) {
           setProfileChecked(true);
           return maybeProfile;
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        // Only a definitive auth rejection ends the session here. The axios
+        // response interceptor owns cookie/token cleanup for refresh failures
+        // (single-flight, then clearAuthSessionState). Network errors / 5xx
+        // are transient — clearing the refresh cookie on those would log a
+        // valid user out during a backend hiccup, breaking the landing page.
+        const status = Number(err?.response?.status || 0);
+        if (status === 401 || status === 403) {
+          clearAuthSessionState();
+        }
       }
-      clearAuthSessionState();
       if (generation !== syncGenerationRef.current) {
         return null;
       }

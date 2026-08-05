@@ -72,7 +72,6 @@ export default function MentorLayout({
       secondaryLinks={SECONDARY}
       pageMeta={PAGE_META}
       crumbRoot="Mentor"
-      notificationsTo="/mentor/messages"
       profileMenu={PROFILE_MENU}
       storageKey="mentor_sidebar_collapsed"
     />

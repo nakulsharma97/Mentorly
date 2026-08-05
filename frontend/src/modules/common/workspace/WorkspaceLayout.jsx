@@ -2,6 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Outlet } from "react-router";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import WorkspaceTopbar from "./WorkspaceTopbar";
+import { formatTabTitle } from "../../messages/unreadMessagesStore";
+import {
+  useUnreadMessageCount,
+  useUnreadMessagePolling,
+} from "./useUnreadMessages";
 import "../dashboard/dashboard.css";
 import "./workspace.css";
 
@@ -40,6 +45,38 @@ export default function WorkspaceLayout({
   const [isDesktop, setIsDesktop] = useState(
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
+
+  // Backend-driven unread message count (sidebar badge + tab title).
+  useUnreadMessagePolling(profile);
+  const unreadMessages = useUnreadMessageCount();
+
+  // Browser tab title: "(N) <page title>" while unread messages exist.
+  // Page-level effects set document.title on navigation; this observes those
+  // changes and re-applies the count prefix so the badge stays live.
+  //
+  // IMPORTANT: apply() must only write document.title when the value would
+  // actually change. Writing it unconditionally from inside a MutationObserver
+  // that observes the <title> element creates a self-sustaining mutation loop
+  // that starves the main thread and freezes the whole workspace (identical
+  // writes still record a mutation in Chromium).
+  useEffect(() => {
+    const apply = () => {
+      const next = formatTabTitle(document.title, unreadMessages);
+      if (document.title !== next) {
+        document.title = next;
+      }
+    };
+    apply();
+    const titleEl = document.head?.querySelector("title");
+    if (!titleEl) return undefined;
+    const observer = new MutationObserver(apply);
+    observer.observe(titleEl, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [unreadMessages]);
 
   // Track viewport crossing the desktop threshold.
   useEffect(() => {
@@ -104,7 +141,6 @@ export default function WorkspaceLayout({
         collapsed={collapsed}
         isDesktop={isDesktop}
         mobileOpen={mobileOpen}
-        unreadNotifications={unreadNotifications}
         onCloseMobile={() => setMobileOpen(false)}
       />
       <div className="ws-main">

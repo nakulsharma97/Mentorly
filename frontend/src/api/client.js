@@ -272,7 +272,15 @@ export function getActiveAuthToken() {
 
   const expiryMs = Number(payload.exp) * 1000;
   if (Number.isFinite(expiryMs) && Date.now() >= expiryMs) {
-    clearAuthSessionState();
+    // Expired access token — return null WITHOUT clearing the session.
+    //
+    // The old behavior called clearAuthSessionState() here, which also wiped
+    // the httpOnly refresh_token cookie. Every request (incl. the mount-time
+    // /users/me check) then hit 401, and the response interceptor's refresh
+    // call found NO refresh cookie -> backend returned 400 "Refresh token is
+    // required" -> the user was force-logged-out on every token expiry and on
+    // every page refresh. By leaving the session intact, the 401 handler can
+    // refresh transparently using the still-present refresh cookie.
     return null;
   }
 

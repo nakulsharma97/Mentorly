@@ -22,9 +22,15 @@ FROM nginx:1.27-alpine
 
 ENV NODE_ENV=production
 
+# openssl is required by docker-entrypoint.sh to bootstrap a temporary
+# self-signed certificate on first boot (before Let's Encrypt provisioning).
+RUN apk add --no-cache openssl
+
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
-ENTRYPOINT ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

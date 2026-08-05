@@ -192,9 +192,11 @@ describe("useAuthProfile – syncCurrentUser", () => {
 
   // ── 1. No active token ──────────────────────────────────
 
-  it("no token + API fails → clears session, returns null", async () => {
+  it("no token + 401 rejection → clears session, returns null", async () => {
     getActiveAuthToken.mockReturnValue(null);
-    client.get.mockRejectedValue(new Error("No session"));
+    const unauthorized = new Error("No session");
+    unauthorized.response = { status: 401 };
+    client.get.mockRejectedValue(unauthorized);
 
     const { result } = renderHook(
       () => useAuthProfile({ notify: mockNotify }),
@@ -203,6 +205,22 @@ describe("useAuthProfile – syncCurrentUser", () => {
     await tick(100);
 
     expect(clearAuthSessionState).toHaveBeenCalled();
+    expect(result.current.profile).toBeNull();
+    expect(result.current.profileChecked).toBe(true);
+    expect(result.current.isLoggedIn).toBe(false);
+  });
+
+  it("no token + network error → does NOT clear session (transient), returns null", async () => {
+    getActiveAuthToken.mockReturnValue(null);
+    client.get.mockRejectedValue(new Error("Network error"));
+
+    const { result } = renderHook(
+      () => useAuthProfile({ notify: mockNotify }),
+      { wrapper },
+    );
+    await tick(100);
+
+    expect(clearAuthSessionState).not.toHaveBeenCalled();
     expect(result.current.profile).toBeNull();
     expect(result.current.profileChecked).toBe(true);
     expect(result.current.isLoggedIn).toBe(false);

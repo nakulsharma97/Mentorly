@@ -1,32 +1,67 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { AnimatePresence, motion } from "framer-motion";
 import client from "../api/client";
 import "./NotificationCenter.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Notification type config — maps type to icon, color, and category label
+   Notification type config — maps type to icon, color, and category label.
+   Covers mentor/learner flows AND admin operational notifications
+   (verifications, reports, payments, withdrawals, platform alerts).
    ────────────────────────────────────────────────────────────────────────── */
 
 const NOTIF_TYPE_CONFIG = {
+  // ── Session requests & bookings ──
   SESSION_REQUEST_RECEIVED: { icon: "person_add", color: "#0f766e", label: "Session Request" },
   SESSION_REQUEST_ACCEPTED: { icon: "check_circle", color: "#16a34a", label: "Request Accepted" },
   SESSION_REQUEST_DECLINED: { icon: "cancel", color: "#dc2626", label: "Request Declined" },
   SESSION_REQUEST_CANCELLED: { icon: "cancel", color: "#f59e0b", label: "Request Cancelled" },
   SESSION_REQUEST_REPLIED: { icon: "reply", color: "#7c3aed", label: "Learner Reply" },
   SESSION_CREATED: { icon: "video_camera_front", color: "#0f766e", label: "Session Ready" },
+  SESSION_COMPLETED: { icon: "task_alt", color: "#16a34a", label: "Session Completed" },
+  SESSION_CANCELLED: { icon: "event_busy", color: "#ef4444", label: "Session Cancelled" },
   BOOKING_CREATED: { icon: "calendar_month", color: "#0891b2", label: "New Booking" },
   BOOKING_ACCEPTED: { icon: "check_circle", color: "#16a34a", label: "Booking Accepted" },
   BOOKING_DECLINED: { icon: "cancel", color: "#dc2626", label: "Booking Declined" },
+  BOOKING_CANCELLED: { icon: "event_busy", color: "#f59e0b", label: "Booking Cancelled" },
   BOOKING_STATUS: { icon: "info", color: "#6366f1", label: "Booking Update" },
   NEW_SESSION: { icon: "event", color: "#0f766e", label: "New Session" },
+
+  // ── Reviews / certifications ──
   REVIEW_SUBMITTED: { icon: "star", color: "#f59e0b", label: "New Review" },
   NEW_REVIEW: { icon: "star", color: "#f59e0b", label: "New Review" },
   CERTIFICATION_EARNED: { icon: "workspace_premium", color: "#8b5cf6", label: "Certification" },
+
+  // ── Account / role / messages ──
   ROLE_SWITCHED: { icon: "swap_horiz", color: "#6366f1", label: "Role Change" },
   WAITLIST_PROMOTION: { icon: "celebration", color: "#0f766e", label: "Promotion" },
+  MESSAGE_REQUEST_RECEIVED: { icon: "mark_email_unread", color: "#0891b2", label: "Message Request" },
+  MESSAGE_REQUEST_ACCEPTED: { icon: "mark_email_read", color: "#16a34a", label: "Request Accepted" },
+  MESSAGE_REQUEST_DECLINED: { icon: "mail", color: "#6b7280", label: "Request Declined" },
+
+  // ── Admin operations ──
+  MENTOR_VERIFICATION: { icon: "verified", color: "#7c3aed", label: "Mentor Verification" },
+  MENTOR_VERIFICATION_REQUEST: { icon: "verified_user", color: "#7c3aed", label: "Verification Request" },
+  VERIFICATION_APPROVED: { icon: "verified", color: "#16a34a", label: "Verification Approved" },
+  VERIFICATION_REJECTED: { icon: "cancel", color: "#dc2626", label: "Verification Rejected" },
+  PAYMENT_RECEIVED: { icon: "payments", color: "#16a34a", label: "Payment Received" },
+  PAYMENT_UPDATE: { icon: "payments", color: "#0891b2", label: "Payment Update" },
+  PAYOUT_RELEASED: { icon: "account_balance_wallet", color: "#16a34a", label: "Payout Released" },
+  WITHDRAWAL_REQUEST: { icon: "account_balance", color: "#f59e0b", label: "Withdrawal Request" },
+  USER_REPORTED: { icon: "flag", color: "#ef4444", label: "User Reported" },
+  MENTOR_REPORTED: { icon: "flag", color: "#ef4444", label: "Mentor Reported" },
+  COMPLAINT_SUBMITTED: { icon: "feedback", color: "#f59e0b", label: "Complaint" },
+  MODERATION_WARNING: { icon: "gavel", color: "#f59e0b", label: "Moderation Warning" },
+  ACCOUNT_SUSPENDED: { icon: "block", color: "#ef4444", label: "Account Suspended" },
+  SAFETY_UPDATE: { icon: "shield", color: "#0f766e", label: "Safety Update" },
+  NEW_USER_REGISTERED: { icon: "person_add", color: "#2563eb", label: "New User" },
+
+  // ── Platform-wide ──
   ANNOUNCEMENT: { icon: "campaign", color: "#dc2626", label: "Announcement" },
   MAINTENANCE: { icon: "build", color: "#b45309", label: "Maintenance" },
   PLATFORM_UPDATE: { icon: "rocket_launch", color: "#6d28d9", label: "Platform Update" },
+  PLATFORM_ALERT: { icon: "warning", color: "#ef4444", label: "Platform Alert" },
+  SYSTEM_WARNING: { icon: "report", color: "#f59e0b", label: "System Warning" },
 };
 
 const DEFAULT_TYPE_CONFIG = { icon: "notifications", color: "#6b7280", label: "Notification" };
@@ -55,7 +90,7 @@ function relativeTime(dateStr) {
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours} hr ago`;
   const days = Math.floor(hours / 24);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days}d ago`;
@@ -66,21 +101,49 @@ function relativeTime(dateStr) {
   return `${Math.floor(months / 12)}y ago`;
 }
 
+/** Groups notifications by calendar day: Today / Yesterday / Earlier. */
+function dayGroup(dateStr) {
+  if (!dateStr) return "Earlier";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((startToday - startDay) / 86400000);
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return "Earlier";
+}
+
+const GROUP_ORDER = ["Today", "Yesterday", "Earlier"];
+
+function groupNotifications(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const key = dayGroup(item.createdAt);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  }
+  return GROUP_ORDER.filter((key) => groups.has(key)).map((key) => ({
+    label: key,
+    items: groups.get(key),
+  }));
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    Notification Card
    ────────────────────────────────────────────────────────────────────────── */
 
-function NotificationCard({ notification, onMarkRead, onNavigate }) {
+function NotificationCard({ notification, onMarkRead, onNavigate, index = 0 }) {
   const config = getTypeConfig(notification.type);
   const isUnread = !notification.read;
-  
+
   const handleClick = () => {
     if (isUnread && onMarkRead) onMarkRead(notification.id);
     if (onNavigate) onNavigate(notification.type, notification.referenceId);
   };
 
   return (
-    <div
+    <motion.div
       className={`notif-card${isUnread ? " notif-card--unread" : ""}`}
       onClick={handleClick}
       role="button"
@@ -88,29 +151,33 @@ function NotificationCard({ notification, onMarkRead, onNavigate }) {
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") handleClick();
       }}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
+      aria-label={isUnread ? `Unread: ${notification.title}` : notification.title}
     >
-      {/* Type icon */}
-      <div className="notif-card__icon" style={{ background: `${config.color}14`, color: config.color }}>
-        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{config.icon}</span>
+      {/* Type icon — 48px circular */}
+      <div
+        className="notif-card__icon"
+        style={{ background: `${config.color}1a`, color: config.color }}
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 22 }}>{config.icon}</span>
       </div>
 
       {/* Content */}
       <div className="notif-card__content">
         <div className="notif-card__header">
           <div className="notif-card__title-row">
-            <span className="notif-card__type-badge" style={{ background: `${config.color}10`, color: config.color }}>
-              {config.label}
-            </span>
+            <span className="notif-card__title">{notification.title}</span>
             <span className="notif-card__time">{relativeTime(notification.createdAt)}</span>
           </div>
-          <span className="notif-card__title">{notification.title}</span>
+          <span className="notif-card__type-badge" style={{ background: `${config.color}10`, color: config.color }}>
+            {config.label}
+          </span>
         </div>
         <p className="notif-card__desc">{notification.message}</p>
       </div>
-
-      {/* Unread indicator */}
-      {isUnread && <span className="notif-card__dot" />}
-    </div>
+    </motion.div>
   );
 }
 
@@ -135,7 +202,7 @@ function NotificationSkeleton() {
    Empty State
    ────────────────────────────────────────────────────────────────────────── */
 
-function NotificationEmpty({ filter }) {
+function NotificationEmpty({ filter, searching }) {
   return (
     <div className="notif-empty">
       <div className="notif-empty__icon">
@@ -145,12 +212,18 @@ function NotificationEmpty({ filter }) {
         </svg>
       </div>
       <h3 className="notif-empty__title">
-        {filter === "unread" ? "No unread notifications" : "You're all caught up!"}
+        {searching
+          ? "No matching notifications"
+          : filter === "unread"
+            ? "No unread notifications"
+            : "You're all caught up!"}
       </h3>
       <p className="notif-empty__desc">
-        {filter === "unread"
-          ? "You have read all your notifications. New ones will appear here in real time."
-          : "We'll notify you when something important happens."}
+        {searching
+          ? "Try a different search keyword."
+          : filter === "unread"
+            ? "You have read all your notifications. New ones will appear here in real time."
+            : "We'll notify you when something important happens."}
       </p>
     </div>
   );
@@ -210,9 +283,12 @@ export default function NotificationCenter({
   const [unreadCount, setUnreadCount] = useState(externalUnreadCount || 0);
   const [fetchedOnce, setFetchedOnce] = useState(false);
   const [filter, setFilter] = useState("all"); // "all" | "unread"
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+
+  const isAdmin = notificationsPath.startsWith("/admin");
 
   /* ────────────────────────────────────────────── Data fetching ── */
 
@@ -403,6 +479,16 @@ export default function NotificationCenter({
     return () => document.removeEventListener("mousedown", handler);
   }, [fullPage]);
 
+  // Close dropdown on Escape
+  useEffect(() => {
+    if (fullPage || !isOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullPage, isOpen]);
+
   // 30s polling fallback (only when WebSocket not available)
   useEffect(() => {
     if (!isOpen && !fullPage) return;
@@ -482,81 +568,134 @@ export default function NotificationCenter({
     fetchNotifications(false, page + 1, true);
   }, [fetchNotifications, page]);
 
+  /**
+   * Route each notification type to the relevant page. Admin notifications
+   * navigate to the matching admin workspace page; mentor/learner keep their
+   * existing routes. Never falls back to a dashboard redirect.
+   */
   const handleNavigate = useCallback(
     (type, referenceId) => {
       setIsOpen(false);
 
       const isMentor = notificationsPath.startsWith("/mentor");
 
-      // Map each notification type to the correct route
-      const knownRoutes = {
-        // ── Session Requests ──
-        SESSION_REQUEST_RECEIVED: isMentor
-          ? (referenceId ? `/mentor/teach?requestId=${referenceId}` : "/mentor/teach")
-          : null,
-        SESSION_REQUEST_ACCEPTED: isMentor
-          ? "/mentor/students"
-          : (referenceId ? `/learner/sessions?sessionId=${referenceId}` : "/learner/sessions"),
-        SESSION_REQUEST_DECLINED: isMentor
-          ? "/mentor/teach"
-          : (referenceId ? `/learner/requests?requestId=${referenceId}` : "/learner/requests"),
-        SESSION_REQUEST_CANCELLED: isMentor
-          ? "/mentor/teach"
-          : "/learner/requests",
-        SESSION_REQUEST_REPLIED: isMentor
-          ? `/mentor/messages`
-          : `/learner/messages`,
+      const adminRoutes = {
+        // ── Verifications ──
+        MENTOR_VERIFICATION: "/admin/verifications",
+        MENTOR_VERIFICATION_REQUEST: "/admin/verifications",
+        VERIFICATION_APPROVED: "/admin/verifications",
+        VERIFICATION_REJECTED: "/admin/verifications",
 
         // ── Sessions / Bookings ──
-        SESSION_CREATED: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
-        BOOKING_CREATED: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
-        BOOKING_ACCEPTED: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
-        BOOKING_DECLINED: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
-        BOOKING_STATUS: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
-        NEW_SESSION: isMentor
-          ? "/mentor/students"
-          : "/learner/sessions",
+        SESSION_REQUEST_RECEIVED: "/admin/sessions",
+        SESSION_REQUEST_ACCEPTED: "/admin/sessions",
+        SESSION_REQUEST_DECLINED: "/admin/sessions",
+        SESSION_REQUEST_CANCELLED: "/admin/sessions",
+        SESSION_CREATED: "/admin/sessions",
+        SESSION_COMPLETED: "/admin/sessions",
+        SESSION_CANCELLED: "/admin/sessions",
+        BOOKING_CREATED: "/admin/sessions",
+        BOOKING_ACCEPTED: "/admin/sessions",
+        BOOKING_DECLINED: "/admin/sessions",
+        BOOKING_CANCELLED: "/admin/sessions",
+        BOOKING_STATUS: "/admin/sessions",
+        NEW_SESSION: "/admin/sessions",
 
-        // ── Reviews ──
-        REVIEW_SUBMITTED: "/mentor/reviews",
-        NEW_REVIEW: "/mentor/reviews",
+        // ── Payments / Payouts / Withdrawals ──
+        PAYMENT_RECEIVED: "/admin/payments",
+        PAYMENT_UPDATE: "/admin/payments",
+        PAYOUT_RELEASED: "/admin/payments",
+        WITHDRAWAL_REQUEST: "/admin/payments",
 
-        // ── Certifications ──
-        CERTIFICATION_EARNED: isMentor
-          ? "/mentor/dashboard"
-          : "/learner/certificates",
+        // ── Reports / Moderation ──
+        USER_REPORTED: "/admin/reports",
+        MENTOR_REPORTED: "/admin/reports",
+        COMPLAINT_SUBMITTED: "/admin/reports",
+        MODERATION_WARNING: "/admin/flagged-content",
 
-        // ── Role / Account ──
-        ROLE_SWITCHED: isMentor
-          ? "/mentor/dashboard"
-          : "/learner/dashboard",
+        // ── Users / Safety ──
+        NEW_USER_REGISTERED: "/admin/users",
+        ACCOUNT_SUSPENDED: "/admin/users",
+        SAFETY_UPDATE: "/admin/users",
 
-        // ── Promotions ──
-        WAITLIST_PROMOTION: isMentor
-          ? "/mentor/teach"
-          : "/learner/sessions",
-
-        // ── Announcements ──
-        ANNOUNCEMENT: isMentor
-          ? "/mentor/notifications"
-          : "/learner/notifications",
-        MAINTENANCE: isMentor
-          ? "/mentor/notifications"
-          : "/learner/notifications",
-        PLATFORM_UPDATE: isMentor
-          ? "/mentor/notifications"
-          : "/learner/notifications",
+        // ── Platform / Alerts ──
+        PLATFORM_ALERT: "/admin/analytics",
+        SYSTEM_WARNING: "/admin/health",
+        ANNOUNCEMENT: "/admin/notification-center",
+        MAINTENANCE: "/admin/health",
+        PLATFORM_UPDATE: "/admin/notification-center",
       };
+
+      const knownRoutes = isAdmin
+        ? adminRoutes
+        : {
+            // ── Session Requests ──
+            SESSION_REQUEST_RECEIVED: isMentor
+              ? (referenceId ? `/mentor/teach?requestId=${referenceId}` : "/mentor/teach")
+              : null,
+            SESSION_REQUEST_ACCEPTED: isMentor
+              ? "/mentor/students"
+              : (referenceId ? `/learner/sessions?sessionId=${referenceId}` : "/learner/sessions"),
+            SESSION_REQUEST_DECLINED: isMentor
+              ? "/mentor/teach"
+              : (referenceId ? `/learner/requests?requestId=${referenceId}` : "/learner/requests"),
+            SESSION_REQUEST_CANCELLED: isMentor
+              ? "/mentor/teach"
+              : "/learner/requests",
+            SESSION_REQUEST_REPLIED: isMentor
+              ? `/mentor/messages`
+              : `/learner/messages`,
+
+            // ── Sessions / Bookings ──
+            SESSION_CREATED: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+            BOOKING_CREATED: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+            BOOKING_ACCEPTED: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+            BOOKING_DECLINED: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+            BOOKING_STATUS: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+            NEW_SESSION: isMentor
+              ? "/mentor/students"
+              : "/learner/sessions",
+
+            // ── Reviews ──
+            REVIEW_SUBMITTED: "/mentor/reviews",
+            NEW_REVIEW: "/mentor/reviews",
+
+            // ── Certifications ──
+            CERTIFICATION_EARNED: isMentor
+              ? "/mentor/dashboard"
+              : "/learner/certificates",
+
+            // ── Role / Account ──
+            ROLE_SWITCHED: isMentor
+              ? "/mentor/dashboard"
+              : "/learner/dashboard",
+
+            // ── Promotions ──
+            WAITLIST_PROMOTION: isMentor
+              ? "/mentor/teach"
+              : "/learner/sessions",
+
+            // ── Announcements ──
+            ANNOUNCEMENT: isMentor
+              ? "/mentor/notifications"
+              : "/learner/notifications",
+            MAINTENANCE: isMentor
+              ? "/mentor/notifications"
+              : "/learner/notifications",
+            PLATFORM_UPDATE: isMentor
+              ? "/mentor/notifications"
+              : "/learner/notifications",
+          };
 
       const route = knownRoutes[type] || notificationsPath;
 
@@ -576,16 +715,41 @@ export default function NotificationCenter({
 
       navigate(route);
     },
-    [navigate, notificationsPath],
+    [navigate, notificationsPath, isAdmin],
   );
 
   const toggleOpen = () => setIsOpen((v) => !v);
 
   /* ──────────────────────────────────────────────────── Derived ── */
 
-  const displayedNotifications = filter === "unread"
-    ? notifications.filter((n) => !n.read)
-    : notifications;
+  const displayedNotifications = useMemo(() => {
+    const unreadOnly = filter === "unread"
+      ? notifications.filter((n) => !n.read)
+      : notifications;
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return unreadOnly;
+
+    return unreadOnly.filter((n) => {
+      const haystack = [
+        n.title,
+        n.message,
+        getTypeConfig(n.type).label,
+        n.type,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [notifications, filter, searchQuery]);
+
+  const grouped = useMemo(
+    () => groupNotifications(displayedNotifications),
+    [displayedNotifications],
+  );
+
+  const searching = searchQuery.trim().length > 0;
 
   /* ──────────────────────────────────────────────────── Render ── */
 
@@ -596,13 +760,15 @@ export default function NotificationCenter({
       className={`notif-bell${isOpen ? " notif-bell--open" : ""}`}
       onClick={toggleOpen}
       aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+      aria-expanded={isOpen}
+      aria-haspopup="dialog"
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
         <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
       {unreadCount > 0 && (
-        <span className="notif-bell__badge">
+        <span className="notif-bell__badge" aria-label={`${unreadCount} unread notifications`}>
           {unreadCount > 99 ? "99+" : unreadCount}
         </span>
       )}
@@ -615,57 +781,71 @@ export default function NotificationCenter({
       <div className={`notif-panel${fullPage ? " notif-panel--full" : ""}`}>
         {/* Header */}
         <div className="notif-panel__header">
-          <div className="notif-panel__header-top">
-            <h2 className="notif-panel__title">Notifications</h2>
-            <div className="notif-panel__header-actions">
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  className="notif-panel__mark-all"
-                  onClick={handleMarkAllRead}
-                  title="Mark all as read"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="9 11 12 14 22 4" />
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                  </svg>
-                  Mark all read
-                </button>
-              )}
+          <h2 className="notif-panel__title">Notifications</h2>
+          <div className="notif-panel__header-actions">
+            {unreadCount > 0 && (
               <button
                 type="button"
-                className="notif-panel__view-all"
-                onClick={() => {
-                  setIsOpen(false);
-                  navigate(notificationsPath);
-                }}
+                className="notif-panel__mark-all"
+                onClick={handleMarkAllRead}
+                title="Mark all as read"
               >
-                View All
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 11 12 14 22 4" />
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                </svg>
+                Mark all read
               </button>
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* Filter tabs */}
-          <div className="notif-panel__filters">
+        {/* Search */}
+        <div className="notif-panel__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search notifications..."
+            aria-label="Search notifications"
+            autoComplete="off"
+          />
+          {searchQuery && (
             <button
               type="button"
-              className={`notif-panel__filter${filter === "all" ? " notif-panel__filter--active" : ""}`}
-              onClick={() => setFilter("all")}
+              className="notif-panel__search-clear"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear search"
             >
-              All
-              <span className="notif-panel__filter-count">{totalCount || ""}</span>
+              ×
             </button>
-            <button
-              type="button"
-              className={`notif-panel__filter${filter === "unread" ? " notif-panel__filter--active" : ""}`}
-              onClick={() => setFilter("unread")}
-            >
-              Unread
-              {unreadCount > 0 && (
-                <span className="notif-panel__filter-count">{unreadCount}</span>
-              )}
-            </button>
-          </div>
+          )}
+        </div>
+
+        {/* Filter tabs */}
+        <div className="notif-panel__filters">
+          <button
+            type="button"
+            className={`notif-panel__filter${filter === "all" ? " notif-panel__filter--active" : ""}`}
+            onClick={() => setFilter("all")}
+          >
+            All
+            <span className="notif-panel__filter-count">{totalCount || ""}</span>
+          </button>
+          <button
+            type="button"
+            className={`notif-panel__filter${filter === "unread" ? " notif-panel__filter--active" : ""}`}
+            onClick={() => setFilter("unread")}
+          >
+            Unread
+            {unreadCount > 0 && (
+              <span className="notif-panel__filter-count">{unreadCount}</span>
+            )}
+          </button>
         </div>
 
         {/* List */}
@@ -679,18 +859,24 @@ export default function NotificationCenter({
           ) : error ? (
             <NotificationError message={error} onRetry={() => fetchNotifications()} />
           ) : displayedNotifications.length === 0 ? (
-            <NotificationEmpty filter={filter} />
+            <NotificationEmpty filter={filter} searching={searching} />
           ) : (
-            <>
-              {displayedNotifications.map((notification) => (
-                <NotificationCard
-                  key={notification.id}
-                  notification={notification}
-                  onMarkRead={handleMarkRead}
-                  onNavigate={handleNavigate}
-                />
+            <div className="notif-group-list">
+              {grouped.map((group) => (
+                <div className="notif-group" key={group.label}>
+                  <div className="notif-group__label">{group.label}</div>
+                  {group.items.map((notification, index) => (
+                    <NotificationCard
+                      key={notification.id}
+                      notification={notification}
+                      onMarkRead={handleMarkRead}
+                      onNavigate={handleNavigate}
+                      index={index}
+                    />
+                  ))}
+                </div>
               ))}
-              {hasMore && (
+              {hasMore && !searching && (
                 <div className="notif-panel__load-more">
                   <button
                     type="button"
@@ -702,8 +888,25 @@ export default function NotificationCenter({
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
+        </div>
+
+        {/* Footer */}
+        <div className="notif-panel__footer">
+          <button
+            type="button"
+            className="notif-panel__view-all-footer"
+            onClick={() => {
+              setIsOpen(false);
+              navigate(notificationsPath);
+            }}
+          >
+            View All Notifications
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
         </div>
       </div>
     );
@@ -735,12 +938,22 @@ export default function NotificationCenter({
   return (
     <div className="notif-wrapper" ref={dropdownRef}>
       {bellButton}
-      {isOpen && (
-        <div className="notif-dropdown">
-          <div className="notif-dropdown__arrow" />
-          {renderPanel()}
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="notif-dropdown"
+            role="region"
+            aria-label="Notifications panel"
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="notif-dropdown__arrow" />
+            {renderPanel()}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -22,6 +22,7 @@ export default function WorkspaceTopbar({
   onToggleNav,
   pageMeta = {},
   crumbRoot = "Workspace",
+  notificationsTo,
   profileMenu = [],
   onUnreadCountChange,
   onNotify,
@@ -45,7 +46,10 @@ export default function WorkspaceTopbar({
   const segment = location.pathname.split("/").filter(Boolean)[1] || "dashboard";
   const meta = pageMeta[segment] || { title: "Dashboard", search: "Search..." };
   const fullName = profile?.fullName || "User";
-  const notificationsPath = `/${crumbRoot.toLowerCase()}/notifications`;
+  // The admin workspace points the bell's notification destination at its own
+  // notification-center page; everyone else uses /{role}/notifications.
+  const notificationsPath =
+    notificationsTo || `/${crumbRoot.toLowerCase()}/notifications`;
 
   useEffect(() => {
     const onClick = (e) => {

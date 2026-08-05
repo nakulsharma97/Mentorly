@@ -19,6 +19,13 @@ node_modules/
 login.json
 login2.json
 login*.json
+backend_logs*.txt
+
+# Freebuff desktop app runtime state (never commit)
+.freebuff/
+
+# Playwright e2e screenshots (generated artifacts)
+frontend/e2e-screenshots/
 
 # Windows reserved device names / accidental artifacts
 nul

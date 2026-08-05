@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
@@ -205,13 +205,31 @@ function SkillSkeleton() {
 }
 
 function SkillCard({ skill }) {
+  const navigate = useNavigate();
   const cat = skill.category || "General";
   const hasDifficulty = Boolean(skillDifficulty(skill));
   const diffMeta = difficultyMeta(skillDifficulty(skill));
   const time = estimatedTime(skill);
   const slug = slugify(skill.name);
+  const openSkill = () => navigate(`/learner/skills/${slug}`);
+  // The card is a clickable div (not an <a>) so the inner action links never
+  // nest an anchor inside an anchor — invalid HTML that React warns about and
+  // browsers handle inconsistently.
   return (
-    <Link to={`/learner/skills/${slug}`} className="sk-card md-animate" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column" }}>
+    <div
+      className="sk-card md-animate"
+      role="link"
+      tabIndex={0}
+      aria-label={`Open ${skill.name} details`}
+      onClick={openSkill}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openSkill();
+        }
+      }}
+      style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", cursor: "pointer" }}
+    >
       <div className="sk-card__hdr" style={{ background: pickGradient(skill.name || cat) }}>
         <Icon name={pickIcon(cat)} />
       </div>
@@ -253,7 +271,7 @@ function SkillCard({ skill }) {
           </Link>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -295,9 +313,23 @@ function PathCard({ path }) {
 }
 
 function CareerCard({ career }) {
+  const navigate = useNavigate();
+  const openCareer = () => navigate(`/learner/careers/${career.id}`);
   return (
     <div className="sk-career-card--catalog md-animate">
-      <Link to={`/learner/careers/${career.id}`} style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        role="link"
+        tabIndex={0}
+        aria-label={`Open ${career.title} career details`}
+        onClick={openCareer}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openCareer();
+          }
+        }}
+        style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 8, cursor: "pointer" }}
+      >
         <div className="sk-career-card--catalog__top">
           <span className="sk-career-card--catalog__icon" style={{ color: career.color }}>
             <Icon name={career.icon} />
@@ -315,12 +347,12 @@ function CareerCard({ career }) {
           <span className="sk-career-card--catalog__label">Experience:</span>
           <span className="sk-career-card--catalog__value">{career.experience}</span>
         </div>
-      </Link>
+      </div>
       <div className="sk-career-card--catalog__actions">
-        <Link to={`/learner/careers/${career.id}`} className="sk-card__roadmap-link">
+        <Link to={`/learner/careers/${career.id}`} className="sk-card__roadmap-link" onClick={(e) => e.stopPropagation()}>
           <Icon name="open_in_new" /> View Career
         </Link>
-        <Link to={`/learner/mentors?skill=${encodeURIComponent(career.skills.split(",")[0].trim())}`} className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn">
+        <Link to={`/learner/mentors?skill=${encodeURIComponent(career.skills.split(",")[0].trim())}`} className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn" onClick={(e) => e.stopPropagation()}>
           <Icon name="person_search" /> Find Mentor
         </Link>
       </div>
@@ -330,20 +362,33 @@ function CareerCard({ career }) {
 
 function ResourceCard({ resource, skillName }) {
   const url = resourceUrl(skillName, resource.title);
+  const openResource = () => window.open(url, "_blank", "noopener,noreferrer");
   return (
     <div className="sk-resource-card--catalog md-animate">
-      <a href={url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
+      <div
+        role="link"
+        tabIndex={0}
+        aria-label={`Open ${resource.title}`}
+        onClick={openResource}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openResource();
+          }
+        }}
+        style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 10, flex: 1, cursor: "pointer" }}
+      >
         <div className="sk-resource-card--catalog__icon" style={{ background: resource.color }}>
           <Icon name={resource.icon} />
         </div>
         <h4 className="sk-resource-card--catalog__title">{resource.title}</h4>
         <p className="sk-resource-card--catalog__desc">{resource.desc}</p>
-      </a>
+      </div>
       <div className="sk-resource-card--catalog__actions">
-        <a href={url} target="_blank" rel="noopener noreferrer" className="sk-card__roadmap-link">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="sk-card__roadmap-link" onClick={(e) => e.stopPropagation()}>
           <Icon name="open_in_new" /> Open Resource
         </a>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn" style={{ textDecoration: "none" }}>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn" style={{ textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>
           <Icon name="launch" /> Open
         </a>
       </div>

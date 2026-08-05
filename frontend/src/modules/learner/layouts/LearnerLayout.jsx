@@ -59,7 +59,6 @@ export default function LearnerLayout({ profile, onLogout, unreadNotifications, 
       secondaryLinks={SECONDARY}
       pageMeta={PAGE_META}
       crumbRoot="Learner"
-      notificationsTo="/learner/messages"
       profileMenu={PROFILE_MENU}
       storageKey="learner_sidebar_collapsed"
     />

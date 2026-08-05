@@ -62,8 +62,11 @@ services:
       - "5174:80"
       - "${FRONTEND_HTTPS_PORT:-443}:443"
     volumes:
-      # Mount SSL certificates (optional — only needed for HTTPS)
-      - ${SSL_CERT_DIR:-./certs}:/etc/nginx/ssl:ro
+      # Mount SSL certificates. RW so docker-entrypoint.sh can bootstrap a
+      # temporary self-signed cert on first boot before Let's Encrypt
+      # provisioning (nginx refuses to start without cert files).
+      # scripts/setup-ssl.sh later replaces these with real certificates.
+      - ${SSL_CERT_DIR:-./certs}:/etc/nginx/ssl
       # Mount certbot challenge directory for initial certificate issuance
       - certbot_www:/var/www/certbot
     restart: unless-stopped

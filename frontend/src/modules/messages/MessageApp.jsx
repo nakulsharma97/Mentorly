@@ -13,6 +13,7 @@ import ConversationDetails from "./components/ConversationDetails";
 import NewConversation from "./components/NewConversation";
 import EmptyConversation from "./components/EmptyConversation";
 import { unwrap } from "./utils";
+import { setUnreadMessages } from "./unreadMessagesStore";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || "";
 const wsBase = apiBase
@@ -27,6 +28,16 @@ export default function MessageApp({
 }) {
   const currentUserId = profile?.id;
   const currentUserEmail = String(profile?.email || "").toLowerCase();
+
+  // Browser tab title — matches the per-page convention used across the
+  // workspaces ("Messages | SkillSwap Mentor" / "Messages | SkillSwap").
+  // WorkspaceLayout observes <title> and re-applies the unread-count prefix.
+  useEffect(() => {
+    document.title =
+      variant === "MENTOR"
+        ? "Messages | SkillSwap Mentor"
+        : "Messages | SkillSwap";
+  }, [variant]);
 
   const { conversations, loading, error, load, filterConversations, patchDirect } =
     useConversations(currentUserId);
@@ -61,7 +72,7 @@ export default function MessageApp({
   );
   const convId = selConv?.convId;
 
-  const { sendTyping, typingConversationId } = useChatSocket({
+  const { sendTyping, typingConversationId, socket } = useChatSocket({
     conversationId: convId,
     kind: selKind,
     currentUserEmail,
@@ -195,7 +206,19 @@ export default function MessageApp({
         if (prev.some((m) => String(m.id) === String(msg.id))) return prev;
         return isCurrentConv ? [...prev, msg] : prev;
       });
-      if (!isCurrentConv) load();
+      // A message landing in the open chat is read immediately — tell the
+      // backend so the unread badge clears, then refresh the list shortly
+      // after so the server-side mark-as-read has landed first.
+      if (isCurrentConv && convId) {
+        socket.send(
+          selKind === "direct"
+            ? { type: "READ", conversationId: Number(convId) }
+            : { type: "READ", bookingId: Number(convId) },
+        );
+        window.setTimeout(load, 800);
+      } else {
+        load();
+      }
     };
 
     const onReadAck = (e) => {
@@ -229,7 +252,7 @@ export default function MessageApp({
       window.removeEventListener("msg:readack", onReadAck);
       window.removeEventListener("msg:reaction", onReaction);
     };
-  }, [convId, currentUserEmail, load]);
+  }, [convId, currentUserEmail, load, selKind, socket]);
 
   const selectConversation = (conv) => {
     setSelectedId(conv.id);
@@ -237,6 +260,15 @@ export default function MessageApp({
     setNewChatOpen(false);
     search.clear();
   };
+
+  // Refresh the list shortly after a conversation is opened (manual select or
+  // first-load auto-select) so unread indicators clear once the backend has
+  // processed the socket READ frame.
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    const t = window.setTimeout(load, 800);
+    return () => window.clearTimeout(t);
+  }, [selectedId, load]);
 
   const openNewChat = () => setNewChatOpen(true);
   const closeNewChat = () => setNewChatOpen(false);
@@ -559,9 +591,15 @@ export default function MessageApp({
 
   const isTyping = Boolean(selConv && typingConversationId === String(convId));
   const totalUnread = conversations.reduce(
-    (sum, c) => sum + (c.unreadCount || 0),
+    (sum, c) => sum + (!c.archived ? Number(c.unreadCount || 0) : 0),
     0,
   );
+
+  // Publish the live unread total to the shared store (sidebar badge + tab
+  // title subscribe to it). Backend-driven: sums per-conversation counts.
+  useEffect(() => {
+    setUnreadMessages(totalUnread);
+  }, [totalUnread]);
 
   return (
     <MessageLayout
@@ -588,7 +626,6 @@ export default function MessageApp({
           onRequestAction={handleRequestAction}
           requestsLoading={requestsLoading}
           typingByConv={typingConversationId ? { [String(convId)]: true } : {}}
-          totalUnread={totalUnread}
           onNewChat={openNewChat}
         />
       }

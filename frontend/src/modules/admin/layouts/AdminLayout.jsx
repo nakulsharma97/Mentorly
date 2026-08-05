@@ -50,6 +50,7 @@ const PAGE_META = {
   verifications: { title: "Mentor Verifications", search: "Search..." },
   analytics: { title: "Analytics", search: "Search..." },
   notifications: { title: "Broadcast Notification", search: "" },
+  "notification-center": { title: "Notifications", search: "" },
   "audit-log": { title: "Activity Timeline", search: "Search logs..." },
   health: { title: "Platform Health", search: "" },
   settings: { title: "Settings", search: "" },
@@ -73,7 +74,7 @@ export default function AdminLayout({ profile, onLogout, unreadNotifications, on
       secondaryLinks={SECONDARY}
       pageMeta={PAGE_META}
       crumbRoot="Admin"
-      notificationsTo="/admin/dashboard"
+      notificationsTo="/admin/notification-center"
       profileMenu={PROFILE_MENU}
       storageKey="admin_sidebar_collapsed"
     />

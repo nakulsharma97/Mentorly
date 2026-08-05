@@ -27,7 +27,6 @@ export default function ConversationSidebar({
   onRequestAction,
   requestsLoading,
   typingByConv,
-  totalUnread,
   onNewChat,
 }) {
   const shown = searchResults ? searchResults : conversations;
