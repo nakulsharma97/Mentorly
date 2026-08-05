@@ -13,18 +13,18 @@
   /* Design tokens live on the actual root element so every var() resolves. */
   --ms-bg: #f8fafc;
   --ms-card: #ffffff;
-  --ms-primary: #10b981;
-  --ms-primary-dark: #047857;
-  --ms-border: #e2e8f0;
+  --ms-primary: #14b8a6;
+  --ms-primary-dark: #0f766e;
+  --ms-border: #e5e7eb;
   --ms-text: #0f172a;
   --ms-muted: #475569;
   --ms-faint: #94a3b8;
   --ms-hover: #f1f5f9;
   --ms-bubble-in: #f1f5f9;
-  --ms-bubble-out: #ecfdf5;
-  --ms-bubble-out-text: #065f46;
-  --ms-selected-bg: #ecfdf5;
-  --ms-selected-border: #a7f3d0;
+  --ms-bubble-out: #f0fdfa;
+  --ms-bubble-out-text: #0f766e;
+  --ms-selected-bg: #f0fdfa;
+  --ms-selected-border: #99f6e4;
   --ms-danger: #ef4444;
   --ms-warning: #f59e0b;
   --ms-blue: #3b82f6;
@@ -51,10 +51,10 @@
   --ms-faint: #475569;
   --ms-hover: #1e293b;
   --ms-bubble-in: #1e293b;
-  --ms-bubble-out: #064e3b;
-  --ms-bubble-out-text: #a7f3d0;
-  --ms-selected-bg: #064e3b;
-  --ms-selected-border: #047857;
+  --ms-bubble-out: #134e4a;
+  --ms-bubble-out-text: #99f6e4;
+  --ms-selected-bg: #134e4a;
+  --ms-selected-border: #0f766e;
   --ms-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   --ms-shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.4);
 }
@@ -130,13 +130,13 @@
   font-family: inherit;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.22);
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.22);
 }
 
 .ms-new-chat-btn:hover {
   background: var(--ms-primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.32);
+  box-shadow: 0 6px 18px rgba(20, 184, 166, 0.32);
 }
 
 .ms-new-chat-btn:active {
@@ -168,7 +168,7 @@
 .ms-search-input-v2:focus-within {
   border-color: var(--ms-primary);
   background: var(--ms-card);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
 }
 
 .ms-search-input-v2 input {
@@ -264,9 +264,10 @@
 .ms-conv-card-v2 {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
-  padding: 11px 12px;
+  min-height: 88px;
+  padding: 14px 12px;
   border-radius: 16px;
   border: 1px solid transparent;
   background: transparent;
@@ -290,7 +291,7 @@
 .ms-conv-card-v2.is-selected {
   background: var(--ms-selected-bg);
   border-color: var(--ms-selected-border);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.08);
 }
 
 .ms-conv-card-v2__avatar-container {
@@ -365,19 +366,20 @@
 }
 
 .ms-conv-card-v2__badge {
-  min-width: 19px;
-  height: 19px;
-  padding: 0 6px;
-  border-radius: 99px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  border-radius: 50%;
   background: var(--ms-primary);
   color: #ffffff;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 2px 6px rgba(20, 184, 166, 0.35);
 }
 
 .ms-conv__pin {
@@ -459,7 +461,7 @@
 }
 
 .ms-dropdown-v2__trigger.has-active-filter {
-  background: rgba(16, 185, 129, 0.08);
+  background: rgba(20, 184, 166, 0.08);
   border-color: var(--ms-primary);
   color: var(--ms-primary-dark);
 }
@@ -549,10 +551,10 @@
   background: var(--ms-card);
 }
 
-/* Chat header (72px) */
+/* Chat header (72px) — identity, presence and session on stacked rows */
 .ms-chat__header {
   min-height: 72px;
-  padding: 0 16px 0 20px;
+  padding: 0 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -578,12 +580,12 @@
 .ms-chat__peer {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px; /* Avatar → Name */
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 8px;
   border-radius: 12px;
   transition: background 0.18s;
   min-width: 0;
@@ -596,33 +598,46 @@
 .ms-chat__peer-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
+.ms-chat__peer-meta .ms-chat__peer-name {
+  margin-bottom: 6px; /* Name → Status (8px incl. row gap) */
+}
+
 .ms-chat__peer-name {
-  font-weight: 700;
-  font-size: 0.94rem;
-  color: var(--ms-text);
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 12px; /* Username → Role badge — never cramped or clipped */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ms-chat__peer-username {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 700;
+  font-size: 0.94rem;
+  color: var(--ms-text);
 }
 
 .ms-chat__peer-role {
+  flex-shrink: 0;
   font-size: 0.62rem;
   font-weight: 800;
   font-family: inherit;
   color: var(--ms-primary-dark);
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(20, 184, 166, 0.1);
   padding: 2px 8px;
   border-radius: 99px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ms-chat__session-badge {
@@ -633,12 +648,16 @@
 }
 
 .ms-chat__presence-v2 {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--ms-muted);
   display: inline-flex;
   align-items: center;
   gap: 5px;
   white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .ms-chat__presence-v2.is-online {
@@ -652,18 +671,19 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  background: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
 }
 
 .ms-chat__session-title {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
   color: var(--ms-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 220px;
+  max-width: 260px;
+  line-height: 1.3;
 }
 
 .ms-chat__actions {
@@ -673,47 +693,11 @@
   flex-shrink: 0;
 }
 
-.ms-chat__call {
-  color: var(--ms-primary-dark);
-  background: rgba(16, 185, 129, 0.08);
-  border-radius: 12px;
-}
-
-.ms-chat__call:hover {
-  background: rgba(16, 185, 129, 0.16);
-  color: var(--ms-primary-dark);
-}
-
-.ms-chat__call--video {
-  color: var(--ms-blue);
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.ms-chat__call--video:hover {
-  background: rgba(59, 130, 246, 0.16);
-  color: var(--ms-blue);
-}
-
-/* Reconnect banner */
-.ms-ws-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 7px 16px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  color: #b45309;
-  background: rgba(245, 158, 11, 0.1);
-  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
-  flex-shrink: 0;
-}
-
 .ms-spinner {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(16, 185, 129, 0.25);
+  border: 2px solid rgba(20, 184, 166, 0.25);
   border-top-color: var(--ms-primary);
   animation: ms-spin 0.7s linear infinite;
   display: inline-block;
@@ -725,15 +709,15 @@
   }
 }
 
-/* Scrollable thread */
+/* Scrollable thread — spacious, 12px between runs */
 .ms-thread {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   background: var(--ms-bg);
   scrollbar-width: thin;
 }
@@ -752,7 +736,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 8px 0;
+  margin: 2px 0;
   position: relative;
 }
 
@@ -783,10 +767,16 @@
 }
 
 /* Message runs & bubbles */
+.ms-day {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 12px bubble spacing between runs on the same day */
+}
+
 .ms-run {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .ms-run.is-me {
@@ -796,17 +786,17 @@
 .ms-run__stack {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  max-width: 68%;
+  gap: 4px;
+  max-width: 70%;
 }
 
 .ms-bubble {
   position: relative;
   border-radius: 18px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   box-shadow: var(--ms-shadow);
   display: inline-block;
-  line-height: 1.5;
+  line-height: 1.55;
   font-size: 0.88rem;
   word-break: break-word;
   max-width: 100%;
@@ -1003,8 +993,8 @@
 /* Scroll-to-bottom affordance */
 .ms-scroll-down {
   position: absolute;
-  right: 24px;
-  bottom: 84px;
+  right: 28px;
+  bottom: 92px;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -1067,7 +1057,7 @@
 /* ── Message composer ────────────────────────────────────────────────────── */
 
 .ms-composer-wrap {
-  padding: 12px 16px 14px;
+  padding: 12px 20px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1079,36 +1069,41 @@
 .ms-composer {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
-  min-height: 48px;
+  min-height: 64px;
   border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  background: var(--ms-bg);
-  padding: 6px 8px;
+  border-radius: 18px;
+  background: var(--ms-card);
+  padding: 10px 14px;
+  box-shadow: var(--ms-shadow);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .ms-composer:focus-within {
   border-color: var(--ms-primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
-  background: var(--ms-card);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1), var(--ms-shadow);
 }
 
 .ms-composer__input {
   flex: 1;
   min-width: 0;
-  min-height: 34px;
+  height: 40px;
+  min-height: 40px;
   max-height: 120px;
   border: none;
   background: transparent;
   outline: none;
-  padding: 7px 6px;
+  padding: 8px 8px;
   color: var(--ms-text);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   resize: none;
   line-height: 1.45;
+}
+
+.ms-composer__attach {
+  flex-shrink: 0;
 }
 
 .ms-composer__input::placeholder {
@@ -1123,8 +1118,8 @@
 }
 
 .ms-composer__actions .ms-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
 }
 
 .ms-btn--send {
@@ -1132,21 +1127,20 @@
   color: #ffffff;
   border: none;
   border-radius: 12px;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.18s;
   flex-shrink: 0;
-  align-self: flex-end;
 }
 
 .ms-btn--send:hover:not(:disabled) {
   background: var(--ms-primary-dark);
   transform: translateY(-1px) scale(1.04);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 16px rgba(20, 184, 166, 0.3);
 }
 
 .ms-btn--send:active:not(:disabled) {
@@ -1160,41 +1154,6 @@
 
 .ms-btn--send .material-symbols-outlined {
   font-size: 18px;
-}
-
-/* Emoji picker */
-.ms-emoji-picker {
-  position: absolute;
-  bottom: calc(100% + 10px);
-  right: 0;
-  z-index: 60;
-  width: 300px;
-  max-height: 240px;
-  overflow-y: auto;
-  background: var(--ms-card);
-  border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  box-shadow: var(--ms-shadow-lg);
-  padding: 10px;
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
-}
-
-.ms-emoji-btn {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 9px;
-  background: transparent;
-  font-size: 1.15rem;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-
-.ms-emoji-btn:hover {
-  background: var(--ms-hover);
-  transform: scale(1.15);
 }
 
 /* Uploading indicator */
@@ -1211,7 +1170,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(16, 185, 129, 0.25);
+  border: 2px solid rgba(20, 184, 166, 0.25);
   border-top-color: var(--ms-primary);
   animation: ms-spin 0.7s linear infinite;
 }
@@ -1292,7 +1251,7 @@
 .ms-new__search:focus-within {
   border-color: var(--ms-primary);
   background: var(--ms-card);
-  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.1);
 }
 
 .ms-new__search input {
@@ -1321,7 +1280,7 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid rgba(16, 185, 129, 0.25);
+  border: 2px solid rgba(20, 184, 166, 0.25);
   border-top-color: var(--ms-primary);
   animation: ms-spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -1388,7 +1347,7 @@
   background: var(--ms-primary);
   border-color: var(--ms-primary);
   color: #fff;
-  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 3px 10px rgba(20, 184, 166, 0.25);
 }
 
 .ms-new__results {
@@ -1457,8 +1416,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(20, 184, 166, 0.04));
+  border: 1px solid rgba(20, 184, 166, 0.18);
   margin-bottom: 6px;
 }
 
@@ -1512,7 +1471,7 @@
 }
 
 .ms-user:hover {
-  border-color: rgba(16, 185, 129, 0.5);
+  border-color: rgba(20, 184, 166, 0.5);
   box-shadow: var(--ms-shadow);
   transform: translateY(-2px);
 }
@@ -1567,7 +1526,7 @@
 }
 
 .ms-user__role--mentor {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(20, 184, 166, 0.1);
   color: var(--ms-primary-dark);
 }
 
@@ -1610,7 +1569,7 @@
   cursor: pointer;
   transition: all 0.18s;
   flex-shrink: 0;
-  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 3px 10px rgba(20, 184, 166, 0.2);
 }
 
 .ms-user__start:hover:not(:disabled) {
@@ -1718,13 +1677,13 @@
 .ms-details__section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 0;
+  gap: 14px;
+  padding: 22px 0;
   border-bottom: 1px solid var(--ms-border);
 }
 
 .ms-details__section:first-child {
-  padding-top: 12px;
+  padding-top: 20px;
 }
 
 .ms-details__section--actions {
@@ -1749,7 +1708,7 @@
   font-size: 0.7rem;
   font-weight: 800;
   color: var(--ms-primary-dark);
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(20, 184, 166, 0.1);
   padding: 3px 12px;
   border-radius: 99px;
   text-transform: uppercase;
@@ -1779,8 +1738,8 @@
 }
 
 .ms-details__presence.is-online .ms-details__dot {
-  background: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  background: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
 }
 
 .ms-details__block {
@@ -1817,8 +1776,8 @@
 .ms-details__session {
   background: linear-gradient(180deg, var(--ms-card), color-mix(in srgb, var(--ms-bg) 55%, var(--ms-card)));
   border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  padding: 14px;
+  border-radius: 18px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2025,7 +1984,7 @@
 .ms-btn--primary {
   background: var(--ms-primary);
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(16, 185, 129, 0.22);
+  box-shadow: 0 3px 10px rgba(20, 184, 166, 0.22);
 }
 
 .ms-btn--primary:hover {
@@ -2150,7 +2109,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
   color: #ffffff;
   font-weight: 700;
   position: relative;
@@ -2182,7 +2141,7 @@
 }
 
 .ms-avatar__dot.is-online {
-  background: #10b981;
+  background: #14b8a6;
 }
 
 /* Booking pill colors */
@@ -2200,8 +2159,8 @@
 .ms-booking-pill[data-status="CONFIRMED"],
 .ms-booking-pill[data-status="APPROVED"],
 .ms-booking-pill[data-status="ACCEPTED"] {
-  background: rgba(16, 185, 129, 0.1);
-  color: #047857;
+  background: rgba(20, 184, 166, 0.1);
+  color: #0f766e;
 }
 
 .ms-booking-pill[data-status="IN_PROGRESS"] {
@@ -2249,8 +2208,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
-  border: 1px solid rgba(16, 185, 129, 0.18);
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(20, 184, 166, 0.04));
+  border: 1px solid rgba(20, 184, 166, 0.18);
   margin-bottom: 4px;
 }
 
@@ -2415,19 +2374,6 @@
   font-size: 0.76rem;
 }
 
-/* ── Session card (shared) ──────────────────────────────────────────────── */
-
-.ms-session-card {
-  background: var(--ms-card);
-  border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: var(--ms-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 /* ── Message requests ────────────────────────────────────────────────────── */
 
 .ms-req {
@@ -2471,7 +2417,7 @@
 /* ── Search highlight ────────────────────────────────────────────────────── */
 
 .ms-hl {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(20, 184, 166, 0.2);
   color: var(--ms-primary-dark);
   border-radius: 3px;
   padding: 0 1px;

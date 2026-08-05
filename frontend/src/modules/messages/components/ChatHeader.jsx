@@ -4,14 +4,14 @@ import Avatar from "./Avatar";
 import { roleLabel, bookingStatusLabel } from "../utils";
 
 /**
- * Chat header — peer identity (photo, name, role), current session badge,
- * online / last-seen presence, and actions: voice call, video call and the
- * three-dot menu (Remove, View Booking, View Learning Path, Shared Files,
- * Report).
+ * Chat header — peer identity (avatar, name, role badge), presence line
+ * (online / last seen) and current session line (booking status + title),
+ * each on its own row so nothing ever overlaps. Actions are limited to the
+ * three-dot menu (View Profile, View Booking, View Learning Path, Remove,
+ * Report). No voice/video calling.
  */
 export default function ChatHeader({
   conversation,
-  wsState,
   variant,
   onBack,
   onOpenDetails,
@@ -40,15 +40,6 @@ export default function ChatHeader({
   const learningPath =
     variant === "MENTOR" ? "/mentor/dashboard" : "/learner/path";
 
-  const presence =
-    wsState === "reconnecting"
-      ? "Reconnecting…"
-      : wsState === "closed"
-        ? "Connection lost"
-        : online
-          ? "Online"
-          : conversation?.presence || "Offline";
-
   const go = (path) => {
     setMenuOpen(false);
     navigate(path);
@@ -59,12 +50,10 @@ export default function ChatHeader({
     onAction?.(action, conversation);
   };
 
-  const call = (kind) => {
-    act(kind === "voice" ? "voice-call" : "video-call");
-  };
-
   const sessionTitle =
     c.sessionTitle || conversation?.sessionTitle || conversation?.title || "";
+  // Backend presence text already reads "Last seen X min ago" or "Offline".
+  const presence = online ? "Online" : conversation?.presence || "Offline";
 
   return (
     <header className="ms-chat__header">
@@ -93,7 +82,9 @@ export default function ChatHeader({
         />
         <span className="ms-chat__peer-meta">
           <span className="ms-chat__peer-name">
-            {conversation?.title}
+            <span className="ms-chat__peer-username">
+              {conversation?.title}
+            </span>
             {conversation?.role ? (
               <span className="ms-chat__peer-role">
                 {roleLabel(conversation.role)}
@@ -101,54 +92,29 @@ export default function ChatHeader({
             ) : null}
           </span>
 
-          <span className="ms-chat__session-badge">
-            <span
-              className={`ms-chat__presence-v2${online ? " is-online" : ""}`}
-            >
-              {online ? "Active Now" : `Last seen: ${presence}`}
-            </span>
-            {booking && (
-              <>
-                <span
-                  className="ms-booking-pill"
-                  data-status={String(
-                    c.bookingStatus || "PENDING",
-                  ).toUpperCase()}
-                >
-                  {bookingStatusLabel(c.bookingStatus)}
-                </span>
-                <span
-                  className="ms-chat__session-title"
-                  title={sessionTitle}
-                >
-                  {sessionTitle || "Session"}
-                </span>
-              </>
-            )}
+          <span
+            className={`ms-chat__presence-v2${online ? " is-online" : ""}`}
+          >
+            {presence}
           </span>
+
+          {booking && (
+            <span className="ms-chat__session-badge">
+              <span
+                className="ms-booking-pill"
+                data-status={String(c.bookingStatus || "PENDING").toUpperCase()}
+              >
+                {bookingStatusLabel(c.bookingStatus)}
+              </span>
+              <span className="ms-chat__session-title" title={sessionTitle}>
+                {sessionTitle || "Session"}
+              </span>
+            </span>
+          )}
         </span>
       </button>
 
       <div className="ms-chat__actions">
-        <button
-          type="button"
-          className="ms-icon-btn ms-chat__call"
-          title="Voice call"
-          aria-label="Voice call"
-          onClick={() => call("voice")}
-        >
-          <span className="material-symbols-outlined">call</span>
-        </button>
-        <button
-          type="button"
-          className="ms-icon-btn ms-chat__call ms-chat__call--video"
-          title="Video call"
-          aria-label="Video call"
-          onClick={() => call("video")}
-        >
-          <span className="material-symbols-outlined">videocam</span>
-        </button>
-
         <div className="ms-menu" ref={menuRef}>
           <button
             type="button"
@@ -191,33 +157,6 @@ export default function ChatHeader({
               >
                 <span className="material-symbols-outlined">map</span>
                 <span>View Learning Path</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="ms-menu__item"
-                onClick={() => act("voice-call")}
-              >
-                <span className="material-symbols-outlined">call</span>
-                <span>Voice Call</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="ms-menu__item"
-                onClick={() => act("video-call")}
-              >
-                <span className="material-symbols-outlined">videocam</span>
-                <span>Video Call</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="ms-menu__item"
-                onClick={() => act("shared-files")}
-              >
-                <span className="material-symbols-outlined">folder</span>
-                <span>Shared Files</span>
               </button>
               {conversation?.kind === "direct" && (
                 <button

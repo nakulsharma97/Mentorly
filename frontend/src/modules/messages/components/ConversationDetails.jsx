@@ -163,7 +163,7 @@ export default function ConversationDetails({
                   rel="noopener noreferrer"
                   className="ms-btn ms-btn--primary ms-details__join"
                 >
-                  <span className="material-symbols-outlined">videocam</span>
+                  <span className="material-symbols-outlined">login</span>
                   Join session
                 </a>
               ) : (

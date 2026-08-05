@@ -1,55 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-const COMMON_EMOJIS = [
-  "😀",
-  "😁",
-  "😂",
-  "🤣",
-  "😊",
-  "😍",
-  "🥰",
-  "😎",
-  "🤩",
-  "😢",
-  "😤",
-  "😡",
-  "🥺",
-  "🤔",
-  "🙄",
-  "👍",
-  "👎",
-  "👏",
-  "🙌",
-  "🔥",
-  "💯",
-  "💪",
-  "🎉",
-  "❤️",
-  "💔",
-  "💀",
-  "✅",
-  "❌",
-  "⭐",
-  "🌈",
-  "🍕",
-  "☕",
-  "🚀",
-  "✨",
-  "💡",
-  "📚",
-  "🎯",
-  "🏆",
-  "💼",
-  "🤝",
-];
-
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 /**
- * The message composer — attachments, emoji, code snippets and a quick-reply
- * friendly textarea. Enter sends, Shift+Enter adds a newline. There is
- * deliberately no voice recording: communication happens through scheduled
- * sessions.
+ * Minimal premium composer — Attach File, the message textarea, Voice
+ * recording and Send. Enter sends, Shift+Enter adds a newline, and Send is
+ * disabled while the message is empty. Everything else (GIFs, code snippets,
+ * image/pdf shortcuts, emoji picker) has been removed for a clean, spacious
+ * chat area.
  */
 export default function MessageInput({
   value,
@@ -59,28 +17,13 @@ export default function MessageInput({
   onFile,
   sending,
   uploading,
-  placeholder = "Write a message…",
+  placeholder = "Type your message...",
 }) {
-  const [showEmoji, setShowEmoji] = useState(false);
   const [recording, setRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const [recordedChunks, setRecordedChunks] = useState([]);
   const fileRef = useRef(null);
-  const imageRef = useRef(null);
-  const pdfRef = useRef(null);
-  const codeRef = useRef(null);
-  const emojiRef = useRef(null);
   const taRef = useRef(null);
-
-  useEffect(() => {
-    if (!showEmoji) return undefined;
-    const handler = (e) => {
-      if (emojiRef.current && !emojiRef.current.contains(e.target))
-        setShowEmoji(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showEmoji]);
 
   useEffect(() => {
     if (!mediaRecorder) return;
@@ -130,15 +73,6 @@ export default function MessageInput({
     onFile?.(file);
   };
 
-  const insertGif = () => {
-    // eslint-disable-next-line no-alert
-    const url = window.prompt("Paste a GIF URL");
-    if (!url) return;
-    const trimmed = String(url).trim();
-    if (!trimmed) return;
-    onChange(`${value}${value ? "\n" : ""}🎞 ${trimmed}`);
-  };
-
   const toggleRecording = async () => {
     if (recording && mediaRecorder) {
       mediaRecorder.stop();
@@ -162,29 +96,6 @@ export default function MessageInput({
     } catch {
       onFile?.({ error: "Microphone access was denied." });
     }
-  };
-
-  // Wrap the current content (or selection) in a code fence.
-  const insertCodeSnippet = () => {
-    const el = taRef.current;
-    if (!el) {
-      onChange(
-        `${value.trim() ? `${value}\n\n` : ""}\`\`\`\n// your code here\n\`\`\``,
-      );
-      return;
-    }
-    const { selectionStart, selectionEnd } = el;
-    const selected = value.slice(selectionStart, selectionEnd);
-    const snippet = selected
-      ? `\`\`\`\n${selected}\n\`\`\``
-      : "```\n// your code here\n```";
-    const next =
-      value.slice(0, selectionStart) + snippet + value.slice(selectionEnd);
-    onChange(next);
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(selectionStart, selectionStart + snippet.length);
-    });
   };
 
   const autoGrow = () => {
@@ -211,63 +122,16 @@ export default function MessageInput({
           aria-hidden="true"
           tabIndex={-1}
         />
-        <input
-          ref={imageRef}
-          type="file"
-          accept="image/*,video/*"
-          onChange={handleFile}
-          hidden
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-        <input
-          ref={pdfRef}
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip"
-          onChange={handleFile}
-          hidden
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-        <input
-          ref={codeRef}
-          type="file"
-          accept=".js,.jsx,.ts,.tsx,.java,.py,.json,.md,.txt,.xml,.yaml,.yml"
-          onChange={handleFile}
-          hidden
-          aria-hidden="true"
-          tabIndex={-1}
-        />
 
         <button
           type="button"
-          className="ms-icon-btn"
+          className="ms-icon-btn ms-composer__attach"
           title="Attach a file"
           aria-label="Attach a file"
           onClick={() => fileRef.current?.click()}
           disabled={Boolean(uploading)}
         >
           <span className="material-symbols-outlined">attach_file</span>
-        </button>
-        <button
-          type="button"
-          className="ms-icon-btn"
-          title="Upload image or video"
-          aria-label="Upload image or video"
-          onClick={() => imageRef.current?.click()}
-          disabled={Boolean(uploading)}
-        >
-          <span className="material-symbols-outlined">image</span>
-        </button>
-        <button
-          type="button"
-          className="ms-icon-btn"
-          title="Upload document"
-          aria-label="Upload document"
-          onClick={() => pdfRef.current?.click()}
-          disabled={Boolean(uploading)}
-        >
-          <span className="material-symbols-outlined">description</span>
         </button>
 
         <textarea
@@ -285,42 +149,12 @@ export default function MessageInput({
           rows={1}
         />
 
-        <div className="ms-composer__actions" ref={emojiRef}>
-          <button
-            type="button"
-            className="ms-icon-btn"
-            title="Insert code snippet"
-            aria-label="Insert code snippet"
-            onClick={insertCodeSnippet}
-            disabled={Boolean(uploading)}
-          >
-            <span className="material-symbols-outlined">code</span>
-          </button>
-          <button
-            type="button"
-            className="ms-icon-btn"
-            title="Upload code file"
-            aria-label="Upload code file"
-            onClick={() => codeRef.current?.click()}
-            disabled={Boolean(uploading)}
-          >
-            <span className="material-symbols-outlined">terminal</span>
-          </button>
-          <button
-            type="button"
-            className="ms-icon-btn"
-            title="Insert GIF"
-            aria-label="Insert GIF"
-            onClick={insertGif}
-            disabled={Boolean(uploading)}
-          >
-            <span className="material-symbols-outlined">gif_box</span>
-          </button>
+        <div className="ms-composer__actions">
           <button
             type="button"
             className={`ms-icon-btn${recording ? " is-active" : ""}`}
-            title={recording ? "Stop recording" : "Voice recording"}
-            aria-label={recording ? "Stop recording" : "Voice recording"}
+            title={recording ? "Stop recording" : "Record audio"}
+            aria-label={recording ? "Stop recording" : "Record audio"}
             onClick={toggleRecording}
             disabled={Boolean(uploading)}
           >
@@ -328,32 +162,6 @@ export default function MessageInput({
               {recording ? "stop_circle" : "mic"}
             </span>
           </button>
-          <button
-            type="button"
-            className={`ms-icon-btn${showEmoji ? " is-active" : ""}`}
-            title="Add emoji"
-            aria-label="Add emoji"
-            onClick={() => setShowEmoji((p) => !p)}
-          >
-            <span className="material-symbols-outlined">mood</span>
-          </button>
-          {showEmoji && (
-            <div className="ms-emoji-picker">
-              {COMMON_EMOJIS.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className="ms-emoji-btn"
-                  onClick={() => {
-                    onChange(value + emoji);
-                    setShowEmoji(false);
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <button

@@ -20,7 +20,7 @@ export default function ConversationCard({
       aria-current={selected ? "true" : undefined}
     >
       <div className="ms-conv-card-v2__avatar-container">
-        <Avatar name={title} online={online} size={44} showStatus={online} />
+        <Avatar name={title} online={online} size={56} showStatus={online} />
       </div>
 
       <span className="ms-conv-card-v2__body">

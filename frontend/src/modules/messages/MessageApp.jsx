@@ -61,7 +61,7 @@ export default function MessageApp({
   );
   const convId = selConv?.convId;
 
-  const { wsState, sendTyping, typingConversationId } = useChatSocket({
+  const { sendTyping, typingConversationId } = useChatSocket({
     conversationId: convId,
     kind: selKind,
     currentUserEmail,
@@ -454,14 +454,6 @@ export default function MessageApp({
       );
       return;
     }
-    if (action === "shared-files") {
-      notify?.({
-        type: "info",
-        title: "Shared files",
-        message: "Shared files are listed in the details panel.",
-      });
-      return;
-    }
     if (action === "clear-chat") {
       // eslint-disable-next-line no-alert
       if (window.confirm("Clear messages from this local view?")) {
@@ -489,15 +481,6 @@ export default function MessageApp({
             message: "Please try again.",
           });
         });
-      return;
-    }
-    if (action === "voice-call" || action === "video-call") {
-      const isVideo = action === "video-call";
-      notify?.({
-        type: "info",
-        title: isVideo ? "Video call" : "Voice call",
-        message: `Start a ${isVideo ? "video" : "voice"} call from your next session — calls unlock inside the booked session.`,
-      });
       return;
     }
     if (action === "complete" && selConv?.kind === "booking") {
@@ -651,18 +634,9 @@ export default function MessageApp({
           <>
             <ChatHeader
               conversation={selConv}
-              wsState={wsState}
               variant={variant}
               onAction={handleChatAction}
             />
-            {wsState === "reconnecting" || wsState === "closed" ? (
-              <div className="ms-ws-banner" role="status">
-                <span className="ms-spinner" aria-hidden="true" />
-                {wsState === "reconnecting"
-                  ? "Reconnecting..."
-                  : "Connection lost. Messages may be delayed."}
-              </div>
-            ) : null}
             <MessageList
               messages={messages}
               loading={loadingMessages}
