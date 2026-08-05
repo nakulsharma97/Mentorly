@@ -1,14 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Outlet } from "react-router";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import WorkspaceTopbar from "./WorkspaceTopbar";
 import "../dashboard/dashboard.css";
 import "./workspace.css";
 
+const DESKTOP_QUERY = "(min-width: 1280px)";
+
 /**
- * Shared, full-width dashboard shell used by both the Mentor and Learner
- * workspaces. Fixed sidebar + sticky topbar + fluid content (no max-width).
- * Owns sidebar collapse (persisted) and the mobile drawer state.
+ * Shared, full-width dashboard shell used by the Mentor, Learner and Admin
+ * workspaces. Fixed sidebar + sticky topbar + fluid content.
+ *
+ * Navigation model (premium burger UX):
+ *  - Desktop  (>=1280px): sidebar is a collapsible rail (260px <-> 88px),
+ *    state persisted in localStorage.
+ *  - Tablet   (768-1279px): sidebar hidden; burger opens a 300px slide-in
+ *    drawer over an overlay.
+ *  - Mobile   (<768px):     same drawer, near-full width.
  */
 export default function WorkspaceLayout({
   profile,
@@ -29,20 +37,64 @@ export default function WorkspaceLayout({
     () => localStorage.getItem(storageKey) === "1",
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+  );
 
+  // Track viewport crossing the desktop threshold.
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (e) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Persist desktop collapse preference.
   useEffect(() => {
     localStorage.setItem(storageKey, collapsed ? "1" : "0");
   }, [collapsed, storageKey]);
 
+  // The drawer only exists below desktop.
+  const drawerOpen = mobileOpen && !isDesktop;
+
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    document.body.style.overflow = drawerOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
     };
-  }, [mobileOpen]);
+  }, [drawerOpen]);
+
+  // Close the drawer when resizing into the desktop breakpoint, and keep
+  // the collapsed state consistent on the desktop shell.
+  useEffect(() => {
+    if (isDesktop) setMobileOpen(false);
+  }, [isDesktop]);
+
+  // ESC closes the drawer (tablet/mobile).
+  useEffect(() => {
+    if (!drawerOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawerOpen]);
+
+  const toggleNav = useCallback(() => {
+    if (isDesktop) {
+      setCollapsed((v) => !v);
+    } else {
+      setMobileOpen((v) => !v);
+    }
+  }, [isDesktop]);
+
+  const navOpen = isDesktop ? collapsed : mobileOpen;
+  // Semantic "is the controlled sidebar expanded" — on desktop the rail is
+  // expanded when NOT collapsed; below desktop it tracks the drawer.
+  const navExpanded = isDesktop ? !collapsed : mobileOpen;
 
   return (
-    <div className={`ws-shell${collapsed ? " is-collapsed" : ""}`}>
+    <div className={`ws-shell${collapsed && isDesktop ? " is-collapsed" : ""}`}>
       <WorkspaceSidebar
         brand={brand}
         groups={groups}
@@ -50,7 +102,9 @@ export default function WorkspaceLayout({
         profile={profile}
         onLogout={onLogout}
         collapsed={collapsed}
+        isDesktop={isDesktop}
         mobileOpen={mobileOpen}
+        unreadNotifications={unreadNotifications}
         onCloseMobile={() => setMobileOpen(false)}
       />
       <div className="ws-main">
@@ -64,8 +118,9 @@ export default function WorkspaceLayout({
           crumbRoot={crumbRoot}
           notificationsTo={notificationsTo}
           profileMenu={profileMenu}
-          onToggleSidebar={() => setCollapsed((v) => !v)}
-          onOpenMobileNav={() => setMobileOpen(true)}
+          navOpen={navOpen}
+          navExpanded={navExpanded}
+          onToggleNav={toggleNav}
         />
         <main className="ws-main-content">
           <Outlet />

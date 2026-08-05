@@ -182,6 +182,11 @@
   font-size: 0.86rem;
 }
 
+.ms-search-input-v2 input:focus,
+.ms-search-input-v2 input:focus-visible {
+  outline: none;
+}
+
 .ms-search-input-v2 input::placeholder {
   color: var(--ms-faint);
 }
@@ -551,12 +556,13 @@
   background: var(--ms-card);
 }
 
-/* Chat header (72px) — identity, presence and session on stacked rows */
+/* Chat header — identity, presence and session on stacked rows.
+   Layout: [Avatar (fixed)] [User info flex:1] [Menu margin-left:auto]. */
 .ms-chat__header {
   min-height: 72px;
-  padding: 0 20px;
+  padding: 20px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--ms-border);
@@ -578,17 +584,22 @@
 }
 
 .ms-chat__peer {
+  flex: 1; /* Expand so the user info block uses all available width */
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 16px; /* Avatar → Name */
+  gap: 20px; /* Avatar → User info (margin-left 20px equivalent) */
   border: none;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  padding: 6px 8px;
+  padding: 4px 0;
   border-radius: 12px;
   transition: background 0.18s;
-  min-width: 0;
+}
+
+.ms-chat__peer > .ms-avatar {
+  flex-shrink: 0;
 }
 
 .ms-chat__peer:hover {
@@ -596,10 +607,11 @@
 }
 
 .ms-chat__peer-meta {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
 }
 
 .ms-chat__peer-meta .ms-chat__peer-name {
@@ -691,6 +703,7 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto; /* Three-dot menu pinned to the far right */
 }
 
 .ms-spinner {
@@ -1249,9 +1262,15 @@
 }
 
 .ms-new__search:focus-within {
-  border-color: var(--ms-primary);
+  border-color: #14b8a6;
   background: var(--ms-card);
-  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.1);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+}
+
+/* Single focus ring only — kill the global input:focus-visible outline. */
+.ms-new__search input:focus,
+.ms-new__search input:focus-visible {
+  outline: none;
 }
 
 .ms-new__search input {
@@ -1463,43 +1482,51 @@
 /* ── Learner / user card ─────────────────────────────────────────────────── */
 
 .ms-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 130px;
+  padding: 18px;
+  border-radius: 18px;
   background: var(--ms-card);
   border: 1px solid var(--ms-border);
-  border-radius: 16px;
-  padding: 14px;
+  box-shadow: var(--ms-shadow);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ms-user:hover {
   border-color: rgba(20, 184, 166, 0.5);
-  box-shadow: var(--ms-shadow);
+  box-shadow: var(--ms-shadow-lg);
   transform: translateY(-2px);
 }
 
-.ms-user__top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.ms-user__body {
+.ms-user__main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+.ms-user__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .ms-user__name {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--ms-text);
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ms-text);
 }
 
 .ms-user__verified {
@@ -1509,66 +1536,101 @@
   flex-shrink: 0;
 }
 
-.ms-user__meta {
+.ms-user__role {
+  flex-shrink: 0;
+  height: 22px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: #ecfdf5;
+  color: #0f766e;
+}
+
+.ms-user__exp {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ms-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-user__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ms-user__skill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ms-bg);
+  border: 1px solid var(--ms-border);
+  color: var(--ms-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ms-user__noskills {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--ms-faint);
+  font-style: italic;
+}
+
+.ms-user__status {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
-}
-
-.ms-user__role {
-  font-size: 0.66rem;
-  font-weight: 800;
-  padding: 2px 9px;
-  border-radius: 99px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.ms-user__role--mentor {
-  background: rgba(20, 184, 166, 0.1);
-  color: var(--ms-primary-dark);
-}
-
-.ms-user__role--learner {
-  background: rgba(59, 130, 246, 0.1);
-  color: #1d4ed8;
-}
-
-.ms-user__meta-chip {
+  margin: 0;
   font-size: 0.72rem;
-  color: var(--ms-muted);
+  color: var(--ms-faint);
 }
 
-.ms-user__rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 0.74rem;
-  font-weight: 700;
-  color: #b45309;
+.ms-user__status.is-online {
+  color: var(--ms-primary-dark);
+  font-weight: 600;
 }
 
-.ms-user__rating .material-symbols-outlined {
-  font-size: 14px;
-  color: #f59e0b;
+.ms-user__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ms-faint);
+  flex-shrink: 0;
+}
+
+.ms-user__status.is-online .ms-user__status-dot {
+  background: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
 }
 
 .ms-user__start {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 14px;
-  border-radius: 99px;
-  border: none;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
   background: var(--ms-primary);
   color: #fff;
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: all 0.18s;
   flex-shrink: 0;
+  white-space: nowrap;
   box-shadow: 0 3px 10px rgba(20, 184, 166, 0.2);
 }
 
@@ -1578,81 +1640,74 @@
 }
 
 .ms-user__start:disabled {
-  opacity: 0.6;
-  cursor: wait;
+  cursor: default;
+}
+
+.ms-user__start[data-state="sent"],
+.ms-user__start[data-state="already-sent"] {
+  background: #ecfdf5;
+  color: #0f766e;
+  border-color: #99f6e4;
+  box-shadow: none;
+}
+
+.ms-user__start[data-state="open"] {
+  background: var(--ms-card);
+  color: var(--ms-primary-dark);
+  border-color: var(--ms-primary);
+  box-shadow: none;
 }
 
 .ms-user__start .material-symbols-outlined {
-  font-size: 15px;
+  font-size: 16px;
+}
+
+/* Dark-mode contrast for the stateful button + role badge */
+[data-theme="dark"] .ms-user__role {
+  background: #134e4a;
+  color: #99f6e4;
+}
+
+[data-theme="dark"] .ms-user__start[data-state="sent"],
+[data-theme="dark"] .ms-user__start[data-state="already-sent"] {
+  background: #134e4a;
+  color: #99f6e4;
+  border-color: #0f766e;
+}
+
+[data-theme="dark"] .ms-user__start[data-state="open"] {
+  background: #134e4a;
+  color: #5eead4;
+  border-color: #14b8a6;
 }
 
 .ms-btn-spinner {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   animation: ms-spin 0.7s linear infinite;
 }
 
-.ms-user__goal {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 10px 0 0;
-  font-size: 0.78rem;
-  color: var(--ms-muted);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.ms-user__goal .material-symbols-outlined {
-  font-size: 15px;
-  color: var(--ms-primary);
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.ms-user__goal em {
-  font-style: normal;
-  font-weight: 700;
-  color: var(--ms-text);
-}
-
-.ms-user__skills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 9px;
-}
-
-.ms-user__skill {
-  padding: 3px 10px;
-  border-radius: 99px;
-  background: var(--ms-bg);
-  border: 1px solid var(--ms-border);
-  color: var(--ms-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.ms-user__noskills {
-  margin: 8px 0 0;
-  font-size: 0.74rem;
-  color: var(--ms-faint);
-}
-
-.ms-user__availability {
+/* Inline error banner inside the new-conversation results */
+.ms-new__error {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin: 8px 0 0;
-  font-size: 0.72rem;
-  color: var(--ms-faint);
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin-bottom: 12px;
 }
 
-.ms-user__availability .material-symbols-outlined {
-  font-size: 13px;
+.ms-new__error .material-symbols-outlined {
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
 /* ── Right details panel (320px) ─────────────────────────────────────────── */
@@ -2293,10 +2348,11 @@
 .ms-skel-user {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
+  gap: 16px;
+  height: 130px;
+  padding: 18px;
   border: 1px solid var(--ms-border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--ms-card);
 }
 
@@ -2447,6 +2503,15 @@
   .ms-app__container {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+  .ms-user {
+    height: auto;
+    min-height: 130px;
+    gap: 12px;
+    padding: 16px;
+  }
+  .ms-user__start {
+    padding: 0 14px;
   }
   .ms-app__sidebar {
     height: auto;

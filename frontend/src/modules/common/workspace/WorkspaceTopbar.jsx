@@ -17,8 +17,9 @@ export default function WorkspaceTopbar({
   profile,
   onLogout,
   unreadNotifications = 0,
-  onToggleSidebar,
-  onOpenMobileNav,
+  navOpen = false,
+  navExpanded = navOpen,
+  onToggleNav,
   pageMeta = {},
   crumbRoot = "Workspace",
   profileMenu = [],
@@ -178,21 +179,19 @@ export default function WorkspaceTopbar({
   return (
     <header className={`ws-top${scrolled ? " ws-top--scrolled" : ""}`}>
       <div className="ws-top__left">
+        {/* Premium animated burger — collapses the rail on desktop, opens the
+            slide-in drawer on tablet/mobile. Morphs into an X when open. */}
         <button
           type="button"
-          className="ws-top__icon-btn ws-top__menu-btn"
-          onClick={onOpenMobileNav}
-          aria-label="Open navigation"
+          className={`ws-top__burger${navOpen ? " is-open" : ""}`}
+          onClick={onToggleNav}
+          aria-label={navOpen ? "Close navigation" : "Open navigation"}
+          aria-expanded={navExpanded}
+          aria-controls="ws-sidebar"
         >
-          <SsIcon name="menu" size={22} />
-        </button>
-        <button
-          type="button"
-          className="ws-top__icon-btn ws-top__collapse"
-          onClick={onToggleSidebar}
-          aria-label="Toggle sidebar"
-        >
-          <SsIcon name="chevron-left" size={22} />
+          <span className="ws-top__burger-line" aria-hidden="true" />
+          <span className="ws-top__burger-line" aria-hidden="true" />
+          <span className="ws-top__burger-line" aria-hidden="true" />
         </button>
         <div className="ws-top__titles">
           <nav className="ws-top__crumb" aria-label="Breadcrumb">

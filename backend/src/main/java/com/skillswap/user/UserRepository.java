@@ -172,7 +172,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
       /**
        * Rich people search for messaging/new-conversation discovery.
        * Matches by name, username, email, role, skills, about, company,
-       * headline and years of experience.
+       * headline, years of experience and the titles of roadmaps the user
+       * is learning (or teaching as a mentor).
        */
       @Query(value = """
                   SELECT DISTINCT u.* FROM users u
@@ -188,6 +189,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                           OR LOWER(COALESCE(u.headline, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
                                           OR LOWER(COALESCE(u.role, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
                                           OR CAST(COALESCE(u.years_of_experience, 0) AS CHAR) LIKE CONCAT('%', :keyword, '%')
+                                          OR EXISTS (
+                                                SELECT 1
+                                                FROM learning_roadmaps lr
+                                                JOIN bookings b ON b.id = lr.booking_id
+                                                WHERE LOWER(COALESCE(lr.title, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                                                  AND (
+                                                        b.learner_id = u.id
+                                                        OR EXISTS (
+                                                              SELECT 1 FROM sessions s
+                                                              WHERE s.id = b.session_id AND s.mentor_id = u.id
+                                                        )
+                                                  )
+                                          )
                         )
                   ORDER BY
                         CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,

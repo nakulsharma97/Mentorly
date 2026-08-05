@@ -20,11 +20,15 @@ const CATEGORIES = [
 const SEARCH_PLACEHOLDER =
   "Search by name, username, email, skill or technology…";
 
+const FIRST_MESSAGE =
+  "Hi! I would like to connect and discuss our learning goals.";
+
 /**
- * "New conversation" screen — replaces ONLY the center panel (the sidebar and
- * details columns stay put). Searches real users on the backend with a 300ms
- * debounce, shows suggested learners when idle, and starts (or reuses) a
- * conversation without ever creating duplicates.
+ * "New conversation" screen — replaces ONLY the center panel. Searches real
+ * users on the backend with a 300ms debounce, shows suggested learners when
+ * idle, and starts (or reuses) a conversation without ever creating
+ * duplicates. Each user card carries its own request state machine:
+ *   idle → sending → sent | already-sent | open
  */
 export default function NewConversation({ profile, onClose, onStart, notify }) {
   const [query, setQuery] = useState("");
@@ -33,6 +37,10 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
   const [error, setError] = useState(null);
   const [category, setCategory] = useState("All");
   const [workingUserId, setWorkingUserId] = useState(null);
+  // Per-user request outcome: { [userId]: "sent" | "already-sent" }
+  const [requestStates, setRequestStates] = useState({});
+  // Users we discovered already have a direct conversation — show "Open Chat".
+  const [directUserIds, setDirectUserIds] = useState(() => new Set());
   const searchRef = useRef(null);
   const seqRef = useRef(0);
 
@@ -65,9 +73,11 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
           availability: u.availability || "",
           online: Boolean(u.online),
           experience: u.yearsOfExperience,
-          experienceText: Number.isFinite(Number(u.yearsOfExperience))
-            ? `${u.yearsOfExperience}+ yrs`
-            : "",
+          experienceText:
+            u.yearsOfExperience != null &&
+            Number.isFinite(Number(u.yearsOfExperience))
+              ? `${u.yearsOfExperience}+ yrs`
+              : "",
           mentorVerified: Boolean(u.mentorVerified),
           canStartDirect: Boolean(u.canStartDirect),
           profileImageUrl: u.profileImageUrl || "",
@@ -97,47 +107,102 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
     );
   }, [category, results]);
 
+  const markRequestState = (userId, state) =>
+    setRequestStates((prev) => ({ ...prev, [userId]: state }));
+
+  /** Opens an existing (or newly created) direct conversation and selects it. */
+  const openDirect = async (user) => {
+    const res = await client.post(`/api/v1/chat/direct/${user.id}`);
+    const data = unwrap(res.data);
+    if (!data?.conversationId) {
+      throw new Error("Unable to start conversation. No conversation ID returned.");
+    }
+    notify?.({
+      type: "success",
+      title: "Conversation ready",
+      message: `You can now message ${data.participantName || user.name}.`,
+    });
+    // Pass the FULL conversation payload so the chat opens instantly.
+    onStart?.({ ...data, ...user });
+  };
+
+  /** Creates a pending conversation request (backend dedupes). */
+  const sendRequest = async (user) => {
+    await client.post("/api/message-requests", {
+      receiver: user.id,
+      firstMessage: FIRST_MESSAGE,
+    });
+    markRequestState(user.id, "sent");
+    notify?.({
+      type: "success",
+      title: "Request sent",
+      message: "Conversation request sent successfully.",
+    });
+  };
+
   const start = async (user) => {
     if (!user?.id) return;
     setWorkingUserId(user.id);
+    setError(null);
     try {
-      if (user.canStartDirect) {
-        const res = await client.post(`/api/v1/chat/direct/${user.id}`);
-        const data = unwrap(res.data);
-        if (data?.conversationId) {
-          notify?.({
-            type: "success",
-            title: "Conversation ready",
-            message: `You can now message ${data.participantName || user.name}.`,
-          });
-          // Pass the FULL conversation payload so the chat opens instantly.
-          onStart?.({ ...data, ...user });
-          return;
-        }
-        setError("Unable to start conversation. No conversation ID returned.");
-      } else {
-        await client.post("/api/message-requests", {
-          receiver: user.id,
-          firstMessage:
-            "Hi! I would like to connect and discuss our learning goals.",
-        });
-        notify?.({
-          type: "success",
-          title: "Message request sent",
-          message: `Your request was sent to ${user.name}.`,
-        });
+      if (user.canStartDirect || directUserIds.has(user.id)) {
+        await openDirect(user);
+        return;
       }
+      await sendRequest(user);
     } catch (err) {
       const body = err?.response?.data;
-      setError(
-        body?.message ||
-          body?.data?.error ||
-          err?.message ||
-          "Unable to start conversation.",
+      const message = String(
+        body?.message || body?.data?.error || err?.message || "",
       );
+      const lower = message.toLowerCase();
+
+      // A conversation already exists — flip the card and open it directly.
+      if (lower.includes("conversation already exists")) {
+        setDirectUserIds((prev) => new Set(prev).add(user.id));
+        try {
+          await openDirect(user);
+        } catch {
+          notify?.({
+            type: "error",
+            title: "Conversation unavailable",
+            message: "Could not open the existing conversation. Please try again.",
+          });
+        }
+        return;
+      }
+
+      // A pending request already exists — never duplicate.
+      if (lower.includes("pending request") || lower.includes("already have")) {
+        markRequestState(user.id, "already-sent");
+        notify?.({
+          type: "info",
+          title: "Request already sent",
+          message: `You already sent a request to ${user.name}.`,
+        });
+        return;
+      }
+
+      setError(
+        body?.message || body?.data?.error || err?.message || "Unable to send request.",
+      );
+      notify?.({
+        type: "error",
+        title: "Request failed",
+        message: body?.message || err?.message || "Please try again.",
+      });
     } finally {
       setWorkingUserId(null);
     }
+  };
+
+  /** Resolve the button state for a user card. */
+  const stateFor = (user) => {
+    if (workingUserId === user.id) return "sending";
+    if (requestStates[user.id] === "sent") return "sent";
+    if (requestStates[user.id] === "already-sent") return "already-sent";
+    if (user.canStartDirect || directUserIds.has(user.id)) return "open";
+    return "idle";
   };
 
   const suggestedLearners = useMemo(
@@ -161,11 +226,17 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
 
   const searching = Boolean(query.trim());
   const showSuggested = !searching;
-  const showEmpty =
-    searching &&
-    !loading &&
-    !error &&
-    visible.length === 0;
+  const showEmpty = searching && !loading && visible.length === 0;
+
+  const renderCard = (user) => (
+    <LearnerCard
+      key={`user-${user.id}`}
+      user={user}
+      onAction={start}
+      state={stateFor(user)}
+      searchTerm={searching ? query.trim() : ""}
+    />
+  );
 
   return (
     <motion.section
@@ -238,6 +309,13 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
       </div>
 
       <div className="ms-new__results">
+        {error && !searching ? (
+          <div className="ms-new__error" role="alert">
+            <span className="material-symbols-outlined">error</span>
+            <span>{error}</span>
+          </div>
+        ) : null}
+
         <AnimatePresence mode="wait">
           {showSuggested ? (
             <motion.div
@@ -251,15 +329,7 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
                 <h3>Suggested Learners</h3>
                 <div className="ms-suggested__row">
                   {suggestedLearners.length ? (
-                    suggestedLearners.map((m) => (
-                      <LearnerCard
-                        key={`learner-${m.id}`}
-                        user={m}
-                        onAction={start}
-                        busy={workingUserId === m.id}
-                        searchTerm=""
-                      />
-                    ))
+                    suggestedLearners.map(renderCard)
                   ) : (
                     <p className="ms-new__hint">
                       Type above to search for learners across SkillSwap.
@@ -272,15 +342,7 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
                 <section className="ms-suggested">
                   <h3>Suggested Mentors</h3>
                   <div className="ms-suggested__row">
-                    {suggestedMentors.map((m) => (
-                      <LearnerCard
-                        key={`mentor-${m.id}`}
-                        user={m}
-                        onAction={start}
-                        busy={workingUserId === m.id}
-                        searchTerm=""
-                      />
-                    ))}
+                    {suggestedMentors.map(renderCard)}
                   </div>
                 </section>
               ) : null}
@@ -289,15 +351,7 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
                 <section className="ms-suggested">
                   <h3>Top Rated</h3>
                   <div className="ms-suggested__row">
-                    {topRated.map((m) => (
-                      <LearnerCard
-                        key={`rated-${m.id}`}
-                        user={m}
-                        onAction={start}
-                        busy={workingUserId === m.id}
-                        searchTerm=""
-                      />
-                    ))}
+                    {topRated.map(renderCard)}
                   </div>
                 </section>
               ) : null}
@@ -326,24 +380,29 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="ms-new__empty"
             >
-              <div className="ms-new__empty-icon" aria-hidden="true">
-                <span className="material-symbols-outlined">person_search</span>
+              {error ? (
+                <div className="ms-new__error" role="alert">
+                  <span className="material-symbols-outlined">error</span>
+                  <span>{error}</span>
+                </div>
+              ) : null}
+              <div className="ms-new__empty">
+                <div className="ms-new__empty-icon" aria-hidden="true">
+                  <span className="material-symbols-outlined">
+                    person_search
+                  </span>
+                </div>
+                <h3>No learners found</h3>
+                <p>Try another search keyword.</p>
+                <button
+                  type="button"
+                  className="ms-btn ms-btn--outline ms-btn--sm"
+                  onClick={() => setQuery("")}
+                >
+                  Clear search
+                </button>
               </div>
-              <h3>No learners found</h3>
-              <p>
-                {error
-                  ? error
-                  : `Nothing matches "${query.trim()}". Try a name, skill, or technology.`}
-              </p>
-              <button
-                type="button"
-                className="ms-btn ms-btn--outline ms-btn--sm"
-                onClick={() => setQuery("")}
-              >
-                Clear search
-              </button>
             </motion.div>
           ) : (
             <motion.div
@@ -352,6 +411,12 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              {error ? (
+                <div className="ms-new__error" role="alert">
+                  <span className="material-symbols-outlined">error</span>
+                  <span>{error}</span>
+                </div>
+              ) : null}
               <div className="ms-new__results-head">
                 <h3>
                   {visible.length} match{visible.length === 1 ? "" : "es"} for{" "}
@@ -359,15 +424,7 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
                 </h3>
               </div>
               <div className="ms-new__results-list">
-                {visible.map((u) => (
-                  <LearnerCard
-                    key={u.id}
-                    user={u}
-                    onAction={start}
-                    busy={workingUserId === u.id}
-                    searchTerm={query.trim()}
-                  />
-                ))}
+                {visible.map(renderCard)}
               </div>
             </motion.div>
           )}

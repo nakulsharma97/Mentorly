@@ -12,7 +12,7 @@
 
 .ws-shell {
     --sb-width: 260px;
-    --sb-rail: 80px;
+    --sb-rail: 88px;
 
     height: 100vh;
     display: flex;
@@ -44,7 +44,7 @@
   background: var(--panel);
   box-shadow: inset -1px 0 0 color-mix(in srgb, var(--brand) 6%, transparent);
 
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+  transition: width 0.3s ease-in-out, box-shadow 0.3s ease;
   overflow: hidden;
 
   z-index: 40;
@@ -198,6 +198,26 @@
   overflow: hidden;
   position: relative;
   z-index: 1;
+  transition: opacity 0.3s ease-in-out, width 0.3s ease-in-out, margin 0.3s ease-in-out;
+}
+
+/* Icon wrapper — hosts the unread notification dot */
+.ws-sb__link-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.ws-sb__link-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
 }
 
 /* Hover states */
@@ -307,15 +327,33 @@
 .ws-sb__user-copy strong { font-size: 0.82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ws-sb__user-copy span { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ─── Collapsed Rail State ─── */
+/* ─── Collapsed Rail State — smooth label fade-out (300ms) ─── */
 
 .ws-shell.is-collapsed .ws-sb__brand-copy,
-.ws-shell.is-collapsed .ws-sb__link-label,
+.ws-shell.is-collapsed .ws-sb__user-copy,
 .ws-shell.is-collapsed .ws-sb__group-label,
-.ws-shell.is-collapsed .ws-sb__user-copy { display: none; }
+.ws-shell.is-collapsed .ws-sb__link-label {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ws-shell.is-collapsed .ws-sb__brand-copy,
+.ws-shell.is-collapsed .ws-sb__user-copy {
+  transition: opacity 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+.ws-shell.is-collapsed .ws-sb__group-label {
+  height: 0;
+  transition: opacity 0.3s ease-in-out, height 0.3s ease-in-out, margin 0.3s ease-in-out;
+}
 
 .ws-shell.is-collapsed .ws-sb__link,
-.ws-shell.is-collapsed .ws-sb__logout { justify-content: center; padding: 11px 0; }
+.ws-shell.is-collapsed .ws-sb__logout { justify-content: center; gap: 0; padding: 11px 0; }
 
 .ws-shell.is-collapsed .ws-sb__link:hover {
   transform: scale(1.05);
@@ -325,8 +363,8 @@
   background: color-mix(in srgb, var(--brand) 15%, transparent);
 }
 
-.ws-shell.is-collapsed .ws-sb__brand { justify-content: center; }
-.ws-shell.is-collapsed .ws-sb__user { justify-content: center; }
+.ws-shell.is-collapsed .ws-sb__brand { justify-content: center; gap: 0; }
+.ws-shell.is-collapsed .ws-sb__user { justify-content: center; gap: 0; }
 .ws-shell.is-collapsed .ws-sb__divider { margin: 6px 16px; }
 
 .ws-sb__scrim { display: none; }
@@ -443,7 +481,61 @@
 
 .ws-top__icon-btn svg { width: 20px; height: 20px; color: var(--muted); position: relative; z-index: 1; }
 
-.ws-top__menu-btn { display: none; }
+/* ─── Animated Burger Button (44x44, morphs into an X) ─── */
+
+.ws-top__burger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid #e6edf3;
+  background: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+  z-index: 35;
+}
+
+.ws-top__burger:hover {
+  background: #f1f5f9;
+}
+
+.ws-top__burger:active {
+  transform: scale(0.96);
+}
+
+.ws-top__burger:focus-visible {
+  outline: 2px solid var(--brand, #14b8a6);
+  outline-offset: 2px;
+}
+
+.ws-top__burger-line {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #334155;
+  transition: transform 0.25s ease, opacity 0.2s ease, background 0.25s ease;
+}
+
+/* Morph into an X (250ms) */
+.ws-top__burger.is-open .ws-top__burger-line:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.ws-top__burger.is-open .ws-top__burger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.ws-top__burger.is-open .ws-top__burger-line:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
 
 /* ─── Search Bar ─── */
 
@@ -820,9 +912,17 @@
    RESPONSIVE DESIGN
    ───────────────────────────────────────────────────────────── */
 
-@media (max-width: 1080px) {
+/* ── Tablet (768–1279px) & Mobile (<768px): slide-in drawer ───────────────
+   Framer Motion owns the x transform; CSS only fixes position/width/radius.
+   The scrim is rendered by Framer Motion (opacity animated). ── */
+
+@media (max-width: 1279px) {
   .ws-main-content { padding: 16px 16px 20px; }
   .ws-top { padding: 12px 16px; }
+
+  /* Header persists ABOVE the drawer + scrim so the burger (morphs to X)
+     stays visible and clickable while the drawer is open. */
+  .ws-top { z-index: 70; }
 
   .ws-sb,
   .ws-shell.is-collapsed .ws-sb {
@@ -830,41 +930,21 @@
     top: 0;
     left: 0;
     height: 100vh;
-    width: 280px;
+    width: min(300px, 88vw);
     border-radius: 0 24px 24px 0;
-    transform: translateX(-105%);
-    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.12);
     z-index: 60;
-    box-shadow: 4px 0 40px rgba(0, 0, 0, 0.1);
   }
-
-  .ws-sb.is-mobile-open { transform: translateX(0); }
-
-  .ws-shell.is-collapsed .ws-sb__link-label,
-  .ws-shell.is-collapsed .ws-sb__group-label,
-  .ws-shell.is-collapsed .ws-sb__brand-copy,
-  .ws-shell.is-collapsed .ws-sb__user-copy { display: block; }
-
-  .ws-shell.is-collapsed .ws-sb__link,
-  .ws-shell.is-collapsed .ws-sb__logout { justify-content: flex-start; padding: 10px 12px; }
 
   .ws-sb__scrim {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(9, 30, 26, 0.5);
+    background: rgba(15, 23, 42, 0.35);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
     z-index: 55;
   }
-
-  .ws-sb__scrim.is-open { opacity: 1; pointer-events: auto; }
-
-  .ws-top__menu-btn { display: inline-flex; }
-  .ws-top__collapse { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -872,4 +952,11 @@
   .ws-top__profile-copy { display: none; }
   .ws-top__title { font-size: 1.05rem; }
   .ws-main-content { padding: 12px 12px 16px; }
+  .ws-top__burger { width: 40px; height: 40px; }
+
+  /* Near-full-width mobile drawer. */
+  .ws-sb,
+  .ws-shell.is-collapsed .ws-sb {
+    width: min(300px, 86vw);
+  }
 }

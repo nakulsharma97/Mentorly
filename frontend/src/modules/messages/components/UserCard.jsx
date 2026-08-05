@@ -1,26 +1,59 @@
 import Avatar from "./Avatar";
 import { highlightMatch, normalizeSkills, roleLabel } from "../utils";
 
+const BUTTONS = {
+  idle: { label: "Send Request", icon: "send", disabled: false },
+  sending: { label: "Sending…", icon: "", disabled: true, spinner: true },
+  sent: { label: "Request Sent", icon: "check", disabled: true },
+  "already-sent": { label: "Already Sent", icon: "check", disabled: true },
+  open: { label: "Open Chat", icon: "chat", disabled: false },
+};
+
 /**
- * Premium learner card — used for both search results and suggestions.
- * Shows photo, name, role, skills, learning goal (headline), rating and
- * availability, with a primary "Start Chat" action. Search matches are
- * highlighted across every text field.
+ * Learner card for search results and suggestions. Fixed-height (130px) with
+ * avatar, name + role badge, experience, skills and online status on clean
+ * rows, plus a stateful Send Request / Open Chat button. Null experience and
+ * missing skills render friendly placeholder text — never raw values.
  */
-export default function UserCard({ user, onAction, busy, searchTerm = "" }) {
+export default function UserCard({
+  user,
+  onAction,
+  state = "idle",
+  searchTerm = "",
+}) {
   const skills = normalizeSkills(user.skills).slice(0, 4);
   const q = String(searchTerm || "").trim();
+  const role = String(user.role || "LEARNER").toLowerCase();
+
+  // Number(null) === 0, so guard null/undefined/empty explicitly — never
+  // render raw null values or "null+ yrs".
+  const exp = Number(user.experience);
+  const hasExperience =
+    user.experienceText ||
+    (user.experience != null &&
+      String(user.experience).trim() !== "" &&
+      Number.isFinite(exp)
+      ? `${user.experience}+ yrs`
+      : "");
+  const experience = hasExperience || "Experience not added";
+
+  const statusText = user.online
+    ? "Online now"
+    : user.availability || "Offline";
+
+  const btn = BUTTONS[state] || BUTTONS.idle;
 
   return (
     <article className="ms-user" aria-label={`User ${user.name}`}>
-      <div className="ms-user__top">
-        <Avatar
-          name={user.name}
-          imageUrl={user.profileImageUrl}
-          size={48}
-          online={Boolean(user.online)}
-        />
-        <div className="ms-user__body">
+      <Avatar
+        name={user.name}
+        imageUrl={user.profileImageUrl}
+        size={48}
+        online={Boolean(user.online)}
+      />
+
+      <div className="ms-user__main">
+        <div className="ms-user__head">
           <strong className="ms-user__name">
             {q ? highlightMatch(user.name, q) : user.name}
             {user.mentorVerified ? (
@@ -29,71 +62,51 @@ export default function UserCard({ user, onAction, busy, searchTerm = "" }) {
               </span>
             ) : null}
           </strong>
-          <span className="ms-user__meta">
-            <span className={`ms-user__role ms-user__role--${String(user.role || "LEARNER").toLowerCase()}`}>
-              {roleLabel(user.role)}
-            </span>
-            {user.experienceText ? (
-              <span className="ms-user__meta-chip">{user.experienceText}</span>
-            ) : null}
-            {typeof user.rating === "number" ? (
-              <span className="ms-user__rating" title="Average rating">
-                <span className="material-symbols-outlined">star</span>
-                {Number(user.rating).toFixed(1)}
-              </span>
-            ) : null}
+          <span
+            className={`ms-user__role ms-user__role--${role}`}
+          >
+            {roleLabel(user.role)}
           </span>
         </div>
-        <button
-          type="button"
-          className="ms-user__start"
-          disabled={busy}
-          onClick={() => onAction?.(user)}
-        >
-          {busy ? (
-            <>
-              <span className="ms-btn-spinner" aria-hidden="true" />
-              Working…
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined">
-                {user.canStartDirect ? "chat" : "send"}
+
+        <p className="ms-user__exp">
+          {q && hasExperience
+            ? highlightMatch(experience, q)
+            : experience}
+        </p>
+
+        {skills.length ? (
+          <div className="ms-user__skills">
+            {skills.map((skill) => (
+              <span className="ms-user__skill" key={skill}>
+                {q ? highlightMatch(skill, q) : skill}
               </span>
-              {user.canStartDirect ? "Start Chat" : "Send Request"}
-            </>
-          )}
-        </button>
+            ))}
+          </div>
+        ) : (
+          <p className="ms-user__noskills">No skills added yet</p>
+        )}
+
+        <p className={`ms-user__status${user.online ? " is-online" : ""}`}>
+          <span className="ms-user__status-dot" aria-hidden="true" />
+          {statusText}
+        </p>
       </div>
 
-      {user.headline ? (
-        <p className="ms-user__goal">
-          <span className="material-symbols-outlined">flag</span>
-          <span>
-            <em>Learning goal — </em>
-            {q ? highlightMatch(user.headline, q) : user.headline}
-          </span>
-        </p>
-      ) : null}
-
-      {skills.length ? (
-        <div className="ms-user__skills">
-          {skills.map((skill) => (
-            <span className="ms-user__skill" key={skill}>
-              {q ? highlightMatch(skill, q) : skill}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="ms-user__noskills">No skills listed yet</p>
-      )}
-
-      {user.availability ? (
-        <p className="ms-user__availability">
-          <span className="material-symbols-outlined">schedule</span>
-          {user.availability}
-        </p>
-      ) : null}
+      <button
+        type="button"
+        className={`ms-user__start${btn.spinner ? " is-loading" : ""}`}
+        data-state={state}
+        disabled={btn.disabled}
+        onClick={() => onAction?.(user)}
+      >
+        {btn.spinner ? (
+          <span className="ms-btn-spinner" aria-hidden="true" />
+        ) : btn.icon ? (
+          <span className="material-symbols-outlined">{btn.icon}</span>
+        ) : null}
+        {btn.label}
+      </button>
     </article>
   );
 }

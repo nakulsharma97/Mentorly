@@ -1,14 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import client from "../api/client";
-import { SkeletonTable } from "../components/SkeletonLoaders";
 import ReportModal from "../components/ReportModal";
-import StatsCard from "../modules/common/dashboard/StatsCard";
-import Icon from "../modules/common/dashboard/Icon";
-import StudentDrawer from "../modules/mentor/components/students/StudentDrawer";
-import MentorPageHero from "../modules/mentor/components/MentorPageHero";
-import { initials } from "../modules/common/dashboard/dashboardUtils";
-import "../modules/mentor/mentor-pages.css";
+import StudentHero from "../modules/mentor/components/students/StudentHero";
+import StudentStats from "../modules/mentor/components/students/StudentStats";
+import StudentSearchBar from "../modules/mentor/components/students/StudentSearchBar";
+import StudentCard from "../modules/mentor/components/students/StudentCard";
+import StudentDetailsPanel from "../modules/mentor/components/students/StudentDetailsPanel";
+import "../modules/mentor/components/students/students.css";
 
 const ACTIVE_STATUSES = ["PENDING", "ACCEPTED", "CONFIRMED", "IN_PROGRESS"];
 
@@ -22,19 +21,47 @@ function deriveStatus(bookings) {
   return "inactive";
 }
 
+function derivePlatform(link) {
+  const l = String(link || "").toLowerCase();
+  if (l.includes("meet.google")) return "Google Meet";
+  if (l.includes("zoom")) return "Zoom";
+  if (l.includes("teams")) return "MS Teams";
+  if (l.includes("webex")) return "Webex";
+  if (l.includes("whereby")) return "Whereby";
+  return l ? "Video call" : "";
+}
+
+function parseMilestones(raw) {
+  return String(raw || "")
+    .split(/\r?\n|,|;|\||•/)
+    .map((m) => m.trim())
+    .filter(Boolean);
+}
+
+function assignStatus(i, total, pct) {
+  const doneCount = total > 0 ? Math.round((pct / 100) * total) : 0;
+  if (i < doneCount) return "reviewed";
+  if (i === doneCount) return "progress";
+  return "pending";
+}
+
 export default function MentorStudentsPage({ profile, notify }) {
   const navigate = useNavigate();
+  const panelRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [students, setStudents] = useState([]);
   const [summary, setSummary] = useState({ averageRating: 0 });
-  const [selected, setSelected] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const [reportStudent, setReportStudent] = useState(null);
 
   const [search, setSearch] = useState("");
   const [skillFilter, setSkillFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [upcomingFilter, setUpcomingFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest");
+  const [panelTab, setPanelTab] = useState("Overview");
 
   const loadStudents = useCallback(async () => {
     setLoading(true);
@@ -71,6 +98,7 @@ export default function MentorStudentsPage({ profile, notify }) {
           status !== "CANCELLED" &&
           status !== "REJECTED";
         const price = Number(b?.session?.priceAmount || 0);
+        const meetingLink = b?.session?.meetingLink || "";
 
         const entry = map.get(learner.id) || {
           id: learner.id,
@@ -78,6 +106,7 @@ export default function MentorStudentsPage({ profile, notify }) {
           email: learner.email || "",
           aboutMe: learner.aboutMe || "",
           skills: learner.skills || "",
+          profileImageUrl: learner.profileImageUrl || "",
           joined: learner.createdAt || b?.createdAt || null,
           lastActive: learner.lastActiveAt || null,
           bookings: [],
@@ -96,13 +125,13 @@ export default function MentorStudentsPage({ profile, notify }) {
           isUpcoming,
           price,
           paymentStatus: b?.paymentStatus,
-          meetingLink: b?.session?.meetingLink,
+          meetingLink,
+          platform: derivePlatform(meetingLink),
         });
         if (status === "COMPLETED") entry.totalSpent += price;
         map.set(learner.id, entry);
       });
 
-      // attach reviews + roadmap progress
       const reviewsByLearner = new Map();
       reviews.forEach((r) => {
         const list = reviewsByLearner.get(r.learnerId) || [];
@@ -131,6 +160,22 @@ export default function MentorStudentsPage({ profile, notify }) {
         const upcoming = s.bookings
           .filter((b) => b.isUpcoming)
           .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
+
+        const milestones = rm ? parseMilestones(rm.milestones) : [];
+        const topicsCompleted =
+          milestones.length > 0
+            ? Math.round((progress / 100) * milestones.length)
+            : completed;
+        const revs = reviewsByLearner.get(s.id) || [];
+        const rating = revs.length
+          ? revs.reduce((acc, r) => acc + Number(r.rating || 0), 0) / revs.length
+          : 0;
+        const assignments = milestones.map((m, i) => ({
+          title: m,
+          sub: `${i + 1} of ${milestones.length} · roadmap topic`,
+          status: assignStatus(i, milestones.length, progress),
+        }));
+
         return {
           ...s,
           skill: Array.from(s.skillSet)[0] || "General",
@@ -139,8 +184,13 @@ export default function MentorStudentsPage({ profile, notify }) {
           completed,
           progress,
           roadmapTitle: rm?.title || rm?.name || "",
-          nextSession: upcoming?.start || null,
-          reviews: reviewsByLearner.get(s.id) || [],
+          milestones,
+          topicsCompleted,
+          nextBooking: upcoming || null,
+          reviews: revs,
+          rating,
+          reviewCount: revs.length,
+          assignments,
           status: deriveStatus(s.bookings),
         };
       });
@@ -180,12 +230,19 @@ export default function MentorStudentsPage({ profile, notify }) {
     if (q)
       list = list.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q),
+          s.name.toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          s.skills.toLowerCase().includes(q) ||
+          (s.roadmapTitle || "").toLowerCase().includes(q),
       );
     if (skillFilter !== "all")
       list = list.filter((s) => s.skillSet.has(skillFilter));
     if (statusFilter !== "all")
       list = list.filter((s) => s.status === statusFilter);
+    if (upcomingFilter === "has")
+      list = list.filter((s) => Boolean(s.nextBooking));
+    if (upcomingFilter === "none")
+      list = list.filter((s) => !s.nextBooking);
     const cmp = {
       name: (a, b) => a.name.localeCompare(b.name),
       progress: (a, b) => b.progress - a.progress,
@@ -194,13 +251,50 @@ export default function MentorStudentsPage({ profile, notify }) {
       oldest: (a, b) => new Date(a.joined || 0) - new Date(b.joined || 0),
     };
     return list.sort(cmp[sortBy] || cmp.newest);
-  }, [students, search, skillFilter, statusFilter, sortBy]);
+  }, [students, search, skillFilter, statusFilter, upcomingFilter, sortBy]);
 
   const stats = useMemo(() => {
     const active = students.filter((s) => s.status === "active").length;
     const completedSessions = students.reduce((sum, s) => sum + s.completed, 0);
     return { total: students.length, active, completedSessions };
   }, [students]);
+
+  const activeFilterCount =
+    (search.trim() ? 1 : 0) +
+    (skillFilter !== "all" ? 1 : 0) +
+    (statusFilter !== "all" ? 1 : 0) +
+    (upcomingFilter !== "all" ? 1 : 0);
+
+  const resetFilters = () => {
+    setSearch("");
+    setSkillFilter("all");
+    setStatusFilter("all");
+    setUpcomingFilter("all");
+  };
+
+  const selected = useMemo(
+    () => students.find((s) => s.id === selectedId) || null,
+    [students, selectedId],
+  );
+
+  const selectStudent = (s) => {
+    setSelectedId(s.id);
+    if (window.innerWidth < 1100) {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const viewRoadmap = (s) => {
+    setSelectedId(s.id);
+    setPanelTab("Roadmap");
+    if (window.innerWidth < 1100) {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const openSchedule = () => {
+    navigate("/mentor/calendar");
+  };
 
   const downloadReport = (student) => {
     const rows = [
@@ -229,430 +323,139 @@ export default function MentorStudentsPage({ profile, notify }) {
     });
   };
 
-  const renderTable = () => (
-    <div className="mp-table-wrap mp-table-wrap--desktop">
-      <table className="mp-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th className="mp-col-hide-md">Skill</th>
-            <th className="mp-col-hide-lg">Sessions</th>
-            <th className="mp-col-hide-lg">Upcoming</th>
-            <th className="mp-col-hide-md">Joined</th>
-            <th style={{ minWidth: 140 }}>Progress</th>
-            <th>Status</th>
-            <th style={{ textAlign: "right" }}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((s) => (
-            <tr key={s.id} onClick={() => setSelected(s)}>
-              <td>
-                <div className="mp-cell-user">
-                  <span className="md-avatar md-avatar--sm">
-                    {initials(s.name)}
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <p className="mp-cell-user__name">{s.name}</p>
-                    <p className="mp-cell-user__email">{s.email || "—"}</p>
-                  </div>
-                </div>
-              </td>
-              <td className="mp-col-hide-md">
-                <span className="md-badge md-badge--info">{s.skill}</span>
-              </td>
-              <td className="mp-col-hide-lg">
-                <span className="mp-cell-progress__label">
-                  {s.completed}/{s.totalSessions}
-                </span>
-              </td>
-              <td className="mp-col-hide-lg">
-                {s.nextSession
-                  ? new Date(s.nextSession).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "—"}
-              </td>
-              <td className="mp-col-hide-md">
-                {s.joined
-                  ? new Date(s.joined).toLocaleDateString(undefined, {
-                      month: "short",
-                      year: "2-digit",
-                    })
-                  : "—"}
-              </td>
-              <td>
-                <div className="mp-cell-progress">
-                  <div className="md-progress-track">
-                    <div
-                      className="md-progress-fill"
-                      style={{ width: `${s.progress}%` }}
-                    />
-                  </div>
-                  <span className="mp-cell-progress__label">{s.progress}%</span>
-                </div>
-              </td>
-              <td>
-                <span className={`mp-pill mp-pill--${s.status}`}>
-                  {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                </span>
-              </td>
-              <td onClick={(e) => e.stopPropagation()}>
-                <div className="mp-row-actions">
-                  <button
-                    className="mp-icon-btn"
-                    title="View details"
-                    onClick={() => setSelected(s)}
-                  >
-                    <Icon name="visibility" />
-                  </button>
-                  <button
-                    className="mp-icon-btn"
-                    title="Message"
-                    onClick={() => navigate("/mentor/messages")}
-                  >
-                    <Icon name="chat_bubble" />
-                  </button>
-                  <button
-                    className="mp-icon-btn"
-                    title="Download report"
-                    onClick={() => downloadReport(s)}
-                  >
-                    <Icon name="download" />
-                  </button>
-                  <button
-                    className="mp-icon-btn"
-                    title="Report learner"
-                    onClick={() => setReportStudent(s)}
-                  >
-                    <Icon name="flag" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-
-  const renderStudentCard = (s) => (
-    <div
-      key={s.id}
-      className="mp-student-card"
-      onClick={() => setSelected(s)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelected(s); }}
-    >
-      {/* Card top: avatar + name + status + actions */}
-      <div className="mp-student-card__top">
-        <div className="mp-student-card__user">
-          <span className="mp-student-card__avatar">
-            {initials(s.name)}
-          </span>
-          <div className="mp-student-card__info">
-            <p className="mp-student-card__name">{s.name}</p>
-            <p className="mp-student-card__email">{s.email || "—"}</p>
-          </div>
-        </div>
-        <span className={`mp-pill mp-pill--${s.status}`}>
-          {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-        </span>
-      </div>
-
-      {/* Card meta: skill badge + sessions */}
-      <div className="mp-student-card__meta">
-        <span className="md-badge md-badge--info">{s.skill}</span>
-        <span className="mp-student-card__stat">
-          {s.completed}/{s.totalSessions} sessions
-        </span>
-        {s.nextSession && (
-          <span className="mp-student-card__stat">
-            Upcoming: {new Date(s.nextSession).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-            })}
-          </span>
-        )}
-      </div>
-
-      {/* Progress bar */}
-      <div className="mp-student-card__progress">
-        <div className="mp-student-card__progress-head">
-          <span className="mp-student-card__progress-label">Progress</span>
-          <span className="mp-student-card__progress-value">{s.progress}%</span>
-        </div>
-        <div className="md-progress-track">
-          <div
-            className="md-progress-fill"
-            style={{ width: `${s.progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Card actions */}
-      <div className="mp-student-card__actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="md-btn md-btn--outline md-btn--xs"
-          title="View details"
-          onClick={() => setSelected(s)}
-        >
-          <Icon name="visibility" /> Details
-        </button>
-        <button
-          className="md-btn md-btn--outline md-btn--xs"
-          title="Message"
-          onClick={() => navigate("/mentor/messages")}
-        >
-          <Icon name="chat_bubble" /> Message
-        </button>
-        <button
-          className="md-btn md-btn--outline md-btn--xs"
-          title="Download report"
-          onClick={() => downloadReport(s)}
-        >
-          <Icon name="download" /> Export
-        </button>
-        <button
-          className="md-btn md-btn--outline md-btn--xs md-btn--danger"
-          title="Report learner"
-          onClick={() => setReportStudent(s)}
-        >
-          <Icon name="flag" /> Report
-        </button>
-      </div>
-    </div>
-  );
-
-  const renderMobileCards = () => (
-    <div className="mp-student-cards">
-      {filtered.map((s) => renderStudentCard(s))}
-    </div>
-  );
-
-  const renderLoading = () => (
-    <>
-      <div className="mp-table-wrap mp-table-wrap--desktop">
-        <SkeletonTable rows={6} columns={6} />
-      </div>
-      {/* Mobile skeleton cards */}
-      <div className="mp-student-cards">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="mp-student-card mp-student-card--skeleton" />
-        ))}
-      </div>
-    </>
-  );
-
-  const renderError = () => (
-    <div className="md-empty">
-      <div className="md-empty__icon">
-        <Icon name="error" />
-      </div>
-      <p className="md-empty__title">Could not load students</p>
-      <p className="md-empty__desc">
-        There was a problem reaching the server. Please try again.
-      </p>
-      <button
-        type="button"
-        className="md-btn md-btn--outline md-btn--sm"
-        style={{ marginTop: 6 }}
-        onClick={loadStudents}
-      >
-        <Icon name="refresh" /> Retry
-      </button>
-    </div>
-  );
-
-  const renderEmpty = () => (
-    <div className="md-empty">
-      <div className="md-empty__icon">
-        <Icon name={students.length === 0 ? "groups" : "search_off"} />
-      </div>
-      <p className="md-empty__title">
-        {students.length === 0 ? "No students yet" : "No matches"}
-      </p>
-      <p className="md-empty__desc">
-        {students.length === 0
-          ? "Once learners book your sessions, they'll appear here with their progress and history."
-          : "Try adjusting your search or filters to find what you're looking for."}
-      </p>
-      {students.length === 0 ? (
-        <button
-          type="button"
-          className="md-btn md-btn--outline md-btn--sm"
-          style={{ marginTop: 6 }}
-          onClick={() => navigate("/mentor/calendar")}
-        >
-          <Icon name="add" /> Create a Session
-        </button>
-      ) : (
-        <button
-          type="button"
-          className="md-btn md-btn--outline md-btn--sm"
-          style={{ marginTop: 6 }}
-          onClick={() => {
-            setSearch("");
-            setSkillFilter("all");
-            setStatusFilter("all");
-          }}
-        >
-          Clear filters
-        </button>
-      )}
-    </div>
-  );
-
-  const renderCountBanner = () => {
-    if (loading || error) return null;
-    const showing = filtered.length;
-    const total = students.length;
-    if (total === 0) return null;
-    if (showing === total) {
-      return (
-        <div className="mp-toolbar__count">
-          {total} student{total !== 1 ? "s" : ""}
-        </div>
-      );
-    }
-    return (
-      <div className="mp-toolbar__count">
-        Showing {showing} of {total} student{total !== 1 ? "s" : ""}
-      </div>
-    );
-  };
+  const panelStudent = selected || students[0] || null;
 
   return (
-    <div className="md md-page">
-      <MentorPageHero
-        eyebrow="Your Learners"
-        icon="groups"
-        title="Students"
-        sub="Everyone who has booked a session with you, with live progress and history."
-      >
-        <button
-          type="button"
-          className="md-btn md-btn--outline md-btn--sm"
-          onClick={loadStudents}
-        >
-          <Icon name="refresh" /> Refresh
-        </button>
-        <button
-          type="button"
-          className="md-btn md-btn--brand md-btn--sm"
-          onClick={() => navigate("/mentor/calendar")}
-        >
-          <Icon name="add" /> New Session
-        </button>
-      </MentorPageHero>
+    <div className="ss-crm">
+      <div className="ss-crm__inner">
+        <StudentHero
+          total={stats.active}
+          refreshing={loading}
+          onRefresh={loadStudents}
+          onNewSession={() => navigate("/mentor/calendar")}
+        />
 
-      {/* Summary cards */}
-      <div
-        className="md-stats md-animate"
-        style={{ gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}
-      >
-        <StatsCard
-          icon="groups"
-          label="Total Students"
-          value={stats.total}
-          description="Unique learners"
+        <StudentStats
+          total={stats.total}
+          active={stats.active}
+          completed={stats.completedSessions}
+          avgRating={summary.averageRating}
         />
-        <StatsCard
-          icon="bolt"
-          label="Active Students"
-          value={stats.active}
-          description="With upcoming sessions"
-        />
-        <StatsCard
-          icon="task_alt"
-          label="Completed Sessions"
-          value={stats.completedSessions}
-          description="Across all learners"
-        />
-        <StatsCard
-          icon="star"
-          label="Average Rating"
-          value={summary.averageRating || "—"}
-          description="From learner reviews"
-        />
-      </div>
 
-      {/* Main card */}
-      <div className="md-card md-animate" style={{ gap: 16 }}>
-        <div className="mp-toolbar">
-          <label className="mp-search">
-            <Icon name="search" />
-            <input
-              type="search"
-              placeholder="Search by name or email…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search students"
+        <div className="ss-crm__grid">
+          <main className="ss-crm__main">
+            <StudentSearchBar
+              search={search}
+              onSearch={setSearch}
+              skillOptions={skillOptions}
+              skill={skillFilter}
+              onSkill={setSkillFilter}
+              status={statusFilter}
+              onStatus={setStatusFilter}
+              upcoming={upcomingFilter}
+              onUpcoming={setUpcomingFilter}
+              sort={sortBy}
+              onSort={setSortBy}
+              activeFilterCount={activeFilterCount}
+              onReset={resetFilters}
             />
-          </label>
-          <select
-            className="mp-select"
-            value={skillFilter}
-            onChange={(e) => setSkillFilter(e.target.value)}
-            aria-label="Filter by skill"
-          >
-            <option value="all">All skills</option>
-            {skillOptions.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-          <select
-            className="mp-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="pending">Pending</option>
-            <option value="completed">Completed</option>
-            <option value="inactive">Inactive</option>
-          </select>
-          <select
-            className="mp-select"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            aria-label="Sort by"
-          >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="name">Name (A–Z)</option>
-            <option value="progress">Progress</option>
-            <option value="sessions">Sessions</option>
-          </select>
-          {renderCountBanner()}
+
+            {loading ? (
+              <div className="ss-loading" aria-label="Loading students">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="ss-skel-card" />
+                ))}
+              </div>
+            ) : error ? (
+              <div className="ss-empty">
+                <div className="ss-empty__art" aria-hidden="true">
+                  <span className="material-symbols-outlined">error</span>
+                </div>
+                <p className="ss-empty__title">Could not load students</p>
+                <p className="ss-empty__desc">
+                  There was a problem reaching the server. Please try again.
+                </p>
+                <button
+                  type="button"
+                  className="ss-empty__btn"
+                  onClick={loadStudents}
+                >
+                  <span className="material-symbols-outlined">refresh</span>
+                  Retry
+                </button>
+              </div>
+            ) : students.length === 0 ? (
+              <div className="ss-empty">
+                <div className="ss-empty__art" aria-hidden="true">
+                  <span className="material-symbols-outlined">person_search</span>
+                </div>
+                <p className="ss-empty__title">
+                  You don&apos;t have any learners yet.
+                </p>
+                <p className="ss-empty__desc">
+                  Start mentoring by accepting your first booking.
+                </p>
+                <button
+                  type="button"
+                  className="ss-empty__btn"
+                  onClick={() => navigate("/mentor/messages")}
+                >
+                  <span className="material-symbols-outlined">groups</span>
+                  Explore Learners
+                </button>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="ss-empty">
+                <div className="ss-empty__art" aria-hidden="true">
+                  <span className="material-symbols-outlined">search_off</span>
+                </div>
+                <p className="ss-empty__title">No matches</p>
+                <p className="ss-empty__desc">
+                  Try adjusting your search or filters to find what you&apos;re
+                  looking for.
+                </p>
+                <button
+                  type="button"
+                  className="ss-empty__btn"
+                  onClick={resetFilters}
+                >
+                  <span className="material-symbols-outlined">tune</span>
+                  Reset filters
+                </button>
+              </div>
+            ) : (
+              <div className="ss-list">
+                {filtered.map((s, i) => (
+                  <StudentCard
+                    key={s.id}
+                    student={s}
+                    index={i}
+                    selected={panelStudent?.id === s.id}
+                    onSelect={selectStudent}
+                    onMessage={() => navigate("/mentor/messages")}
+                    onViewRoadmap={viewRoadmap}
+                    onSchedule={openSchedule}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+
+          {!loading && !error && panelStudent && (
+            <div ref={panelRef}>
+              <StudentDetailsPanel
+                student={panelStudent}
+                tab={panelTab}
+                onTabChange={setPanelTab}
+                onMessage={() => navigate("/mentor/messages")}
+                onSchedule={openSchedule}
+                onDownload={() => downloadReport(panelStudent)}
+                onReport={() => setReportStudent(panelStudent)}
+              />
+            </div>
+          )}
         </div>
-
-        {loading
-          ? renderLoading()
-          : error
-            ? renderError()
-            : filtered.length === 0
-              ? renderEmpty()
-              : (
-                <>
-                  {renderTable()}
-                  {renderMobileCards()}
-                </>
-              )}
       </div>
-
-      {selected && (
-        <StudentDrawer
-          student={selected}
-          onClose={() => setSelected(null)}
-          onReport={downloadReport}
-        />
-      )}
 
       {reportStudent && (
         <ReportModal
