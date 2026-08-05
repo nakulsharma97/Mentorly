@@ -827,3 +827,20 @@
     width: 100vw;
   }
 }
+
+/* ── Dark mode: stat tints, icon buttons, info boxes ─────────────────────── */
+[data-theme="dark"] .rmg-stat--slate .rmg-stat__icon {
+  background: #334155;
+  color: #cbd5e1;
+}
+[data-theme="dark"] .rmg-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f9fafb;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+[data-theme="dark"] .rmg-details-full,
+[data-theme="dark"] .rmg-decision__target {
+  background: #111827;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}

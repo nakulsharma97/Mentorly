@@ -466,15 +466,15 @@
 
 /* ─── Icon Buttons ─── */
 
-.ws-top__icon-btn {
+.ws-top__icon-btn[type="button"] {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid color-mix(in srgb, var(--brand) 8%, transparent);
   background: var(--input-bg);
   color: var(--text);
@@ -506,11 +506,15 @@
   transform: scale(0.95);
 }
 
-.ws-top__icon-btn svg { width: 20px; height: 20px; color: var(--muted); position: relative; z-index: 1; }
+.ws-top__icon-btn svg { width: 22px; height: 22px; color: var(--muted); position: relative; z-index: 1; }
 
 /* ─── Animated Burger Button (44x44, morphs into an X) ─── */
 
-.ws-top__burger {
+/* [type="button"] scoping: shields these buttons from the global
+   forms.css `button[type="button"] { padding: 11px 22px; border-radius: 10px;
+   border: none }` reset which would otherwise override their custom
+   padding/radius/border and break the topbar alignment. */
+.ws-top__burger[type="button"] {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -521,8 +525,8 @@
   height: 44px;
   padding: 0;
   border-radius: 12px;
-  border: 1px solid #e6edf3;
-  background: #ffffff;
+  border: 1px solid var(--line, #e6edf3);
+  background: var(--input-bg, #ffffff);
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
@@ -530,7 +534,7 @@
 }
 
 .ws-top__burger:hover {
-  background: #f1f5f9;
+  background: var(--hover-bg, #f1f5f9);
 }
 
 .ws-top__burger:active {
@@ -577,7 +581,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  height: 48px;
+  padding: 0 14px;
+  box-sizing: border-box;
   border-radius: 13px;
   border: 1px solid color-mix(in srgb, var(--brand) 8%, transparent);
   background: var(--input-bg);
@@ -751,7 +757,7 @@
 
 .ws-top__profile { position: relative; }
 
-.ws-top__profile-btn {
+.ws-top__profile-btn[type="button"] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -878,6 +884,10 @@
   transform-origin: top right;
 }
 
+/* NOTE: intentionally unscoped — menu items render as both <a> (Link) and
+   <button>; scoping to [type="button"] would strip the <a> items of all
+   styling. The values below are close enough to the forms.css defaults that
+   no override is needed here. */
 .ws-top__menu-item {
   display: flex;
   align-items: center;

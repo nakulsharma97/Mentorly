@@ -881,3 +881,32 @@
     transition: none;
   }
 }
+
+/* ── Dark mode: priority chips + status pills ────────────────────────────── */
+[data-theme="dark"] .cmc-priority--low,
+[data-theme="dark"] .admin-status-pill--dismissed {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+}
+[data-theme="dark"] .cmc-priority--medium,
+[data-theme="dark"] .admin-status-pill--under_investigation {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+}
+[data-theme="dark"] .cmc-priority--high {
+  background: rgba(249, 115, 22, 0.16);
+  color: #fdba74;
+}
+[data-theme="dark"] .cmc-priority--critical,
+[data-theme="dark"] .admin-status-pill--removed {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+}
+[data-theme="dark"] .admin-status-pill--pending_review {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
+[data-theme="dark"] .admin-status-pill--approved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}

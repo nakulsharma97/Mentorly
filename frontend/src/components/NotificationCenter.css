@@ -43,34 +43,83 @@
    Bell Button
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.notif-bell {
+/* Scoped with [type="button"] so the global forms.css `button[type="button"]`
+   rule (padding 11px 22px / radius 10px / border:none) cannot override the
+   bell's own padding/radius/border and crush the icon. */
+.notif-bell[type="button"] {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--notif-radius-sm);
-  border: 1px solid var(--notif-border);
-  background: var(--notif-bg);
-  color: var(--notif-muted);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 16px;
+  border: 1px solid #e6edf3;
+  background: transparent;
+  color: #64748b;
   cursor: pointer;
   transition: all 0.2s var(--notif-ease);
 }
 
-.notif-bell:hover,
-.notif-bell--open {
-  border-color: var(--notif-accent);
-  color: var(--notif-accent);
-  background: var(--notif-accent-soft);
+.notif-bell:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.notif-bell:active {
+  background: #e8faf7;
+  border-color: #14b8a6;
+  color: #0f766e;
+}
+
+/* Scoped like the base rule so it still beats it (same specificity, later
+   in the file) — otherwise the open state's teal styling would never render. */
+.notif-bell--open[type="button"] {
+  background: #e8faf7;
+  border-color: #14b8a6;
+  color: #0f766e;
+}
+
+/* Single focus ring only — no duplicate outlines */
+.notif-bell:focus-visible {
+  outline: 2px solid #14b8a6;
+  outline-offset: 2px;
+}
+
+.notif-bell svg {
+  width: 22px;
+  height: 22px;
+}
+
+[data-theme="dark"] .notif-bell {
+  border-color: #2d3139;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .notif-bell:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .notif-bell--open[type="button"],
+[data-theme="dark"] .notif-bell:active {
+  background: rgba(20, 184, 166, 0.12);
+  border-color: #14b8a6;
+  color: #5eead4;
 }
 
 .notif-bell__badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: 4px;
+  right: 4px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
+  box-sizing: border-box;
   border-radius: 999px;
   background: #ef4444;
   color: #fff;
@@ -80,6 +129,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 2px ring in the navbar background color — keeps the badge visually
+     separated from the bell glyph (never overlaps it). */
+  border: 2px solid var(--panel);
   box-shadow: 0 4px 10px rgba(239, 68, 68, 0.35);
   animation: notif-badge-in 0.3s var(--notif-ease);
   line-height: 1;

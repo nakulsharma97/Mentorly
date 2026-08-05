@@ -14,7 +14,11 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    const root = document.documentElement;
+    root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    // Toggle the .dark class so Tailwind `dark:` variants resolve correctly
+    // alongside the CSS-variable `[data-theme="dark"]` system.
+    root.classList.toggle('dark', isDark);
   }, [isDark]);
 
   const toggle = () => setIsDark(prev => !prev);

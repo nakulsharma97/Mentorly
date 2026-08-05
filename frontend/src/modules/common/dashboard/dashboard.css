@@ -1051,3 +1051,10 @@
   .md-animate, .md-chart__line--animate { animation: none; }
   .md-btn:hover, .md-stat:hover, .md-row:hover, .md-quick__item:hover, .md-hero-glass:hover { transform: none; }
 }
+
+/* ── Dark mode: learner referral copy button ────────────────────────────── */
+[data-theme="dark"] .ld-referral-share__copy-btn {
+  background: #263445;
+  color: #14b8a6;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}

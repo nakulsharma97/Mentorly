@@ -1939,9 +1939,11 @@
 .mp-avail-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--mp-radius);
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 72px;
+  padding: 16px 20px;
+  border-radius: var(--mp-radius-lg);
   border: 1px solid var(--mp-card-border-soft);
   background: var(--mp-primary-lighter);
   transition: background var(--mp-transition);
@@ -2093,6 +2095,50 @@
 .mp-icon-btn--danger:hover {
   background: var(--mp-danger-light);
   color: var(--mp-danger);
+}
+
+/* ── Saved-slot delete button ────────────────────────────────────────────────
+   Fixed 40x40 tap target on the far right of each availability row. Uses the
+   same flex-centering pattern as the base icon button; the row's
+   align-items: center keeps it perfectly centered regardless of text wrap. */
+.mp-avail-row .mp-icon-btn--danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: var(--mp-danger);
+  transition: all 0.2s ease;
+}
+
+.mp-avail-row .mp-icon-btn--danger:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: var(--mp-danger);
+  transform: scale(1.05);
+}
+
+.mp-avail-row .mp-icon-btn--danger:active {
+  transform: scale(0.95);
+}
+
+[data-theme="dark"] .mp-avail-row .mp-icon-btn--danger {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .mp-avail-row .mp-icon-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.24);
+  color: #fecaca;
+}
+
+.mp-avail-row .mp-icon-btn--danger .md__icon {
+  line-height: 1;
 }
 
 .mp-icon-btn:disabled {

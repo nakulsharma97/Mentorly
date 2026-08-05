@@ -1712,3 +1712,66 @@
     box-shadow: var(--crm-shadow-hover);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — Mentor Students CRM
+   Uses the global dark palette (bg #0B1220 · surface #111827 · card #1F2937
+   · elevated #263445 · border rgba(255,255,255,.08)) so the CRM blends with
+   the rest of the workspace in dark theme.
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-theme="dark"] .ss-crm {
+  --crm-bg: #0b1220;
+  --crm-card: #1f2937;
+  --crm-card-elevated: #263445;
+  --crm-border: rgba(255, 255, 255, 0.08);
+  --crm-border-soft: rgba(255, 255, 255, 0.06);
+  --crm-text: #f9fafb;
+  --crm-muted: #cbd5e1;
+  --crm-faint: #94a3b8;
+  --crm-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --crm-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .ss-crm .ss-card,
+[data-theme="dark"] .ss-crm .ss-stat,
+[data-theme="dark"] .ss-crm .ss-panel,
+[data-theme="dark"] .ss-crm .ss-progress-card,
+[data-theme="dark"] .ss-crm .ss-session,
+[data-theme="dark"] .ss-crm .ss-assignment {
+  background: var(--crm-card);
+  border-color: var(--crm-border);
+}
+
+[data-theme="dark"] .ss-crm .ss-toolbar__search,
+[data-theme="dark"] .ss-crm .ss-toolbar__select,
+[data-theme="dark"] .ss-crm .ss-toolbar__filter {
+  background: #111827;
+  border-color: #374151;
+  color: var(--crm-text);
+}
+
+[data-theme="dark"] .ss-crm .ss-toolbar__search input::placeholder,
+[data-theme="dark"] .ss-crm .ss-toolbar__select::placeholder {
+  color: var(--crm-faint);
+}
+
+[data-theme="dark"] .ss-crm .ss-chip--pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+[data-theme="dark"] .ss-crm .ss-notes {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.22);
+  color: #fde68a;
+}
+
+[data-theme="dark"] .ss-crm .ss-hero__btn--solid {
+  background: #ffffff;
+  color: var(--crm-primary-dark);
+}
+
+[data-theme="dark"] .ss-crm .ss-card:hover {
+  box-shadow: var(--crm-shadow-hover);
+}

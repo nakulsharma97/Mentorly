@@ -649,3 +649,14 @@
     width: calc(100% - 20px);
   }
 }
+
+/* ── Dark mode: secondary receipt button ─────────────────────────────────── */
+[data-theme="dark"] .ap-btn--receipt {
+  background: #263445;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+[data-theme="dark"] .ap-btn--receipt:hover:not(:disabled) {
+  background: #334155;
+  color: #f9fafb;
+}

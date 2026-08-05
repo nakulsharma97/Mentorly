@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { motion } from "framer-motion";
 import client from "../api/client";
 import { getErrorFeedback } from "../utils/comingSoon";
 
@@ -585,7 +586,7 @@ export default function AnalyticsPage({ profile }) {
   return (
     <div className="md-page">
       <div className="flex min-h-full w-full gap-6">
-        <aside className="hidden lg:flex flex-col h-screen w-64 border-r border-slate-200 bg-slate-50 sticky top-0">
+        <aside className="hidden lg:flex flex-col h-screen w-64 border-r border-outline-variant/60 bg-surface sticky top-0">
           <div className="flex flex-col h-full p-4 space-y-6">
             <div className="flex items-center space-x-3 px-2 py-4">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-lg shadow-primary/20">
@@ -594,10 +595,10 @@ export default function AnalyticsPage({ profile }) {
                 </span>
               </div>
               <div>
-                <h2 className="text-lg font-black text-emerald-900 leading-tight">
+                <h2 className="text-lg font-black text-on-surface leading-tight">
                   Skill Swapper
                 </h2>
-                <p className="text-[10px] uppercase tracking-widest text-slate-700 font-bold">
+                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
                   Analytics Workspace
                 </p>
               </div>
@@ -605,28 +606,28 @@ export default function AnalyticsPage({ profile }) {
 
             <div className="flex-grow space-y-1">
               <Link
-                className="flex items-center space-x-3 px-4 py-3 text-emerald-900 bg-white rounded-lg shadow-sm text-sm font-semibold transition-all"
+                className="flex items-center space-x-3 px-4 py-3 text-on-surface bg-primary/15 rounded-lg text-sm font-semibold transition-all"
                 to="/wallet"
               >
                 <span className="material-symbols-outlined">dashboard</span>
                 <span>Overview</span>
               </Link>
               <a
-                className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:bg-slate-100 hover:text-emerald-800 text-sm font-semibold transition-all"
+                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
                 href="#sessionTable"
               >
                 <span className="material-symbols-outlined">query_stats</span>
                 <span>Session Stats</span>
               </a>
               <a
-                className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:bg-slate-100 hover:text-emerald-800 text-sm font-semibold transition-all"
+                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
                 href="#acquisition"
               >
                 <span className="material-symbols-outlined">trending_up</span>
                 <span>Acquisition</span>
               </a>
               <a
-                className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:bg-slate-100 hover:text-emerald-800 text-sm font-semibold transition-all"
+                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
                 href="#insights"
               >
                 <span className="material-symbols-outlined">insights</span>
@@ -634,7 +635,7 @@ export default function AnalyticsPage({ profile }) {
               </a>
               {!isMentor && (
                 <a
-                  className="flex items-center space-x-3 px-4 py-3 text-slate-500 hover:bg-slate-100 hover:text-emerald-800 text-sm font-semibold transition-all"
+                  className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
                   href="#learnerHistory"
                 >
                   <span className="material-symbols-outlined">history</span>
@@ -643,7 +644,7 @@ export default function AnalyticsPage({ profile }) {
               )}
             </div>
 
-            <div className="pt-4 border-t border-slate-200">
+            <div className="pt-4 border-t border-outline-variant/60">
               {isMentor ? (
                 <Link
                   className="w-full inline-flex items-center justify-center bg-gradient-to-r from-primary to-primary-container text-on-primary py-3 rounded-xl font-headline font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
@@ -718,18 +719,18 @@ export default function AnalyticsPage({ profile }) {
             </div>
 
             {errorText && (
-              <div className="rounded-2xl border border-amber-300/40 bg-amber-50 px-4 py-3 text-sm text-amber-800 font-medium">
+              <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning font-medium">
                 {errorText}
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] border border-transparent hover:border-emerald-900/5 transition-all">
+              <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] border border-transparent hover:border-primary/25 transition-all">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-900">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                     <span className="material-symbols-outlined">payments</span>
                   </div>
-                  <span className="flex items-center text-emerald-600 text-xs font-bold bg-emerald-50 px-2 py-1 rounded-full">
+                  <span className="flex items-center text-primary text-xs font-bold bg-primary/10 px-2 py-1 rounded-full">
                     Live
                   </span>
                 </div>
@@ -745,12 +746,12 @@ export default function AnalyticsPage({ profile }) {
 
               <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] border border-transparent">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-900">
+                  <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
                     <span className="material-symbols-outlined">
                       person_add
                     </span>
                   </div>
-                  <span className="flex items-center text-blue-600 text-xs font-bold bg-blue-50 px-2 py-1 rounded-full">
+                  <span className="flex items-center text-secondary text-xs font-bold bg-secondary/10 px-2 py-1 rounded-full">
                     Active
                   </span>
                 </div>
@@ -768,7 +769,7 @@ export default function AnalyticsPage({ profile }) {
 
               <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] border border-transparent">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-900">
+                  <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center text-tertiary">
                     <span
                       className="material-symbols-outlined"
                       style={{ fontVariationSettings: "'FILL' 1" }}
@@ -808,7 +809,7 @@ export default function AnalyticsPage({ profile }) {
 
               <div className="bg-surface-container-lowest p-6 rounded-2xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] border border-transparent">
                 <div className="flex justify-between items-start mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-900 flex items-center justify-center text-on-primary">
+                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
                     <span className="material-symbols-outlined">verified</span>
                   </div>
                   <div className="w-8 h-8 rounded-full border-2 border-primary/20 flex items-center justify-center text-[8px] font-bold">
@@ -892,7 +893,7 @@ export default function AnalyticsPage({ profile }) {
                       strokeWidth="3"
                     />
                   </svg>
-                  <div className="mt-2 grid grid-cols-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="mt-2 grid grid-cols-6 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
                     {analytics.monthBuckets.map((bucket) => (
                       <span key={bucket.label}>{bucket.label}</span>
                     ))}
@@ -927,11 +928,11 @@ export default function AnalyticsPage({ profile }) {
                   </div>
                   <div className="mt-6 w-full space-y-2 text-xs font-semibold">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Referral</span>
+                      <span className="text-on-surface-variant">Referral</span>
                       <span>{analytics.acquisitions.referral}%</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Social</span>
+                      <span className="text-on-surface-variant">Social</span>
                       <span>{analytics.acquisitions.social}%</span>
                     </div>
                   </div>
@@ -946,9 +947,9 @@ export default function AnalyticsPage({ profile }) {
               {insightCards.map((card) => (
                 <div
                   key={card.title}
-                  className="rounded-2xl border border-emerald-900/10 bg-surface-container-lowest p-5 shadow-sm"
+                  className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-5 shadow-sm"
                 >
-                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-800">
+                  <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <span className="material-symbols-outlined text-base">
                       {card.icon}
                     </span>
@@ -1126,16 +1127,16 @@ export default function AnalyticsPage({ profile }) {
                             }
                           >
                             <td className="py-5">
-                              <div className="h-4 w-40 rounded bg-slate-200 animate-pulse" />
+                              <div className="h-4 w-40 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5 text-right">
-                              <div className="ml-auto h-4 w-12 rounded bg-slate-200 animate-pulse" />
+                              <div className="ml-auto h-4 w-12 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5 text-right">
-                              <div className="ml-auto h-4 w-16 rounded bg-slate-200 animate-pulse" />
+                              <div className="ml-auto h-4 w-16 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5 text-right">
-                              <div className="ml-auto h-4 w-24 rounded bg-slate-200 animate-pulse" />
+                              <div className="ml-auto h-4 w-24 rounded bg-surface-container-high animate-pulse" />
                             </td>
                           </tr>
                         ))
@@ -1222,16 +1223,16 @@ export default function AnalyticsPage({ profile }) {
                             }
                           >
                             <td className="py-5">
-                              <div className="h-4 w-44 rounded bg-slate-200 animate-pulse" />
+                              <div className="h-4 w-44 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5">
-                              <div className="h-4 w-20 rounded bg-slate-200 animate-pulse" />
+                              <div className="h-4 w-20 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5">
-                              <div className="h-6 w-20 rounded bg-slate-200 animate-pulse" />
+                              <div className="h-6 w-20 rounded bg-surface-container-high animate-pulse" />
                             </td>
                             <td className="py-5 text-right">
-                              <div className="ml-auto h-4 w-20 rounded bg-slate-200 animate-pulse" />
+                              <div className="ml-auto h-4 w-20 rounded bg-surface-container-high animate-pulse" />
                             </td>
                           </tr>
                         ))
@@ -1329,7 +1330,7 @@ export default function AnalyticsPage({ profile }) {
                         {analytics.averageProgress}%
                       </span>
                     </div>
-                    <div className="mt-2 h-2 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="mt-2 h-2 rounded-full bg-surface-container-high overflow-hidden">
                       <div
                         className="h-full rounded-full bg-primary"
                         style={{
@@ -1342,48 +1343,84 @@ export default function AnalyticsPage({ profile }) {
               </div>
             </div>
 
-            <footer className="bg-inverse-surface text-inverse-on-surface rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center space-x-6">
-                <div className="w-12 h-12 rounded-2xl bg-primary-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-primary-container">
+            <motion.footer
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="flex min-h-[120px] flex-col items-center justify-between gap-8 rounded-[28px] bg-[linear-gradient(135deg,#111827,#1E293B,#14532D)] p-8 shadow-[0_18px_45px_rgba(0,0,0,0.25)] md:flex-row md:items-center md:gap-10"
+            >
+              <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:items-center sm:text-left">
+                <motion.div
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] bg-white/10"
+                >
+                  <span className="material-symbols-outlined text-[28px] text-[#22C55E]">
                     auto_awesome
                   </span>
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold">
+                </motion.div>
+                <div className="min-w-0">
+                  <h4 className="mb-1.5 text-[30px] font-bold leading-tight tracking-tight text-white">
                     {isMentor ? "Revenue Snapshot" : "Payments Snapshot"}
                   </h4>
-                  <p className="text-sm text-surface-dim font-medium">
-                    {isMentor ? "Released" : "Paid"}:{" "}
-                    {formatCurrency(analytics.totalAmount)} | Pending:{" "}
-                    {formatCurrency(analytics.pendingAmount)}
+                  <p className="text-base font-medium leading-snug text-white/85">
+                    {isMentor ? "Released Revenue" : "Paid Revenue"}:{" "}
+                    <strong className="font-bold text-white">
+                      {formatCurrency(analytics.totalAmount)}
+                    </strong>
+                    <span className="mx-2 text-white/50" aria-hidden="true">
+                      •
+                    </span>
+                    Pending Revenue:{" "}
+                    <strong className="font-bold text-white">
+                      {formatCurrency(analytics.pendingAmount)}
+                    </strong>
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <Link
-                  className="px-6 py-3 rounded-xl font-headline font-bold text-sm border border-surface-dim/30 hover:bg-white/10 transition-colors"
-                  to="/messages"
+              <div className="flex w-full flex-col items-stretch justify-center gap-4 md:flex-col lg:w-auto lg:flex-row lg:items-center">
+                <motion.div
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
                 >
-                  {isMentor ? "Message Learners" : "Message Mentors"}
-                </Link>
+                  <Link
+                    className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl border border-white/25 px-8 text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
+                    to="/messages"
+                  >
+                    {isMentor ? "Message Learners" : "Message Mentors"}
+                  </Link>
+                </motion.div>
                 {isMentor ? (
-                  <Link
-                    className="px-6 py-3 rounded-xl font-headline font-bold text-sm bg-primary text-on-primary shadow-lg shadow-black/20 hover:scale-105 active:scale-95 transition-all"
-                    to="/teach"
+                  <motion.div
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    Create Workshop
-                  </Link>
+                    <Link
+                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#14B8A6] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0F9E92] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
+                      to="/teach"
+                    >
+                      Create Workshop
+                    </Link>
+                  </motion.div>
                 ) : (
-                  <Link
-                    className="px-6 py-3 rounded-xl font-headline font-bold text-sm bg-primary text-on-primary shadow-lg shadow-black/20 hover:scale-105 active:scale-95 transition-all"
-                    to="/mentors"
+                  <motion.div
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    Find Mentor
-                  </Link>
+                    <Link
+                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#14B8A6] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0F9E92] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
+                      to="/mentors"
+                    >
+                      Find Mentor
+                    </Link>
+                  </motion.div>
                 )}
               </div>
-            </footer>
+            </motion.footer>
           </div>
         </main>
       </div>
@@ -1394,7 +1431,7 @@ export default function AnalyticsPage({ profile }) {
       />
 
       <aside
-        className={`fixed left-0 top-0 h-screen w-72 max-w-[85vw] border-r border-slate-200 bg-slate-50 z-50 p-4 space-y-6 transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 top-0 h-screen w-72 max-w-[85vw] border-r border-outline-variant/60 bg-surface z-50 p-4 space-y-6 transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex items-center justify-between px-2 py-2">
           <div className="flex items-center space-x-3">
@@ -1402,17 +1439,17 @@ export default function AnalyticsPage({ profile }) {
               <span className="material-symbols-outlined text-2xl">school</span>
             </div>
             <div>
-              <h2 className="text-lg font-black text-emerald-900 leading-tight">
+              <h2 className="text-lg font-black text-on-surface leading-tight">
                 Skill Swapper
               </h2>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
                 Analytics Workspace
               </p>
             </div>
           </div>
           <button
             type="button"
-            className="p-2 text-slate-500"
+            className="p-2 text-on-surface-variant"
             onClick={() => setMobileSidebarOpen(false)}
           >
             <span className="material-symbols-outlined">close</span>
@@ -1421,7 +1458,7 @@ export default function AnalyticsPage({ profile }) {
 
         <div className="space-y-1">
           <Link
-            className="flex items-center space-x-3 px-4 py-3 text-emerald-900 bg-white rounded-lg shadow-sm text-sm font-semibold transition-all"
+            className="flex items-center space-x-3 px-4 py-3 text-on-surface bg-primary/15 rounded-lg text-sm font-semibold transition-all"
             to="/wallet"
             onClick={() => setMobileSidebarOpen(false)}
           >
@@ -1429,7 +1466,7 @@ export default function AnalyticsPage({ profile }) {
             <span>Overview</span>
           </Link>
           <a
-            className="flex items-center space-x-3 px-4 py-3 text-slate-500 text-sm font-semibold transition-all"
+            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
             href="#sessionTable"
             onClick={() => setMobileSidebarOpen(false)}
           >
@@ -1437,7 +1474,7 @@ export default function AnalyticsPage({ profile }) {
             <span>Session Stats</span>
           </a>
           <a
-            className="flex items-center space-x-3 px-4 py-3 text-slate-500 text-sm font-semibold transition-all"
+            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
             href="#acquisition"
             onClick={() => setMobileSidebarOpen(false)}
           >
@@ -1445,7 +1482,7 @@ export default function AnalyticsPage({ profile }) {
             <span>Acquisition</span>
           </a>
           <a
-            className="flex items-center space-x-3 px-4 py-3 text-slate-500 text-sm font-semibold transition-all"
+            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
             href="#insights"
             onClick={() => setMobileSidebarOpen(false)}
           >
@@ -1454,7 +1491,7 @@ export default function AnalyticsPage({ profile }) {
           </a>
           {!isMentor && (
             <a
-              className="flex items-center space-x-3 px-4 py-3 text-slate-500 text-sm font-semibold transition-all"
+              className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
               href="#learnerHistory"
               onClick={() => setMobileSidebarOpen(false)}
             >
@@ -1464,9 +1501,9 @@ export default function AnalyticsPage({ profile }) {
           )}
         </div>
 
-        <div className="pt-3 border-t border-slate-200">
+        <div className="pt-3 border-t border-outline-variant/60">
           <Link
-            className="flex items-center space-x-3 px-4 py-3 text-slate-600 hover:text-emerald-700 text-sm font-semibold"
+            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-primary text-sm font-semibold"
             to={isMentor ? "/mentor/dashboard" : "/learner/dashboard"}
             onClick={() => setMobileSidebarOpen(false)}
           >
