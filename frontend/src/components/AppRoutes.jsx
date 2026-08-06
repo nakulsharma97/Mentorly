@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes, useNavigate, useParams } from "react-router";
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import AuthPage from "../pages/AuthPage";
 import AdminLoginPage from "../pages/AdminLoginPage";
 import TestChecklistPage from "../pages/TestChecklistPage";
@@ -66,6 +66,20 @@ function RedirectToMentorProfessionalProfile() {
   return <Navigate to={`/mentor/professional-profile/${section}`} replace />;
 }
 
+/**
+ * Guards mentor profiles for anonymous visitors: saves the exact destination
+ * (path + query) so login returns them there, then redirects to /login.
+ * Renders immediately — no guest-profile flash while auth state resolves.
+ */
+function MentorProfileLoginRedirect() {
+  const location = useLocation();
+  localStorage.setItem(
+    "auth_post_redirect",
+    location.pathname + location.search,
+  );
+  return <Navigate to="/login" replace />;
+}
+
 /** Returns a wrapped element with RouteErrorBoundary + Suspense for use in Route's element= prop. */
 function routeContent(key, children, fallback) {
   return (
@@ -118,14 +132,12 @@ export default function AppRoutes({
           )}
         />
         <Route path="/test-checklist" element={<TestChecklistPage />} />
+        {/* Mentor profiles are authenticated-only: anonymous visitors are
+            bounced to /login with their destination preserved (see
+            MentorProfileLoginRedirect + handleAuthenticated in App.jsx). */}
         <Route
           path="/mentors/:mentorId"
-          element={routeContent("public-mentor-profile",
-            <main>
-              <MentorProfilePage isLoggedIn={false} onRequireLogin={() => handleSelectAuthMode("login")} notify={notify} />
-            </main>,
-            routeFallback,
-          )}
+          element={<MentorProfileLoginRedirect />}
         />
         <Route path="/resources" element={routeContent("public-resources", <ResourcesPage />, routeFallback)} />
         <Route

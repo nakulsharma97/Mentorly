@@ -31,6 +31,13 @@ export default function AuthModal({
   });
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Shown when the user was bounced here from a protected page (e.g. a mentor
+  // profile) so they understand why they need to sign in.
+  const [showRedirectNotice, setShowRedirectNotice] = useState(
+    () =>
+      mode === "login" &&
+      Boolean(localStorage.getItem("auth_post_redirect")),
+  );
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [usernameCheck, setUsernameCheck] = useState({ checking: false, available: null, suggestion: null });
   const usernameDebounceRef = useRef(null);
@@ -224,6 +231,26 @@ export default function AuthModal({
             ? "Sign in to continue your learning journey, manage sessions, and chat with mentors."
             : "Join the community and start teaching, learning, and growing with professionals."}
         </p>
+
+        {mode === "login" && showRedirectNotice && (
+          <div className="auth-redirect-notice" role="status">
+            <span
+              className="material-symbols-outlined"
+              aria-hidden="true"
+            >
+              info
+            </span>
+            <p>Please sign in to view mentor profiles and book sessions.</p>
+            <button
+              type="button"
+              className="auth-redirect-notice__dismiss"
+              onClick={() => setShowRedirectNotice(false)}
+              aria-label="Dismiss notice"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {mode === "signup" && (
           <div className="auth-onboarding">

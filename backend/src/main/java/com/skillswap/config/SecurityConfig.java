@@ -134,17 +134,25 @@ public class SecurityConfig {
                                                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                                                 .requestMatchers("/api/v1/public/**")
                                                 .permitAll()
+                                                // Mentor browsing stays public (the lightweight card
+                                                // endpoints feed the anonymous landing page), but the
+                                                // FULL profile detail is authenticated-only — anonymous
+                                                // requests get 401 (see the {mentorId} rule below).
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/mentors",
-                                                                "/api/v1/users/mentors/**")
+                                                                "/api/v1/users/mentors/skills",
+                                                                "/api/v1/users/mentors/live")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/users/mentors/{mentorId}")
+                                                .authenticated()
                                                 // Real-time username availability must work before login/signup.
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/check-username",
                                                                 "/api/v1/users/me/check-username")
                                                 .permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/reviews/mentor/**")
-                                                .permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/mentor/certifications/**")
-                                                .permitAll()
+                                                // Mentor reviews + certifications are profile data —
+                                                // authenticated only. Both are fetched exclusively from
+                                                // the auth-gated mentor profile page and the
+                                                // authenticated mentor workspace, so anonymous requests
+                                                // now fall through to .anyRequest().authenticated() → 401.
 
                                                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
                                                                 "/swagger-resources/**")

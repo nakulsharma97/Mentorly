@@ -734,7 +734,14 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               return (
                 <article
                   key={idx}
-                  className={`landing-faq-item landing-reveal${isOpen ? ' is-open' : ''}`}
+                  // NOTE: intentionally NO `landing-reveal` here. The reveal
+                  // observer adds `is-visible` imperatively via the DOM, but
+                  // React recomputes this className on every toggle (is-open),
+                  // wiping `is-visible` and snapping the item to opacity:0 —
+                  // which made the whole card (question + answer) invisible
+                  // after a click. FAQ items are always visible; only the
+                  // answer expands/collapses.
+                  className={`landing-faq-item${isOpen ? ' is-open' : ''}`}
                 >
                   <button
                     className="landing-faq-question"

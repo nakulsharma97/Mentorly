@@ -728,6 +728,9 @@ describe("useAuthProfile – route protection", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    // The mentor-profile redirect tests write auth_post_redirect to
+    // localStorage — never let a stale key leak into the next test.
+    localStorage.clear();
   });
 
   // ── not logged in ──────────────────────────────────────
@@ -748,12 +751,16 @@ describe("useAuthProfile – route protection", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("not logged in + /mentors/:id → no redirect (public profile)", async () => {
+  it("not logged in + /mentors/:id → saves destination and redirects to login", async () => {
+    localStorage.removeItem("auth_post_redirect");
     noSessionSetup();
     renderAt("/mentors/5");
     await tick(100);
 
-    expect(mockNavigate).not.toHaveBeenCalled();
+    // The intended destination is preserved so login returns the user to
+    // the exact profile they wanted.
+    expect(localStorage.getItem("auth_post_redirect")).toBe("/mentors/5");
+    expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
   });
 
   it("not logged in + /oauth/callback → OAuth handler navigates to /login", async () => {

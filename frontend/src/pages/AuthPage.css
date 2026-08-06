@@ -1353,11 +1353,11 @@
    turn it near-white on the light FAQ card. */
 .landing-faq-answer p {
   margin: 0;
-  padding: 16px 24px 20px;
-  color: #475569;
+  padding: 12px 24px;
+  color: #374151;
   font-size: 1rem;
   font-weight: 400;
-  line-height: 1.8;
+  line-height: 1.7;
   letter-spacing: 0;
   text-align: left;
   opacity: 1;
@@ -1399,7 +1399,7 @@
 
 /* `!important` required — this must beat the global dark `p` color override. */
 [data-theme="dark"] .landing-faq-answer p {
-  color: #cbd5e1 !important;
+  color: #d1d5db !important;
 }
 
 /* ── Mobile Hamburger ── */
@@ -1759,7 +1759,7 @@
   }
 
   .landing-faq-answer p {
-    padding: 0 16px 14px;
+    padding: 10px 16px;
     font-size: 0.85rem;
   }
 

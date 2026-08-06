@@ -129,11 +129,14 @@ export default function App() {
       }
       const post = localStorage.getItem("auth_post_redirect");
       if (post) {
-        localStorage.removeItem("auth_post_redirect");
-        navigate(post, { replace: true });
-      } else {
-        navigate(roleRoot(user.role), { replace: true });
+        // A protected page (e.g. a mentor profile) saved the destination
+        // before bouncing here. The route-protection effect in useAuth
+        // consumes this key and navigates to it once the profile state
+        // settles — that guarantees the redirect is honored instead of being
+        // overridden by the effect's own /login → role-dashboard bounce.
+        return;
       }
+      navigate(roleRoot(user.role), { replace: true });
     } catch (error) {
       console.error("Post-login profile initialization failed", error);
       clearAuthSessionState();
@@ -242,6 +245,10 @@ export default function App() {
           <AuthModal
             mode={auth.authMode}
             onClose={() => {
+              // User abandoned the sign-in modal — drop any pending
+              // post-login redirect so a stale destination can never hijack
+              // a later, unrelated login.
+              localStorage.removeItem("auth_post_redirect");
               auth.setAuthMode(null);
               navigate("/");
             }}

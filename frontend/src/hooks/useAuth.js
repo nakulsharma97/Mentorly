@@ -335,8 +335,16 @@ export function useAuthProfile({ notify }) {
     if (!profileChecked) return;
 
     if (!isLoggedIn) {
-      const isPublicMentorProfile = pathname.startsWith("/mentors/");
-      if (pathname !== "/oauth/callback" && !isPublicPath(pathname) && !isPublicMentorProfile) {
+      if (pathname === "/oauth/callback" || isPublicPath(pathname)) {
+        return;
+      }
+      // Mentor profiles require sign-in. Remember the exact destination
+      // (path + query) so the login flow can return the user to the profile
+      // they originally wanted instead of dropping them on a dashboard.
+      if (pathname.startsWith("/mentors/")) {
+        localStorage.setItem("auth_post_redirect", pathname + location.search);
+        navigate("/login", { replace: true });
+      } else {
         navigate("/", { replace: true });
       }
       return;
@@ -364,9 +372,20 @@ export function useAuthProfile({ notify }) {
       pathname === "/signup" ||
       pathname === "/admin/login"
     ) {
-      navigate(roleRoot(profile?.role), { replace: true });
+      // A protected page (e.g. a mentor profile) may have saved a pending
+      // post-login redirect. Honor the intended destination instead of
+      // bouncing the freshly logged-in user to the role dashboard. This is
+      // the single consumer of the redirect for the modal-login flow.
+      const pendingRedirect = localStorage.getItem("auth_post_redirect");
+      // Only honor internal app paths — never a malformed/stale value.
+      if (pendingRedirect && pendingRedirect.startsWith("/")) {
+        localStorage.removeItem("auth_post_redirect");
+        navigate(pendingRedirect, { replace: true });
+      } else {
+        navigate(roleRoot(profile?.role), { replace: true });
+      }
     }
-  }, [isLoggedIn, needsProfileSetup, pathname, profileChecked, navigate, profile]);
+  }, [isLoggedIn, needsProfileSetup, pathname, location.search, profileChecked, navigate, profile]);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -391,6 +410,10 @@ export function useAuthProfile({ notify }) {
     (mode) => {
       setOauthError("");
       setAuthMode(mode);
+      // Manual auth intent (navbar / landing-page buttons) — drop any stale
+      // post-login redirect so an abandoned "login to view profile" flow can
+      // never hijack a later, unrelated sign-in.
+      localStorage.removeItem("auth_post_redirect");
       navigate(mode === "login" ? "/login" : "/signup");
     },
     [navigate],
