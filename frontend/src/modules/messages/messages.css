@@ -9,6 +9,27 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
+/* ── Unified page hero above the messaging workspace ──────────────────────
+   Hero renders first (identical to every other page), the three-column
+   shell flexes to fill the remaining viewport height. */
+.ms-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  height: 100%;
+}
+
+.ms-page > .hero-section {
+  margin-bottom: 16px !important; /* 16 + 20px gap = 36px hero-to-chat */
+}
+
+.ms-page .ms-shell {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
 .ms-shell {
   /* Design tokens live on the actual root element so every var() resolves. */
   --ms-bg: #f8fafc;
@@ -343,8 +364,8 @@
 }
 
 .ms-conv-card-v2__name {
-  font-weight: 700;
-  font-size: 0.87rem;
+  font-weight: 600;
+  font-size: var(--type-chat-name, 16px);
   color: var(--ms-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -356,14 +377,14 @@
 }
 
 .ms-conv-card-v2__time {
-  font-size: 0.7rem;
+  font-size: var(--type-chat-timestamp, 13px);
   color: var(--ms-faint);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .ms-conv-card-v2__msg {
-  font-size: 0.78rem;
+  font-size: var(--type-chat-message, 15px);
   color: var(--ms-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1547,8 +1568,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: var(--type-chat-name, 16px);
+  font-weight: 600;
   color: var(--ms-text);
 }
 
@@ -1578,7 +1599,7 @@
 
 .ms-user__exp {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: var(--type-chat-timestamp, 13px);
   color: var(--ms-muted);
   overflow: hidden;
   text-overflow: ellipsis;

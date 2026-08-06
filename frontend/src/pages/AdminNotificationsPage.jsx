@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { BellRing } from "lucide-react";
 import NotificationCenter from "../components/NotificationCenter";
-import Icon from "../modules/common/dashboard/Icon";
+import AuHero from "../modules/admin/ui/AuHero";
 import "../modules/admin/ui/admin-ui.css";
 
 export default function AdminNotificationsPage({ notify }) {
@@ -11,26 +12,18 @@ export default function AdminNotificationsPage({ notify }) {
   }, []);
 
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
-      {/* ===== Hero ===== */}
-      <section className="au-hero">
-        <div>
-          <div className="au-hero__label">
-            <Icon name="notifications_active" />
-            ADMIN NOTIFICATIONS
-          </div>
-          <h1 className="au-hero__title">Notification Center</h1>
-          <p className="au-hero__desc">
-            Verification requests, new users, bookings, payments, reports and
-            platform alerts — delivered in real time.
-          </p>
-        </div>
-      </section>
+    <div className="admin-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* ===== Hero (unified design system) ===== */}
+      <AuHero
+        label="ADMIN NOTIFICATIONS"
+        title="Notification Center"
+        description="Verification requests, new users, bookings, payments, reports and platform alerts — delivered in real time."
+        Icon={BellRing}
+      />
 
       {/* ===== Notification Panel ===== */}
       <div
         style={{
-          marginTop: 20,
           overflow: "hidden",
           padding: 0,
           borderRadius: 20,

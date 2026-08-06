@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router";
 import Icon from "../modules/common/dashboard/Icon";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -182,7 +183,7 @@ export default function CareerDetailPage() {
 
   if (!career) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
           <div className="md-empty__icon"><span className="material-symbols-outlined">search_off</span></div>
           <h3 className="md-empty__title">Career not found</h3>
@@ -197,7 +198,7 @@ export default function CareerDetailPage() {
   }
 
   return (
-    <div className="md-page" style={{ maxWidth: 1024, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1024, margin: "0 auto" }}>
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: "0.85rem", color: "var(--mp-text-secondary)" }}>
         <Link to="/learner/skills" style={{ color: "var(--mp-primary)", textDecoration: "none" }}>Explore Skills</Link>
@@ -205,28 +206,20 @@ export default function CareerDetailPage() {
         <span>{career.title}</span>
       </div>
 
-      {/* Header */}
-      <div className="mp-hero" style={{ marginBottom: 24 }}>
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>{career.icon}</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>work</span>
-            CAREER
-          </div>
-          <h1>{career.title}</h1>
-          <p className="mp-hero__sub">{career.oversight}</p>
-          <div className="mp-hero__actions" style={{ gap: 8 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-              <Icon name="currency_rupee" /> {career.salary}
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-              <Icon name="timelapse" /> {career.experience}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Header — unified hero design system */}
+      <MentorPageHero
+        eyebrow="CAREER"
+        icon={career.icon}
+        title={career.title}
+        sub={career.oversight}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+          <Icon name="currency_rupee" /> {career.salary}
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+          <Icon name="timelapse" /> {career.experience}
+        </span>
+      </MentorPageHero>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
         {/* Main */}

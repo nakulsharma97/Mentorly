@@ -119,7 +119,7 @@
 
 .au-header__title {
   margin: 0;
-  font-size: 36px;
+  font-size: var(--type-page-title, 36px);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.1;
@@ -143,7 +143,7 @@
 }
 
 @media (max-width: 640px) {
-  .au-header__title { font-size: 28px; }
+  .au-header__title { font-size: var(--type-page-title, 30px); }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -158,20 +158,24 @@
   min-height: 220px;
   padding: 36px 40px;
   border-radius: 24px;
-  background: linear-gradient(110deg, #0f172a 0%, #155e75 52%, #047857 100%);
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   color: #fff;
   overflow: hidden;
   isolation: isolate;
-  box-shadow: 0 16px 40px rgba(2, 44, 34, 0.25);
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(20, 184, 166, 0.18));
 }
 
-.au-hero--analytics { background: linear-gradient(110deg, #0f172a 0%, #1e3a5f 52%, #0f766e 100%); }
-.au-hero--users { background: linear-gradient(110deg, #0f172a 0%, #155e75 52%, #0f766e 100%); }
-.au-hero--payments { background: linear-gradient(110deg, #0f172a 0%, #3730a3 52%, #0f766e 100%); }
-.au-hero--skills { background: linear-gradient(110deg, #0f172a 0%, #155e75 52%, #047857 100%); }
-.au-hero--sessions { background: linear-gradient(110deg, #0f172a 0%, #1e3a5f 52%, #0f766e 100%); }
-.au-hero--wallet { background: linear-gradient(110deg, #0f172a 0%, #155e75 52%, #0d9488 100%); }
-.au-hero--settings { background: linear-gradient(110deg, #0f172a 0%, #334155 52%, #0f766e 100%); }
+/* Unified hero design system — all admin variants share the same gradient.
+   Kept for API compatibility; every variant now renders the identical hero. */
+.au-hero--analytics,
+.au-hero--users,
+.au-hero--payments,
+.au-hero--skills,
+.au-hero--sessions,
+.au-hero--wallet,
+.au-hero--settings {
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
+}
 
 .au-hero::before {
   content: "";
@@ -214,7 +218,7 @@
 
 .au-hero__title {
   margin: 0;
-  font-size: 34px;
+  font-size: var(--type-section-title, 28px);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.1;
@@ -391,7 +395,7 @@
 
 @media (max-width: 480px) {
   .au-hero { padding: 28px 22px; }
-  .au-hero__title { font-size: 28px; }
+  .au-hero__title { font-size: var(--type-section-title, 24px); }
   .au-hero__desc { font-size: 16px; }
   .au-hero__stat { display: none; }
 }
@@ -887,7 +891,7 @@
 
 .au-card__title {
   margin: 0 0 16px;
-  font-size: 18px;
+  font-size: var(--type-small-card-title, 18px);
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--au-text);
@@ -1316,7 +1320,8 @@
 .admin-page {
   width: 100%;
   margin: -20px -24px -24px;
-  padding: 28px 32px 56px;
+  /* Unified page padding: top 24px (navbar → hero) · sides 32px · bottom 40px */
+  padding: 24px 32px 40px;
   font-family: var(--au-font);
   color: var(--au-text);
 }
@@ -1333,22 +1338,24 @@
   .admin-page { padding-left: calc((100vw - 1440px) / 2 + 32px); padding-right: calc((100vw - 1440px) / 2 + 32px); }
 }
 
-/* ── Hero: premium gradient banner (matches .au-hero) ── */
+/* ── Hero: premium gradient banner — ALIASED to the unified hero design
+   system (--hero-*) so legacy admin pages render the IDENTICAL gradient,
+   radius, height, padding and shadow as every other page hero. ── */
 .admin-hero {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  min-height: 220px;
-  padding: 36px 40px;
-  border-radius: 24px;
-  background: linear-gradient(110deg, #0f172a 0%, #155e75 52%, #047857 100%);
+  min-height: var(--hero-min-height, 320px);
+  padding: var(--hero-padding, 40px);
+  border-radius: var(--hero-radius, 32px);
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   color: #fff;
   overflow: hidden;
   isolation: isolate;
-  margin-bottom: 32px;
-  box-shadow: 0 16px 40px rgba(2, 44, 34, 0.25);
+  margin-bottom: var(--hero-margin-bottom, 36px);
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
 }
 
 .admin-hero::before {
@@ -1378,39 +1385,45 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 14px;
-  padding: 7px 14px;
+  margin: 0 0 20px; /* Badge → Heading: 20px */
+  padding: 10px 18px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--hero-badge-bg, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--hero-badge-border, rgba(255, 255, 255, 0.18));
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 2px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(var(--hero-badge-blur, 10px));
   opacity: 1;
 }
 
 .admin-hero h1 {
-  margin: 0;
-  font-size: 34px;
+  margin: 0 0 18px; /* Heading → Subtitle: 18px */
+  font-size: 48px;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
+  text-shadow: 0 2px 24px rgba(15, 23, 42, 0.18);
 }
 
 .admin-hero p {
-  margin: 12px 0 0;
-  max-width: 600px;
+  margin: 0;
+  max-width: 620px;
   font-size: 18px;
   font-weight: 400;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--hero-subtitle-color, rgba(255, 255, 255, 0.88));
 }
 
-@media (max-width: 480px) {
-  .admin-hero { padding: 28px 22px; }
-  .admin-hero h1 { font-size: 28px; }
+@media (max-width: 1024px) {
+  .admin-hero { min-height: 420px; flex-direction: column; align-items: flex-start; justify-content: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .admin-hero { min-height: auto; padding: 28px 24px; }
+  .admin-hero h1 { font-size: 32px; }
   .admin-hero p { font-size: 16px; }
 }
 

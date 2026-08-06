@@ -6,6 +6,7 @@ import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import ReportModal from "../components/ReportModal";
 import { normalizeSkills } from "../utils/skills";
 import BookingFlowPage from "./BookingFlowPage";
+import HeroSection from "../components/HeroSection";
 import "./MentorProfilePage.css";
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -420,16 +421,63 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
       )}
 
       {/* ══ HERO ══ */}
-      <section className="mpr-hero">
-        <div className="mpr-hero__bg-shapes">
-          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--1" />
-          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--2" />
-          <div className="mpr-hero__bg-shape mpr-hero__bg-shape--3" />
-        </div>
-        <div className="mpr-hero__body">
-          {/* Left Column */}
-          <div className="mpr-hero__left">
-            <div className="mpr-hero__profile">
+      <HeroSection
+        badge={
+          <>
+            <Icon name="verified" /> {mentor?.mentorVerified ? "Verified Mentor" : "Mentor Profile"}
+          </>
+        }
+        title={mentor?.fullName || "Mentor"}
+        subtitle={
+          mentor?.headline ||
+          (mentor?.aboutMe ? mentor.aboutMe.split(".")[0].slice(0, 100) : "Expert Mentor")
+        }
+        primaryButton={
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--primary"
+            onClick={() => {
+              if (!isLoggedIn) { onRequireLogin?.(); return; }
+              if (sessions.length === 1) {
+                setSelectedSessionForBooking(sessions[0]);
+                setBookingStep("calendar");
+              } else {
+                setBookingStep("sessions");
+                setSelectedSessionForBooking(null);
+              }
+              setShowBookingModal(true);
+            }}
+          >
+            <Icon name="event" /> Book Session
+          </button>
+        }
+        secondaryButton={
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--secondary"
+            onClick={async () => {
+              if (!isLoggedIn) { onRequireLogin?.(); return; }
+              try {
+                const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
+                const data = res?.data?.data;
+                if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
+                else navigate("/learner/messages");
+              } catch (err) {
+                const status = err?.response?.status;
+                const errBody = err?.response?.data;
+                const detail = errBody?.data?.message || errBody?.data?.error || errBody?.message || err?.message || JSON.stringify(errBody);
+                const msg = status ? `Error ${status}: ${detail}` : detail || "Unable to start conversation";
+                console.error("[Message] Failed:", status, errBody, err?.message);
+                notify?.({ type: "error", title: "Message failed", message: msg });
+              }
+            }}
+          >
+            <Icon name="chat" /> Message
+          </button>
+        }
+        illustration={
+          <div className="mpr-hero__art mpr-hero__art--shared" aria-hidden="true">
+            <div className="mpr-hero__avatar-card">
               <div className="mpr-hero__av-wrap">
                 <div className="mpr-hero__av-ring" />
                 {mentor?.profileImageUrl ? (
@@ -439,150 +487,126 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 )}
                 {mentor?.mentorVerified && <span className="mpr-hero__av-badge"><Icon name="verified" /> Verified</span>}
               </div>
-              <div className="mpr-hero__info">
-                <div className="mpr-hero__info-top">
-                  <h1 className="mpr-hero__name">{mentor?.fullName || "Mentor"}</h1>
-                  {mentor?.username && (
-                    <p style={{ margin: "4px 0 0", fontSize: "0.9rem", color: "rgba(255,255,255,0.6)" }}>
-                      @{mentor.username}
-                    </p>
-                  )}
-                  {mentor?.mentorVerified && <VerifiedBadge />}
-                </div>
-                <p className="mpr-hero__headline">{mentor?.headline || (mentor?.aboutMe ? mentor.aboutMe.split(".")[0].slice(0, 100) : "Expert Mentor")}</p>
-                <div className="mpr-hero__meta">
-                  {mentor?.company && <span><Icon name="business" /> {mentor.company}</span>}
-                  {mentor?.yearsOfExperience != null && <span><Icon name="work_history" /> {mentor.yearsOfExperience}+ years</span>}
-                  {mentor?.location && <span><Icon name="location_on" /> {mentor.location}</span>}
-                  {mentor?.languages && !/^\s*\[\s*\]\s*$/.test(String(mentor.languages)) && <span><Icon name="translate" /> {mentor.languages}</span>}
-                </div>
-                <div className="mpr-hero__rating-row">
-                  <span className="mpr-hero__rating-num">{summary.averageRating.toFixed(1)}</span>
-                  <span className="mpr-hero__rating-stars"><StarRating rating={summary.averageRating} size={16} /></span>
-                  <span className="mpr-hero__rating-count">({formatNum(summary.totalReviews)} reviews)</span>
-                  <span className="mpr-hero__stat-chip"><Icon name="groups" /> <strong>{formatNum(summary.totalReviews)}</strong> students</span>
-                  <span className="mpr-hero__stat-chip"><Icon name="calendar_month" /> <strong>{sessions.length}</strong> sessions</span>
-                </div>
-              </div>
             </div>
-
-            {skillChips.length > 0 && (
-              <div className="mpr-hero__skills">
-                {skillChips.map(sk => <span key={sk} className="mpr-chip">{sk}</span>)}
+            <div className="hero-section__glass hero-section__glass--stat">
+              <div className="hero-section__glass-head" style={{ gap: 6 }}>
+                <StarRating rating={summary.averageRating} size={13} />
               </div>
-            )}
-
-            <div className="mpr-hero__actions">
-              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg" onClick={() => {
-                if (!isLoggedIn) { onRequireLogin?.(); return; }
-                if (sessions.length === 1) {
-                  setSelectedSessionForBooking(sessions[0]);
-                  setBookingStep("calendar");
-                } else {
-                  setBookingStep("sessions");
-                  setSelectedSessionForBooking(null);
-                }
-                setShowBookingModal(true);
-              }}>
-                <Icon name="event" /> Book Session
-              </button>
-              <button type="button" className="mpr-btn mpr-btn--secondary" onClick={async () => {
-                if (!isLoggedIn) { onRequireLogin?.(); return; }
-                try {
-                  const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
-                  const data = res?.data?.data;
-                  if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
-                  else navigate("/learner/messages");
-                } catch (err) {
-                  const status = err?.response?.status;
-                  const errBody = err?.response?.data;
-                  const detail = errBody?.data?.message || errBody?.data?.error || errBody?.message || err?.message || JSON.stringify(errBody);
-                  const msg = status ? `Error ${status}: ${detail}` : detail || "Unable to start conversation";
-                  console.error("[Message] Failed:", status, errBody, err?.message);
-                  notify?.({ type: "error", title: "Message failed", message: msg });
-                }
-              }}>
-                <Icon name="chat" /> Message
-              </button>
-              <button type="button" className={`mpr-btn mpr-btn--ghost ${saved ? "is-saved" : ""}`} onClick={handleSaveToggle}>
-                <Icon name={saved ? "bookmark" : "bookmark_add"} /> {saved ? "Saved" : "Save"}
-              </button>
-              <button type="button" className="mpr-btn mpr-btn--ghost" onClick={() => {
-                if (navigator.share) navigator.share({ url: window.location.href });
-                else navigator.clipboard?.writeText(window.location.href);
-              }}>
-                <Icon name="share" /> Share
-              </button>
-              <button type="button" className="mpr-btn mpr-btn--ghost mpr-btn--report" onClick={() => setShowReportModal(true)}>
-                <Icon name="flag" /> Report
-              </button>
+              <div className="hero-section__glass-num" style={{ marginTop: 4 }}>
+                {summary.averageRating.toFixed(1)}
+              </div>
+              <div className="hero-section__glass-label">{formatNum(summary.totalReviews)} reviews</div>
             </div>
-          </div>
-
-          {/* Right Column — Compact Booking Card */}
-          <div className="mpr-hero__right">
-            <div className="mpr-booking-card">
-              <div className="mpr-booking-card__price">
-                <span className="mpr-booking-card__price-val">
-                  {sessions.length > 0 && sessions[0]?.priceAmount
-                    ? `₹${Number(sessions[0].priceAmount).toLocaleString()}`
-                    : "₹999"}
+            <div className="hero-section__glass hero-section__glass--main">
+              <div className="hero-section__glass-head">
+                <span className="hero-section__glass-icon">
+                  <Icon name="groups" />
                 </span>
-                <span className="mpr-booking-card__price-unit">/hour</span>
-              </div>
-
-              <div className="mpr-booking-card__avail-status">
-                <Icon name="circle" />
-                {upcomingSlots.length > 0 ? "Available Today" : "Next Available: Soon"}
-              </div>
-
-              <div className="mpr-booking-card__summary">
-                <div className="mpr-booking-card__summary-row">
-                  <span>Response time</span>
-                  <strong>{trustSnapshot.responseLabel}</strong>
-                </div>
-                <div className="mpr-booking-card__summary-row">
-                  <span>Session duration</span>
-                  <strong>{sessions.length > 0 && sessions[0]?.duration ? sessions[0].duration : "60 min"}</strong>
-                </div>
-                <div className="mpr-booking-card__summary-row">
-                  <span>Next slot</span>
-                  <strong>{upcomingSlots.length > 0 ? formatDateTime(upcomingSlots[0].startTime) : "Check schedule"}</strong>
+                <div>
+                  <div className="hero-section__glass-title">{formatNum(summary.totalReviews)} students</div>
+                  <div className="hero-section__glass-sub">{sessions.length} sessions listed</div>
                 </div>
               </div>
-
-              <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => {
-                if (!isLoggedIn) { onRequireLogin?.(); return; }
-                if (sessions.length === 1) {
-                  setSelectedSessionForBooking(sessions[0]);
-                  setBookingStep("calendar");
-                } else {
-                  setBookingStep("sessions");
-                  setSelectedSessionForBooking(null);
-                }
-                setShowBookingModal(true);
-              }}>
-                <Icon name="event" /> Book Session
-              </button>
-
-              <button type="button" className="mpr-booking-card__view-schedule" onClick={() => setShowFullSchedule(true)}>
-                <Icon name="calendar_month" /> View Full Schedule
-              </button>
-
-              <button type="button" className="mpr-booking-card__view-schedule" onClick={() => { if (!isLoggedIn) { onRequireLogin?.(); return; } setShowRequestModal(true); }}>
-                <Icon name="handshake" /> Request Custom Session
-              </button>
-
-              <div className="mpr-booking-card__divider" />
-
-              <div className="mpr-booking-card__trust">
-                <span><Icon name="lock" /> Secure Payments</span>
-                <span><Icon name="verified" /> Money-Back Guarantee</span>
+            </div>
+            <div className="hero-section__glass hero-section__glass--chart">
+              <div className="hero-section__glass-head" style={{ gap: 6 }}>
+                <Icon name="schedule" />
+                <span style={{ fontSize: 12, fontWeight: 600 }}>
+                  {upcomingSlots.length > 0 ? "Available today" : "Next slot soon"}
+                </span>
               </div>
             </div>
           </div>
+        }
+      >
+        <div className="mpr-hero__meta">
+          {mentor?.company && <span><Icon name="business" /> {mentor.company}</span>}
+          {mentor?.yearsOfExperience != null && <span><Icon name="work_history" /> {mentor.yearsOfExperience}+ years</span>}
+          {mentor?.location && <span><Icon name="location_on" /> {mentor.location}</span>}
+          {mentor?.languages && !/^\s*\[\s*\]\s*$/.test(String(mentor.languages)) && <span><Icon name="translate" /> {mentor.languages}</span>}
         </div>
-      </section>
+        <button type="button" className={`mpr-btn mpr-btn--ghost ${saved ? "is-saved" : ""}`} onClick={handleSaveToggle}>
+          <Icon name={saved ? "bookmark" : "bookmark_add"} /> {saved ? "Saved" : "Save"}
+        </button>
+        <button type="button" className="mpr-btn mpr-btn--ghost" onClick={() => {
+          if (navigator.share) navigator.share({ url: window.location.href });
+          else navigator.clipboard?.writeText(window.location.href);
+        }}>
+          <Icon name="share" /> Share
+        </button>
+        <button type="button" className="mpr-btn mpr-btn--ghost mpr-btn--report" onClick={() => setShowReportModal(true)}>
+          <Icon name="flag" /> Report
+        </button>
+      </HeroSection>
+
+      {/* ══ BOOKING CARD — moved below the hero per unified design system ══ */}
+      <div className="mpr-booking-strip">
+        <div className="mpr-booking-card mpr-booking-card--hero">
+          <div className="mpr-booking-card__price">
+            <span className="mpr-booking-card__price-val">
+              {sessions.length > 0 && sessions[0]?.priceAmount
+                ? `₹${Number(sessions[0].priceAmount).toLocaleString()}`
+                : "₹999"}
+            </span>
+            <span className="mpr-booking-card__price-unit">/hour</span>
+          </div>
+
+          <div className="mpr-booking-card__avail-status">
+            <Icon name="circle" />
+            {upcomingSlots.length > 0 ? "Available Today" : "Next Available: Soon"}
+          </div>
+
+          <div className="mpr-booking-card__summary">
+            <div className="mpr-booking-card__summary-row">
+              <span>Response time</span>
+              <strong>{trustSnapshot.responseLabel}</strong>
+            </div>
+            <div className="mpr-booking-card__summary-row">
+              <span>Session duration</span>
+              <strong>{sessions.length > 0 && sessions[0]?.duration ? sessions[0].duration : "60 min"}</strong>
+            </div>
+            <div className="mpr-booking-card__summary-row">
+              <span>Next slot</span>
+              <strong>{upcomingSlots.length > 0 ? formatDateTime(upcomingSlots[0].startTime) : "Check schedule"}</strong>
+            </div>
+          </div>
+
+          <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => {
+            if (!isLoggedIn) { onRequireLogin?.(); return; }
+            if (sessions.length === 1) {
+              setSelectedSessionForBooking(sessions[0]);
+              setBookingStep("calendar");
+            } else {
+              setBookingStep("sessions");
+              setSelectedSessionForBooking(null);
+            }
+            setShowBookingModal(true);
+          }}>
+            <Icon name="event" /> Book Session
+          </button>
+
+          <button type="button" className="mpr-booking-card__view-schedule" onClick={() => setShowFullSchedule(true)}>
+            <Icon name="calendar_month" /> View Full Schedule
+          </button>
+
+          <button type="button" className="mpr-booking-card__view-schedule" onClick={() => { if (!isLoggedIn) { onRequireLogin?.(); return; } setShowRequestModal(true); }}>
+            <Icon name="handshake" /> Request Custom Session
+          </button>
+
+          <div className="mpr-booking-card__divider" />
+
+          <div className="mpr-booking-card__trust">
+            <span><Icon name="lock" /> Secure Payments</span>
+            <span><Icon name="verified" /> Money-Back Guarantee</span>
+          </div>
+
+          {skillChips.length > 0 && (
+            <div className="mpr-booking-card__skills">
+              {skillChips.map(sk => <span key={sk} className="mpr-chip">{sk}</span>)}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ═══ STATS ROW ═══ */}
       <div className="mpr-stats-row">

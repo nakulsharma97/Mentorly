@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import "./LearnerDashboard.css";
 
@@ -404,64 +405,51 @@ export default function LearnerDashboard({ profile }) {
   return (
     <div className="ss-page ld-page">
 
-      {/* ═══════════════════ HERO SECTION — Premium SaaS ═══════════════════ */}
-      <section className="ss-hero">
-        <div className="ss-hero__content">
-          <div className="ss-hero__badge">
+      {/* ═══════════════════ HERO SECTION — Unified Design System ═══════════════════ */}
+      <HeroSection
+        badge={
+          <>
             <SsIcon name="sparkles" size={14} />
             Learner Dashboard
-          </div>
-          <h1 className="ss-hero__title">
+          </>
+        }
+        title={
+          <>
             {getGreeting()}, {firstName}
-          </h1>
-          <p className="ss-hero__desc">
+          </>
+        }
+        subtitle={
+          <>
             Track your progress, join upcoming sessions, and continue learning.
             {stats.completedSessions > 0 || streak > 0
               ? ` You have ${stats.completedSessions} completed session${stats.completedSessions !== 1 ? 's' : ''}${streak > 0 ? ` and a ${streak}-day streak` : ''}.`
               : ` Start by booking your first session with a mentor.`
             }
-          </p>
-
-          <div className="ss-hero__quick-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Streak</p>
-              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <SsIcon name="local_fire_department" size={20} /> {streak}d
-              </p>
-            </div>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Certificates</p>
-              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <SsIcon name="workspace_premium" size={20} /> {certifications.length}
-              </p>
-            </div>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Hours Learned</p>
-              <p className="ss-hero__qs-value" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <SsIcon name="schedule" size={20} /> {stats.learningHours}h
-              </p>
-            </div>
-          </div>
-
-          <div className="ss-hero__actions">
-            {nextSession?.session?.meetingLink && (
-              <a href={nextSession.session.meetingLink} target="_blank" rel="noreferrer" className="ss-btn ss-btn--primary">
-                <SsIcon name="videocam" size={18} /> Join Next Session
-              </a>
-            )}
-            <Link to="/learner/mentors" className="ss-btn ss-btn--secondary">
-              <SsIcon name="person_search" size={18} /> Find Mentors
-            </Link>
-            <Link to="/learner/messages" className="ss-btn ss-btn--ghost">
-              <SsIcon name="chat" size={18} /> Messages
-            </Link>
-            <button type="button" className="ss-btn ss-btn--icon" onClick={loadLearnerData} title="Refresh data" aria-label="Refresh data">
-              <SsIcon name="refresh" size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="ss-hero__illustration" style={{ width: 240, alignItems: "flex-start" }}>
+          </>
+        }
+        secondaryButton={
+          <Link
+            to="/learner/mentors"
+            className="hero-section__btn hero-section__btn--secondary"
+          >
+            <SsIcon name="person_search" size={18} />
+            Find Mentors
+          </Link>
+        }
+        primaryButton={
+          nextSession?.session?.meetingLink ? (
+            <a
+              href={nextSession.session.meetingLink}
+              target="_blank"
+              rel="noreferrer"
+              className="hero-section__btn hero-section__btn--primary"
+            >
+              <SsIcon name="videocam" size={18} />
+              Join Next Session
+            </a>
+          ) : undefined
+        }
+        floatingCards={
           <div className="ld-hero-glass-cards">
             <div className="ld-hero-glass">
               <p className="ld-hero-glass__label">
@@ -490,8 +478,58 @@ export default function LearnerDashboard({ profile }) {
               </div>
             )}
           </div>
+        }
+      >
+        <Link
+          to="/learner/messages"
+          className="hero-section__btn hero-section__btn--ghost"
+        >
+          <SsIcon name="chat" size={18} />
+          Messages
+        </Link>
+        <button
+          type="button"
+          className="hero-section__btn hero-section__btn--ghost"
+          onClick={loadLearnerData}
+          title="Refresh data"
+          aria-label="Refresh data"
+        >
+          <SsIcon name="refresh" size={20} />
+        </button>
+
+        {/* Quick stats strip inside hero */}
+        <div className="hero-section__stats-strip">
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Streak</span>
+            <span
+              className="hero-section__stats-item__value"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <SsIcon name="local_fire_department" size={18} /> {streak}d
+            </span>
+          </div>
+          <div className="hero-section__stats-divider" />
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Certificates</span>
+            <span
+              className="hero-section__stats-item__value"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <SsIcon name="workspace_premium" size={18} /> {certifications.length}
+            </span>
+          </div>
+          <div className="hero-section__stats-divider" />
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Hours Learned</span>
+            <span
+              className="hero-section__stats-item__value"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
+              <SsIcon name="schedule" size={18} /> {stats.learningHours}h
+            </span>
+          </div>
         </div>
-      </section>
+      </HeroSection>
 
       {/* ═══════════════════ REFERRAL SECTION ═══════════════════ */}
       {referral && (

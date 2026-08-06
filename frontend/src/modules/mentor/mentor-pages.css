@@ -45,7 +45,7 @@
   --mp-radius-xl: 20px;
   --mp-radius-2xl: 24px;
   --mp-font: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  --mp-font-display: 'Sora', 'Manrope', sans-serif;
+  --mp-font-display: 'Inter', 'Manrope', sans-serif;
   --mp-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --mp-transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   --mp-transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -146,15 +146,15 @@
 .mp-hero {
   position: relative;
   overflow: hidden;
-  border-radius: var(--mp-radius-2xl);
+  border-radius: var(--hero-radius, var(--mp-radius-2xl));
   padding: 28px 36px;
   min-height: 220px;
   max-height: 280px;
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
+  color: #fff;
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(20, 184, 166, 0.18));
   display: flex;
   align-items: center;
-  background: var(--mp-gradient-hero);
-  color: #fff;
-  box-shadow: 0 12px 40px rgba(15, 157, 138, 0.20);
   animation: mp-fade-in 0.4s ease;
 }
 
@@ -709,8 +709,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--mp-text);
   margin: 0;
 }
@@ -751,9 +751,9 @@
 .mp-head__title {
   margin: 0;
   font-family: var(--mp-font-display);
-  font-size: 1.4rem;
+  font-size: var(--type-card-title, 22px);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
   color: var(--mp-text);
 }
 
@@ -2506,7 +2506,7 @@
   }
 
   .mp-head__title {
-    font-size: 1.25rem;
+    font-size: var(--type-card-title, 20px);
   }
 
   .mp-kv {

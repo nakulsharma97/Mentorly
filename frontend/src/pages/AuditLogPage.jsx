@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
 import ExcelJS from "exceljs";
@@ -649,29 +650,29 @@ export default function AuditLogPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero ── */}
-      <div className="admin-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <p className="admin-eyebrow">Monitoring · Security</p>
-            <h1>Activity Timeline &amp; Security Audit</h1>
-            <p>Enterprise-grade audit trail — who did what, when, and from where. Entries are immutable and read-only.</p>
+      <HeroSection
+        badge="Monitoring · Security"
+        title="Activity Timeline & Security Audit"
+        subtitle="Enterprise-grade audit trail — who did what, when, and from where. Entries are immutable and read-only."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">manage_search</span>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <label className="al-autorefresh" title="Refresh every 15 seconds">
-              <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh((v) => !v)} />
-              Auto refresh
-            </label>
-            <button
-              type="button"
-              className="admin-refresh-btn"
-              onClick={() => { loadStats(); loadLogs(page); }}
-              style={{ background: "#fff", color: "#0f172a", borderColor: "#fff" }}
-            >
-              <Icon name="refresh" /> Refresh
-            </button>
-          </div>
-        </div>
-      </div>
+        }
+      >
+        <label className="al-autorefresh" title="Refresh every 15 seconds">
+          <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh((v) => !v)} />
+          Auto refresh
+        </label>
+        <button
+          type="button"
+          className="hero-section__btn hero-section__btn--primary"
+          onClick={() => { loadStats(); loadLogs(page); }}
+        >
+          <span className="material-symbols-outlined">refresh</span>
+          Refresh
+        </button>
+      </HeroSection>
 
       {/* ── Tabs ── */}
       <div className="al-tabs">

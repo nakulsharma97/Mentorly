@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../api/client";
 import { getApiErrorMessage as errorMessage } from "../utils/apiErrors";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import "./AdminOperationsPage.css";
 import "./SystemSettingsPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -289,13 +290,16 @@ export default function SystemSettingsPage({ notify }) {
   if (loading) {
     return (
       <section className="admin-page">
-        <div className="admin-hero">
-          <div>
-            <p className="admin-eyebrow">Configuration</p>
-            <h1>Platform Configuration Center</h1>
-            <p>Loading configuration…</p>
-          </div>
-        </div>
+        <HeroSection
+          badge="Configuration"
+          title="Platform Configuration Center"
+          subtitle="Loading configuration…"
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">tune</span>
+            </div>
+          }
+        />
         <div className="ss-skeleton-grid">
           {[0, 1, 2].map((i) => (
             <div key={i} className="ss-skeleton-card" />
@@ -307,15 +311,16 @@ export default function SystemSettingsPage({ notify }) {
 
   return (
     <section className="admin-page">
-      <div className="admin-hero">
-        <div>
-          <p className="admin-eyebrow">Super Admin</p>
-          <h1>Platform Configuration Center</h1>
-          <p>
-            {totalSettings} settings across {catalog.length} categories. Changes are audited and apply immediately.
-          </p>
-        </div>
-      </div>
+      <HeroSection
+        badge="Super Admin"
+        title="Platform Configuration Center"
+        subtitle={`${totalSettings} settings across ${catalog.length} categories. Changes are audited and apply immediately.`}
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">settings</span>
+          </div>
+        }
+      />
 
       {/* Sticky toolbar */}
       <div className="ss-toolbar">

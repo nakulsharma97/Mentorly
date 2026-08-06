@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import "./AdminOperationsPage.css";
 import "./ContentModerationPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -826,18 +827,24 @@ export default function ContentModerationPage({ notify }) {
 
   return (
     <section className="admin-page">
-      <div className="admin-hero">
-        <div>
-          <p className="admin-eyebrow">Moderation</p>
-          <h1>Content Moderation Center</h1>
-          <p>Review content flagged by reports and automated detection. Approve, remove, warn, or escalate — every action is tracked and notified.</p>
-        </div>
-        {stats && (
-          <span className="admin-count-badge" style={{ alignSelf: "flex-start" }}>
-            {(stats.PENDING_REVIEW || 0) + (stats.UNDER_INVESTIGATION || 0)} in queue
-          </span>
-        )}
-      </div>
+      <HeroSection
+        badge="Moderation"
+        title="Content Moderation Center"
+        subtitle="Review content flagged by reports and automated detection. Approve, remove, warn, or escalate — every action is tracked and notified."
+        secondaryButton={
+          stats ? (
+            <span className="hero-section__btn hero-section__btn--secondary" style={{ height: "auto", padding: "10px 18px", cursor: "default" }}>
+              <span className="material-symbols-outlined">shield</span>
+              {(stats.PENDING_REVIEW || 0) + (stats.UNDER_INVESTIGATION || 0)} in queue
+            </span>
+          ) : undefined
+        }
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">gavel</span>
+          </div>
+        }
+      />
 
       {renderStats()}
       <div style={{ margin: "18px 0" }}>{renderFilters()}</div>

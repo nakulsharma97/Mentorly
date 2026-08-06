@@ -616,8 +616,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }
@@ -811,8 +811,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }
@@ -936,8 +936,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }
@@ -1093,8 +1093,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }
@@ -1315,8 +1315,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }
@@ -1467,8 +1467,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--md-text);
   margin: 0;
 }

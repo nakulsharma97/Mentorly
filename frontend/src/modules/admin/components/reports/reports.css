@@ -202,10 +202,10 @@
 
 .rpt-hero__title {
   margin: 0;
-  font-size: 34px;
+  font-size: var(--type-section-title, 28px);
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  letter-spacing: -0.015em;
+  line-height: var(--type-lh-heading, 1.2);
 }
 
 .rpt-hero__desc {
@@ -400,7 +400,7 @@
     padding: 28px 22px;
   }
   .rpt-hero__title {
-    font-size: 28px;
+    font-size: var(--type-section-title, 24px);
   }
   .rpt-hero__desc {
     font-size: 16px;

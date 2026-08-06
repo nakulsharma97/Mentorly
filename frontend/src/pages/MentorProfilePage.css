@@ -330,11 +330,13 @@
 .mpr-hero {
   position: relative;
   overflow: hidden;
-  border-radius: var(--mpr-radius-lg);
-  background: radial-gradient(ellipse at 10% 30%, rgba(15,118,110,0.18) 0%, transparent 50%),
-              radial-gradient(ellipse at 90% 70%, rgba(20,184,166,0.10) 0%, transparent 40%),
-              linear-gradient(160deg, #0C1B2E 0%, #132A3A 40%, #1A3645 100%);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+  /* Alias to the unified hero design system: same gradient, radius, shadow,
+     and hero-to-content spacing as every other page hero. The inner layout
+     (avatar + booking card) stays content-driven. */
+  border-radius: var(--hero-radius, 32px);
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
+  margin-bottom: var(--hero-margin-bottom, 36px);
 }
 
 .mpr-hero__bg-shapes {
@@ -370,6 +372,78 @@
   position: relative;
   z-index: 2;
   align-items: start;
+}
+
+/* ── Unified hero integration — avatar + glass cards fill the fixed
+      260×260 art box; booking card docks below the hero on the page. ── */
+.hero-section__art .mpr-hero__art--shared {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 260px;
+  height: 260px;
+}
+.hero-section__art .mpr-hero__avatar-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.hero-section__art .mpr-hero__avatar-card .mpr-hero__av-wrap {
+  width: 118px;
+  height: 118px;
+}
+.hero-section__art .mpr-hero__av-badge {
+  font-size: 0.62rem;
+  padding: 3px 10px;
+  right: -6px;
+}
+
+/* Booking card below the hero — light-page treatment, right-aligned. */
+.mpr-booking-strip {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 24px;
+}
+.mpr-booking-card--hero {
+  position: static;
+  width: min(430px, 100%);
+  background: var(--mpr-card, #ffffff);
+  border: 1px solid var(--mpr-border, #e2e8f0);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.1);
+  color: var(--mpr-ink, #0f172a);
+}
+.mpr-booking-card--hero .mpr-booking-card__price-val { color: var(--mpr-ink, #0f172a); }
+.mpr-booking-card--hero .mpr-booking-card__price-unit { color: var(--mpr-muted, #64748b); }
+.mpr-booking-card--hero .mpr-booking-card__avail-status {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.08);
+  border: 1px solid rgba(15, 118, 110, 0.18);
+}
+.mpr-booking-card--hero .mpr-booking-card__summary-row { color: var(--mpr-muted, #64748b); }
+.mpr-booking-card--hero .mpr-booking-card__summary-row strong { color: var(--mpr-ink, #0f172a); }
+.mpr-booking-card--hero .mpr-booking-card__divider { background: var(--mpr-border, #e2e8f0); }
+.mpr-booking-card--hero .mpr-booking-card__trust { color: var(--mpr-muted, #64748b); }
+.mpr-booking-card--hero .mpr-booking-card__view-schedule {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.06);
+  border: 1px solid rgba(15, 118, 110, 0.15);
+}
+.mpr-booking-card--hero .mpr-booking-card__view-schedule:hover {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+.mpr-booking-card--hero .mpr-booking-card__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--mpr-border, #e2e8f0);
+}
+.mpr-booking-card--hero .mpr-booking-card__skills .mpr-chip {
+  background: rgba(15, 118, 110, 0.07);
+  border: 1px solid rgba(15, 118, 110, 0.15);
+  color: #0f766e;
 }
 
 /* ── Left Column ── */

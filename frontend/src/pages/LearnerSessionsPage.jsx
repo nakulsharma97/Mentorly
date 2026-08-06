@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills, skillsMatchQuery } from "../utils/skills";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -1081,67 +1082,57 @@ export default function LearnerSessionsPage() {
   /* ── Render ── */
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero ===== */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>calendar_month</span>
+      <MentorPageHero
+        eyebrow="SESSIONS"
+        icon="calendar_month"
+        title="Your Booked Sessions"
+        sub="Manage upcoming, completed and cancelled sessions in one place. Join, reschedule, cancel or review any session."
+      >
+        <div className="ls-hero__search-wrap" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <Icon name="search" className="ls-hero__search-icon" style={{ color: "rgba(255,255,255,0.60)" }} />
+          <input
+            className="ls-hero__search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by mentor, title, date, or status…"
+            aria-label="Search sessions"
+            style={{ color: "#fff" }}
+          />
+          {query && (
+            <button
+              type="button"
+              className="ls-hero__search-clear"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              style={{ color: "rgba(255,255,255,0.60)" }}
+            >
+              <Icon name="close" />
+            </button>
+          )}
         </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>event</span>
-            SESSIONS
-          </div>
-          <h1>Your Booked Sessions</h1>
-          <p className="mp-hero__sub">
-            Manage upcoming, completed and cancelled sessions in one place. Join, reschedule, cancel or review any session.
-          </p>
-          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 10 }}>
-            <div className="ls-hero__search-wrap" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
-              <Icon name="search" className="ls-hero__search-icon" style={{ color: "rgba(255,255,255,0.60)" }} />
-              <input
-                className="ls-hero__search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by mentor, title, date, or status…"
-                aria-label="Search sessions"
-                style={{ color: "#fff" }}
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="ls-hero__search-clear"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  style={{ color: "rgba(255,255,255,0.60)" }}
-                >
-                  <Icon name="close" />
-                </button>
-              )}
-            </div>
-            <div className="ls-view-toggle" style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: 3 }}>
-              <button
-                type="button"
-                className={`ls-view-btn${viewMode === "list" ? " is-active" : ""}`}
-                onClick={() => setViewMode("list")}
-                aria-label="List view"
-                style={viewMode === "list" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
-              >
-                <Icon name="view_list" />
-              </button>
-              <button
-                type="button"
-                className={`ls-view-btn${viewMode === "grid" ? " is-active" : ""}`}
-                onClick={() => setViewMode("grid")}
-                aria-label="Grid view"
-                style={viewMode === "grid" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
-              >
-                <Icon name="grid_view" />
-              </button>
-            </div>
-          </div>
+        <div className="ls-view-toggle" style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: 3 }}>
+          <button
+            type="button"
+            className={`ls-view-btn${viewMode === "list" ? " is-active" : ""}`}
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+            style={viewMode === "list" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+          >
+            <Icon name="view_list" />
+          </button>
+          <button
+            type="button"
+            className={`ls-view-btn${viewMode === "grid" ? " is-active" : ""}`}
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            style={viewMode === "grid" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+          >
+            <Icon name="grid_view" />
+          </button>
         </div>
-      </section>
+      </MentorPageHero>
 
       {/* Next Upcoming Session Card */}
       {nextUpcoming && (

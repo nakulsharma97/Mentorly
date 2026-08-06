@@ -4,6 +4,7 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
 import ReportModal from "../components/ReportModal";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -271,7 +272,7 @@ export default function SkillDetailPage({ notify }) {
 
   if (loadState === "loading") {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">progress_activity</span>
@@ -285,7 +286,7 @@ export default function SkillDetailPage({ notify }) {
 
   if (loadState === "missing") {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">search_off</span>
@@ -303,7 +304,7 @@ export default function SkillDetailPage({ notify }) {
 
   if (loadState === "error") {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "60px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">cloud_off</span>
@@ -326,7 +327,7 @@ export default function SkillDetailPage({ notify }) {
   const diff = DIFFICULTY_META[skill.difficulty] || DIFFICULTY_META.beginner;
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: "0.85rem", color: "var(--mp-text-secondary)" }}>
         <Link to="/learner/skills" style={{ color: "var(--mp-primary)", textDecoration: "none" }}>Explore Skills</Link>
@@ -334,46 +335,38 @@ export default function SkillDetailPage({ notify }) {
         <span>{skill.name}</span>
       </div>
 
-      {/* Header */}
-      <div className="mp-hero" style={{ marginBottom: 24 }}>
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>{skill.category === "Backend" ? "dns" : "code"}</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>auto_stories</span>
-            {skill.category}
-          </div>
-          <h1>{skill.name}</h1>
-          {skill.description && <p className="mp-hero__sub">{skill.description}</p>}
-          <div className="mp-hero__actions" style={{ gap: 8 }}>
-            {skill.difficulty && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: diff.bg, color: diff.color, fontSize: "0.8rem", fontWeight: 700 }}>
-                <Icon name={diff.icon} /> {diff.label}
-              </span>
-            )}
-            {skill.duration && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-                <Icon name="schedule" /> {skill.duration}
-              </span>
-            )}
-            {skill.avgSalary && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
-                <Icon name="currency_rupee" /> {skill.avgSalary}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowReport(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(220,38,38,0.18)", color: "#fca5a5", fontSize: "0.8rem", fontWeight: 700, border: "1px solid rgba(220,38,38,0.35)", cursor: "pointer", transition: "all 0.15s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.18)"; e.currentTarget.style.color = "#fca5a5"; }}
-            >
-              <Icon name="flag" /> Report
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Header — unified hero design system */}
+      <MentorPageHero
+        eyebrow={skill.category}
+        icon={skill.category === "Backend" ? "dns" : "code"}
+        title={skill.name}
+        sub={skill.description}
+      >
+        {skill.difficulty && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: diff.bg, color: diff.color, fontSize: "0.8rem", fontWeight: 700 }}>
+            <Icon name={diff.icon} /> {diff.label}
+          </span>
+        )}
+        {skill.duration && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+            <Icon name="schedule" /> {skill.duration}
+          </span>
+        )}
+        {skill.avgSalary && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: "0.8rem", fontWeight: 600 }}>
+            <Icon name="currency_rupee" /> {skill.avgSalary}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowReport(true)}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 999, background: "rgba(220,38,38,0.18)", color: "#fca5a5", fontSize: "0.8rem", fontWeight: 700, border: "1px solid rgba(220,38,38,0.35)", cursor: "pointer", transition: "all 0.15s" }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(220,38,38,0.18)"; e.currentTarget.style.color = "#fca5a5"; }}
+        >
+          <Icon name="flag" /> Report
+        </button>
+      </MentorPageHero>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24, alignItems: "start" }}>
         {/* ── Main Content ── */}

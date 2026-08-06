@@ -4,9 +4,39 @@ import Icon from "../modules/common/dashboard/Icon";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
+import HeroSection from "../components/HeroSection";
 import "./AdminOperationsPage.css";
 import "./AdminDashboardPage.css";
 import "../modules/admin/ui/admin-ui.css";
+
+/* Admin hero copy — identical shell for loading / error / main states. */
+function AdminDashboardHero({ subtitle, onRefresh, refreshing }) {
+  return (
+    <HeroSection
+      badge="Overview"
+      title="Admin dashboard"
+      subtitle={subtitle}
+      primaryButton={
+        onRefresh ? (
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--primary"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            <span className="material-symbols-outlined">refresh</span>
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        ) : undefined
+      }
+      illustration={
+        <div className="hero-section__watermark" aria-hidden="true">
+          <span className="material-symbols-outlined">space_dashboard</span>
+        </div>
+      }
+    />
+  );
+}
 
 const formatNumber = (value) => {
   const n = Number(value ?? 0);
@@ -138,11 +168,7 @@ export default function AdminDashboardPage({ notify }) {
   if (loading) {
     return (
       <main className="admin-page">
-        <section className="admin-hero">
-          <p className="admin-eyebrow">Overview</p>
-          <h1>Admin dashboard</h1>
-          <p>Loading platform metrics…</p>
-        </section>
+        <AdminDashboardHero subtitle="Loading platform metrics…" />
 
         <div className="admin-dash-skeleton-grid" aria-label="Loading dashboard cards">
           {Array.from({ length: 7 }).map((_, i) => (
@@ -161,11 +187,7 @@ export default function AdminDashboardPage({ notify }) {
   if (loadError && !dashboard) {
     return (
       <main className="admin-page">
-        <section className="admin-hero">
-          <p className="admin-eyebrow">Overview</p>
-          <h1>Admin dashboard</h1>
-          <p>Platform metrics at a glance.</p>
-        </section>
+        <AdminDashboardHero subtitle="Platform metrics at a glance." />
 
         <div className="admin-dash-state" role="alert">
           <span className="admin-dash-state__icon">
@@ -188,26 +210,11 @@ export default function AdminDashboardPage({ notify }) {
 
   return (
     <main className="admin-page">
-      <section className="admin-hero admin-dash-hero">
-        <div>
-          <p className="admin-eyebrow">Overview</p>
-          <h1>Admin dashboard</h1>
-          <p>
-            Track users, mentors, skills, sessions, and pending work across the
-            platform in real time.
-          </p>
-        </div>
-        <div className="admin-dash-hero-actions">
-          <button
-            type="button"
-            className="admin-refresh-btn"
-            onClick={loadAll}
-            disabled={loading}
-          >
-            <Icon name="refresh" /> {loading ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
-      </section>
+      <AdminDashboardHero
+        subtitle="Track users, mentors, skills, sessions, and pending work across the platform in real time."
+        onRefresh={loadAll}
+        refreshing={loading}
+      />
 
       {!hasAnyData && skillsCount === 0 && Number(health.pendingVerifications ?? 0) === 0 ? (
         <div className="admin-dash-state">

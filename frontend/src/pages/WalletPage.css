@@ -21,7 +21,7 @@
 }
 
 .wallet-hero__title {
-  font-size: 28px !important;
+  font-size: var(--type-page-title, 36px) !important;
   margin-bottom: 4px !important;
 }
 
@@ -531,7 +531,7 @@
   }
 
   .wallet-hero__title {
-    font-size: 24px !important;
+    font-size: var(--type-page-title, 26px) !important;
   }
 
   .wallet-hero__stats {

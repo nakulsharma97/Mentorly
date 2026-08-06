@@ -472,10 +472,10 @@
 
 .lp-hero__title {
   margin: 0;
-  font-size: clamp(1.7rem, 3vw, 2.35rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.12;
+  font-size: clamp(1.7rem, 3vw, var(--type-page-title, 2.25rem));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: var(--type-lh-heading, 1.2);
   max-width: 22ch;
 }
 
@@ -559,6 +559,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Unified hero integration — the stage scales into the fixed 260×260 art
+   box so the Learning Path hero matches every other page hero exactly. */
+.hero-section__art .lp-hero__stage--shared {
+  position: absolute;
+  inset: 0;
+  width: 260px;
+  height: 260px;
+  max-width: none;
+  min-height: 0;
+  margin: auto;
 }
 
 .lp-hero__road {

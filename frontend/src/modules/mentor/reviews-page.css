@@ -42,7 +42,7 @@
   --rpx-amber: #D97706;
   --rpx-amber-light: rgba(217, 119, 6, 0.12);
   --rpx-gradient: linear-gradient(135deg, #0F9D8A 0%, #14B8A6 100%);
-  --rpx-gradient-hero: linear-gradient(135deg, #0D6B5E 0%, #0F9D8A 50%, #0D8072 100%);
+  --rpx-gradient-hero: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   --rpx-gradient-dark: linear-gradient(135deg, #082E2A 0%, #0A3D35 50%, #08332E 100%);
   --rpx-radius-sm: 6px;
   --rpx-radius: 8px;
@@ -51,7 +51,7 @@
   --rpx-radius-xl: 20px;
   --rpx-radius-2xl: 24px;
   --rpx-font: 'Inter', 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --rpx-font-display: 'Sora', 'Inter', 'Manrope', sans-serif;
+  --rpx-font-display: 'Inter', 'Manrope', sans-serif;
   --rpx-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --rpx-transition-slow: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   --rpx-transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -77,7 +77,7 @@
   --rpx-primary-mid: rgba(20, 184, 166, 0.06);
   --rpx-primary-strong: rgba(20, 184, 166, 0.18);
   --rpx-gradient: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);
-  --rpx-gradient-hero: linear-gradient(135deg, #082E2A 0%, #0A3D35 50%, #08332E 100%);
+  --rpx-gradient-hero: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   --rpx-success-light: rgba(34, 197, 94, 0.12);
   --rpx-warning-light: rgba(251, 191, 36, 0.12);
   --rpx-danger-light: rgba(248, 113, 113, 0.12);
@@ -356,8 +356,8 @@
 .rpx-hero__title {
   margin: 0 0 4px;
   font-family: var(--rpx-font-display);
-  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
-  font-weight: 800;
+  font-size: var(--type-page-title, 36px);
+  font-weight: 700;
   letter-spacing: -0.03em;
   color: #fff;
   line-height: 1.15;
@@ -445,6 +445,13 @@
   min-width: 180px;
   overflow: hidden;
   animation: rpx-fade-in-scale 0.12s ease;
+}
+
+/* Inside the unified hero (overflow hidden), open the export menu UPWARD so
+   the dropdown stays within the hero bounds instead of being clipped. */
+.hero-section .rpx-export-menu {
+  top: auto;
+  bottom: calc(100% + 8px);
 }
 
 .rpx-export-menu__item {
@@ -1883,7 +1890,7 @@
   }
 
   .rpx-hero__title {
-    font-size: 1.3rem;
+    font-size: var(--type-page-title, 26px);
   }
 
   .rpx-filters {

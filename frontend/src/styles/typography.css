@@ -1,0 +1,315 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SkillSwap Centralized Typography System — v1.0
+   ONE scale for the ENTIRE application (landing, auth, dashboards, admin,
+   messaging, calendar, analytics, reviews, forms, modals, tables).
+
+   • Single source of truth: the --type-* CSS variables below.
+   • Reusable semantic classes (.text-display, .text-page-title, ...) — every
+     page consumes these tokens instead of hardcoded font-sizes.
+   • Font: Inter only (fallback sans-serif). Letter spacing: normal.
+   • Font smoothing + crisp rendering enabled on the body.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Font Family ── */
+  --type-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* ── Scale (px) ── */
+  --type-display: 56px;              /* Landing hero            */
+  --type-page-title: 36px;           /* Dashboard page titles   */
+  --type-section-title: 28px;        /* Section headers         */
+  --type-card-title: 22px;           /* Card titles             */
+  --type-small-card-title: 18px;     /* Small card titles       */
+  --type-body-large: 18px;           /* Body large              */
+  --type-body: 16px;                 /* Body                    */
+  --type-small: 14px;                /* Small text              */
+  --type-label: 14px;                /* Labels                  */
+  --type-button: 16px;               /* Buttons                 */
+  --type-input: 16px;                /* Inputs                  */
+  --type-input-placeholder: 15px;    /* Input placeholders      */
+  --type-table-header: 14px;         /* Table headers           */
+  --type-table-body: 15px;           /* Table content           */
+  --type-metric: 42px;               /* Metric values           */
+  --type-metric-label: 16px;         /* Metric labels           */
+  --type-badge: 12px;                /* Badges / chips          */
+  --type-nav: 16px;                  /* Sidebar navigation      */
+  --type-navbar: 15px;               /* Top navbar              */
+  --type-profile-name: 18px;         /* Profile name            */
+  --type-profile-email: 14px;        /* Profile email           */
+  --type-chat-name: 16px;            /* Chat name               */
+  --type-chat-message: 15px;         /* Chat message            */
+  --type-chat-timestamp: 13px;       /* Chat timestamp          */
+  --type-form-label: 15px;           /* Form label              */
+  --type-form-helper: 13px;          /* Form helper text        */
+
+  /* ── Line Height ── */
+  --type-lh-heading: 1.2;
+  --type-lh-body: 1.6;
+  --type-lh-small: 1.5;
+
+  /* ── Type Colors (light) ── */
+  --type-color-title: #0F172A;
+  --type-color-body: #334155;
+  --type-color-secondary: #64748B;
+  --type-color-muted: #94A3B8;
+  --type-color-accent: #14B8A6;
+}
+
+/* ── Type Colors (dark) ── */
+[data-theme='dark'] {
+  --type-color-title: #F8FAFC;
+  --type-color-body: #E2E8F0;
+  --type-color-secondary: #CBD5E1;
+  --type-color-muted: #94A3B8;
+  --type-color-accent: #14B8A6;
+}
+
+/* ── Global font + smoothing ── */
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--type-font);
+  letter-spacing: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   REUSABLE TYPE UTILITIES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.text-display {
+  font-family: var(--type-font);
+  font-size: var(--type-display);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--type-color-title);
+}
+
+.text-page-title {
+  font-family: var(--type-font);
+  font-size: var(--type-page-title);
+  font-weight: 700;
+  line-height: var(--type-lh-heading);
+  letter-spacing: -0.02em;
+  color: var(--type-color-title);
+  margin-bottom: 8px;
+}
+
+.text-section-title {
+  font-family: var(--type-font);
+  font-size: var(--type-section-title);
+  font-weight: 700;
+  line-height: var(--type-lh-heading);
+  letter-spacing: -0.015em;
+  color: var(--type-color-title);
+}
+
+.text-card-title {
+  font-family: var(--type-font);
+  font-size: var(--type-card-title);
+  font-weight: 600;
+  line-height: var(--type-lh-heading);
+  color: var(--type-color-title);
+}
+
+.text-small-card-title {
+  font-family: var(--type-font);
+  font-size: var(--type-small-card-title);
+  font-weight: 600;
+  line-height: var(--type-lh-heading);
+  color: var(--type-color-title);
+}
+
+.text-body-large {
+  font-family: var(--type-font);
+  font-size: var(--type-body-large);
+  font-weight: 400;
+  line-height: var(--type-lh-body);
+  color: var(--type-color-body);
+}
+
+.text-body {
+  font-family: var(--type-font);
+  font-size: var(--type-body);
+  font-weight: 400;
+  line-height: var(--type-lh-body);
+  color: var(--type-color-body);
+}
+
+.text-small {
+  font-family: var(--type-font);
+  font-size: var(--type-small);
+  font-weight: 400;
+  line-height: var(--type-lh-small);
+  color: var(--type-color-secondary);
+}
+
+.text-label {
+  font-family: var(--type-font);
+  font-size: var(--type-label);
+  font-weight: 500;
+  line-height: var(--type-lh-small);
+  color: var(--type-color-secondary);
+}
+
+.text-button {
+  font-family: var(--type-font);
+  font-size: var(--type-button);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.text-input {
+  font-family: var(--type-font);
+  font-size: var(--type-input);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.text-input::placeholder {
+  font-size: var(--type-input-placeholder);
+}
+
+.text-table-header {
+  font-family: var(--type-font);
+  font-size: var(--type-table-header);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--type-color-secondary);
+}
+
+.text-table-body {
+  font-family: var(--type-font);
+  font-size: var(--type-table-body);
+  font-weight: 500;
+  line-height: var(--type-lh-small);
+  color: var(--type-color-body);
+}
+
+.text-metric {
+  font-family: var(--type-font);
+  font-size: var(--type-metric);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--type-color-title);
+}
+
+.text-metric-label {
+  font-family: var(--type-font);
+  font-size: var(--type-metric-label);
+  font-weight: 500;
+  line-height: var(--type-lh-small);
+  color: var(--type-color-secondary);
+}
+
+.text-badge {
+  font-family: var(--type-font);
+  font-size: var(--type-badge);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.text-nav {
+  font-family: var(--type-font);
+  font-size: var(--type-nav);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--type-color-secondary);
+}
+
+.text-navbar {
+  font-family: var(--type-font);
+  font-size: var(--type-navbar);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--type-color-secondary);
+}
+
+.text-profile-name {
+  font-family: var(--type-font);
+  font-size: var(--type-profile-name);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--type-color-title);
+}
+
+.text-profile-email {
+  font-family: var(--type-font);
+  font-size: var(--type-profile-email);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--type-color-secondary);
+}
+
+.text-chat-name {
+  font-family: var(--type-font);
+  font-size: var(--type-chat-name);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--type-color-title);
+}
+
+.text-chat-message {
+  font-family: var(--type-font);
+  font-size: var(--type-chat-message);
+  font-weight: 400;
+  line-height: var(--type-lh-small);
+  color: var(--type-color-body);
+}
+
+.text-chat-timestamp {
+  font-family: var(--type-font);
+  font-size: var(--type-chat-timestamp);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--type-color-muted);
+}
+
+.text-form-label {
+  font-family: var(--type-font);
+  font-size: var(--type-form-label);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--type-color-body);
+}
+
+.text-form-helper {
+  font-family: var(--type-font);
+  font-size: var(--type-form-helper);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--type-color-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — the display / page-title steps scale down gracefully.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  :root {
+    --type-display: 44px;
+    --type-page-title: 30px;
+    --type-section-title: 24px;
+    --type-card-title: 20px;
+    --type-metric: 34px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --type-display: 36px;
+    --type-page-title: 26px;
+    --type-section-title: 22px;
+    --type-card-title: 19px;
+    --type-small-card-title: 17px;
+    --type-metric: 30px;
+  }
+}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import Icon from "../modules/common/dashboard/Icon";
 import "../modules/mentor/mentor-pages.css";
 import "../modules/mentor/reviews-page.css";
@@ -655,127 +656,78 @@ export default function MentorReviewsPage({ notify }) {
     <main className="md md-page rpx-root">
       <div className="rpx-container">
         {/* ═══════════════════════════════════════════════════════
-            PREMIUM HERO SECTION with embedded stats
+            PREMIUM HERO SECTION — Unified Design System
             ═══════════════════════════════════════════════════════ */}
-        <section className="rpx-hero" aria-label="Reviews overview">
-          {/* Background blobs */}
-          <div className="rpx-hero__bg" aria-hidden="true">
-            <div className="rpx-hero__blob rpx-hero__blob--1" />
-            <div className="rpx-hero__blob rpx-hero__blob--2" />
-            <div className="rpx-hero__blob rpx-hero__blob--3" />
-          </div>
-
-          {/* Geometric pattern */}
-          <div className="rpx-hero__pattern" aria-hidden="true">
-            <svg viewBox="0 0 400 200" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-              <circle cx="360" cy="40" r="100" stroke="currentColor" strokeWidth="0.5" opacity="0.15" />
-              <circle cx="280" cy="160" r="140" stroke="currentColor" strokeWidth="0.5" opacity="0.10" />
-              <rect x="320" y="80" width="50" height="50" rx="10" stroke="currentColor" strokeWidth="0.5" opacity="0.12" />
-              <circle cx="60" cy="30" r="60" stroke="currentColor" strokeWidth="0.5" opacity="0.10" />
-            </svg>
-          </div>
-
-          {/* Floating illustration */}
-          <div className="rpx-hero__illustration" aria-hidden="true">
-            <Icon name="reviews" />
-            <div className="rpx-hero__illustration-stars" aria-hidden="true">
-              <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" /> <Icon name="star_rate" />
-            </div>
-          </div>
-
-          {/* Top row: title + actions */}
-          <div className="rpx-hero__top">
-            <div className="rpx-hero__left">
-              <div className="rpx-hero__eyebrow">
-                <Icon name="star" /> Reputation
-              </div>
-              <h1 className="rpx-hero__title">Reviews &amp; Ratings</h1>
-              <p className="rpx-hero__sub">
-                Track your teaching reputation, monitor learner satisfaction,
-                and improve your mentoring quality.
-              </p>
-            </div>
-            <div className="rpx-hero__right">
+        <HeroSection
+          badge={
+            <>
+              <Icon name="star" /> Reputation
+            </>
+          }
+          title="Reviews & Ratings"
+          subtitle="Track your teaching reputation, monitor learner satisfaction, and improve your mentoring quality."
+          secondaryButton={
+            <button
+              className="hero-section__btn hero-section__btn--secondary"
+              type="button"
+              onClick={refreshReviews}
+              disabled={refreshing}
+            >
+              <Icon name="refresh" />
+              {refreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          }
+          primaryButton={
+            <div className="rpx-export-group" style={{ position: "relative" }}>
               <button
-                className="rpx-hero__btn"
+                className="hero-section__btn hero-section__btn--primary"
                 type="button"
-                onClick={refreshReviews}
-                disabled={refreshing}
+                onClick={() => setExportMenuOpen((open) => !open)}
               >
-                <Icon name="refresh" />
-                {refreshing ? "Refreshing..." : "Refresh"}
+                <Icon name="download" />
+                Export
               </button>
-              <div className="rpx-export-group">
-                <button
-                  className="rpx-hero__btn rpx-hero__btn--primary"
-                  type="button"
-                  onClick={() => setExportMenuOpen((open) => !open)}
-                >
-                  <Icon name="download" />
-                  Export
-                </button>
-                {exportMenuOpen && (
-                  <div className="rpx-export-menu">
-                    {EXPORT_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        className="rpx-export-menu__item"
-                        type="button"
-                        onClick={() => handleExport(option.value)}
-                      >
-                        <Icon name={option.icon} />
-                        {option.label}
-                      </button>
-                    ))}
+              {exportMenuOpen && (
+                <div className="rpx-export-menu">
+                  {EXPORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      className="rpx-export-menu__item"
+                      type="button"
+                      onClick={() => handleExport(option.value)}
+                    >
+                      <Icon name={option.icon} />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
+          floatingCards={
+            <>
+              <div className="hero-section__glass hero-section__glass--stat">
+                <div className="hero-section__glass-num">{animatedAvgRating}</div>
+                <div className="hero-section__glass-label">Average Rating</div>
+              </div>
+              <div className="hero-section__glass hero-section__glass--main">
+                <div className="hero-section__glass-head">
+                  <span className="hero-section__glass-icon">
+                    <Icon name="forum" />
+                  </span>
+                  <div>
+                    <div className="hero-section__glass-title">{animatedTotalReviews}</div>
+                    <div className="hero-section__glass-sub">Total Reviews</div>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Stats row inside hero */}
-          <div className="rpx-hero-stats">
-            <div className="rpx-hero-stat">
-              <div className="rpx-hero-stat__icon">
-                <Icon name="star_rate" />
+              <div className="hero-section__glass hero-section__glass--chart">
+                <div className="hero-section__glass-num">{animatedRecRate}%</div>
+                <div className="hero-section__glass-label">Recommendation Rate</div>
               </div>
-              <div className="rpx-hero-stat__info">
-                <span className="rpx-hero-stat__value">
-                  {animatedAvgRating}
-                </span>
-                <span className="rpx-hero-stat__label">
-                  Average Rating
-                </span>
-              </div>
-            </div>
-            <div className="rpx-hero-stat">
-              <div className="rpx-hero-stat__icon">
-                <Icon name="forum" />
-              </div>
-              <div className="rpx-hero-stat__info">
-                <span className="rpx-hero-stat__value">
-                  {animatedTotalReviews}
-                </span>
-                <span className="rpx-hero-stat__label">
-                  Total Reviews
-                </span>
-              </div>
-            </div>
-            <div className="rpx-hero-stat">
-              <div className="rpx-hero-stat__icon">
-                <Icon name="thumb_up" />
-              </div>
-              <div className="rpx-hero-stat__info">
-                <span className="rpx-hero-stat__value">
-                  {animatedRecRate}%
-                </span>
-                <span className="rpx-hero-stat__label">
-                  Recommendation Rate
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
+            </>
+          }
+        />
 
         {/* ═══════════════════════════════════════════════════════
             FILTERS CARD

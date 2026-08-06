@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import { SsBadge } from "../components/ui/SsCard";
 import "./BecomeMentorPage.css";
@@ -355,34 +356,41 @@ export default function BecomeMentorPage({ profile, notify }) {
 
   return (
     <main className="ss-page bcm-page">
-      {/* ── Hero ── */}
-      <section className="ss-hero bcm-hero">
-        <div className="ss-hero__content">
-          <div className="ss-hero__badge">
+      {/* ── Hero — Unified Design System ── */}
+      <HeroSection
+        badge={
+          <>
             <SsIcon name="verified" size={14} />
             Mentor program
+          </>
+        }
+        title="Become a Mentor"
+        subtitle="Share your expertise, run live sessions, and get paid for teaching. Apply now — our team verifies every mentor before they appear on the platform."
+        primaryButton={
+          status?.status === "APPROVED" ? (
+            <Link
+              to="/mentor/dashboard"
+              className="hero-section__btn hero-section__btn--primary"
+            >
+              <SsIcon name="arrow-up-right" size={16} />
+              Open mentor dashboard
+            </Link>
+          ) : (
+            <a
+              href="#bcm-form"
+              className="hero-section__btn hero-section__btn--primary"
+            >
+              {canSubmit ? "Start your application" : "Application pending"}
+              <SsIcon name="chevron-down" size={16} />
+            </a>
+          )
+        }
+        floatingCards={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <SsIcon name="workspace_premium" size={96} />
           </div>
-          <h1 className="ss-hero__title">Become a Mentor</h1>
-          <p className="ss-hero__desc">
-            Share your expertise, run live sessions, and get paid for teaching.
-            Apply now — our team verifies every mentor before they appear on the platform.
-          </p>
-          <div className="ss-hero__actions">
-            {status?.status === "APPROVED" ? (
-              <Link to="/mentor/dashboard" className="ss-btn ss-btn--primary">
-                <SsIcon name="arrow-up-right" size={16} /> Open mentor dashboard
-              </Link>
-            ) : (
-              <a href="#bcm-form" className="ss-btn ss-btn--primary">
-                {canSubmit ? "Start your application" : "Application pending"} <SsIcon name="chevron-down" size={16} />
-              </a>
-            )}
-          </div>
-        </div>
-        <div className="ss-hero__illustration bcm-hero__illustration">
-          <SsIcon name="workspace_premium" size={120} />
-        </div>
-      </section>
+        }
+      />
 
       <div className="bcm-inner">
         {/* Status banner (loading skeleton while fetching) */}

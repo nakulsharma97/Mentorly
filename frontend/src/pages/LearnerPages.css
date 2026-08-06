@@ -7081,11 +7081,11 @@
 
 .ld-hero__title {
   margin: 0;
-  font-family: "Sora", "Manrope", sans-serif;
-  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-family: var(--type-font, "Inter", "Manrope", sans-serif);
+  font-size: var(--type-page-title, 36px);
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: var(--type-lh-heading, 1.2);
   color: #ffffff;
 }
 
@@ -8164,20 +8164,12 @@ ld-ring {
   overflow: hidden;
   border-radius: 24px;
   padding: 0;
-  background: linear-gradient(135deg,
-    #0f172a 0%,
-    #1e293b 50%,
-    #0f766e22 100%);
-  border: 1px solid #1e293b;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(20, 184, 166, 0.18));
 }
 
 [data-theme="dark"] .mdash-hero {
-  background: linear-gradient(135deg,
-    #0a0f1a 0%,
-    #111827 50%,
-    #0f766e11 100%);
-  border-color: #1f2937;
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
 }
 
 .mdash-hero::before {

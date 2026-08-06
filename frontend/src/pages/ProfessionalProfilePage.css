@@ -208,6 +208,32 @@
   line-height: 1.4;
 }
 
+/* ── Unified hero integration — avatar + completion ring fill the fixed
+       260×260 art box; stats render as the hero action row. ── */
+.hero-section__art .pp-hero__art--shared {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 260px;
+  height: 260px;
+}
+.hero-section__art .pp-hero__avatar-wrap--hero {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 104px;
+  height: 104px;
+  border-width: 3px;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.hero-section__art .pp-hero__completion--compact {
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  padding: 0;
+}
+
 /* ── Tabs ─────────────────────────────────────────────── */
 .pp-tabs__track {
   display: flex;

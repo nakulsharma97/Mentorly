@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
@@ -418,11 +419,16 @@ export default function PlatformHealthPage({ notify }) {
   if (loading && !health) {
     return (
       <section className="admin-page">
-        <div className="admin-hero">
-          <p className="admin-eyebrow">Monitoring</p>
-          <h1>Platform Health</h1>
-          <p>Loading live monitoring data…</p>
-        </div>
+        <HeroSection
+          badge="Monitoring"
+          title="Platform Health"
+          subtitle="Loading live monitoring data…"
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">monitor_heart</span>
+            </div>
+          }
+        />
         <div className="ph-skeleton">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="ph-skeleton__card" />
@@ -435,14 +441,26 @@ export default function PlatformHealthPage({ notify }) {
   if (error && !health) {
     return (
       <section className="admin-page">
-        <div className="admin-hero">
-          <p className="admin-eyebrow">Monitoring</p>
-          <h1>Platform Health</h1>
-          <p>Could not load monitoring data. Start the backend and ensure you are signed in as an admin.</p>
-          <button type="button" className="admin-refresh-btn" onClick={loadHealth} style={{ marginTop: 12 }}>
-            <Icon name="refresh" /> Retry
-          </button>
-        </div>
+        <HeroSection
+          badge="Monitoring"
+          title="Platform Health"
+          subtitle="Could not load monitoring data. Start the backend and ensure you are signed in as an admin."
+          primaryButton={
+            <button
+              type="button"
+              className="hero-section__btn hero-section__btn--primary"
+              onClick={loadHealth}
+            >
+              <span className="material-symbols-outlined">refresh</span>
+              Retry
+            </button>
+          }
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">monitor_heart</span>
+            </div>
+          }
+        />
       </section>
     );
   }
@@ -477,32 +495,32 @@ export default function PlatformHealthPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero + global status ── */}
-      <div className="admin-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <p className="admin-eyebrow">Monitoring</p>
-            <h1>Platform Health</h1>
-            <p>Real-time system, database, API, queue, security, and error monitoring. All metrics are live backend data.</p>
+      <HeroSection
+        badge="Monitoring"
+        title="Platform Health"
+        subtitle="Real-time system, database, API, queue, security, and error monitoring. All metrics are live backend data."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">monitor_heart</span>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <div className={`ph-status ph-status--${overall}`}>
-              <span className="ph-status__dot" /> {statusLabel}
-            </div>
-            <label className="ph-autorefresh" title="Refresh every 15 seconds">
-              <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh((v) => !v)} />
-              Auto 15s
-            </label>
-            <button
-              type="button"
-              className="admin-refresh-btn"
-              onClick={loadHealth}
-              style={{ background: "#fff", color: "#0f172a", borderColor: "#fff" }}
-            >
-              <Icon name="refresh" /> Refresh
-            </button>
-          </div>
+        }
+      >
+        <div className={`ph-status ph-status--${overall}`}>
+          <span className="ph-status__dot" /> {statusLabel}
         </div>
-      </div>
+        <label className="ph-autorefresh" title="Refresh every 15 seconds">
+          <input type="checkbox" checked={autoRefresh} onChange={() => setAutoRefresh((v) => !v)} />
+          Auto 15s
+        </label>
+        <button
+          type="button"
+          className="hero-section__btn hero-section__btn--primary"
+          onClick={loadHealth}
+        >
+          <span className="material-symbols-outlined">refresh</span>
+          Refresh
+        </button>
+      </HeroSection>
 
       {/* ── Alerts ── */}
       {alerts.length > 0 && (

@@ -1,10 +1,12 @@
-import { motion } from "framer-motion";
+import HeroSection from "../../../components/HeroSection";
 
 /**
- * AuHero — premium gradient banner shared by every admin page. `variant`
- * picks the gradient + illustration icon (dashboard/users/payments/skills/
- * sessions/wallet/settings/analytics). `cta` renders the white pill button,
- * `stat` an optional right-side stat chip.
+ * AuHero — premium hero shared by admin pages. Delegates to the unified
+ * <HeroSection /> so every page (dashboard, users, payments, skills,
+ * sessions, wallet, settings, analytics) renders the exact same gradient /
+ * radius / buttons as the rest of the product. `variant` is kept for API
+ * compatibility (gradients are now unified). `cta` renders the white pill
+ * button, `stat` an optional right-side stat chip.
  */
 export default function AuHero({
   variant = "dashboard",
@@ -16,42 +18,26 @@ export default function AuHero({
   stat,
 }) {
   return (
-    <motion.section
-      className={`au-hero au-hero--${variant}`}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      aria-label={`${title} overview`}
-    >
-      <div>
-        {label && (
-          <p className="au-hero__label">
-            {label}
-          </p>
-        )}
-        <h2 className="au-hero__title">{title}</h2>
-        {description && <p className="au-hero__desc">{description}</p>}
-        {(cta || stat) && (
-          <div className="au-hero__actions">
-            {cta}
-            {stat}
+    <HeroSection
+      className={`au-hero--${variant}`}
+      badge={label}
+      title={title}
+      subtitle={description}
+      ariaLabel={`${title} overview`}
+      primaryButton={cta}
+      secondaryButton={stat}
+      illustration={
+        Icon ? (
+          <div className="au-hero__art au-hero__art--shared" aria-hidden="true">
+            <span className="au-hero__icon au-hero__icon--shared">
+              <Icon size={58} strokeWidth={1.4} />
+            </span>
+            <span className="au-hero__particle" />
+            <span className="au-hero__particle" />
+            <span className="au-hero__particle" />
           </div>
-        )}
-      </div>
-
-      <div className="au-hero__art" aria-hidden="true">
-        {Icon && (
-          <span className="au-hero__icon">
-            <Icon size={58} strokeWidth={1.4} />
-          </span>
-        )}
-        <span className="au-hero__particle" />
-        <span className="au-hero__particle" />
-        <span className="au-hero__particle" />
-        <span className="au-hero__particle" />
-        <span className="au-hero__particle" />
-        <span className="au-hero__particle" />
-      </div>
-    </motion.section>
+        ) : undefined
+      }
+    />
   );
 }

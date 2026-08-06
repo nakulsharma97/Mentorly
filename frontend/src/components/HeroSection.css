@@ -1,0 +1,657 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SkillSwap Unified Hero Design System — v2
+   ONE hero for EVERY page (dashboards, students, calendar, sessions,
+   analytics, earnings, reviews, settings, admin, learner).
+
+   Reference layout: Manage Sessions (TeachingPage).
+   Height 320px · Radius 32px · Padding 40px · Gradient 135deg
+   #143A52 → #0F766E → #14532D · Left 65% / Right 35% · Glass cards.
+   Consumes the --hero-* tokens from design-system.css.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.hero-section {
+  position: relative;
+  /* Fixed shell: never less than 320px, identical on desktop + laptop. */
+  min-height: var(--hero-min-height, 320px);
+  border-radius: var(--hero-radius, 32px);
+  padding: var(--hero-padding, 40px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  color: #fff;
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
+  /* !important: beats Tailwind's space-y-* sibling utility which resets
+     margin-bottom to 0px when the hero sits inside a spaced container. */
+  margin-bottom: var(--hero-margin-bottom, 36px) !important;
+  isolation: isolate;
+}
+
+/* In flex-gap page containers (.ss-page gap:24px / .md-page gap:20px) the
+   gap stacks on top of the hero margin → subtract it so the hero-to-cards
+   distance is EXACTLY 36px everywhere. */
+.md-page > .hero-section {
+  margin-bottom: 16px !important; /* 16 + 20px gap = 36px */
+}
+
+.ss-page > .hero-section {
+  margin-bottom: calc(var(--hero-margin-bottom, 36px) - var(--ss-section-gap, 24px)) !important; /* 24 + 12 = 36px */
+}
+
+/* ── Decorative background (behind content, z-index 0, opacity ≤10%) ── */
+
+.hero-section__decor {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hero-section__orb {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  filter: blur(48px);
+}
+
+.hero-section__orb--1 { width: 340px; height: 340px; top: -140px; right: -80px; }
+.hero-section__orb--2 { width: 260px; height: 260px; bottom: -120px; left: 30%; }
+.hero-section__orb--3 { width: 180px; height: 180px; top: 40px; left: 8%; background: rgba(34, 197, 94, 0.1); }
+
+.hero-section__blob {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.1;
+}
+
+.hero-section__blob--1 {
+  width: 420px; height: 420px; top: -160px; left: -120px;
+  background: radial-gradient(circle, #14532d 0%, transparent 65%);
+}
+
+.hero-section__blob--2 {
+  width: 380px; height: 380px; bottom: -160px; right: -100px;
+  background: radial-gradient(circle, #143a52 0%, transparent 65%);
+}
+
+/* ── Left content (65%) ────────────────────────────────────────────── */
+
+.hero-section__content {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 65%;
+  min-width: 0;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-section__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 20px; /* Badge → Heading: 20px */
+  background: var(--hero-badge-bg, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--hero-badge-border, rgba(255, 255, 255, 0.18));
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  backdrop-filter: blur(var(--hero-badge-blur, 10px));
+  -webkit-backdrop-filter: blur(var(--hero-badge-blur, 10px));
+  white-space: nowrap;
+}
+
+.hero-section__title {
+  margin: 0 0 18px; /* Heading → Subtitle: 18px */
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(15, 23, 42, 0.18);
+}
+
+.hero-section__subtitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--hero-subtitle-color, rgba(255, 255, 255, 0.88));
+  max-width: 620px;
+}
+
+/* ── Actions ───────────────────────────────────────────────────────── */
+
+.hero-section__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px; /* Buttons gap: 16px */
+  margin-top: 28px; /* Subtitle → Buttons: 28px */
+}
+
+.hero-section__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 28px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.hero-section__btn:hover { transform: translateY(-2px); }
+.hero-section__btn:disabled { opacity: 0.7; cursor: default; transform: none; }
+
+.hero-section__btn .material-symbols-outlined,
+.hero-section__btn svg { font-size: 20px; width: 20px; height: 20px; }
+
+/* Primary — white pill, dark-green text */
+.hero-section__btn--primary {
+  background: #fff;
+  color: var(--hero-btn-text, #0f766e);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+.hero-section__btn--primary:hover:not(:disabled) {
+  background: #f0fdfa;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
+}
+
+/* Secondary — glass outline */
+.hero-section__btn--secondary,
+.hero-section__btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.hero-section__btn--secondary:hover:not(:disabled),
+.hero-section__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+/* ── Right art layer (35%) — FIXED 260×260 box, vertically centered ── */
+
+.hero-section__art {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 35%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hero-section__art-inner {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  flex-shrink: 0;
+}
+
+.hero-section__glass {
+  background: var(--hero-glass-bg, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--hero-glass-border, rgba(255, 255, 255, 0.18));
+  border-radius: var(--hero-glass-radius, 22px);
+  backdrop-filter: blur(var(--hero-glass-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--hero-glass-blur, 18px));
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
+  color: #fff;
+}
+
+/* Floating glass cards — IDENTICAL placement on every page:
+   Top card top-right · Middle card middle-right · Bottom card bottom-left. */
+.hero-section__glass--stat {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 128px;
+  padding: 12px 14px;
+}
+
+.hero-section__glass--main {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 216px;
+  padding: 18px;
+}
+
+.hero-section__glass--chart {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  width: 132px;
+  padding: 12px 14px;
+}
+
+.hero-section__glass-num {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.hero-section__glass-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 4px;
+}
+
+.hero-section__glass-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hero-section__glass-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f766e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.hero-section__glass-title {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hero-section__glass-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-section__glass-avatars {
+  display: flex;
+  margin-top: 14px;
+}
+
+.hero-section__glass-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  margin-left: -8px;
+  background: rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hero-section__glass-avatar:first-child { margin-left: 0; }
+
+.hero-section__glass-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 40px;
+}
+
+.hero-section__glass-bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Legacy page-button compatibility ─────────────────────────────────────
+   Pages built before the unified hero pass render their action buttons with
+   md-btn / mp-btn / ss-btn classes. Keep them white-on-transparent so they
+   read as glass buttons on the gradient. */
+
+.hero-section__actions .md-btn,
+.hero-section__actions .mp-btn,
+.hero-section__actions .ss-btn {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+}
+
+.hero-section__actions .md-btn:hover,
+.hero-section__actions .mp-btn:hover,
+.hero-section__actions .ss-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.hero-section__actions .md-btn--ghost,
+.hero-section__actions .mp-btn--ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hero-section__actions .md-btn--ghost:hover,
+.hero-section__actions .mp-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* Admin control chips inside heroes (auto-refresh toggles, status pills) —
+   restyle the page-level controls so they read as glass chips on the
+   gradient instead of inheriting page-background colors. */
+
+.hero-section__actions .al-autorefresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hero-section__actions .al-autorefresh input,
+.hero-section__actions .ph-autorefresh input,
+.hero-section__actions .ana-autorefresh input {
+  accent-color: #fff;
+}
+
+.hero-section__actions .mpr-btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hero-section__actions .mpr-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.hero-section__actions .mp-btn--primary,
+.hero-section__actions .md-btn--primary {
+  background: #fff;
+  color: var(--hero-btn-text, #0f766e);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+.hero-section__actions .mp-btn--primary:hover,
+.hero-section__actions .md-btn--primary:hover {
+  background: #f0fdfa;
+}
+
+/* Large watermark icon on the right of the hero (mentor/learner pages) —
+   centered inside the fixed 260×260 art box. */
+.hero-section__art .mp-hero__watermark--shared {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 200px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(9, 40, 84, 0.28);
+}
+
+.hero-section__art .mp-hero__watermark--shared .md__icon {
+  font-size: 96px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Admin AuHero art compatibility */
+.hero-section__art .au-hero__art--shared {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 240px;
+  height: 200px;
+}
+
+.hero-section__art .au-hero__icon--shared {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(9, 40, 84, 0.28);
+  color: #fff;
+}
+
+.hero-section__art .au-hero__particle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  filter: blur(1px);
+}
+
+.hero-section__art .au-hero__particle:nth-of-type(1) { top: 14%; right: 12%; }
+.hero-section__art .au-hero__particle:nth-of-type(2) { bottom: 18%; left: 8%; }
+.hero-section__art .au-hero__particle:nth-of-type(3) { top: 22%; left: 22%; }
+
+/* ── Responsive ──────────────────────────────────────────────────────
+   Desktop 320px → Laptop 320px → Tablet 420px → Mobile auto (stacked). */
+
+@media (max-width: 1024px) {
+  .hero-section {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 24px;
+    min-height: 420px;
+  }
+
+  .hero-section__content {
+    flex: 0 0 auto;
+    max-width: none;
+    width: 100%;
+  }
+
+  .hero-section__art {
+    flex: 0 0 auto;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-section {
+    min-height: auto; /* stacked layout, grows with content */
+    padding: 28px 24px;
+  }
+
+  .hero-section__title { font-size: 32px; }
+  .hero-section__subtitle { font-size: 16px; }
+  .hero-section__actions { flex-direction: column; align-items: stretch; }
+  .hero-section__btn { width: 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DASHBOARD HERO ART — 2×2 quick-stat glass grid
+   Fills the fixed 260×260 art box so dashboards (Mentor / Learner / Wallet)
+   show their live metrics as glass cards — identical to every other hero.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.hero-section__quick-grid {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 248px;
+  height: 224px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-content: center;
+}
+
+.hero-section__quick-item {
+  background: var(--hero-glass-bg, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--hero-glass-border, rgba(255, 255, 255, 0.18));
+  border-radius: 18px;
+  backdrop-filter: blur(var(--hero-glass-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--hero-glass-blur, 18px));
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hero-section__quick-item__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-section__quick-item__value {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Horizontal glass stats strip (rendered as actions children) ── */
+
+.hero-section__stats-strip {
+  flex-basis: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: var(--hero-glass-bg, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--hero-glass-border, rgba(255, 255, 255, 0.18));
+  backdrop-filter: blur(var(--hero-glass-blur, 18px));
+  -webkit-backdrop-filter: blur(var(--hero-glass-blur, 18px));
+}
+
+.hero-section__stats-item {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hero-section__stats-item:first-child { padding-left: 4px; }
+
+.hero-section__stats-item__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+}
+
+.hero-section__stats-item__value {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-section__stats-divider {
+  width: 1px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+/* ── Generic watermark tile — single-icon art (wallet / mentor program / …) ── */
+
+.hero-section__watermark {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 200px;
+  height: 200px;
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(9, 40, 84, 0.28);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-section__watermark .material-symbols-outlined {
+  font-size: 96px;
+  width: 96px;
+  height: 96px;
+}
+
+.hero-section__watermark svg {
+  width: 96px;
+  height: 96px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FLEX-GAP CONTAINER COMPENSATION
+   Page shells that stack content with a gap on top of the hero's 36px margin:
+   subtract the gap so hero-to-cards is EXACTLY 36px everywhere.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.rpx-container > .hero-section {
+  margin-bottom: 16px !important; /* 16 + 20px gap = 36px */
+}
+
+.rpt-inner > .hero-section {
+  margin-bottom: 4px !important; /* 4 + 32px gap = 36px */
+}

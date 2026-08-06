@@ -44,6 +44,14 @@
   width: 220px;
 }
 
+/* Centered inside the unified hero's fixed 260×260 art box. */
+.hero-section__art .ld-hero-glass-cards {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  height: max-content;
+}
+
 .ld-hero-glass {
   padding: 16px 18px;
   border-radius: 18px;

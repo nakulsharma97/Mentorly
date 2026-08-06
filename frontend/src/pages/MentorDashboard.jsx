@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Link } from "react-router";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import { SsStatCard, SsBadge } from "../components/ui/SsCard";
 import "./MentorDashboard.css";
@@ -577,71 +578,91 @@ export default function MentorDashboard({ profile }) {
     <div className="ss-page">
 
       {/* ═══════════════════ HERO SECTION — Unified Design System ═══════════════════ */}
-      <section className="ss-hero">
-        <div className="ss-hero__content">
-          <div className="ss-hero__badge">
+      <HeroSection
+        badge={
+          <>
             <SsIcon name="sparkles" size={14} />
             Mentor Dashboard
-          </div>
-          <h1 className="ss-hero__title">
-            {getGreeting()}, {firstName} <span role="img" aria-label="wave">👋</span>
-          </h1>
-          {profile?.username && (
-            <p style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.6)", marginTop: -4, marginBottom: 0 }}>
-              @{profile.username}
-            </p>
-          )}
-          <p className="ss-hero__desc">
+          </>
+        }
+        title={
+          <>
+            {getGreeting()}, {firstName}{" "}
+            <span role="img" aria-label="wave">👋</span>
+          </>
+        }
+        subtitle={
+          <>
             Welcome back to your mentoring workspace. Here's your overview for today.
-          </p>
-
-          <div className="ss-hero__quick-stats">
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Today's Sessions</p>
-              <p className="ss-hero__qs-value">{todaySessions.length}</p>
+            {profile?.username && (
+              <span
+                style={{
+                  display: "block",
+                  fontSize: "0.9rem",
+                  color: "rgba(255,255,255,0.6)",
+                  marginTop: 4,
+                }}
+              >
+                @{profile.username}
+              </span>
+            )}
+          </>
+        }
+        secondaryButton={
+          <Link
+            to="/mentor/calendar"
+            className="hero-section__btn hero-section__btn--secondary"
+          >
+            <SsIcon name="calendar" size={18} />
+            Manage Calendar
+          </Link>
+        }
+        primaryButton={
+          <Link
+            to="/mentor/teach"
+            className="hero-section__btn hero-section__btn--primary"
+          >
+            <SsIcon name="plus" size={18} />
+            Create Session
+          </Link>
+        }
+        floatingCards={
+          <div className="hero-section__quick-grid" aria-hidden="true">
+            <div className="hero-section__quick-item">
+              <span className="hero-section__quick-item__label">Today's Sessions</span>
+              <span className="hero-section__quick-item__value">{todaySessions.length}</span>
             </div>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Pending Requests</p>
-              <p className="ss-hero__qs-value">{pendingBookings.length}</p>
+            <div className="hero-section__quick-item">
+              <span className="hero-section__quick-item__label">Pending Requests</span>
+              <span className="hero-section__quick-item__value">{pendingBookings.length}</span>
             </div>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Active Students</p>
-              <p className="ss-hero__qs-value">{stats.totalStudents}</p>
+            <div className="hero-section__quick-item">
+              <span className="hero-section__quick-item__label">Active Students</span>
+              <span className="hero-section__quick-item__value">{stats.totalStudents}</span>
             </div>
-            <div className="ss-hero__qs-item">
-              <p className="ss-hero__qs-label">Monthly Earnings</p>
-              <p className="ss-hero__qs-value">{formatMoney(stats.monthlyEarnings)}</p>
+            <div className="hero-section__quick-item">
+              <span className="hero-section__quick-item__label">Monthly Earnings</span>
+              <span className="hero-section__quick-item__value">{formatMoney(stats.monthlyEarnings)}</span>
             </div>
           </div>
-
-          <div className="ss-hero__actions">
-            <Link to="/mentor/teach" className="ss-btn ss-btn--primary">
-              <SsIcon name="plus" size={18} />
-              Create Session
-            </Link>
-            <Link to="/mentor/calendar" className="ss-btn ss-btn--secondary">
-              <SsIcon name="calendar" size={18} />
-              Manage Calendar
-            </Link>
-            <Link to="/mentor/analytics" className="ss-btn ss-btn--ghost">
-              <SsIcon name="analytics" size={18} />
-              View Analytics
-            </Link>
-            <button
-              className="ss-btn ss-btn--icon"
-              onClick={loadMentorData}
-              title="Refresh data"
-              aria-label="Refresh data"
-            >
-              <SsIcon name="refresh" size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div className="ss-hero__illustration">
-          <SsIcon name="target" size={160} />
-        </div>
-      </section>
+        }
+      >
+        <Link
+          to="/mentor/analytics"
+          className="hero-section__btn hero-section__btn--ghost"
+        >
+          <SsIcon name="analytics" size={18} />
+          View Analytics
+        </Link>
+        <button
+          className="hero-section__btn hero-section__btn--ghost"
+          onClick={loadMentorData}
+          title="Refresh data"
+          aria-label="Refresh data"
+        >
+          <SsIcon name="refresh" size={20} />
+        </button>
+      </HeroSection>
 
       {/* ═══════════════════ VERIFICATION BANNER ═══════════════════ */}
       {!verificationStatus?.mentorVerified && (

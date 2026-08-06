@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import {
   SsStatCard,
@@ -429,87 +430,85 @@ export default function WalletPage({ profile, notify }) {
 
   return (
     <main className="ss-page wallet-page">
-      {/* ═══════════════════ HERO — Compact ═══════════════════ */}
-      <section className="ss-hero wallet-hero">
-        <div className="ss-hero__content">
-          <div className="ss-hero__badge">
+      {/* ═══════════════════ HERO — Unified Design System ═══════════════════ */}
+      <HeroSection
+        badge={
+          <>
             <SsIcon name="wallet" size={14} />
             {pageTitle} dashboard
+          </>
+        }
+        title={
+          profile?.role === "MENTOR" ? "Earnings & Wallet" : "Payments & Credits"
+        }
+        subtitle="Track your earnings, withdrawals, and balance history."
+        secondaryButton={
+          <button
+            className="hero-section__btn hero-section__btn--secondary"
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <SsIcon name="refresh" size={16} />
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+        primaryButton={
+          <button
+            className="hero-section__btn hero-section__btn--primary"
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            <SsIcon name="download" size={16} />
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+        }
+        floatingCards={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <SsIcon name="wallet" size={96} />
           </div>
-          <h1 className="ss-hero__title wallet-hero__title">
-            {profile?.role === "MENTOR"
-              ? "Earnings & Wallet"
-              : "Payments & Credits"}
-          </h1>
-          <p className="ss-hero__desc wallet-hero__desc">
-            Track your earnings, withdrawals, and balance history.
-          </p>
-
-          {/* Compact quick stats inside hero */}
-          <div className="wallet-hero__stats">
-            <div className="wallet-hero__stat">
-              <span className="wallet-hero__stat-label">Available Balance</span>
-              <span className="wallet-hero__stat-value">
-                {loading
-                  ? "..."
-                  : formatCurrency(balance?.balance, balance?.currency)}
-              </span>
-            </div>
-            <div className="wallet-hero__stat-divider" />
-            <div className="wallet-hero__stat">
-              <span className="wallet-hero__stat-label">Total Earnings</span>
-              <span className="wallet-hero__stat-value">
-                {loading
-                  ? "..."
-                  : formatCurrency(metrics.earnings, balance?.currency)}
-              </span>
-            </div>
-            <div className="wallet-hero__stat-divider" />
-            <div className="wallet-hero__stat">
-              <span className="wallet-hero__stat-label">Total Payouts</span>
-              <span className="wallet-hero__stat-value">
-                {loading
-                  ? "..."
-                  : formatCurrency(metrics.payouts, balance?.currency)}
-              </span>
-            </div>
-            <div className="wallet-hero__stat-divider" />
-            <div className="wallet-hero__stat">
-              <span className="wallet-hero__stat-label">Refunds</span>
-              <span className="wallet-hero__stat-value">
-                {loading
-                  ? "..."
-                  : formatCurrency(metrics.refunds, balance?.currency)}
-              </span>
-            </div>
+        }
+      >
+        {/* Compact quick stats inside hero */}
+        <div className="hero-section__stats-strip">
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Available Balance</span>
+            <span className="hero-section__stats-item__value">
+              {loading
+                ? "..."
+                : formatCurrency(balance?.balance, balance?.currency)}
+            </span>
           </div>
-
-          <div className="ss-hero__actions wallet-hero__actions">
-            <button
-              className="ss-btn ss-btn--primary ss-btn--sm"
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <SsIcon name="refresh" size={16} />
-              {refreshing ? "Refreshing…" : "Refresh"}
-            </button>
-            <button
-              className="ss-btn ss-btn--secondary ss-btn--sm"
-              type="button"
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              <SsIcon name="download" size={16} />
-              {exporting ? "Exporting…" : "Export"}
-            </button>
+          <div className="hero-section__stats-divider" />
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Total Earnings</span>
+            <span className="hero-section__stats-item__value">
+              {loading
+                ? "..."
+                : formatCurrency(metrics.earnings, balance?.currency)}
+            </span>
+          </div>
+          <div className="hero-section__stats-divider" />
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Total Payouts</span>
+            <span className="hero-section__stats-item__value">
+              {loading
+                ? "..."
+                : formatCurrency(metrics.payouts, balance?.currency)}
+            </span>
+          </div>
+          <div className="hero-section__stats-divider" />
+          <div className="hero-section__stats-item">
+            <span className="hero-section__stats-item__label">Refunds</span>
+            <span className="hero-section__stats-item__value">
+              {loading
+                ? "..."
+                : formatCurrency(metrics.refunds, balance?.currency)}
+            </span>
           </div>
         </div>
-
-        <div className="ss-hero__illustration wallet-hero__illustration">
-          <SsIcon name="wallet" size={120} />
-        </div>
-      </section>
+      </HeroSection>
 
       {/* ═══════════════════ TABS ═══════════════════ */}
       <div className="ss-tabs wallet-tabs">

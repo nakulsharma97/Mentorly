@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { normalizeSkills } from "../utils/skills";
 import Icon from "../modules/common/dashboard/Icon";
 import { useFavorites } from "../hooks/useFavorites";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 
 function useDocumentTitle(title) {
@@ -230,97 +231,86 @@ export default function LearnerSavedMentorsPage({ notify }) {
   };
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
-      {/* ═══ HERO ═══ */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>favorite</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>favorite</span>
-            FAVORITES
-          </div>
-          <h1>My Favorite Mentors</h1>
-          <p className="mp-hero__sub">
-            Your shortlist of mentors you love — review their skills, ratings, and availability,
-            or book a session any time.
-          </p>
-          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 8 }}>
-            <label
-              className="lf-hero__search"
-              style={{
-                flex: 1,
-                minWidth: 220,
-                background: "rgba(255,255,255,0.10)",
-                border: "1px solid rgba(255,255,255,0.15)",
-              }}
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* ═══ HERO (unified design system) ═══ */}
+      <MentorPageHero
+        eyebrow="FAVORITES"
+        icon="favorite"
+        title="My Favorite Mentors"
+        sub="Your shortlist of mentors you love — review their skills, ratings, and availability, or book a session any time."
+      >
+        <label
+          className="lf-hero__search"
+          style={{
+            flex: 1,
+            minWidth: 220,
+            background: "rgba(255,255,255,0.10)",
+            border: "1px solid rgba(255,255,255,0.15)",
+          }}
+        >
+          <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(0);
+            }}
+            placeholder="Search saved mentors by name or skill…"
+            aria-label="Search favorite mentors"
+            style={{ color: "#fff" }}
+          />
+          {query && (
+            <button
+              type="button"
+              className="lf-hero__search-clear"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              style={{ color: "rgba(255,255,255,0.60)" }}
             >
-              <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
-              <input
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(0);
-                }}
-                placeholder="Search saved mentors by name or skill…"
-                aria-label="Search favorite mentors"
-                style={{ color: "#fff" }}
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="lf-hero__search-clear"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                  style={{ color: "rgba(255,255,255,0.60)" }}
-                >
-                  <Icon name="close" />
-                </button>
-              )}
-            </label>
-            <label
-              className="lf-hero__select"
-              style={{
-                background: "rgba(255,255,255,0.08)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                color: "#fff",
-                borderRadius: "var(--mp-radius)",
-                padding: "8px 12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
-              <select
-                value={sort}
-                onChange={(e) => {
-                  setSort(e.target.value);
-                  setPage(0);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#fff",
-                  fontFamily: "inherit",
-                  fontWeight: 600,
-                  fontSize: "0.82rem",
-                  outline: "none",
-                }}
-              >
-                <option value="recent" style={{ color: "#111" }}>Most Recent</option>
-                <option value="rating" style={{ color: "#111" }}>Top Rated</option>
-                <option value="price_asc" style={{ color: "#111" }}>Lowest Price</option>
-                <option value="name" style={{ color: "#111" }}>Name A–Z</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
+              <Icon name="close" />
+            </button>
+          )}
+        </label>
+        <label
+          className="lf-hero__select"
+          style={{
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "#fff",
+            borderRadius: "var(--mp-radius)",
+            padding: "8px 12px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+          <select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value);
+              setPage(0);
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "#fff",
+              fontFamily: "inherit",
+              fontWeight: 600,
+              fontSize: "0.82rem",
+              outline: "none",
+            }}
+          >
+            <option value="recent" style={{ color: "#111" }}>Most Recent</option>
+            <option value="rating" style={{ color: "#111" }}>Top Rated</option>
+            <option value="price_asc" style={{ color: "#111" }}>Lowest Price</option>
+            <option value="name" style={{ color: "#111" }}>Name A–Z</option>
+          </select>
+        </label>
+      </MentorPageHero>
 
       {/* ═══ STATS ═══ */}
-      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)", marginTop: 16 }}>
+      <div className="mp-stats" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
         <div className="mp-stat">
           <div className="mp-stat__top">
             <div className="mp-stat__icon"><span className="material-symbols-outlined" style={{ fontSize: 22 }}>favorite</span></div>

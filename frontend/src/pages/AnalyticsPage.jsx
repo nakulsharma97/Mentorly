@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "framer-motion";
+import HeroSection from "../components/HeroSection";
 import client from "../api/client";
 import { getErrorFeedback } from "../utils/comingSoon";
 
@@ -686,29 +687,33 @@ export default function AnalyticsPage({ profile }) {
               </button>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold tracking-wider uppercase mb-4">
-                  Performance Workspace
+            <HeroSection
+              badge="Performance Workspace"
+              title="Performance Overview"
+              subtitle={
+                isMentor
+                  ? "Track sessions, earnings, and learner outcomes with live platform data."
+                  : "Track sessions, payments, and learning progress with live platform data."
+              }
+              ariaLabel="Performance overview"
+              illustration={
+                <div className="hero-section__glass hero-section__glass--stat">
+                  <div className="hero-section__glass-num">
+                    {loading ? "…" : `${analytics.completionRate}%`}
+                  </div>
+                  <div className="hero-section__glass-label">Completion rate</div>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tighter">
-                  Performance Overview
-                </h1>
-                <p className="text-on-surface-variant mt-2 font-medium">
-                  {isMentor
-                    ? "Track sessions, earnings, and learner outcomes with live platform data."
-                    : "Track sessions, payments, and learning progress with live platform data."}
-                </p>
-              </div>
-              <div className="flex items-center bg-surface-container-lowest p-1 rounded-xl shadow-sm border border-outline-variant/10 overflow-x-auto w-full md:w-auto">
+              }
+            >
+              <div className="flex items-center gap-1 rounded-2xl bg-white/15 p-1.5 backdrop-blur-md border border-white/20">
                 {[7, 30, 90].map((days) => (
                   <button
                     key={days}
                     onClick={() => setRangeDays(days)}
                     className={
                       rangeDays === days
-                        ? "px-4 py-2 text-xs font-bold bg-surface-container-low text-primary rounded-lg shadow-sm"
-                        : "px-4 py-2 text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+                        ? "px-4 py-2 text-xs font-bold bg-white text-[#0f766e] rounded-xl shadow-sm transition-colors"
+                        : "px-4 py-2 text-xs font-bold text-white/80 hover:text-white transition-colors"
                     }
                     type="button"
                   >
@@ -716,7 +721,7 @@ export default function AnalyticsPage({ profile }) {
                   </button>
                 ))}
               </div>
-            </div>
+            </HeroSection>
 
             {errorText && (
               <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning font-medium">
@@ -829,7 +834,7 @@ export default function AnalyticsPage({ profile }) {
               <div className="lg:col-span-2 bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)]">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-xl font-bold tracking-tight">
+                    <h3 className="text-card-title">
                       {isMentor ? "Earnings Over Time" : "Spending Over Time"}
                     </h3>
                     <p className="text-on-surface-variant text-xs font-medium">
@@ -905,7 +910,7 @@ export default function AnalyticsPage({ profile }) {
                 id="acquisition"
                 className="bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] flex flex-col"
               >
-                <h3 className="text-xl font-bold tracking-tight mb-2">
+                <h3 className="text-card-title mb-2">
                   Acquisition
                 </h3>
                 <p className="text-on-surface-variant text-xs font-medium mb-8">
@@ -971,7 +976,7 @@ export default function AnalyticsPage({ profile }) {
               >
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                   <div>
-                    <h3 className="text-xl font-bold tracking-tight">
+                    <h3 className="text-card-title">
                       Learner History Details
                     </h3>
                     <p className="text-on-surface-variant text-xs font-medium">
@@ -1186,9 +1191,9 @@ export default function AnalyticsPage({ profile }) {
                 className="bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] overflow-hidden"
               >
                 <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-bold tracking-tight">
-                    Recent Top Performing Sessions
-                  </h3>
+                    <h3 className="text-card-title">
+                      Recent Top Performing Sessions
+                    </h3>
                   <button
                     className="text-primary text-xs font-bold hover:underline"
                     type="button"
@@ -1279,11 +1284,11 @@ export default function AnalyticsPage({ profile }) {
               <div className="bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] relative overflow-hidden group">
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                   <div>
-                    <h3 className="text-xl font-bold tracking-tight">
-                      {isMentor
-                        ? "Mentor Skill Impact"
-                        : "Learning Skill Impact"}
-                    </h3>
+                  <h3 className="text-card-title">
+                    {isMentor
+                      ? "Mentor Skill Impact"
+                      : "Learning Skill Impact"}
+                  </h3>
                     <p className="text-on-surface-variant text-xs font-medium">
                       Progress observed from roadmap milestones and session
                       completion

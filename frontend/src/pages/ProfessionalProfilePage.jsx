@@ -4,6 +4,7 @@ import { normalizeSkills } from "../utils/skills";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
+import HeroSection from "../components/HeroSection";
 import "./ProfessionalProfilePage.css";
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -295,62 +296,63 @@ export default function ProfessionalProfilePage({ profile, notify }) {
   return (
     <div className="pp-shell">
       {/* ── Hero ── */}
-      <section className="pp-hero">
-        <div className="pp-hero__bg" />
-        <div className="pp-hero__body">
-          <div className="pp-hero__left">
-            <div className="pp-hero__eyebrow">
-              <span className="pp-hero__eyebrow-dot" />
-              PROFESSIONAL PROFILE
+      <HeroSection
+        badge={
+          <>
+            <span className="pp-hero__eyebrow-dot" />
+            Professional Profile
+          </>
+        }
+        title={profile?.fullName || "Your Profile"}
+        subtitle="Manage your mentor profile, skills, and credentials to build learner trust."
+        primaryButton={
+          <Link
+            to="/profile-setup"
+            className="hero-section__btn hero-section__btn--primary"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>edit</span>
+            Full Profile Setup
+          </Link>
+        }
+        illustration={
+          <div className="pp-hero__art pp-hero__art--shared" aria-hidden="true">
+            <div className="pp-hero__avatar-wrap pp-hero__avatar-wrap--hero">
+              {profile?.profileImageUrl ? (
+                <img src={profile.profileImageUrl} alt={profile.fullName || "Profile"} className="pp-hero__avatar" />
+              ) : (
+                <div className="pp-hero__avatar-fallback">{initials(profile?.fullName)}</div>
+              )}
             </div>
-
-            <div className="pp-hero__info">
-              <div className="pp-hero__avatar-wrap">
-                {profile?.profileImageUrl ? (
-                  <img src={profile.profileImageUrl} alt={profile.fullName || "Profile"} className="pp-hero__avatar" />
-                ) : (
-                  <div className="pp-hero__avatar-fallback">{initials(profile?.fullName)}</div>
-                )}
-              </div>
-              <div className="pp-hero__text">
-                <h1 className="pp-hero__name">{profile?.fullName || "Your Profile"}</h1>
-                {profile?.username && (
-                  <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "rgba(255,255,255,0.55)" }}>
-                    @{profile.username}
-                  </p>
-                )}
-                <p className="pp-hero__subtitle">
-                  Manage your mentor profile, skills, and credentials to build learner trust.
-                </p>
-              </div>
-            </div>
-
-            <div className="pp-hero__stats">
-              {stats.map((s) => (
-                <div key={s.label} className="pp-hero__stat">
-                  <span className="material-symbols-outlined pp-hero__stat-icon">{s.icon}</span>
-                  <strong>{s.value}{s.suffix || ""}</strong>
-                  <span>{s.label}</span>
+            <div className="hero-section__glass hero-section__glass--main">
+              <div className="pp-hero__completion pp-hero__completion--compact">
+                <ProgressRing pct={completion.percent} size={64} stroke={5} />
+                <div className="pp-hero__completion-text">
+                  <strong>Profile Completion</strong>
+                  <span>{completion.percent}% · {completionMessage}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="pp-hero__right">
-            <div className="pp-hero__completion">
-              <ProgressRing pct={completion.percent} size={80} stroke={5} />
-              <div className="pp-hero__completion-text">
-                <strong>Profile Completion</strong>
-                <span>{completionMessage}</span>
               </div>
             </div>
-            <Link to="/profile-setup" className="pp-btn pp-btn--primary pp-btn--sm" style={{ width: "100%", textAlign: "center" }}>
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>edit</span>
-              Full Profile Setup
-            </Link>
+            <div className="hero-section__glass hero-section__glass--chart">
+              <div className="hero-section__glass-head" style={{ gap: 6 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>verified_user</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>
+                  {profile?.mentorVerified ? "Verified Mentor" : "Mentor"}
+                </span>
+              </div>
+            </div>
           </div>
+        }
+      >
+        <div className="pp-hero__stats">
+          {stats.map((s) => (
+            <div key={s.label} className="pp-hero__stat">
+              <span className="material-symbols-outlined pp-hero__stat-icon">{s.icon}</span>
+              <strong>{s.value}{s.suffix || ""}</strong>
+              <span>{s.label}</span>
+            </div>
+          ))}
         </div>
-      </section>
+      </HeroSection>
 
       {/* ── Tabs ── */}
       <nav className="pp-tabs" aria-label="Profile sections">

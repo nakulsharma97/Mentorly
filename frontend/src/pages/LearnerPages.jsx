@@ -6,6 +6,7 @@ import SectionCard, {
   EmptyState,
 } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
+import HeroSection from "../components/HeroSection";
 import { normalizeSkills } from "../utils/skills";
 import "./LearnerPages.css";
 
@@ -610,48 +611,50 @@ export function LearnerMentorsPage() {
   return (
     <div className="lp-shell md">
       {/* ── Hero ── */}
-      <div className="lp-hero md-animate">
-        <div className="lp-hero__eyebrow"><Icon name="person_search" /> Mentor Marketplace</div>
-        <h1>Find Your Perfect Mentor</h1>
-        <p className="lp-hero__sub">
-          Discover expert mentors across 100+ skills. Book 1-on-1 sessions, save favourites, and accelerate your growth.
-        </p>
-        <div className="lp-hero__actions">
-          <label className="lp-hero__search">
-            <Icon name="search" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name, skill, or technology…"
-              id="mentor-search-input"
-            />
-            {loading && query ? <span className="lp-search-loading" /> : null}
-            {query && !loading && (
-              <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')}
-                aria-label="Clear search">
-                <Icon name="close" />
-              </button>
-            )}
-          </label>
-          <button
-            type="button"
-            className={`md-btn md-btn--outline md-btn--sm${showFilters ? ' is-active' : ''}`}
-            onClick={() => setShowFilters((v) => !v)}
-          >
-            <Icon name="tune" /> Filters
-          </button>
-          <label className="lp-select" style={{ minWidth: 160 }}>
-            <Icon name="sort" />
-            <select value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="recent">Most Recent</option>
-              <option value="rating">Top Rated</option>
-              <option value="reviews">Most Reviews</option>
-              <option value="sessions">Most Sessions</option>
-              <option value="price_asc">Lowest Price</option>
-            </select>
-          </label>
-        </div>
-      </div>
+      <HeroSection
+        badge={<><Icon name="person_search" /> Mentor Marketplace</>}
+        title="Find Your Perfect Mentor"
+        subtitle="Discover expert mentors across 100+ skills. Book 1-on-1 sessions, save favourites, and accelerate your growth."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">person_search</span>
+          </div>
+        }
+      >
+        <label className="lp-hero__search">
+          <Icon name="search" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name, skill, or technology…"
+            id="mentor-search-input"
+          />
+          {loading && query ? <span className="lp-search-loading" /> : null}
+          {query && !loading && (
+            <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')}
+              aria-label="Clear search">
+              <Icon name="close" />
+            </button>
+          )}
+        </label>
+        <button
+          type="button"
+          className={`md-btn md-btn--outline md-btn--sm${showFilters ? ' is-active' : ''}`}
+          onClick={() => setShowFilters((v) => !v)}
+        >
+          <Icon name="tune" /> Filters
+        </button>
+        <label className="lp-select" style={{ minWidth: 160 }}>
+          <Icon name="sort" />
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="recent">Most Recent</option>
+            <option value="rating">Top Rated</option>
+            <option value="reviews">Most Reviews</option>
+            <option value="sessions">Most Sessions</option>
+            <option value="price_asc">Lowest Price</option>
+          </select>
+        </label>
+      </HeroSection>
 
       {/* ── Filter panel ── */}
       {showFilters && (
@@ -902,30 +905,32 @@ export function LearnerSkillsPage() {
   return (
     <div className="lp-shell md">
       {/* ── Hero ── */}
-      <div className="lp-hero md-animate">
-        <div className="lp-hero__eyebrow"><Icon name="auto_stories" /> Skill Explorer</div>
-        <h1>Explore Skills & Learning Paths</h1>
-        <p className="lp-hero__sub">
-          Browse hundreds of in-demand skills, find expert mentors, and start your personalised learning journey today.
-        </p>
-        <div className="lp-hero__actions">
-          <label className="lp-hero__search">
-            <Icon name="search" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search skills, categories, technologies…"
-              id="skill-search-input"
-            />
-            {loading && query ? <span className="lp-search-loading" /> : null}
-            {query && !loading && (
-              <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')} aria-label="Clear search">
-                <Icon name="close" />
-              </button>
-            )}
-          </label>
-        </div>
-      </div>
+      <HeroSection
+        badge={<><Icon name="auto_stories" /> Skill Explorer</>}
+        title="Explore Skills & Learning Paths"
+        subtitle="Browse hundreds of in-demand skills, find expert mentors, and start your personalised learning journey today."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">auto_stories</span>
+          </div>
+        }
+      >
+        <label className="lp-hero__search">
+          <Icon name="search" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search skills, categories, technologies…"
+            id="skill-search-input"
+          />
+          {loading && query ? <span className="lp-search-loading" /> : null}
+          {query && !loading && (
+            <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')} aria-label="Clear search">
+              <Icon name="close" />
+            </button>
+          )}
+        </label>
+      </HeroSection>
 
       {/* ── Category pills ── */}
       <div className="lp-category-pills md-animate">
@@ -1642,37 +1647,39 @@ export function LearnerSessionsPage() {
       )}
 
       {/* ── Hero ── */}
-      <div className="lp-hero md-animate">
-        <div className="lp-hero__eyebrow"><Icon name="calendar_month" /> Session Manager</div>
-        <h1>Your Booked Sessions</h1>
-        <p className="lp-hero__sub">
-          Manage upcoming, completed and cancelled sessions in one place. Join, reschedule or review any session.
-        </p>
-        <div className="lp-hero__actions">
-          <label className="lp-hero__search">
-            <Icon name="search" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by mentor, title, date, status…"
-              id="session-search-input"
-            />
-            {query && (
-              <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')} aria-label="Clear search">
-                <Icon name="close" />
-              </button>
-            )}
-          </label>
-          <div className="lp-view-toggle">
-            <button type="button" className={`lp-view-btn${viewMode === 'list' ? ' is-active' : ''}`} onClick={() => setViewMode('list')} title="List view">
-              <Icon name="view_list" />
-            </button>
-            <button type="button" className={`lp-view-btn${viewMode === 'calendar' ? ' is-active' : ''}`} onClick={() => setViewMode('calendar')} title="Calendar view">
-              <Icon name="calendar_view_month" />
-            </button>
+      <HeroSection
+        badge={<><Icon name="calendar_month" /> Session Manager</>}
+        title="Your Booked Sessions"
+        subtitle="Manage upcoming, completed and cancelled sessions in one place. Join, reschedule or review any session."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">calendar_month</span>
           </div>
+        }
+      >
+        <label className="lp-hero__search">
+          <Icon name="search" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by mentor, title, date, status…"
+            id="session-search-input"
+          />
+          {query && (
+            <button type="button" className="lp-hero__search-clear" onClick={() => setQuery('')} aria-label="Clear search">
+              <Icon name="close" />
+            </button>
+          )}
+        </label>
+        <div className="lp-view-toggle">
+          <button type="button" className={`lp-view-btn${viewMode === 'list' ? ' is-active' : ''}`} onClick={() => setViewMode('list')} title="List view">
+            <Icon name="view_list" />
+          </button>
+          <button type="button" className={`lp-view-btn${viewMode === 'calendar' ? ' is-active' : ''}`} onClick={() => setViewMode('calendar')} title="Calendar view">
+            <Icon name="calendar_view_month" />
+          </button>
         </div>
-      </div>
+      </HeroSection>
 
       {/* ── Stats ── */}
       <div className="lp-sessions-stats md-animate">
@@ -1807,31 +1814,31 @@ export function LearnerCertificatesPage() {
   return (
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
       {/* ===== Premium Hero ===== */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>workspace_premium</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
+      <HeroSection
+        badge={
+          <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>verified</span>
-            CERTIFICATES
+            Certificates
+          </>
+        }
+        title="Your Certificates"
+        subtitle="View and manage certificates issued for completed learning milestones and achievements."
+        primaryButton={
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--primary"
+            onClick={refreshCertificates}
+          >
+            <span className="material-symbols-outlined">refresh</span>
+            Re-evaluate
+          </button>
+        }
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">workspace_premium</span>
           </div>
-          <h1>Your Certificates</h1>
-          <p className="mp-hero__sub">
-            View and manage certificates issued for completed learning milestones and achievements.
-          </p>
-          <div className="mp-hero__actions">
-            <button
-              type="button"
-              className="mp-btn mp-btn--primary mp-btn--sm"
-              onClick={refreshCertificates}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>refresh</span>
-              Re-evaluate
-            </button>
-          </div>
-        </div>
-      </section>
+        }
+      />
 
       {/* ===== Stats Row ===== */}
       <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 20 }}>
@@ -2444,21 +2451,21 @@ export function LearnerSettingsPage() {
   return (
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
       {/* ===== Premium Hero ===== */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>settings</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
+      <HeroSection
+        badge={
+          <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>tune</span>
-            SETTINGS
+            Settings
+          </>
+        }
+        title="Notification Preferences"
+        subtitle="Control your notification channels and how you receive updates from mentors and the platform."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">settings</span>
           </div>
-          <h1>Notification Preferences</h1>
-          <p className="mp-hero__sub">
-            Control your notification channels and how you receive updates from mentors and the platform.
-          </p>
-        </div>
-      </section>
+        }
+      />
 
       {/* ===== Settings Card ===== */}
       <div style={{ marginTop: 20 }}>
@@ -2675,21 +2682,21 @@ export function LearnerAchievementsPage() {
   return (
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
       {/* ===== Premium Hero ===== */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>workspace_premium</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
+      <HeroSection
+        badge={
+          <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>military_tech</span>
-            ACHIEVEMENTS
+            Achievements
+          </>
+        }
+        title="Your Achievements"
+        subtitle="Track your learning milestones, certificates, saved mentors, and overall progress across the platform."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">military_tech</span>
           </div>
-          <h1>Your Achievements</h1>
-          <p className="mp-hero__sub">
-            Track your learning milestones, certificates, saved mentors, and overall progress across the platform.
-          </p>
-        </div>
-      </section>
+        }
+      />
 
       {/* ===== Stats Row ===== */}
       <div className="mp-stats" style={{ gridTemplateColumns: "repeat(4, 1fr)", marginTop: 20 }}>

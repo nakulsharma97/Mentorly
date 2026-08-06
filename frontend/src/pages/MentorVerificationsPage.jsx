@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import client from "../api/client";
 import { normalizeSkills } from "../utils/skills";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import "./MentorVerificationsPage.css";
 import "./AdminOperationsPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -567,24 +568,27 @@ export default function MentorVerificationsPage({ notify }) {
 
   return (
     <main className="admin-page">
-      <section className="admin-hero">
-        <div>
-          <p className="admin-eyebrow">Moderation</p>
-          <h1>Mentor verifications</h1>
-          <p>
-            Review pending mentors — check their certificates, resume, and
-            experience — then approve or reject their verification request.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="admin-refresh-btn"
-          onClick={() => loadQueue(activeStatus)}
-          disabled={loading || Boolean(updatingId)}
-        >
-          <Icon name="refresh" /> {loading ? "Refreshing…" : "Refresh"}
-        </button>
-      </section>
+      <HeroSection
+        badge="Moderation"
+        title="Mentor verifications"
+        subtitle="Review pending mentors — check their certificates, resume, and experience — then approve or reject their verification request."
+        primaryButton={
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--primary"
+            onClick={() => loadQueue(activeStatus)}
+            disabled={loading || Boolean(updatingId)}
+          >
+            <span className="material-symbols-outlined">refresh</span>
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        }
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">verified_user</span>
+          </div>
+        }
+      />
 
       {/* Status filter */}
       <div className="admin-tabs mv-tabs" role="tablist" aria-label="Verification status">

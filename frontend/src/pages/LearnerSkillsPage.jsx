@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
+import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -564,66 +565,56 @@ export default function LearnerSkillsPage() {
   /* ═══════ RENDER ═══════ */
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ═══ 1. HERO ═══ */}
-      <section className="mp-hero">
-        <div className="mp-hero__watermark">
-          <span className="material-symbols-outlined" style={{ fontSize: 78 }}>auto_stories</span>
-        </div>
-        <div className="mp-hero__content">
-          <div className="mp-hero__eyebrow">
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>auto_stories</span>
-            SKILLS
-          </div>
-          <h1>Explore Skills</h1>
-          <p className="mp-hero__sub">
-            Discover in-demand technologies, learning paths, and mentors to accelerate your career.
-          </p>
-          <div className="mp-hero__actions" style={{ flexWrap: "wrap", gap: 8 }}>
-            <label className="sk-hero__search" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
-              <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search skills, technologies or categories..."
-                aria-label="Search skills"
-                style={{ color: "#fff" }}
-              />
-              {query && (
-                <button type="button" className="sk-hero__search-clr" onClick={() => setQuery("")} aria-label="Clear" style={{ color: "rgba(255,255,255,0.60)" }}>
-                  <Icon name="close" />
-                </button>
-              )}
-            </label>
-            <button
-              type="button"
-              className={`sk-btn sk-btn--filter${showFilters ? " is-active" : ""}`}
-              onClick={() => setShowFilters((v) => !v)}
-              style={{ background: showFilters ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.15)" }}
-            >
-              <Icon name="tune" /> Filter
+      <MentorPageHero
+        eyebrow="SKILLS"
+        icon="auto_stories"
+        title="Explore Skills"
+        sub="Discover in-demand technologies, learning paths, and mentors to accelerate your career."
+      >
+        <label className="sk-hero__search" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <Icon name="search" style={{ color: "rgba(255,255,255,0.60)" }} />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search skills, technologies or categories..."
+            aria-label="Search skills"
+            style={{ color: "#fff" }}
+          />
+          {query && (
+            <button type="button" className="sk-hero__search-clr" onClick={() => setQuery("")} aria-label="Clear" style={{ color: "rgba(255,255,255,0.60)" }}>
+              <Icon name="close" />
             </button>
-            <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
-                <option value="popular" style={{ color: "#111" }}>Most Popular</option>
-                <option value="name" style={{ color: "#111" }}>Name A–Z</option>
-              </select>
-            </label>
-            {hasAnyDifficulty && (
-              <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <Icon name="signal_cellular_alt" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
-                <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
-                  <option value="" style={{ color: "#111" }}>All Levels</option>
-                  <option value="beginner" style={{ color: "#111" }}>Beginner</option>
-                  <option value="intermediate" style={{ color: "#111" }}>Intermediate</option>
-                  <option value="advanced" style={{ color: "#111" }}>Advanced</option>
-                </select>
-              </label>
-            )}
-          </div>
-        </div>
-      </section>
+          )}
+        </label>
+        <button
+          type="button"
+          className={`sk-btn sk-btn--filter${showFilters ? " is-active" : ""}`}
+          onClick={() => setShowFilters((v) => !v)}
+          style={{ background: showFilters ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.15)" }}
+        >
+          <Icon name="tune" /> Filter
+        </button>
+        <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Icon name="sort" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+            <option value="popular" style={{ color: "#111" }}>Most Popular</option>
+            <option value="name" style={{ color: "#111" }}>Name A–Z</option>
+          </select>
+        </label>
+        {hasAnyDifficulty && (
+          <label className="sk-hero__select" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "var(--mp-radius)", padding: "8px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Icon name="signal_cellular_alt" style={{ color: "rgba(255,255,255,0.60)", fontSize: 18 }} />
+            <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ background: "transparent", border: "none", color: "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "0.82rem", outline: "none" }}>
+              <option value="" style={{ color: "#111" }}>All Levels</option>
+              <option value="beginner" style={{ color: "#111" }}>Beginner</option>
+              <option value="intermediate" style={{ color: "#111" }}>Intermediate</option>
+              <option value="advanced" style={{ color: "#111" }}>Advanced</option>
+            </select>
+          </label>
+        )}
+      </MentorPageHero>
 
       {/* ─── Filter Panel ─── */}
       {showFilters && (

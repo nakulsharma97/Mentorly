@@ -10,6 +10,7 @@ import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./AdminAnalyticsPage.css";
 import "../modules/admin/ui/admin-ui.css";
+import HeroSection from "../components/HeroSection";
 
 /* ── Range presets (mapped to the backend `days` window) ─────────── */
 const RANGES = [
@@ -468,11 +469,16 @@ export default function AdminAnalyticsPage({ notify }) {
   if (loading && !dashboard) {
     return (
       <section className="admin-page">
-        <div className="admin-hero">
-          <p className="admin-eyebrow">Analytics</p>
-          <h1>Platform Analytics</h1>
-          <p>Loading dashboard data…</p>
-        </div>
+        <HeroSection
+          badge="Analytics"
+          title="Platform Analytics"
+          subtitle="Loading dashboard data…"
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">monitoring</span>
+            </div>
+          }
+        />
         <div className="ana-skeleton">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="ana-skeleton__card" />
@@ -485,14 +491,26 @@ export default function AdminAnalyticsPage({ notify }) {
   if (error && !dashboard) {
     return (
       <section className="admin-page">
-        <div className="admin-hero">
-          <p className="admin-eyebrow">Analytics</p>
-          <h1>Platform Analytics</h1>
-          <p>Could not load dashboard data. Start the backend and ensure you are signed in as an admin.</p>
-          <button type="button" className="admin-refresh-btn" onClick={() => loadDashboard()} style={{ marginTop: 12 }}>
-            <Icon name="refresh" /> Retry
-          </button>
-        </div>
+        <HeroSection
+          badge="Analytics"
+          title="Platform Analytics"
+          subtitle="Could not load dashboard data. Start the backend and ensure you are signed in as an admin."
+          primaryButton={
+            <button
+              type="button"
+              className="hero-section__btn hero-section__btn--primary"
+              onClick={() => loadDashboard()}
+            >
+              <span className="material-symbols-outlined">refresh</span>
+              Retry
+            </button>
+          }
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">monitoring</span>
+            </div>
+          }
+        />
       </section>
     );
   }
@@ -529,15 +547,17 @@ export default function AdminAnalyticsPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero ── */}
-      <div className="admin-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <p className="admin-eyebrow">Analytics</p>
-            <h1>Platform Analytics</h1>
-            <p>Real-time platform metrics, trends, and business intelligence. All values are real database counts.</p>
+      <HeroSection
+        badge="Analytics"
+        title="Platform Analytics"
+        subtitle="Real-time platform metrics, trends, and business intelligence. All values are real database counts."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">monitoring</span>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <div className="ana-range">
+        }
+      >
+        <div className="ana-range">
               {RANGES.map((r) => (
                 <button
                   key={r.key}
@@ -569,15 +589,13 @@ export default function AdminAnalyticsPage({ notify }) {
             </label>
             <button
               type="button"
-              className="admin-refresh-btn"
+              className="hero-section__btn hero-section__btn--primary"
               onClick={() => { loadDashboard(); loadReferralAnalytics(); }}
-              style={{ background: "#fff", color: "#0f172a", borderColor: "#fff" }}
             >
-              <Icon name="refresh" /> Refresh
+              <span className="material-symbols-outlined">refresh</span>
+              Refresh
             </button>
-          </div>
-        </div>
-      </div>
+      </HeroSection>
 
       {/* ── KPI cards (animated counters, real data) ── */}
       <div className="ana-kpi-grid">

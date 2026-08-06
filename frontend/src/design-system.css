@@ -34,7 +34,7 @@
   --ss-text-muted: #94A3B8;
   --ss-text-inverse: #FFFFFF;
   --ss-font: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
-  --ss-font-heading: 'Sora', 'Inter', -apple-system, sans-serif;
+  --ss-font-heading: 'Inter', 'Manrope', -apple-system, sans-serif;
 
   /* ── Spacing ── */
   --ss-page-padding: 32px;
@@ -87,6 +87,29 @@
   /* ── Icon Container ── */
   --ss-icon-size: 44px;
   --ss-icon-radius: 12px;
+
+  /* ── Unified Hero Design System ──
+     ONE premium dark gradient, radius, padding and shadow for every page
+     hero. Master reference: Manage Sessions dark hero.
+     #143A52 (deep blue) → #0F766E (teal) → #14532D (forest green) at 135deg. */
+  --hero-gradient: linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%);
+  --hero-gradient-start: #143a52;
+  --hero-gradient-mid: #0f766e;
+  --hero-gradient-end: #14532d;
+  --hero-radius: 32px;
+  --hero-padding: 40px;
+  --hero-min-height: 320px;
+  --hero-margin-bottom: 36px;
+  --hero-shadow: 0 20px 60px rgba(15, 23, 42, 0.18);
+  --hero-glass-bg: rgba(255, 255, 255, 0.12);
+  --hero-glass-border: rgba(255, 255, 255, 0.18);
+  --hero-glass-blur: 18px;
+  --hero-glass-radius: 22px;
+  --hero-badge-bg: rgba(255, 255, 255, 0.12);
+  --hero-badge-border: rgba(255, 255, 255, 0.18);
+  --hero-badge-blur: 10px;
+  --hero-subtitle-color: rgba(255, 255, 255, 0.88);
+  --hero-btn-text: #0f766e;
 }
 
 /* ── Dark Theme ── */
@@ -128,7 +151,8 @@
   flex-direction: column;
   gap: var(--ss-section-gap);
   width: 100%;
-  padding: var(--ss-page-padding);
+  /* Unified page padding: top 24px (navbar → hero) · sides 32px · bottom 40px */
+  padding: var(--ss-page-padding-top, 24px) var(--ss-page-padding) var(--ss-page-padding-bottom, 40px);
   font-family: var(--ss-font);
   color: var(--ss-text);
   animation: ss-fade-in 0.35s var(--ss-ease);
@@ -164,13 +188,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 32px;
-  padding: 28px 36px;
-  border-radius: var(--ss-hero-radius);
-  background: linear-gradient(135deg, #0B6B63 0%, #0A8075 50%, #086B63 100%);
+  min-height: var(--hero-min-height, 320px);
+  padding: var(--hero-padding, 40px);
+  border-radius: var(--hero-radius, var(--ss-hero-radius));
+  background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   color: #fff;
-  box-shadow: 0 12px 40px rgba(15, 157, 138, 0.20);
+  box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
+  /* !important: beats Tailwind's space-y-* sibling utility which resets
+     margin-bottom to 0px when the hero sits inside a spaced container. */
+  margin-bottom: var(--hero-margin-bottom, 36px) !important;
   overflow: hidden;
   animation: ss-fade-in 0.4s var(--ss-ease);
+}
+
+/* Flex-gap page container compensation: .ss-page gap (24px) + 12px = the
+   unified 36px hero-to-content distance. */
+.ss-page > .ss-hero {
+  margin-bottom: 12px !important;
 }
 
 [data-theme="dark"] .ss-hero {
@@ -229,11 +263,12 @@
 .ss-hero__title {
   margin: 0 0 8px;
   font-family: var(--ss-font-heading);
-  font-size: 42px;
+  font-size: 48px;
   font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
   color: #fff;
+  text-shadow: 0 2px 24px rgba(15, 23, 42, 0.18);
 }
 
 .ss-hero__desc {
@@ -449,11 +484,13 @@
 .ss-stat-card__value {
   margin: 0;
   font-family: var(--ss-font-heading);
-  font-size: 32px;
+  font-size: clamp(1.9rem, 3vw, var(--type-metric, 42px));
   font-weight: 700;
   color: var(--ss-text);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .ss-stat-card__desc {
@@ -484,11 +521,11 @@
 .ss-section__title {
   margin: 0;
   font-family: var(--ss-font-heading);
-  font-size: 28px;
+  font-size: var(--type-section-title, 28px);
   font-weight: 700;
   color: var(--ss-text);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  letter-spacing: -0.015em;
+  line-height: var(--type-lh-heading, 1.2);
 }
 
 .ss-section__subtitle {
@@ -516,7 +553,7 @@
   padding: 10px 20px;
   border-radius: var(--ss-radius-lg);
   font-family: var(--ss-font);
-  font-size: var(--ss-font-sm);
+  font-size: var(--type-button, 16px);
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
@@ -757,8 +794,8 @@
 .ss-card__title {
   margin: 0;
   font-family: var(--ss-font-heading);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--type-small-card-title, 18px);
+  font-weight: 600;
   color: var(--ss-text);
   letter-spacing: -0.01em;
 }
@@ -843,17 +880,19 @@
 .ss-table th {
   text-align: left;
   padding: 14px 20px;
-  font-size: var(--ss-font-xs);
+  font-size: var(--type-table-header, 14px);
   font-weight: 600;
   color: var(--ss-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   background: var(--ss-primary-lighter);
   border-bottom: 1px solid var(--ss-border);
 }
 
 .ss-table td {
   padding: 14px 20px;
+  font-size: var(--type-table-body, 15px);
+  font-weight: 500;
   color: var(--ss-text);
   border-bottom: 1px solid var(--ss-border-light);
   vertical-align: middle;
@@ -1093,7 +1132,7 @@
   .ss-grid-3 { grid-template-columns: 1fr; }
   .ss-grid-sidebar { grid-template-columns: 1fr; }
   .ss-hero__quick-stats { grid-template-columns: repeat(2, 1fr); }
-  .ss-hero__title { font-size: 32px; }
+  .ss-hero__title { font-size: 36px; }
   .ss-hero__illustration { display: none; }
 }
 
@@ -1104,7 +1143,7 @@
     --ss-card-gap: 16px;
   }
   .ss-hero { padding: 24px 20px; flex-direction: column; }
-  .ss-hero__title { font-size: 28px; }
+  .ss-hero__title { font-size: 30px; }
   .ss-hero__quick-stats { grid-template-columns: repeat(2, 1fr); }
   .ss-grid-2 { grid-template-columns: 1fr; }
   .ss-grid-4 { grid-template-columns: 1fr; }

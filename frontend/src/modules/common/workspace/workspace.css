@@ -97,8 +97,8 @@
 }
 
 .ws-sb__brand-copy { display: flex; flex-direction: column; min-width: 0; }
-.ws-sb__brand-title { margin: 0; font-family: "Sora", sans-serif; font-size: 1rem; font-weight: 800; color: var(--text); }
-.ws-sb__brand-sub { margin: 1px 0 0; font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+.ws-sb__brand-title { margin: 0; font-family: var(--type-font, 'Inter', sans-serif); font-size: var(--type-nav, 16px); font-weight: 700; color: var(--text); }
+.ws-sb__brand-sub { margin: 1px 0 0; font-size: var(--type-chat-timestamp, 13px); color: var(--muted); white-space: nowrap; }
 
 /* ─── Navigation ─── */
 
@@ -121,9 +121,9 @@
 
 .ws-sb__group-label {
   margin: 14px 12px 4px;
-  font-size: 0.65rem;
+  font-size: var(--type-badge, 12px);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
   opacity: 0.7;
@@ -143,9 +143,9 @@
   border: none;
   background: transparent;
   color: var(--text);
-  font-family: "Manrope", sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: var(--type-nav, 16px);
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -263,7 +263,7 @@
 .ws-sb__link.is-active {
   background: color-mix(in srgb, var(--brand) 12%, transparent);
   color: var(--brand-strong);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ws-sb__link.is-active .ws-sb__link-icon,
@@ -286,7 +286,7 @@
   border-radius: inherit;
 }
 
-.ws-sb__link--sm { font-size: 0.84rem; padding: 9px 12px; }
+.ws-sb__link--sm { font-size: var(--type-navbar, 15px); padding: 9px 12px; }
 
 /* ─── Bottom Section ─── */
 
@@ -351,8 +351,8 @@
 }
 
 .ws-sb__user-copy { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
-.ws-sb__user-copy strong { font-size: 0.82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ws-sb__user-copy span { font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-sb__user-copy strong { font-size: var(--type-profile-name, 18px); font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-sb__user-copy span { font-size: var(--type-profile-email, 14px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ─── Collapsed Rail State — smooth label fade-out (300ms) ─── */
 
@@ -446,9 +446,9 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.72rem;
+  font-size: var(--type-chat-timestamp, 13px);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ws-top__crumb svg { width: 14px; height: 14px; }
@@ -456,8 +456,8 @@
 
 .ws-top__title {
   margin: 0;
-  font-family: "Sora", sans-serif;
-  font-size: 1.15rem;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: var(--type-card-title, 22px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text);
@@ -603,13 +603,16 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 0.9rem;
+  font-size: var(--type-input, 16px);
   color: var(--text);
-  font-family: "Manrope", sans-serif;
+  font-family: var(--type-font, 'Inter', sans-serif);
   min-width: 0;
 }
 
-.ws-top__search input::placeholder { color: var(--input-placeholder); }
+.ws-top__search input::placeholder {
+  color: var(--input-placeholder);
+  font-size: var(--type-input-placeholder, 15px);
+}
 
 .ws-top__kbd {
   font-size: 0.72rem;
@@ -663,9 +666,9 @@
   border-radius: 10px;
   background: transparent;
   color: var(--text);
-  font-family: "Manrope", sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: var(--type-navbar, 15px);
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
@@ -815,20 +818,20 @@
 }
 
 .ws-top__profile-copy strong {
-  font-size: 0.85rem;
+  font-size: var(--type-profile-name, 18px);
   color: var(--text);
   max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .ws-top__status {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.7rem;
+  font-size: var(--type-chat-timestamp, 13px);
   color: var(--muted);
 }
 
@@ -897,9 +900,9 @@
   border: none;
   background: transparent;
   color: var(--text);
-  font-family: "Manrope", sans-serif;
-  font-size: 0.86rem;
-  font-weight: 600;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: var(--type-navbar, 15px);
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -940,7 +943,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 20px 24px 24px;
+  /* Unified page padding: top 24px (navbar → hero) · sides 32px · bottom 40px */
+  padding: 24px 32px 40px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -987,7 +991,7 @@
 @media (max-width: 760px) {
   .ws-top__search { display: none; }
   .ws-top__profile-copy { display: none; }
-  .ws-top__title { font-size: 1.05rem; }
+  .ws-top__title { font-size: var(--type-card-title, 19px); }
   .ws-main-content { padding: 12px 12px 16px; }
   .ws-top__burger { width: 40px; height: 40px; }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
 import "./AdminOperationsPage.css";
@@ -652,18 +653,26 @@ export default function NotificationBroadcastPage({ notify }) {
   return (
     <section className="admin-page">
       {/* ── Hero ── */}
-      <div className="admin-hero">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
-          <div>
-            <p className="admin-eyebrow">Engagement</p>
-            <h1>Notification &amp; Broadcast Center</h1>
-            <p>Compose, schedule, and track platform-wide notifications. All stats come from real database records.</p>
-          </div>
-          <button type="button" className="admin-refresh-btn" onClick={openComposer} style={{ padding: "10px 18px" }}>
-            <Icon name="add_circle" /> New broadcast
+      <HeroSection
+        badge="Engagement"
+        title="Notification & Broadcast Center"
+        subtitle="Compose, schedule, and track platform-wide notifications. All stats come from real database records."
+        primaryButton={
+          <button
+            type="button"
+            className="hero-section__btn hero-section__btn--primary"
+            onClick={openComposer}
+          >
+            <span className="material-symbols-outlined">add_circle</span>
+            New broadcast
           </button>
-        </div>
-      </div>
+        }
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">notifications_active</span>
+          </div>
+        }
+      />
 
       {/* ── Tabs ── */}
       <div className="nbc-tabs">
