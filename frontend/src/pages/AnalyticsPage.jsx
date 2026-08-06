@@ -95,7 +95,6 @@ const HISTORY_STATE_STORAGE_KEY = "learnerHistoryState";
 
 export default function AnalyticsPage({ profile }) {
   const navigate = useNavigate();
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [rangeDays, setRangeDays] = useState(30);
   const [mentorSearch, setMentorSearch] = useState(() => {
     try {
@@ -586,107 +585,7 @@ export default function AnalyticsPage({ profile }) {
 
   return (
     <div className="md-page">
-      <div className="flex min-h-full w-full gap-6">
-        <aside className="hidden lg:flex flex-col h-screen w-64 border-r border-outline-variant/60 bg-surface sticky top-0">
-          <div className="flex flex-col h-full p-4 space-y-6">
-            <div className="flex items-center space-x-3 px-2 py-4">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                <span className="material-symbols-outlined text-2xl">
-                  school
-                </span>
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-on-surface leading-tight">
-                  Skill Swapper
-                </h2>
-                <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-                  Analytics Workspace
-                </p>
-              </div>
-            </div>
-
-            <div className="flex-grow space-y-1">
-              <Link
-                className="flex items-center space-x-3 px-4 py-3 text-on-surface bg-primary/15 rounded-lg text-sm font-semibold transition-all"
-                to="/wallet"
-              >
-                <span className="material-symbols-outlined">dashboard</span>
-                <span>Overview</span>
-              </Link>
-              <a
-                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
-                href="#sessionTable"
-              >
-                <span className="material-symbols-outlined">query_stats</span>
-                <span>Session Stats</span>
-              </a>
-              <a
-                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
-                href="#acquisition"
-              >
-                <span className="material-symbols-outlined">trending_up</span>
-                <span>Acquisition</span>
-              </a>
-              <a
-                className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
-                href="#insights"
-              >
-                <span className="material-symbols-outlined">insights</span>
-                <span>Insights</span>
-              </a>
-              {!isMentor && (
-                <a
-                  className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:bg-primary/10 hover:text-on-surface text-sm font-semibold transition-all"
-                  href="#learnerHistory"
-                >
-                  <span className="material-symbols-outlined">history</span>
-                  <span>Learner History</span>
-                </a>
-              )}
-            </div>
-
-            <div className="pt-4 border-t border-outline-variant/60">
-              {isMentor ? (
-                <Link
-                  className="w-full inline-flex items-center justify-center bg-gradient-to-r from-primary to-primary-container text-on-primary py-3 rounded-xl font-headline font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-                  to="/teach"
-                >
-                  Create Workshop
-                </Link>
-              ) : (
-                <Link
-                  className="w-full inline-flex items-center justify-center bg-gradient-to-r from-primary to-primary-container text-on-primary py-3 rounded-xl font-headline font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-                  to="/mentors"
-                >
-                  Find Mentor
-                </Link>
-              )}
-              <Link
-                className="flex items-center space-x-3 px-4 py-3 mt-4 text-slate-500 hover:text-emerald-700 transition-colors text-sm font-semibold"
-                to={isMentor ? "/mentor/dashboard" : "/learner/dashboard"}
-              >
-                <span className="material-symbols-outlined">arrow_back</span>
-                <span>Back to Dashboard</span>
-              </Link>
-            </div>
-          </div>
-        </aside>
-
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-6 space-y-8">
-            <div className="lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-surface-container-lowest border border-outline-variant/20 px-4 py-2 text-sm font-semibold"
-              >
-                <span className="material-symbols-outlined text-base">
-                  menu
-                </span>
-                Open analytics menu
-              </button>
-            </div>
-
+      <div className="space-y-10">
             <HeroSection
               badge="Performance Workspace"
               title="Performance Overview"
@@ -705,15 +604,15 @@ export default function AnalyticsPage({ profile }) {
                 </div>
               }
             >
-              <div className="flex items-center gap-1 rounded-2xl bg-white/15 p-1.5 backdrop-blur-md border border-white/20">
+              <div className="flex items-center justify-start gap-3 lg:flex-nowrap flex-wrap">
                 {[7, 30, 90].map((days) => (
                   <button
                     key={days}
                     onClick={() => setRangeDays(days)}
                     className={
                       rangeDays === days
-                        ? "px-4 py-2 text-xs font-bold bg-white text-[#0f766e] rounded-xl shadow-sm transition-colors"
-                        : "px-4 py-2 text-xs font-bold text-white/80 hover:text-white transition-colors"
+                        ? "h-[48px] min-w-[120px] whitespace-nowrap rounded-[14px] px-[22px] text-sm font-bold bg-white text-[#0f766e] shadow-sm transition-colors"
+                        : "h-[48px] min-w-[120px] whitespace-nowrap rounded-[14px] border border-white/20 bg-white/10 px-[22px] text-sm font-bold text-white/90 transition-colors hover:bg-white/20 hover:text-white"
                     }
                     type="button"
                   >
@@ -830,7 +729,7 @@ export default function AnalyticsPage({ profile }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)]">
                 <div className="flex items-center justify-between mb-8">
                   <div>
@@ -1185,7 +1084,7 @@ export default function AnalyticsPage({ profile }) {
               </section>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div
                 id="sessionTable"
                 className="bg-surface-container-lowest p-8 rounded-3xl shadow-[0px_12px_32px_rgba(17,28,45,0.04)] overflow-hidden"
@@ -1304,29 +1203,31 @@ export default function AnalyticsPage({ profile }) {
                   </div>
                 </div>
 
-                <div className="relative h-64 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-56 h-56 rounded-full border border-outline-variant/10" />
-                    <div className="w-40 h-40 rounded-full border border-outline-variant/10 absolute" />
-                    <div className="w-24 h-24 rounded-full border border-outline-variant/10 absolute" />
-                    <svg
-                      className="w-56 h-56 absolute transform rotate-15"
-                      viewBox="0 0 100 100"
-                    >
-                      <polygon
-                        fill="rgba(12, 81, 62, 0.2)"
-                        points="50,10 85,35 75,80 30,90 10,40"
-                        stroke="#0c513e"
-                        strokeWidth="1"
-                      />
-                      <circle cx="50" cy="10" fill="#0c513e" r="2" />
-                      <circle cx="85" cy="35" fill="#0c513e" r="2" />
-                      <circle cx="75" cy="80" fill="#0c513e" r="2" />
-                      <circle cx="30" cy="90" fill="#0c513e" r="2" />
-                      <circle cx="10" cy="40" fill="#0c513e" r="2" />
-                    </svg>
+                <div className="flex flex-col">
+                  <div className="relative flex h-[288px] items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-56 h-56 rounded-full border border-outline-variant/10" />
+                      <div className="w-40 h-40 rounded-full border border-outline-variant/10 absolute" />
+                      <div className="w-24 h-24 rounded-full border border-outline-variant/10 absolute" />
+                      <svg
+                        className="w-56 h-56 absolute transform rotate-15"
+                        viewBox="0 0 100 100"
+                      >
+                        <polygon
+                          fill="rgba(12, 81, 62, 0.2)"
+                          points="50,10 85,35 75,80 30,90 10,40"
+                          stroke="#0c513e"
+                          strokeWidth="1"
+                        />
+                        <circle cx="50" cy="10" fill="#0c513e" r="2" />
+                        <circle cx="85" cy="35" fill="#0c513e" r="2" />
+                        <circle cx="75" cy="80" fill="#0c513e" r="2" />
+                        <circle cx="30" cy="90" fill="#0c513e" r="2" />
+                        <circle cx="10" cy="40" fill="#0c513e" r="2" />
+                      </svg>
+                    </div>
                   </div>
-                  <div className="absolute bottom-4 left-4 right-4 rounded-xl bg-surface-container-lowest/90 border border-outline-variant/10 px-4 py-3 text-xs">
+                  <div className="mt-6 rounded-xl bg-surface-container-lowest/90 border border-outline-variant/10 px-4 py-3 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-on-surface-variant font-semibold">
                         Average roadmap completion
@@ -1426,97 +1327,7 @@ export default function AnalyticsPage({ profile }) {
                 )}
               </div>
             </motion.footer>
-          </div>
-        </main>
       </div>
-
-      <div
-        className={`fixed inset-0 bg-slate-900/40 z-40 transition-opacity lg:hidden ${mobileSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-        onClick={() => setMobileSidebarOpen(false)}
-      />
-
-      <aside
-        className={`fixed left-0 top-0 h-screen w-72 max-w-[85vw] border-r border-outline-variant/60 bg-surface z-50 p-4 space-y-6 transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        <div className="flex items-center justify-between px-2 py-2">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-container flex items-center justify-center text-white shadow-lg shadow-primary/20">
-              <span className="material-symbols-outlined text-2xl">school</span>
-            </div>
-            <div>
-              <h2 className="text-lg font-black text-on-surface leading-tight">
-                Skill Swapper
-              </h2>
-              <p className="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-                Analytics Workspace
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="p-2 text-on-surface-variant"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
-
-        <div className="space-y-1">
-          <Link
-            className="flex items-center space-x-3 px-4 py-3 text-on-surface bg-primary/15 rounded-lg text-sm font-semibold transition-all"
-            to="/wallet"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">dashboard</span>
-            <span>Overview</span>
-          </Link>
-          <a
-            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
-            href="#sessionTable"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">query_stats</span>
-            <span>Session Stats</span>
-          </a>
-          <a
-            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
-            href="#acquisition"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">trending_up</span>
-            <span>Acquisition</span>
-          </a>
-          <a
-            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
-            href="#insights"
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">insights</span>
-            <span>Insights</span>
-          </a>
-          {!isMentor && (
-            <a
-              className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant text-sm font-semibold transition-all"
-              href="#learnerHistory"
-              onClick={() => setMobileSidebarOpen(false)}
-            >
-              <span className="material-symbols-outlined">history</span>
-              <span>Learner History</span>
-            </a>
-          )}
-        </div>
-
-        <div className="pt-3 border-t border-outline-variant/60">
-          <Link
-            className="flex items-center space-x-3 px-4 py-3 text-on-surface-variant hover:text-primary text-sm font-semibold"
-            to={isMentor ? "/mentor/dashboard" : "/learner/dashboard"}
-            onClick={() => setMobileSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined">arrow_back</span>
-            <span>Back to Dashboard</span>
-          </Link>
-        </div>
-      </aside>
     </div>
   );
 }

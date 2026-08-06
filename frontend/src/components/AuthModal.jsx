@@ -20,6 +20,9 @@ export default function AuthModal({
 }) {
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
+    // Login credential — either an email address or a username.
+    emailOrUsername: "",
+    // Signup-only fields.
     email: "",
     password: "",
     fullName: "",
@@ -31,11 +34,28 @@ export default function AuthModal({
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [usernameCheck, setUsernameCheck] = useState({ checking: false, available: null, suggestion: null });
   const usernameDebounceRef = useRef(null);
+  // Monotonic sequence guard: a slow availability response must never
+  // overwrite the result of a newer check for a different username
+  // (out-of-order responses). Each keystroke bumps the counter, so a stale
+  // in-flight response is dropped when its sequence no longer matches.
+  const usernameCheckSeqRef = useRef(0);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotSubmitting, setForgotSubmitting] = useState(false);
   const titleId = "auth-modal-title";
+
+  // Client-side signup guard: never submit a username that is being checked,
+  // is already taken, or is too short. The backend remains the source of
+  // truth (it re-validates and returns 409 on race conditions), but blocking
+  // the submit here prevents a wasted round-trip and a jarring error flash.
+  const usernameInvalidLength =
+    form.username.length > 0 && form.username.length < 4;
+  const signupSubmitBlocked =
+    usernameCheck.checking ||
+    usernameCheck.available === false ||
+    usernameInvalidLength;
   const emailInputRef = useRef(null);
+  const loginIdInputRef = useRef(null);
   const formRef = useRef(form);
 
   useEffect(() => {
@@ -47,7 +67,11 @@ export default function AuthModal({
   }, [initialError]);
 
   useEffect(() => {
-    emailInputRef.current?.focus();
+    if (mode === "login") {
+      loginIdInputRef.current?.focus();
+    } else {
+      emailInputRef.current?.focus();
+    }
   }, [mode]);
 
   useEffect(() => {
@@ -71,7 +95,10 @@ export default function AuthModal({
       const currentForm = formRef.current;
       const payload =
         mode === "login"
-          ? { email: currentForm.email, password: currentForm.password }
+          ? {
+              emailOrUsername: currentForm.emailOrUsername.trim(),
+              password: currentForm.password,
+            }
           : {
               ...currentForm,
               referralCode: searchParams.get("ref")?.trim() || undefined,
@@ -266,27 +293,38 @@ export default function AuthModal({
                     autoComplete="username"
                     placeholder="Choose a unique username"
                     value={form.username}
+                    maxLength={30}
                     onChange={(e) => {
-                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+                      // Allow A-Z a-z 0-9 _ . - only (display case is preserved).
+                      const val = e.target.value.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 30);
                       setForm((s) => ({ ...s, username: val }));
+                      // Invalidate any in-flight check for a previous value.
+                      usernameCheckSeqRef.current += 1;
                       setUsernameCheck((prev) => ({ ...prev, checking: true, available: null }));
                       if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
-                      if (val.length >= 3) {
+                      if (val.length >= 4) {
+                        // Debounced (500ms) real-time availability check — never spam the server.
                         usernameDebounceRef.current = setTimeout(async () => {
+                          const seq = usernameCheckSeqRef.current + 1;
+                          usernameCheckSeqRef.current = seq;
                           try {
-                            const res = await client.get("/api/v1/users/me/check-username", {
+                            const res = await client.get("/api/v1/users/check-username", {
                               params: { username: val },
                             });
                             const data = res?.data?.data;
+                            // Drop stale responses (the field changed while
+                            // this request was in flight).
+                            if (seq !== usernameCheckSeqRef.current) return;
                             setUsernameCheck({
                               checking: false,
                               available: data?.available ?? false,
                               suggestion: data?.suggestion || null,
                             });
                           } catch {
+                            if (seq !== usernameCheckSeqRef.current) return;
                             setUsernameCheck({ checking: false, available: null, suggestion: null });
                           }
-                        }, 400);
+                        }, 500);
                       } else {
                         setUsernameCheck({ checking: false, available: null, suggestion: null });
                       }
@@ -311,22 +349,27 @@ export default function AuthModal({
                     <span style={{
                       position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
                       color: "#16a34a", fontSize: "1rem", fontWeight: 700,
-                    }}>
-                      ✓
+                    }} aria-hidden="true">
+                      ✅
                     </span>
                   )}
                   {!usernameCheck.checking && usernameCheck.available === false && (
                     <span style={{
                       position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
                       color: "#dc2626", fontSize: "1rem", fontWeight: 700,
-                    }}>
-                      ✕
+                    }} aria-hidden="true">
+                      ❌
                     </span>
                   )}
                 </div>
+                {!usernameCheck.checking && usernameCheck.available === true && (
+                  <span role="status" style={{ color: "#16a34a", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                    ✅ Username available
+                  </span>
+                )}
                 {!usernameCheck.checking && usernameCheck.available === false && (
-                  <span style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
-                    Username already exists. Please choose another one.
+                  <span role="status" style={{ color: "#dc2626", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
+                    ❌ Username already taken
                     {usernameCheck.suggestion && (
                       <>
                         {" "}Try:{" "}
@@ -348,35 +391,58 @@ export default function AuthModal({
                     )}
                   </span>
                 )}
-                {form.username.length > 0 && form.username.length < 3 && (
+                {usernameInvalidLength && (
                   <span style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 4, display: "block" }}>
-                    Username must be at least 3 characters
+                    Username must be at least 4 characters. Letters, numbers, and . _ - only.
                   </span>
                 )}
               </UIField>
             </>
           )}
 
-          <UIField
-            label="Email"
-            htmlFor="auth-email"
-            className="auth-modal-field-group"
-          >
-            <input
-              id="auth-email"
-              name="email"
-              autoComplete="email"
-              ref={emailInputRef}
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) =>
-                setForm((s) => ({ ...s, email: e.target.value }))
-              }
-              disabled={submitting}
-              required
-            />
-          </UIField>
+          {mode === "login" ? (
+            <UIField
+              label="Email or Username"
+              htmlFor="auth-login-id"
+              className="auth-modal-field-group"
+            >
+              <input
+                id="auth-login-id"
+                name="emailOrUsername"
+                autoComplete="username"
+                ref={loginIdInputRef}
+                type="text"
+                placeholder="Email or username"
+                value={form.emailOrUsername}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, emailOrUsername: e.target.value }))
+                }
+                disabled={submitting}
+                required
+              />
+            </UIField>
+          ) : (
+            <UIField
+              label="Email"
+              htmlFor="auth-email"
+              className="auth-modal-field-group"
+            >
+              <input
+                id="auth-email"
+                name="email"
+                autoComplete="email"
+                ref={emailInputRef}
+                type="email"
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, email: e.target.value }))
+                }
+                disabled={submitting}
+                required
+              />
+            </UIField>
+          )}
 
           <UIField
             label="Password"
@@ -450,7 +516,11 @@ export default function AuthModal({
                 className="auth-forgot-link"
                 onClick={(e) => {
                   e.preventDefault();
-                  setForgotEmail(form.email);
+                  // Prefill the reset form with whatever was typed — an email
+                  // address, or the username (which the user will need to
+                  // replace with their email to receive the reset link).
+                  const typed = form.emailOrUsername.trim() || form.email.trim();
+                  setForgotEmail(typed.includes("@") ? typed : "");
                   setShowForgotPassword(true);
                   setForgotSent(false);
                   setError("");
@@ -463,7 +533,7 @@ export default function AuthModal({
           <UIButton
             type="submit"
             className="submit-btn auth-modal-submit-btn"
-            disabled={submitting}
+            disabled={submitting || (mode === "signup" && signupSubmitBlocked)}
           >
             {submitting
               ? "Please wait..."

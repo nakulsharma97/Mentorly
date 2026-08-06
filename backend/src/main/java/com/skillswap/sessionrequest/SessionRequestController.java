@@ -1,6 +1,7 @@
 package com.skillswap.sessionrequest;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
@@ -33,6 +34,7 @@ import java.util.List;
 public class SessionRequestController {
 
     private final SessionRequestService sessionRequestService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     /**
      * Learner sends a session request to a mentor.
@@ -41,6 +43,8 @@ public class SessionRequestController {
     public ApiResponse<SessionRequest> create(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody CreateRequest req) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before requesting sessions.");
         SessionRequest created = sessionRequestService.createRequest(
                 currentUser, req.mentorId(), req.message(),
                 req.subject(), req.preferredDate(), req.preferredTime(),
@@ -70,6 +74,8 @@ public class SessionRequestController {
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
             @RequestBody(required = false) AcceptRequest body) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accepting session requests.");
         String message = (body != null) ? body.message() : null;
         SessionRequest accepted = sessionRequestService.acceptRequest(currentUser, id, message);
         return new ApiResponse<>("Session request accepted", accepted);
@@ -118,6 +124,8 @@ public class SessionRequestController {
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
             @Valid @RequestBody CreateSessionFromRequest req) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before creating sessions.");
         SkillSession session = sessionRequestService.createSessionFromRequest(
                 currentUser, id,
                 req.title(),

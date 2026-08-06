@@ -3,6 +3,7 @@ package com.skillswap.payment;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class PaymentController {
     private final PaymentService paymentService;
     private final PaymentVerificationService paymentVerificationService;
     private final PaymentRepository paymentRepository;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     /**
      * Get payment history for the current user.
@@ -72,6 +74,8 @@ public class PaymentController {
     public ApiResponse<Payment> createIntent(@AuthenticationPrincipal User currentUser,
             @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
             @Valid @RequestBody CreatePaymentIntentRequest req) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before making payments.");
         String gateway = req.gateway() != null && !req.gateway().isBlank() ? req.gateway() : "razorpay";
         Payment payment = paymentService.createPaymentOrder(currentUser, idempotencyKey,
                 req.bookingId(), req.amount(), gateway);

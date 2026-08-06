@@ -1,5 +1,6 @@
 package com.skillswap.wallet;
 
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -38,6 +39,9 @@ class WalletControllerIntegrationTest {
 
     @MockitoBean
     private WalletService walletService;
+
+    @MockitoBean
+    private ProfileCompletionGuard profileCompletionGuard;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;

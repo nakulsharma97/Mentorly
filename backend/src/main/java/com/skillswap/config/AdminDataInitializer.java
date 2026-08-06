@@ -1,5 +1,6 @@
 package com.skillswap.config;
 
+import com.skillswap.common.UsernameRules;
 import com.skillswap.user.AdminSubRole;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -186,35 +187,33 @@ public class AdminDataInitializer implements CommandLineRunner {
     private String generateUsernameFromEmail(String email) {
         String base = email.contains("@") ? email.substring(0, email.indexOf('@')) : "admin";
         base = base.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
-        if (base.length() < 3) {
+        if (base.length() < UsernameRules.MIN_LENGTH) {
             base = base + "admin";
         }
-        if (base.length() > 20) {
-            base = base.substring(0, 20);
+        if (base.length() > UsernameRules.MAX_LENGTH) {
+            base = base.substring(0, UsernameRules.MAX_LENGTH);
         }
 
         // Check if the generated username is reserved or already taken
+        // (case-insensitive against username_lower)
         String candidate = base;
         int suffix = 1;
-        while (isReservedUsername(candidate) || userRepository.existsByUsername(candidate)) {
+        while (UsernameRules.isReserved(candidate)
+                || userRepository.existsByUsernameLower(candidate)) {
             String suffixed = base + suffix;
-            candidate = suffixed.length() > 20 ? suffixed.substring(0, 20) : suffixed;
+            candidate = suffixed.length() > UsernameRules.MAX_LENGTH
+                    ? suffixed.substring(0, UsernameRules.MAX_LENGTH)
+                    : suffixed;
             suffix++;
             if (suffix > 99) {
                 // Fallback: use timestamp as last resort
                 candidate = "admin" + System.currentTimeMillis() % 100000;
-                candidate = candidate.length() > 20 ? candidate.substring(0, 20) : candidate;
+                candidate = candidate.length() > UsernameRules.MAX_LENGTH
+                        ? candidate.substring(0, UsernameRules.MAX_LENGTH)
+                        : candidate;
                 break;
             }
         }
         return candidate;
-    }
-
-    private static boolean isReservedUsername(String username) {
-        return java.util.Set.of(
-                "admin", "support", "login", "register", "signup", "mentor", "learner",
-                "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
-                "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined"
-        ).contains(username);
     }
 }

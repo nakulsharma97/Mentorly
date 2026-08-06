@@ -1,6 +1,12 @@
 package com.skillswap.user;
 
+import com.skillswap.common.ApiClientException;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
+import com.skillswap.common.UsernameRules;
+import com.skillswap.common.exception.BadRequestException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.review.MentorReviewRepository;
@@ -22,8 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -40,6 +48,7 @@ public class UserController {
     private final SessionRepository sessionRepository;
     private final ReferralRewardRepository referralRewardRepository;
     private final NotificationService notificationService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping("/me")
     @Transactional
@@ -85,6 +94,9 @@ public class UserController {
 
         List<LiveMentorResponse> mentors = mentorUsers
                 .stream()
+                // Mentors who have not completed onboarding must NEVER appear in
+                // Explore / recommendations / featured lists.
+                .filter(User::isProfileCompleted)
                 .map(mentor -> {
                     double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
                     long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
@@ -106,6 +118,10 @@ public class UserController {
         List<User> mentors = userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.MENTOR);
         Set<String> skills = new LinkedHashSet<>();
         for (User mentor : mentors) {
+            // Only completed mentors contribute to the discoverable skill index.
+            if (!mentor.isProfileCompleted()) {
+                continue;
+            }
             skills.addAll(extractSkillNames(mentor.getSkills()));
         }
         return new ApiResponse<>("Mentor skills fetched", new ArrayList<>(skills));
@@ -121,6 +137,8 @@ public class UserController {
         List<LiveMentorResponse> mentors = userRepository
                 .findByRoleAndEnabledTrueAndLastActiveAtAfterOrderByLastActiveAtDesc(UserRole.MENTOR, cutoff)
                 .stream()
+                // Incomplete mentors never surface in live-mentor listings.
+                .filter(User::isProfileCompleted)
                 .map(mentor -> {
                     double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
                     long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
@@ -140,7 +158,9 @@ public class UserController {
     @GetMapping("/mentors/{mentorId}")
     public ApiResponse<PublicMentorProfileResponse> mentorPublicProfile(@PathVariable Long mentorId) {
         User mentor = userRepository.findById(mentorId)
-                .filter(user -> user.getRole() == UserRole.MENTOR)
+                // Incomplete mentors are treated as non-existent: a direct URL
+                // must not reveal an onboarding-in-progress profile.
+                .filter(user -> user.getRole() == UserRole.MENTOR && user.isProfileCompleted())
                 .orElseThrow(() -> new IllegalArgumentException("Mentor not found"));
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
@@ -157,6 +177,8 @@ public class UserController {
     @PutMapping("/me/wallet")
     public ApiResponse<UserProfileResponse> updateWallet(@AuthenticationPrincipal User user,
             @RequestBody WalletUpdateRequest req) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before connecting a wallet.");
         user.setWalletAddress(req.walletAddress());
         userRepository.save(user);
         return new ApiResponse<>("Wallet updated", UserProfileResponse.from(user));
@@ -177,11 +199,17 @@ public class UserController {
         // Log only the userId + which fields changed — never the payload itself
         // (aboutMe/resumeUrl/certificates contain personal data / PII).
         log.info("updateProfile userId={} fields=[skills={},aboutMe={},githubUrl={},linkedinUrl={},profileImageUrl={},"
-                        + "projects={},certificates={},pastTeachingSessions={},resumeUrl={}]",
+                        + "projects={},certificates={},pastTeachingSessions={},resumeUrl={},headline={},country={},"
+                        + "state={},city={},phoneNumber={},timezone={},education={},portfolioUrl={},availability={},"
+                        + "learningGoals={},currentSkillLevel={},yearsOfExperience={},hourlyRate={}]",
                 user.getId(),
                 req.skills() != null, req.aboutMe() != null, req.githubUrl() != null,
                 req.linkedinUrl() != null, req.profileImageUrl() != null, req.projects() != null,
-                req.certificates() != null, req.pastTeachingSessions() != null, req.resumeUrl() != null);
+                req.certificates() != null, req.pastTeachingSessions() != null, req.resumeUrl() != null,
+                req.headline() != null, req.country() != null, req.state() != null, req.city() != null,
+                req.phoneNumber() != null, req.timezone() != null, req.education() != null,
+                req.portfolioUrl() != null, req.availability() != null, req.learningGoals() != null,
+                req.currentSkillLevel() != null, req.yearsOfExperience() != null, req.hourlyRate() != null);
         if (req.skills() != null) {
             user.setSkills(trimToNull(req.skills()));
         }
@@ -208,6 +236,53 @@ public class UserController {
         }
         if (req.resumeUrl() != null) {
             user.setResumeUrl(normalizeHttpUrl(req.resumeUrl()));
+        }
+        if (req.headline() != null) {
+            user.setHeadline(trimToNull(req.headline()));
+        }
+        if (req.yearsOfExperience() != null) {
+            user.setYearsOfExperience(req.yearsOfExperience());
+        }
+        if (req.languages() != null) {
+            user.setLanguages(trimToNull(req.languages()));
+        }
+        if (req.education() != null) {
+            user.setEducation(trimToNull(req.education()));
+        }
+        if (req.portfolioUrl() != null) {
+            user.setPortfolioUrl(normalizeHttpUrl(req.portfolioUrl()));
+        }
+        if (req.hourlyRate() != null) {
+            user.setHourlyRate(req.hourlyRate());
+        }
+        if (req.timezone() != null) {
+            user.setTimezone(trimToNull(req.timezone()));
+        }
+        if (req.availability() != null) {
+            user.setAvailability(trimToNull(req.availability()));
+        }
+        if (req.country() != null) {
+            user.setCountry(trimToNull(req.country()));
+        }
+        if (req.state() != null) {
+            user.setState(trimToNull(req.state()));
+        }
+        if (req.city() != null) {
+            user.setCity(trimToNull(req.city()));
+        }
+        if (req.phoneNumber() != null) {
+            user.setPhoneNumber(trimToNull(req.phoneNumber()));
+        }
+        if (req.learningGoals() != null) {
+            user.setLearningGoals(trimToNull(req.learningGoals()));
+        }
+        if (req.currentSkillLevel() != null) {
+            user.setCurrentSkillLevel(trimToNull(req.currentSkillLevel()));
+        }
+        // A profile that passes the full onboarding validation can be marked
+        // complete via the regular update endpoint as well.
+        if (Boolean.TRUE.equals(req.profileCompleted())) {
+            user.setProfileCompleted(true);
         }
         userRepository.save(user);
         return new ApiResponse<>("Profile updated", UserProfileResponse.from(user));
@@ -245,6 +320,132 @@ public class UserController {
                 user.getId(), previousRole.name(), req.role().name());
 
         return new ApiResponse<>("Role updated", UserProfileResponse.from(user));
+    }
+
+    /**
+     * Dedicated onboarding endpoint: persists the full profile payload and,
+     * only after the backend has verified every role-specific required field,
+     * permanently marks the account {@code profileCompleted = true}.
+     *
+     * <p>
+     * The frontend is never trusted — all required-field validation is
+     * re-executed here, and missing fields are reported as a 400 so the client
+     * can surface inline errors.
+     */
+    @PostMapping("/me/profile/complete")
+    public ApiResponse<UserProfileResponse> completeProfile(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody ProfileCompletionRequest req) {
+        // Re-fetch within a transaction so every column is safely accessible.
+        User managedUser = userRepository.findById(user.getId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (managedUser.getRole() == UserRole.ADMIN) {
+            throw new IllegalArgumentException("Admins do not use the profile completion flow.");
+        }
+
+        List<String> missing = missingRequiredFields(managedUser.getRole(), req);
+        if (!missing.isEmpty()) {
+            throw new BadRequestException(
+                    "Profile is incomplete. Missing required fields: " + String.join(", ", missing));
+        }
+
+        applyProfileCompletionFields(managedUser, req);
+        managedUser.setProfileCompleted(true);
+        userRepository.save(managedUser);
+
+        log.info("profile_completed userId={} role={}", managedUser.getId(), managedUser.getRole().name());
+        return new ApiResponse<>("Profile completed", UserProfileResponse.from(managedUser));
+    }
+
+    private static List<String> missingRequiredFields(UserRole role, ProfileCompletionRequest req) {
+        List<String> missing = new ArrayList<>();
+
+        Map<String, String> commonFields = new LinkedHashMap<>();
+        commonFields.put("fullName", req.fullName());
+        commonFields.put("profileImageUrl", req.profileImageUrl());
+        commonFields.put("aboutMe", req.aboutMe());
+        commonFields.put("skills", req.skills());
+        commonFields.put("languages", req.languages());
+        commonFields.put("country", req.country());
+        commonFields.put("state", req.state());
+        commonFields.put("city", req.city());
+        commonFields.put("timezone", req.timezone());
+        commonFields.put("phoneNumber", req.phoneNumber());
+        commonFields.forEach((name, value) -> {
+            if (!hasValue(value)) {
+                missing.add(name);
+            }
+        });
+
+        if (role == UserRole.MENTOR) {
+            if (!hasValue(req.headline())) {
+                missing.add("headline");
+            }
+            if (req.yearsOfExperience() == null || req.yearsOfExperience() <= 0) {
+                missing.add("yearsOfExperience");
+            }
+            if (!hasValue(req.education())) {
+                missing.add("education");
+            }
+            if (!hasValue(req.linkedinUrl())) {
+                missing.add("linkedinUrl");
+            }
+            if (!hasValue(req.portfolioUrl())) {
+                missing.add("portfolioUrl");
+            }
+            if (req.hourlyRate() == null || req.hourlyRate().signum() <= 0) {
+                missing.add("hourlyRate");
+            }
+            if (!hasValue(req.availability())) {
+                missing.add("availability");
+            }
+        } else {
+            // LEARNER
+            if (!hasValue(req.learningGoals())) {
+                missing.add("learningGoals");
+            }
+            if (!hasValue(req.currentSkillLevel())) {
+                missing.add("currentSkillLevel");
+            }
+        }
+        return missing;
+    }
+
+    private static void applyProfileCompletionFields(User user, ProfileCompletionRequest req) {
+        user.setFullName(trimToNull(req.fullName()));
+        user.setProfileImageUrl(normalizeHttpUrl(req.profileImageUrl()));
+        user.setAboutMe(trimToNull(req.aboutMe()));
+        user.setSkills(trimToNull(req.skills()));
+        user.setLanguages(trimToNull(req.languages()));
+        user.setCountry(trimToNull(req.country()));
+        user.setState(trimToNull(req.state()));
+        user.setCity(trimToNull(req.city()));
+        user.setTimezone(trimToNull(req.timezone()));
+        user.setPhoneNumber(trimToNull(req.phoneNumber()));
+        user.setLearningGoals(trimToNull(req.learningGoals()));
+        user.setCurrentSkillLevel(trimToNull(req.currentSkillLevel()));
+        if (hasValue(req.headline())) {
+            user.setHeadline(trimToNull(req.headline()));
+        }
+        if (req.yearsOfExperience() != null && req.yearsOfExperience() > 0) {
+            user.setYearsOfExperience(req.yearsOfExperience());
+        }
+        if (hasValue(req.education())) {
+            user.setEducation(trimToNull(req.education()));
+        }
+        if (hasValue(req.linkedinUrl())) {
+            user.setLinkedinUrl(normalizeHttpUrl(req.linkedinUrl()));
+        }
+        if (hasValue(req.portfolioUrl())) {
+            user.setPortfolioUrl(normalizeHttpUrl(req.portfolioUrl()));
+        }
+        if (req.hourlyRate() != null && req.hourlyRate().signum() > 0) {
+            user.setHourlyRate(req.hourlyRate());
+        }
+        if (hasValue(req.availability())) {
+            user.setAvailability(trimToNull(req.availability()));
+        }
     }
 
     private static String trimToNull(String value) {
@@ -305,38 +506,60 @@ public class UserController {
                 .toList();
     }
 
+    /** Required onboarding fields for mentors. */
+    private static final List<String> MENTOR_FIELDS = List.of(
+            "fullName", "headline", "aboutMe", "skills", "yearsOfExperience", "languages",
+            "education", "linkedinUrl", "portfolioUrl", "hourlyRate", "timezone", "availability",
+            "country", "state", "city", "phoneNumber", "profileImageUrl");
+
+    /** Required onboarding fields for learners. */
+    private static final List<String> LEARNER_FIELDS = List.of(
+            "fullName", "aboutMe", "learningGoals", "skills", "currentSkillLevel", "languages",
+            "country", "state", "city", "timezone", "phoneNumber", "profileImageUrl");
+
+    /**
+     * Computes the onboarding completion percentage + missing field list for a
+     * user based on the role-specific required fields. Admins are exempt.
+     */
     private static ProfileCompletion computeProfileCompletion(User user) {
-        List<String> missing = new ArrayList<>();
-
-        if (!hasValue(user.getSkills())) {
-            missing.add("Skills");
+        if (user.getRole() == UserRole.ADMIN) {
+            return new ProfileCompletion(100, List.of());
         }
-        if (!hasValue(user.getAboutMe())) {
-            missing.add("About you");
-        }
-        if (!hasValue(user.getGithubUrl())) {
-            missing.add("GitHub");
-        }
-        if (!hasValue(user.getLinkedinUrl())) {
-            missing.add("LinkedIn");
-        }
-        if (!hasValue(user.getPastTeachingSessions())) {
-            missing.add("Experience");
-        }
-        if (!hasValue(user.getCertificates())) {
-            missing.add("Certifications");
-        }
-        // Only check the projects TEXT field to avoid triggering lazy loading
-        // of the @OneToMany projectsList collection outside a Hibernate session.
-        if (!hasValue(user.getProjects())) {
-            missing.add("Projects");
-        }
-
-        int total = 7;
+        List<String> required = user.getRole() == UserRole.MENTOR ? MENTOR_FIELDS : LEARNER_FIELDS;
+        List<String> missing = required.stream()
+                .filter(field -> !hasProfileValue(user, field))
+                .toList();
+        int total = required.size();
         int completed = total - missing.size();
         int percent = Math.round(completed / (float) total * 100);
-
         return new ProfileCompletion(percent, missing);
+    }
+
+    private static boolean hasProfileValue(User user, String field) {
+        return switch (field) {
+            case "fullName" -> hasValue(user.getFullName());
+            case "headline" -> hasValue(user.getHeadline());
+            case "aboutMe" -> hasValue(user.getAboutMe());
+            case "skills" -> hasValue(user.getSkills());
+            case "yearsOfExperience" ->
+                    user.getYearsOfExperience() != null && user.getYearsOfExperience() > 0;
+            case "languages" -> hasValue(user.getLanguages());
+            case "education" -> hasValue(user.getEducation());
+            case "linkedinUrl" -> hasValue(user.getLinkedinUrl());
+            case "portfolioUrl" -> hasValue(user.getPortfolioUrl());
+            case "hourlyRate" ->
+                    user.getHourlyRate() != null && user.getHourlyRate().signum() > 0;
+            case "timezone" -> hasValue(user.getTimezone());
+            case "availability" -> hasValue(user.getAvailability());
+            case "country" -> hasValue(user.getCountry());
+            case "state" -> hasValue(user.getState());
+            case "city" -> hasValue(user.getCity());
+            case "phoneNumber" -> hasValue(user.getPhoneNumber());
+            case "profileImageUrl" -> hasValue(user.getProfileImageUrl());
+            case "learningGoals" -> hasValue(user.getLearningGoals());
+            case "currentSkillLevel" -> hasValue(user.getCurrentSkillLevel());
+            default -> true;
+        };
     }
 
     private static boolean hasValue(String value) {
@@ -370,35 +593,78 @@ public class UserController {
             @Size(max = 6000) String projects,
             @Size(max = 6000) String certificates,
             @Size(max = 6000) String pastTeachingSessions,
-            @Size(max = 1000) String resumeUrl) {
+            @Size(max = 1000) String resumeUrl,
+            @Size(max = 200) String headline,
+            @Size(max = 500) String languages,
+            @Size(max = 500) String country,
+            @Size(max = 500) String state,
+            @Size(max = 500) String city,
+            @Size(max = 40) String phoneNumber,
+            @Size(max = 100) String timezone,
+            @Size(max = 6000) String education,
+            @Size(max = 1000) String portfolioUrl,
+            @Size(max = 6000) String availability,
+            @Size(max = 6000) String learningGoals,
+            @Size(max = 50) String currentSkillLevel,
+            Integer yearsOfExperience,
+            java.math.BigDecimal hourlyRate,
+            Boolean profileCompleted) {
     }
 
-    @GetMapping("/me/check-username")
+    /**
+     * Payload for the mandatory onboarding endpoint
+     * {@code POST /api/v1/users/me/profile/complete}. Every field is optional
+     * on the wire; the backend enforces role-specific required fields.
+     */
+    public record ProfileCompletionRequest(
+            String fullName,
+            String profileImageUrl,
+            String headline,
+            String aboutMe,
+            String skills,
+            Integer yearsOfExperience,
+            String languages,
+            String education,
+            String linkedinUrl,
+            String portfolioUrl,
+            java.math.BigDecimal hourlyRate,
+            String timezone,
+            String availability,
+            String country,
+            String state,
+            String city,
+            String phoneNumber,
+            String learningGoals,
+            String currentSkillLevel) {
+    }
+
+    /**
+     * Real-time username availability check (public). The spec endpoint is
+     * {@code GET /api/v1/users/check-username}; the legacy
+     * {@code /me/check-username} path is kept as an alias for existing clients.
+     * Availability is case-insensitive and only checks "not reserved + not
+     * taken" — format rules are enforced on submit by the backend.
+     */
+    @GetMapping({ "/me/check-username", "/check-username" })
     public ApiResponse<UsernameAvailabilityResponse> checkUsername(@RequestParam String username) {
-        String normalized = username.toLowerCase().trim();
-        boolean available = !RESERVED_USERNAMES.contains(normalized)
-                && !userRepository.existsByUsername(normalized);
-        String suggestion = available ? null : generateSuggestion(normalized);
+        String lower = UsernameRules.normalizeLower(username);
+        boolean available = lower != null
+                && !UsernameRules.isReserved(lower)
+                && !userRepository.existsByUsernameLower(lower);
+        String suggestion = available ? null : generateSuggestion(lower);
         return new ApiResponse<>("Username check", new UsernameAvailabilityResponse(available, suggestion));
     }
 
-    private static final Set<String> RESERVED_USERNAMES = Set.of(
-            "admin", "support", "login", "register", "signup", "mentor", "learner",
-            "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
-            "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
-
-    private static final java.util.regex.Pattern USERNAME_PATTERN =
-            java.util.regex.Pattern.compile("^[a-z0-9_]{3,20}$");
-
     private String generateSuggestion(String base) {
+        String safeBase = base == null ? "user" : base;
         for (int i = 1; i < 100; i++) {
-            String suggestion = base + i;
-            if (!RESERVED_USERNAMES.contains(suggestion)
-                    && !userRepository.existsByUsername(suggestion)) {
+            String suggestion = safeBase + i;
+            if (!UsernameRules.isReserved(suggestion)
+                    && !userRepository.existsByUsernameLower(suggestion.toLowerCase())) {
                 return suggestion;
             }
         }
-        return base + System.currentTimeMillis() % 10000;
+        return safeBase + System.currentTimeMillis() % 10000;
     }
 
 /**
@@ -410,19 +676,28 @@ public class UserController {
     public ApiResponse<UserProfileResponse> updateUsername(
             @AuthenticationPrincipal User user,
             @RequestBody @Valid UsernameUpdateRequest req) {
-        String normalized = req.username().toLowerCase(java.util.Locale.ROOT).trim();
-        if (!USERNAME_PATTERN.matcher(normalized).matches()) {
-            throw new IllegalArgumentException(
-                    "Username must be 3\u201320 characters: lowercase letters, numbers, and underscores only.");
-        }
-        if (RESERVED_USERNAMES.contains(normalized)) {
+        String displayUsername = req.username().trim();
+        String normalized = displayUsername.toLowerCase(java.util.Locale.ROOT);
+        UsernameRules.validateFormat(displayUsername);
+        if (UsernameRules.isReserved(displayUsername)) {
             throw new IllegalArgumentException("This username is reserved.");
         }
-        if (userRepository.existsByUsername(normalized)) {
-            throw new IllegalArgumentException("Username already exists. Please choose another one.");
+        // Case-insensitive uniqueness check, excluding the caller's own row
+        // (changing "Nakul" to "nakul" — or keeping the same handle — is fine).
+        userRepository.findByUsernameLower(normalized)
+                .filter(owner -> !owner.getId().equals(user.getId()))
+                .ifPresent(owner -> {
+                    throw new ApiClientException(HttpStatus.CONFLICT, "USERNAME_TAKEN",
+                            "This username is already taken. Please choose another username.", false);
+                });
+        user.setUsername(displayUsername);
+        user.setUsernameLower(normalized);
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "USERNAME_TAKEN",
+                    "This username is already taken. Please choose another username.", false);
         }
-        user.setUsername(normalized);
-        userRepository.save(user);
         return new ApiResponse<>("Username updated", UserProfileResponse.from(user));
     }
 
@@ -431,7 +706,7 @@ public class UserController {
  */
     public record UsernameUpdateRequest(
             @jakarta.validation.constraints.NotBlank
-            @Size(min = 3, max = 20) String username) { }
+            @Size(min = 4, max = 30) String username) { }
 
 /**
  * Immutable data carrier for user profile response.
@@ -455,7 +730,22 @@ public class UserController {
             Boolean mentorVerified,
             String verifiedSkills,
             Integer profileCompletionPercent,
-            List<String> profileCompletionMissing) {
+            List<String> profileCompletionMissing,
+            Boolean profileCompleted,
+            String headline,
+            Integer yearsOfExperience,
+            String languages,
+            String education,
+            String portfolioUrl,
+            java.math.BigDecimal hourlyRate,
+            String timezone,
+            String availability,
+            String country,
+            String state,
+            String city,
+            String phoneNumber,
+            String learningGoals,
+            String currentSkillLevel) {
         static UserProfileResponse from(User user) {
             ProfileCompletion completion = computeProfileCompletion(user);
             return new UserProfileResponse(
@@ -477,7 +767,22 @@ public class UserController {
                     user.isMentorVerified(),
                     user.getVerifiedSkills(),
                     completion.percent(),
-                    completion.missing());
+                    completion.missing(),
+                    user.isProfileCompleted(),
+                    user.getHeadline(),
+                    user.getYearsOfExperience(),
+                    user.getLanguages(),
+                    user.getEducation(),
+                    user.getPortfolioUrl(),
+                    user.getHourlyRate(),
+                    user.getTimezone(),
+                    user.getAvailability(),
+                    user.getCountry(),
+                    user.getState(),
+                    user.getCity(),
+                    user.getPhoneNumber(),
+                    user.getLearningGoals(),
+                    user.getCurrentSkillLevel());
         }
     }
 

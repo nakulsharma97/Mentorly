@@ -1,5 +1,6 @@
 package com.skillswap.availability;
 
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -70,6 +71,9 @@ class AvailabilityControllerIntegrationTest {
 
     @MockitoBean
     private ClientRegistrationRepository clientRegistrationRepository;
+
+    @MockitoBean
+    private ProfileCompletionGuard profileCompletionGuard;
 
     @Test
     void createSlotReturnsCreatedSlotWhenRequestIsValid() throws Exception {

@@ -2,6 +2,7 @@ package com.skillswap.payment;
 
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
@@ -56,6 +57,9 @@ class PaymentControllerIntegrationTest {
     private PaymentIdempotencyKeyRepository paymentIdempotencyKeyRepository;
     @MockitoBean
     private MeterRegistry meterRegistry;
+
+    @MockitoBean
+    private ProfileCompletionGuard profileCompletionGuard;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;

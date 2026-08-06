@@ -4,6 +4,7 @@ import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.user.User;
@@ -35,6 +36,7 @@ public class ReviewController {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping({ "/mentor", "/mentor/{mentorId}" })
     public ApiResponse<ReviewSummaryResponse> listMentorReviews(
@@ -158,6 +160,8 @@ public class ReviewController {
     public ApiResponse<ReviewItemResponse> createReview(
             @AuthenticationPrincipal User learner,
             @RequestBody CreateReviewRequest request) {
+        profileCompletionGuard.requireProfileCompleted(learner,
+                "Please complete your profile before writing reviews.");
         if (request.rating() == null || request.rating() < 1 || request.rating() > 5) {
             throw new IllegalArgumentException("Rating must be between 1 and 5");
         }
@@ -203,6 +207,8 @@ public class ReviewController {
     public ApiResponse<LearnerReview> submitLearnerReview(
             @AuthenticationPrincipal User mentor,
             @RequestBody CreateReviewRequest req) {
+        profileCompletionGuard.requireProfileCompleted(mentor,
+                "Please complete your profile before writing reviews.");
         Booking booking = bookingRepository.findById(req.bookingId())
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         User learner = userRepository.findById(req.mentorId())

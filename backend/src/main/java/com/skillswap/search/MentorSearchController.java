@@ -58,6 +58,9 @@ public class MentorSearchController {
                 OffsetDateTime onlineCutoff = OffsetDateTime.now().minusMinutes(5);
 
                 List<UserSearchResult> results = users.stream()
+                                // Mentors who have not completed onboarding are
+                                // undiscoverable until their profile is complete.
+                                .filter(u -> u.getRole() != UserRole.MENTOR || u.isProfileCompleted())
                                 .filter(u -> currentUser == null || !u.getId().equals(currentUser.getId()))
                                 .map(u -> new UserSearchResult(
                                                 u.getId(),
@@ -203,6 +206,8 @@ public class MentorSearchController {
                                                 offset)
                                 : userRepository.findByRole(UserRole.MENTOR).stream()
                                                 .filter(User::isEnabled)
+                                                // Incomplete mentors never surface in Explore / Search.
+                                                .filter(User::isProfileCompleted)
                                                 .sorted(Comparator.comparing(User::getLastActiveAt,
                                                                 Comparator.nullsLast(Comparator.reverseOrder())))
                                                 .skip(offset)

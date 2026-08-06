@@ -2,6 +2,7 @@ package com.skillswap.booking;
 
 import com.skillswap.booking.dto.BookingResponse;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
@@ -25,6 +26,7 @@ import java.util.List;
 public class BookingApprovalController {
 
     private final BookingService bookingService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @PostMapping("/{bookingId}/approve")
     public ApiResponse<BookingResponse> approveBooking(
@@ -37,6 +39,8 @@ public class BookingApprovalController {
         if (currentUser.getRole() != UserRole.MENTOR && currentUser.getRole() != UserRole.ADMIN) {
             throw new UnauthorizedException("Only mentors and admins can approve bookings");
         }
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accepting bookings.");
 
         return new ApiResponse<>("Booking approved", bookingService.approveLearnerBooking(bookingId, currentUser));
     }
@@ -53,6 +57,8 @@ public class BookingApprovalController {
         if (currentUser.getRole() != UserRole.MENTOR && currentUser.getRole() != UserRole.ADMIN) {
             throw new UnauthorizedException("Only mentors and admins can reject bookings");
         }
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accepting bookings.");
 
         return new ApiResponse<>("Booking rejected",
                 bookingService.rejectLearnerBooking(bookingId, reason, currentUser));
@@ -70,6 +76,8 @@ public class BookingApprovalController {
         if (currentUser.getRole() != UserRole.MENTOR && currentUser.getRole() != UserRole.ADMIN) {
             throw new UnauthorizedException("Only mentors and admins can approve bookings");
         }
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accepting bookings.");
 
         return new ApiResponse<>("Bookings approved",
                 bookingService.bulkApproveBookings(sessionId, bookingIds, currentUser));
@@ -88,6 +96,8 @@ public class BookingApprovalController {
         if (currentUser.getRole() != UserRole.MENTOR && currentUser.getRole() != UserRole.ADMIN) {
             throw new UnauthorizedException("Only mentors and admins can reject bookings");
         }
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accepting bookings.");
 
         return new ApiResponse<>("Bookings rejected",
                 bookingService.bulkRejectBookings(sessionId, bookingIds, reason, currentUser));

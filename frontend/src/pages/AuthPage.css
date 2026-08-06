@@ -1343,16 +1343,63 @@
 }
 
 .landing-faq-answer.is-open {
-  max-height: 320px;
+  max-height: 480px;
   opacity: 1;
 }
 
+/* Answer text must ALWAYS be readable. Explicit color/typography instead of
+   the inherited `--lp-muted` token so the global
+   `[data-theme="dark"] p { color: var(--text) !important }` rule can never
+   turn it near-white on the light FAQ card. */
 .landing-faq-answer p {
   margin: 0;
-  padding: 0 20px 18px;
-  color: var(--lp-muted);
-  font-size: 0.9rem;
-  line-height: 1.7;
+  padding: 16px 24px 20px;
+  color: #475569;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.8;
+  letter-spacing: 0;
+  text-align: left;
+  opacity: 1;
+  visibility: visible;
+  display: block;
+  background: transparent;
+}
+
+/* ── FAQ Dark Mode ──
+   The dark palette remaps `--landing-*` tokens but not the `--lp-*` tokens
+   this section actually uses, so the FAQ card stays light. Give the card a
+   dark surface and readable light text in dark mode instead. */
+[data-theme="dark"] .landing-faq-item {
+  background: rgba(30, 41, 59, 0.92);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .landing-faq-item:hover,
+[data-theme="dark"] .landing-faq-item.is-open {
+  border-color: rgba(94, 234, 212, 0.25);
+}
+
+[data-theme="dark"] .landing-faq-question {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .landing-faq-question:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .landing-faq-question-icon {
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.12);
+}
+
+[data-theme="dark"] .landing-faq-item.is-open .landing-faq-question-icon {
+  background: rgba(94, 234, 212, 0.2);
+}
+
+/* `!important` required — this must beat the global dark `p` color override. */
+[data-theme="dark"] .landing-faq-answer p {
+  color: #cbd5e1 !important;
 }
 
 /* ── Mobile Hamburger ── */

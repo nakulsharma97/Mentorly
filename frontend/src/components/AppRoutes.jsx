@@ -21,6 +21,7 @@ const AnalyticsPage = lazy(() => import("../pages/AnalyticsPage"));
 const ResourcesPage = lazy(() => import("../pages/ResourcesPage"));
 const TeachingPage = lazy(() => import("../pages/TeachingPage"));
 const ProfileSetup = lazy(() => import("../pages/ProfileSetup"));
+const CompleteProfilePage = lazy(() => import("../pages/CompleteProfilePage"));
 const BecomeMentorPage = lazy(() => import("../pages/BecomeMentorPage"));
 const MentorProfilePage = lazy(() => import("../pages/MentorProfilePage"));
 const ProfessionalProfilePage = lazy(() => import("../pages/ProfessionalProfilePage"));
@@ -78,6 +79,7 @@ export default function AppRoutes({
   isLoggedIn,
   profile,
   profileChecked,
+  needsProfileSetup,
   handleLogout,
   handleSelectAuthMode,
   onLoggedIn,
@@ -153,6 +155,40 @@ export default function AppRoutes({
 
   const rc = (key, children) => routeContent(key, children, routeFallback);
 
+  // ── Mandatory onboarding ──
+  // While the profile is incomplete the user may ONLY see /complete-profile.
+  // Every other URL — including manually typed dashboard paths — bounces back
+  // here, so there is no bypass. The sidebar / workspace layouts never render.
+  if (needsProfileSetup) {
+    return (
+      <Routes>
+        <Route
+          path="/complete-profile"
+          element={rc(
+            "complete-profile",
+            <CompleteProfilePage
+              profile={profile}
+              notify={notify}
+              onLogout={handleLogout}
+              onCompleted={(updated) => {
+                setProfile(updated);
+                setProfileChecked(true);
+                notify({
+                  type: "success",
+                  title: "Profile completed",
+                  message: "You're all set! Enjoy SkillSwap.",
+                });
+                navigate(roleRoot(updated?.role || profile?.role), { replace: true });
+              }}
+            />,
+            routeFallback,
+          )}
+        />
+        <Route path="*" element={<Navigate to="/complete-profile" replace />} />
+      </Routes>
+    );
+  }
+
   return (
     <Routes>
       <Route
@@ -222,7 +258,7 @@ export default function AppRoutes({
         <Route path="path" element={rc("learner-path", <LearnerPathPage />)} />
         <Route path="achievements" element={rc("learner-achievements", <LearnerAchievementsPage />)} />            <Route path="notifications" element={rc("learner-notifications", <LearnerNotificationsPage notify={notify} />)} />
         <Route path="profile" element={rc("learner-profile", <LearnerProfilePage profile={profile} />)} />
-        <Route path="settings" element={rc("learner-settings", <LearnerSettingsPage profile={profile} />)} />
+        <Route path="settings" element={rc("learner-settings", <LearnerSettingsPage profile={profile} notify={notify} onProfileUpdated={setProfile} />)} />
         <Route path="resources" element={rc("learner-resources", <ResourcesPage />)} />
         <Route path="wallet" element={rc("learner-wallet", <WalletPage profile={profile} notify={notify} />)} />
         <Route path="*" element={<Navigate to="/learner/dashboard" replace />} />
@@ -255,9 +291,12 @@ export default function AppRoutes({
         <Route path="messages" element={rc("mentor-messages", <MessagesPage profile={profile} notify={notify} onLogout={handleLogout} />)} />
         <Route path="wallet" element={rc("mentor-wallet", <WalletPage profile={profile} notify={notify} />)} />
         <Route path="professional-profile" element={rc("mentor-professional-profile", <ProfessionalProfilePage profile={profile} notify={notify} />)} />            <Route path="notifications" element={rc("mentor-notifications", <MentorNotificationsPage notify={notify} />)} />
-        <Route path="settings" element={rc("mentor-settings", <MentorSettingsPage profile={profile} notify={notify} />)} />
+        <Route path="settings" element={rc("mentor-settings", <MentorSettingsPage profile={profile} notify={notify} onProfileUpdated={setProfile} />)} />
         <Route path="*" element={<Navigate to="/mentor/dashboard" replace />} />
       </Route>
+
+      {/* Completed profile — the onboarding page is never shown again. */}
+      <Route path="/complete-profile" element={<Navigate to={roleRoot(profile?.role)} replace />} />
 
       {/* ── Role-based redirect routes ── */}
       <Route path="/role-guide" element={rc("role-guide", <RoleGuide />)} />

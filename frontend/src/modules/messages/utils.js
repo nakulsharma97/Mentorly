@@ -3,6 +3,7 @@
  */
 
 import { createElement } from "react";
+import { normalizeSkills as sharedNormalizeSkills } from "../../utils/skills";
 
 /**
  * Splits `text` into plain segments and highlighted <mark> matches for the
@@ -126,14 +127,15 @@ export function roleLabel(role) {
   return role ? String(role) : "Member";
 }
 
+/**
+ * Normalize any raw skills value into a clean, deduplicated array of readable
+ * skill names. Delegates to the canonical shared helper (utils/skills), which
+ * parses JSON array strings (e.g. `[{"name":"Java","level":"Intermediate"}]`),
+ * object arrays, nested arrays, and comma/;/|/newline CSV alike — so raw
+ * backend values are NEVER rendered as-is.
+ */
 export function normalizeSkills(value) {
-  if (Array.isArray(value)) {
-    return value.map((s) => (typeof s === "string" ? s : s?.name || String(s))).filter(Boolean);
-  }
-  return String(value || "")
-    .split(/[,;|]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return sharedNormalizeSkills(value);
 }
 
 /** Parse reactions JSON ("{\"👍\":[1,5]}") into a plain object. */

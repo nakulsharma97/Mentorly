@@ -73,7 +73,7 @@ class AuthControllerIntegrationTest {
   void signupReturnsSuccessResponse() throws Exception {
     when(authService.signup(any(), any())).thenReturn(
         new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
-            UserRole.LEARNER.name(), "testuser"));
+            UserRole.LEARNER.name(), "testuser", false));
 
     mockMvc.perform(post("/api/v1/auth/signup")
         .contentType(MediaType.APPLICATION_JSON)
@@ -99,7 +99,7 @@ class AuthControllerIntegrationTest {
     when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
     when(authService.login(any(), eq("203.0.113.9"))).thenReturn(
         new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
-            UserRole.LEARNER.name(), "testuser"));
+            UserRole.LEARNER.name(), "testuser", false));
 
     // The client sends a spoofed X-Forwarded-For header; the controller must
     // forward the resolver's trusted value, never the header itself.
@@ -121,7 +121,7 @@ class AuthControllerIntegrationTest {
   void refreshAcceptsRefreshTokenCookieOnly() throws Exception {
     when(authService.refreshToken("cookie-refresh-token")).thenReturn(
         new AuthDtos.AuthResponse("new-access", "new-refresh", "user@example.com",
-            UserRole.LEARNER.name(), "testuser"));
+            UserRole.LEARNER.name(), "testuser", false));
 
     mockMvc.perform(post("/api/v1/auth/refresh")
         .cookie(new jakarta.servlet.http.Cookie(
@@ -151,6 +151,50 @@ class AuthControllerIntegrationTest {
         .andExpect(status().isBadRequest());
 
     verify(authService, never()).refreshToken("body-refresh-token");
+  }
+
+  @Test
+  void loginAcceptsEmailOrUsernameField() throws Exception {
+    when(authService.login(any(), any())).thenReturn(
+        new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
+            UserRole.LEARNER.name(), "nakul123", false));
+
+    mockMvc.perform(post("/api/v1/auth/login")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("""
+            {
+              "emailOrUsername": "nakul123",
+              "password": "password123"
+            }
+            """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.username").value("nakul123"));
+
+    var captor = org.mockito.ArgumentCaptor.forClass(AuthDtos.LoginRequest.class);
+    verify(authService).login(captor.capture(), any());
+    org.junit.jupiter.api.Assertions.assertEquals("nakul123", captor.getValue().emailOrUsername());
+  }
+
+  @Test
+  void loginStillAcceptsLegacyEmailField() throws Exception {
+    when(authService.login(any(), any())).thenReturn(
+        new AuthDtos.AuthResponse("access", "refresh", "user@example.com",
+            UserRole.LEARNER.name(), "nakul123", false));
+
+    // Backward compatibility: the old `email` JSON key must keep working.
+    mockMvc.perform(post("/api/v1/auth/login")
+        .contentType(MediaType.APPLICATION_JSON)
+        .content("""
+            {
+              "email": "user@example.com",
+              "password": "password123"
+            }
+            """))
+        .andExpect(status().isOk());
+
+    var captor = org.mockito.ArgumentCaptor.forClass(AuthDtos.LoginRequest.class);
+    verify(authService).login(captor.capture(), any());
+    org.junit.jupiter.api.Assertions.assertEquals("user@example.com", captor.getValue().emailOrUsername());
   }
 
   @Test

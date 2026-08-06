@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
+import UsernameSettingsCard from "../components/UsernameSettingsCard";
 import "../modules/mentor/mentor-pages.css";
 
 const SETTINGS = [
@@ -19,7 +20,7 @@ function unwrap(payload) {
   return payload;
 }
 
-export default function MentorSettingsPage({ notify }) {
+export default function MentorSettingsPage({ profile, notify, onProfileUpdated }) {
   const [settings, setSettings] = useState({
     emailEnabled: true,
     bookingUpdates: true,
@@ -115,6 +116,15 @@ export default function MentorSettingsPage({ notify }) {
         title="Notification Preferences"
         sub="Control which notifications you receive and how they're delivered."
       />
+
+      {/* ===== Username (unique public handle) ===== */}
+      <div style={{ marginTop: 20 }}>
+        <UsernameSettingsCard
+          profile={profile}
+          notify={notify}
+          onProfileUpdated={onProfileUpdated}
+        />
+      </div>
 
       {/* ===== Settings Card ===== */}
       <div style={{ marginTop: 20 }}>

@@ -8,19 +8,7 @@ import client, {
 } from "../api/client";
 import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
 import { isPublicPath, roleRoot } from "../modules/common/routeUtils";
-
-const isProfileComplete = (profile) => {
-  if (!profile) return false;
-  if (typeof profile.profileCompletionPercent === "number") {
-    return profile.profileCompletionPercent >= 100;
-  }
-  return Boolean(
-    String(profile.skills || "").trim() &&
-    String(profile.aboutMe || "").trim() &&
-    String(profile.githubUrl || "").trim() &&
-    String(profile.linkedinUrl || "").trim(),
-  );
-};
+import { isProfileComplete, PROFILE_ONBOARDING_PATH } from "../modules/common/profileCompletion";
 
 export function useAuthProfile({ notify }) {
   const [profile, setProfile] = useState(null);
@@ -224,6 +212,8 @@ export function useAuthProfile({ notify }) {
   }, []);
 
   const isLoggedIn = Boolean(profile);
+  // Mandatory onboarding gate: mentors + learners must complete their profile
+  // before any core feature is reachable. Admins are always exempt.
   const needsProfileSetup =
     isLoggedIn &&
     profileChecked &&
@@ -306,6 +296,12 @@ export function useAuthProfile({ notify }) {
     if (isLoggedIn) {
       setAuthMode(null);
       setOauthError("");
+      // Profile not completed yet — onboarding takes priority over any
+      // previously requested destination.
+      if (needsProfileSetup) {
+        navigate(PROFILE_ONBOARDING_PATH, { replace: true });
+        return;
+      }
       const post = localStorage.getItem("auth_post_redirect");
       if (post) {
         localStorage.removeItem("auth_post_redirect");
@@ -319,7 +315,7 @@ export function useAuthProfile({ notify }) {
     setOauthError("OAuth login failed. Please try again.");
     setAuthMode("login");
     navigate("/login", { replace: true });
-  }, [isLoggedIn, location.search, navigate, pathname, profileChecked, profile?.role]);
+  }, [isLoggedIn, location.search, navigate, pathname, profileChecked, profile?.role, needsProfileSetup]);
 
   // Auth mode sync from URL
   useEffect(() => {
@@ -346,12 +342,27 @@ export function useAuthProfile({ notify }) {
       return;
     }
 
+    // Mandatory onboarding: while the profile is incomplete the ONLY page a
+    // mentor/learner may see is /complete-profile. Even a manually typed URL
+    // bounces straight back here.
+    if (needsProfileSetup) {
+      if (pathname !== PROFILE_ONBOARDING_PATH) {
+        navigate(PROFILE_ONBOARDING_PATH, { replace: true });
+      }
+      return;
+    }
+
+    // Profile complete — never show the onboarding page again.
+    if (pathname === PROFILE_ONBOARDING_PATH) {
+      navigate(roleRoot(profile?.role), { replace: true });
+      return;
+    }
+
     if (
-      !needsProfileSetup &&
-      (pathname === "/" ||
-        pathname === "/login" ||
-        pathname === "/signup" ||
-        pathname === "/admin/login")
+      pathname === "/" ||
+      pathname === "/login" ||
+      pathname === "/signup" ||
+      pathname === "/admin/login"
     ) {
       navigate(roleRoot(profile?.role), { replace: true });
     }

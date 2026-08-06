@@ -1,6 +1,8 @@
 package com.skillswap.auth;
 
+import com.skillswap.common.ApiClientException;
 import com.skillswap.common.AuditLogService;
+import com.skillswap.common.UsernameRules;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
@@ -9,8 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +28,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -35,8 +41,6 @@ import static com.skillswap.auth.AuthDtos.*;
 public class AuthService {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthService.class);
-
-    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-z0-9_]{3,20}$");
 
     /** Sliding window during which per-IP attempt counters are enforced. */
     private static final Duration ATTEMPT_WINDOW = Duration.ofMinutes(15);
@@ -70,11 +74,6 @@ public class AuthService {
 
     private static final int MAX_EMAIL_LENGTH = 254;
 
-    private static final Set<String> RESERVED_USERNAMES = Set.of(
-            "admin", "support", "login", "register", "signup", "mentor", "learner",
-            "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
-            "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
-
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     @Lazy
@@ -106,7 +105,8 @@ public class AuthService {
 
         if (userRepository.existsByEmail(normalizedEmail)) {
             incrementCounter("auth.signup.failed", "reason", "duplicate_email");
-            throw new IllegalArgumentException("Email already registered");
+            throw new ApiClientException(HttpStatus.CONFLICT, "EMAIL_TAKEN",
+                    "An account with this email already exists.", false);
         }
 
         if (req.role() == UserRole.ADMIN) {
@@ -116,22 +116,24 @@ public class AuthService {
         }
 
         // ── Username validation ──
-        String normalizedUsername = req.username().toLowerCase(Locale.ROOT).trim();
-        if (!USERNAME_PATTERN.matcher(normalizedUsername).matches()) {
-            throw new IllegalArgumentException(
-                    "Username must be 3\u201320 characters: lowercase letters, numbers, and underscores only.");
-        }
-        if (RESERVED_USERNAMES.contains(normalizedUsername)) {
+        // Display value is preserved exactly as typed (GitHub-style);
+        // uniqueness is enforced case-insensitively against username_lower.
+        String displayUsername = req.username().trim();
+        String normalizedUsername = displayUsername.toLowerCase(Locale.ROOT);
+        UsernameRules.validateFormat(displayUsername);
+        if (UsernameRules.isReserved(displayUsername)) {
             throw new IllegalArgumentException("This username is reserved. Please choose another one.");
         }
-        if (userRepository.existsByUsername(normalizedUsername)) {
+        if (userRepository.existsByUsernameLower(normalizedUsername)) {
             incrementCounter("auth.signup.failed", "reason", "duplicate_username");
-            throw new IllegalArgumentException("Username already exists. Please choose another one.");
+            throw new ApiClientException(HttpStatus.CONFLICT, "USERNAME_TAKEN",
+                    "This username is already taken. Please choose another username.", false);
         }
 
         User user = new User();
         user.setEmail(normalizedEmail);
-        user.setUsername(normalizedUsername);
+        user.setUsername(displayUsername);
+        user.setUsernameLower(normalizedUsername);
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setFullName(req.fullName());
         user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
@@ -143,7 +145,16 @@ public class AuthService {
                     .ifPresent(referrer -> user.setReferredByUserId(referrer.getId()));
         }
         user.setLastActiveAt(OffsetDateTime.now());
-        userRepository.save(user);
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            // Race-condition backstop: a concurrent signup claimed the same
+            // email or username between our check and this insert. The DB
+            // unique constraints are the final arbiter.
+            incrementCounter("auth.signup.failed", "reason", "duplicate_race");
+            throw new ApiClientException(HttpStatus.CONFLICT, "DUPLICATE_ACCOUNT",
+                    "An account with this email or username already exists.", false);
+        }
 
         String tokenId = UUID.randomUUID().toString();
         String token = jwtService.generateToken(user, tokenId);
@@ -151,17 +162,21 @@ public class AuthService {
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.signup.success");
         recordSignup(user);
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(),
+                user.getDisplayUsername(), user.isProfileCompleted());
     }
 
     @Transactional
     public AuthResponse login(LoginRequest req, String clientIp) {
-        String loginId = req.email().toLowerCase(Locale.ROOT).trim();
+        String loginId = req.emailOrUsername().trim();
 
-        // Detect if loginId is an email or username
+        // Detect if loginId is an email or username: a single "@" means the
+        // user typed an email address, otherwise it is treated as a username.
+        // Case is normalized for both — emails and usernames are
+        // case-insensitive identifiers.
         boolean isEmail = loginId.contains("@");
-        String normalizedEmail = isEmail ? loginId : null;
-        String normalizedUsername = isEmail ? null : loginId;
+        String normalizedEmail = isEmail ? loginId.toLowerCase(Locale.ROOT) : null;
+        String normalizedUsername = isEmail ? null : loginId.toLowerCase(Locale.ROOT);
 
         // Brute-force protection: per-flow counter (LOGIN) with a 15-minute
         // sliding window plus a persistent lockout (exponential backoff). The
@@ -201,22 +216,37 @@ public class AuthService {
             }
         }
 
-        // Resolve the user by email or username
+        // Resolve the user by email or username (case-insensitive).
         User user = isEmail
                 ? userRepository.findByEmail(normalizedEmail).orElse(null)
-                : userRepository.findByUsername(normalizedUsername).orElse(null);
+                : userRepository.findByUsernameLower(normalizedUsername).orElse(null);
 
         if (user == null) {
             if (clientIp != null && !clientIp.isBlank()) {
                 attemptRecorder.recordFailedLogin(clientIp, isEmail ? normalizedEmail : normalizedUsername);
             }
-            throw new IllegalArgumentException("Invalid credentials");
+            // Same 401 as a wrong password — keeps account existence
+            // enumeration as hard as possible while still being actionable.
+            throw new ApiClientException(HttpStatus.UNAUTHORIZED, "ACCOUNT_NOT_FOUND",
+                    "No account found.", false);
         }
 
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(user.getEmail(), req.password()));
-        } catch (Exception ex) {
+        } catch (DisabledException ex) {
+            if (clientIp != null && !clientIp.isBlank()) {
+                attemptRecorder.recordFailedLogin(clientIp, user.getEmail());
+            }
+            throw new ApiClientException(HttpStatus.UNAUTHORIZED, "ACCOUNT_DISABLED",
+                    "Your account has been disabled. Please contact support.", false);
+        } catch (BadCredentialsException ex) {
+            if (clientIp != null && !clientIp.isBlank()) {
+                attemptRecorder.recordFailedLogin(clientIp, user.getEmail());
+            }
+            throw new ApiClientException(HttpStatus.UNAUTHORIZED, "INVALID_PASSWORD",
+                    "Incorrect password.", false);
+        } catch (AuthenticationException ex) {
             if (clientIp != null && !clientIp.isBlank()) {
                 attemptRecorder.recordFailedLogin(clientIp, user.getEmail());
             }
@@ -232,7 +262,8 @@ public class AuthService {
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.login.success");
         recordAuthEvent("LOGIN", user);
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(),
+                user.getDisplayUsername(), user.isProfileCompleted());
     }
 
     @Transactional
@@ -329,7 +360,8 @@ public class AuthService {
         persistRefreshSession(user, refreshToken);
         incrementCounter("auth.oauth.success", "provider", provider.toLowerCase(Locale.ROOT));
         recordAuthEvent("LOGIN", user);
-        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(), user.getDisplayUsername());
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(),
+                user.getDisplayUsername(), user.isProfileCompleted());
     }
 
     @Transactional
@@ -389,7 +421,7 @@ public class AuthService {
         persistRefreshSession(user, rotatedRefreshToken);
         incrementCounter("auth.refresh.success");
         return new AuthResponse(newAccessToken, rotatedRefreshToken, user.getEmail(),
-                user.getRole().name(), user.getDisplayUsername());
+                user.getRole().name(), user.getDisplayUsername(), user.isProfileCompleted());
     }
 
     @Transactional
@@ -725,20 +757,20 @@ public class AuthService {
     private String generateUsernameFromEmail(String email) {
         String base = email.contains("@") ? email.substring(0, email.indexOf('@')) : "user";
         base = base.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
-        if (base.length() < 3) {
+        if (base.length() < UsernameRules.MIN_LENGTH) {
             base = base + "user";
         }
-        if (base.length() > 20) {
-            base = base.substring(0, 20);
+        if (base.length() > UsernameRules.MAX_LENGTH) {
+            base = base.substring(0, UsernameRules.MAX_LENGTH);
         }
-        // Ensure uniqueness
+        // Ensure uniqueness (case-insensitive)
         String candidate = base;
         int suffix = 1;
-        while (userRepository.existsByUsername(candidate)
-                || RESERVED_USERNAMES.contains(candidate)) {
+        while (userRepository.existsByUsernameLower(candidate)
+                || UsernameRules.isReserved(candidate)) {
             candidate = base + Math.min(suffix, 99);
-            if (candidate.length() > 20) {
-                candidate = candidate.substring(0, 20);
+            if (candidate.length() > UsernameRules.MAX_LENGTH) {
+                candidate = candidate.substring(0, UsernameRules.MAX_LENGTH);
             }
             suffix++;
         }

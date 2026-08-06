@@ -1,6 +1,7 @@
 package com.skillswap.watchlist;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,6 +25,7 @@ import java.util.List;
 public final class FavoriteController {
 
     private final FavoriteMentorService favoriteMentorService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     /** Returns all mentors favorited by the authenticated learner. */
     @GetMapping
@@ -47,6 +49,8 @@ public final class FavoriteController {
     public ApiResponse<SavedMentorDto> addFavorite(
             @AuthenticationPrincipal User learner,
             @PathVariable Long mentorId) {
+        profileCompletionGuard.requireProfileCompleted(learner,
+                "Please complete your profile before saving mentors.");
         return new ApiResponse<>("Mentor added to favorites",
                 favoriteMentorService.addFavorite(learner, mentorId));
     }

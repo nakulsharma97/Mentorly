@@ -196,7 +196,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     }
   ];
 
-  const FAQ_MAX_HEIGHT = 320;
+  // Generous headroom so the longest answer never clips on narrow viewports.
+  const FAQ_MAX_HEIGHT = 480;
 
 
   const navLinkClass = (sectionId) =>

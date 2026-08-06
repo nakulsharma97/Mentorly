@@ -74,12 +74,6 @@ const StarRating = ({ rating, size = 14, max = 5 }) => (
 
 const Icon = ({ name, className = "" }) => <span className={`material-symbols-outlined ${className}`}>{name}</span>;
 
-const VerifiedBadge = ({ text = "Verified" }) => (
-  <span className="mpr-badge-verified">
-    <Icon name="verified" /> {text}
-  </span>
-);
-
 /* ── Loading Skeleton ────────────────────────────────── */
 
 function LoadingSkeleton() {

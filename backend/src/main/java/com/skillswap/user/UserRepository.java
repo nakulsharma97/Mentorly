@@ -29,6 +29,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
       boolean existsByUsername(String username);
 
+      /**
+       * Finds a user by the normalized (lowercased) username. This is the
+       * canonical case-insensitive lookup used by login and availability checks.
+       */
+      Optional<User> findByUsernameLower(String usernameLower);
+
+      boolean existsByUsernameLower(String usernameLower);
+
       Optional<User> findByReferralCodeIgnoreCase(String referralCode);
 
       Optional<User> findByPasswordResetToken(String passwordResetToken);
@@ -158,9 +166,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
                   SELECT DISTINCT u.* FROM users u
                   WHERE u.enabled = true
                     AND (
-                          LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                          LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                          OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
                     )
                   ORDER BY
                     CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,
@@ -180,20 +188,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
                   WHERE u.enabled = true
                         AND (
                                           :keyword IS NULL OR :keyword = ''
-                                          OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(COALESCE(u.skills, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(COALESCE(u.about_me, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(COALESCE(u.company, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(COALESCE(u.headline, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
-                                          OR LOWER(COALESCE(u.role, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                                          OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(COALESCE(u.skills, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(COALESCE(u.about_me, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(COALESCE(u.company, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(COALESCE(u.headline, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                                          OR LOWER(COALESCE(u.role, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
                                           OR CAST(COALESCE(u.years_of_experience, 0) AS CHAR) LIKE CONCAT('%', :keyword, '%')
                                           OR EXISTS (
                                                 SELECT 1
                                                 FROM learning_roadmaps lr
                                                 JOIN bookings b ON b.id = lr.booking_id
-                                                WHERE LOWER(COALESCE(lr.title, '')) LIKE LOWER(CONCAT('%', :keyword, '%')) ESCAPE '\\'
+                                                WHERE LOWER(COALESCE(lr.title, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
                                                   AND (
                                                         b.learner_id = u.id
                                                         OR EXISTS (
@@ -241,16 +249,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
                   SELECT DISTINCT u.* FROM users u
                   WHERE u.role = 'MENTOR'
                     AND u.enabled = true
+                    AND u.profile_completed = true
                     AND (
                           :keyword IS NULL OR :keyword = ''
                           OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
                                AGAINST (:keyword IN BOOLEAN MODE)
-                          OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.company) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
-                          OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :likeKeyword, '%')) ESCAPE '\\'
+                          OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.company) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
                     )
                     AND (
                           :minPrice IS NULL

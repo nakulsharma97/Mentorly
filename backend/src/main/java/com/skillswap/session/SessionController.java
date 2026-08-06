@@ -1,6 +1,7 @@
 package com.skillswap.session;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.common.exception.BadRequestException;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
@@ -37,6 +38,7 @@ public class SessionController {
     private final SavedMentorRepository savedMentorRepository;
     private final SkillWatchlistRepository skillWatchlistRepository;
     private final NotificationService notificationService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping
     public ApiResponse<List<SkillSession>> list(@AuthenticationPrincipal User currentUser) {
@@ -75,6 +77,9 @@ public class SessionController {
     @PostMapping
     public ApiResponse<SkillSession> create(@AuthenticationPrincipal User mentor,
             @RequestBody CreateSessionRequest req) {
+        // Mandatory onboarding gate — mentors must complete their profile first.
+        profileCompletionGuard.requireProfileCompleted(mentor,
+                "Please complete your profile before creating sessions.");
         validateCreateRequest(req);
         SkillSession session = new SkillSession();
         session.setMentor(mentor);

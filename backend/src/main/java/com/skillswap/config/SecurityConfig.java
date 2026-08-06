@@ -137,6 +137,10 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/users/mentors",
                                                                 "/api/v1/users/mentors/**")
                                                 .permitAll()
+                                                // Real-time username availability must work before login/signup.
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/users/check-username",
+                                                                "/api/v1/users/me/check-username")
+                                                .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/reviews/mentor/**")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/mentor/certifications/**")

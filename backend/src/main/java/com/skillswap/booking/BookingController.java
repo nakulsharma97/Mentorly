@@ -2,6 +2,7 @@ package com.skillswap.booking;
 
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.ApiClientException;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
@@ -44,6 +45,7 @@ public class BookingController {
         private final EmailNotificationService emailService;
         private final BookingLifecycleService bookingLifecycleService;
         private final MeterRegistry meterRegistry;
+        private final ProfileCompletionGuard profileCompletionGuard;
 
         @GetMapping
         public ApiResponse<List<Booking>> list(@AuthenticationPrincipal User currentUser) {
@@ -66,6 +68,9 @@ public class BookingController {
                         @AuthenticationPrincipal User learner,
                         @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
                         @Valid @RequestBody BookingRequest req) {
+                // Mandatory onboarding gate — learners must complete their profile first.
+                profileCompletionGuard.requireProfileCompleted(learner,
+                                "Please complete your profile before booking sessions.");
                 incrementCounter("booking.create.request");
 
                 try {
@@ -99,6 +104,8 @@ public class BookingController {
         public ApiResponse<Booking> confirmBooking(
                         @AuthenticationPrincipal User currentUser,
                         @PathVariable @NotNull @Min(1) Long id) {
+                profileCompletionGuard.requireProfileCompleted(currentUser,
+                                "Please complete your profile before managing bookings.");
                 Booking saved = bookingLifecycleService.confirmBooking(id, currentUser);
                 return new ApiResponse<>("Booking confirmed", saved);
         }
@@ -107,6 +114,8 @@ public class BookingController {
         public ApiResponse<Booking> startBooking(
                         @AuthenticationPrincipal User currentUser,
                         @PathVariable @NotNull @Min(1) Long id) {
+                profileCompletionGuard.requireProfileCompleted(currentUser,
+                                "Please complete your profile before managing bookings.");
                 Booking saved = bookingLifecycleService.startBooking(id, currentUser);
                 return new ApiResponse<>("Booking started", saved);
         }
@@ -115,6 +124,8 @@ public class BookingController {
         public ApiResponse<Booking> completeBooking(
             @AuthenticationPrincipal User currentUser,
             @PathVariable @NotNull @Min(1) Long id) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                        "Please complete your profile before managing bookings.");
         Booking saved = bookingLifecycleService.completeBooking(id, currentUser);
         bookingLifecycleService.grantReferralRewardIfNeeded(saved);
         // Payout parity with the COMPLETED status-update path: escrowed funds
@@ -132,6 +143,8 @@ public class BookingController {
         public ApiResponse<Booking> cancelBooking(
                         @AuthenticationPrincipal User currentUser,
                         @PathVariable @NotNull @Min(1) Long id) {
+                profileCompletionGuard.requireProfileCompleted(currentUser,
+                                "Please complete your profile before managing bookings.");
                 Booking saved = bookingLifecycleService.cancelBooking(id, currentUser);
                 return new ApiResponse<>("Booking cancelled", saved);
         }
@@ -141,6 +154,8 @@ public class BookingController {
                         @AuthenticationPrincipal User currentUser,
                         @PathVariable @NotNull @Min(1) Long id,
                         @Valid @RequestBody StatusUpdateRequest req) {
+                profileCompletionGuard.requireProfileCompleted(currentUser,
+                                "Please complete your profile before managing bookings.");
                 Booking saved = bookingLifecycleService.handleStatusUpdate(id, currentUser, req.status(), emailService);
                 return new ApiResponse<>("Status updated", saved);
         }

@@ -9,11 +9,15 @@ const BUTTONS = {
   open: { label: "Open Chat", icon: "chat", disabled: false },
 };
 
+const MAX_SKILLS = 4;
+
 /**
- * Learner card for search results and suggestions. Fixed-height (130px) with
- * avatar, name + role badge, experience, skills and online status on clean
- * rows, plus a stateful Send Request / Open Chat button. Null experience and
- * missing skills render friendly placeholder text — never raw values.
+ * Learner/user card for search results and suggestions. Premium card with a
+ * 56px avatar + online dot, name + username + role badge, skill pills (max 4,
+ * "+N more" overflow), experience, rating, short bio and a stateful
+ * Send Request / Open Chat button. Skills are ALWAYS parsed into readable
+ * names — never raw JSON. Null experience and missing skills render friendly
+ * placeholders.
  */
 export default function UserCard({
   user,
@@ -21,7 +25,9 @@ export default function UserCard({
   state = "idle",
   searchTerm = "",
 }) {
-  const skills = normalizeSkills(user.skills).slice(0, 4);
+  const allSkills = normalizeSkills(user.skills);
+  const skills = allSkills.slice(0, MAX_SKILLS);
+  const moreCount = Math.max(0, allSkills.length - MAX_SKILLS);
   const q = String(searchTerm || "").trim();
   const role = String(user.role || "LEARNER").toLowerCase();
 
@@ -31,8 +37,8 @@ export default function UserCard({
   const hasExperience =
     user.experienceText ||
     (user.experience != null &&
-      String(user.experience).trim() !== "" &&
-      Number.isFinite(exp)
+    String(user.experience).trim() !== "" &&
+    Number.isFinite(exp)
       ? `${user.experience}+ yrs`
       : "");
   const experience = hasExperience || "Experience not added";
@@ -43,12 +49,14 @@ export default function UserCard({
 
   const btn = BUTTONS[state] || BUTTONS.idle;
 
+  const username = user.username ? `@${user.username}` : "";
+
   return (
     <article className="ms-user" aria-label={`User ${user.name}`}>
       <Avatar
         name={user.name}
         imageUrl={user.profileImageUrl}
-        size={48}
+        size={56}
         online={Boolean(user.online)}
       />
 
@@ -62,17 +70,17 @@ export default function UserCard({
               </span>
             ) : null}
           </strong>
-          <span
-            className={`ms-user__role ms-user__role--${role}`}
-          >
-            {roleLabel(user.role)}
-          </span>
         </div>
 
+        {username && <p className="ms-user__username">{username}</p>}
+
+        {/* Role badge sits on its own line below the username — never overlaps. */}
+        <span className={`ms-user__role ms-user__role--${role}`}>
+          {roleLabel(user.role)}
+        </span>
+
         <p className="ms-user__exp">
-          {q && hasExperience
-            ? highlightMatch(experience, q)
-            : experience}
+          {q && hasExperience ? highlightMatch(experience, q) : experience}
         </p>
 
         {skills.length ? (
@@ -82,15 +90,34 @@ export default function UserCard({
                 {q ? highlightMatch(skill, q) : skill}
               </span>
             ))}
+            {moreCount > 0 && (
+              <span className="ms-user__skill ms-user__skill--more">
+                +{moreCount} more
+              </span>
+            )}
           </div>
         ) : (
           <p className="ms-user__noskills">No skills added yet</p>
         )}
 
-        <p className={`ms-user__status${user.online ? " is-online" : ""}`}>
-          <span className="ms-user__status-dot" aria-hidden="true" />
-          {statusText}
-        </p>
+        <div className="ms-user__meta">
+          {typeof user.rating === "number" && user.rating > 0 ? (
+            <span className="ms-user__rating">
+              <span className="material-symbols-outlined">star</span>
+              {user.rating.toFixed(1)}
+            </span>
+          ) : null}
+          <p className={`ms-user__status${user.online ? " is-online" : ""}`}>
+            <span className="ms-user__status-dot" aria-hidden="true" />
+            {statusText}
+          </p>
+        </div>
+
+        {user.headline ? (
+          <p className="ms-user__bio">
+            {q ? highlightMatch(user.headline, q) : user.headline}
+          </p>
+        ) : null}
       </div>
 
       <button

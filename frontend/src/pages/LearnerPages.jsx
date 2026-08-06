@@ -7,6 +7,7 @@ import SectionCard, {
 } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import HeroSection from "../components/HeroSection";
+import UsernameSettingsCard from "../components/UsernameSettingsCard";
 import { normalizeSkills } from "../utils/skills";
 import "./LearnerPages.css";
 
@@ -2382,7 +2383,7 @@ export function LearnerProfilePage() {
   );
 }
 
-export function LearnerSettingsPage() {
+export function LearnerSettingsPage({ profile, notify, onProfileUpdated }) {
   useDocumentTitle("Settings");
   const [refreshKey, setRefreshKey] = useState(0);
   const { loading, data, error } = useNotificationsData(refreshKey);
@@ -2466,6 +2467,15 @@ export function LearnerSettingsPage() {
           </div>
         }
       />
+
+      {/* ===== Username (unique public handle) ===== */}
+      <div style={{ marginTop: 20 }}>
+        <UsernameSettingsCard
+          profile={profile}
+          notify={notify}
+          onProfileUpdated={onProfileUpdated}
+        />
+      </div>
 
       {/* ===== Settings Card ===== */}
       <div style={{ marginTop: 20 }}>

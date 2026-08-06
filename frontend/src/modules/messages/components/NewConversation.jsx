@@ -2,23 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import client from "../../../api/client";
 import { motion, AnimatePresence } from "framer-motion";
 import LearnerCard from "./UserCard";
-import { normalizeSkills, unwrap } from "../utils";
-
-const CATEGORIES = [
-  "All",
-  "Programming",
-  "Backend",
-  "Frontend",
-  "AI",
-  "Cloud",
-  "Data Science",
-  "Cyber Security",
-  "UI/UX",
-  "DevOps",
-];
+import { unwrap } from "../utils";
 
 const SEARCH_PLACEHOLDER =
-  "Search by name, username, email, skill or technology…";
+  "Search learners by name, username or email...";
 
 const FIRST_MESSAGE =
   "Hi! I would like to connect and discuss our learning goals.";
@@ -35,7 +22,6 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [category, setCategory] = useState("All");
   const [workingUserId, setWorkingUserId] = useState(null);
   // Per-user request outcome: { [userId]: "sent" | "already-sent" }
   const [requestStates, setRequestStates] = useState({});
@@ -96,16 +82,7 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
     return () => clearTimeout(timer);
   }, [query, profile?.id]);
 
-  const visible = useMemo(() => {
-    if (category === "All") return results;
-    const topic = category.toLowerCase().replace("/", " ");
-    return results.filter((u) =>
-      [u.name, u.username, u.email, normalizeSkills(u.skills).join(" ")]
-        .join(" ")
-        .toLowerCase()
-        .includes(topic),
-    );
-  }, [category, results]);
+  // Search results are shown directly — no category filters.
 
   const markRequestState = (userId, state) =>
     setRequestStates((prev) => ({ ...prev, [userId]: state }));
@@ -206,27 +183,27 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
   };
 
   const suggestedLearners = useMemo(
-    () => visible.filter((u) => u.role === "LEARNER").slice(0, 6),
-    [visible],
+    () => results.filter((u) => u.role === "LEARNER").slice(0, 6),
+    [results],
   );
 
   const suggestedMentors = useMemo(
-    () => visible.filter((u) => u.role === "MENTOR").slice(0, 6),
-    [visible],
+    () => results.filter((u) => u.role === "MENTOR").slice(0, 6),
+    [results],
   );
 
   const topRated = useMemo(
     () =>
-      [...visible]
+      [...results]
         .filter((u) => typeof u.rating === "number")
         .sort((a, b) => b.rating - a.rating)
         .slice(0, 6),
-    [visible],
+    [results],
   );
 
   const searching = Boolean(query.trim());
   const showSuggested = !searching;
-  const showEmpty = searching && !loading && visible.length === 0;
+  const showEmpty = searching && !loading && results.length === 0;
 
   const renderCard = (user) => (
     <LearnerCard
@@ -293,19 +270,6 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
             <span className="material-symbols-outlined">close</span>
           </button>
         ) : null}
-      </div>
-
-      <div className="ms-new__cats" aria-label="Categories">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            className={`ms-new__cat${category === cat ? " is-active" : ""}`}
-            onClick={() => setCategory(cat)}
-          >
-            {cat}
-          </button>
-        ))}
       </div>
 
       <div className="ms-new__results">
@@ -419,12 +383,12 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
               ) : null}
               <div className="ms-new__results-head">
                 <h3>
-                  {visible.length} match{visible.length === 1 ? "" : "es"} for{" "}
+                  {results.length} match{results.length === 1 ? "" : "es"} for{" "}
                   “{query.trim()}”
                 </h3>
               </div>
               <div className="ms-new__results-list">
-                {visible.map(renderCard)}
+                {results.map(renderCard)}
               </div>
             </motion.div>
           )}

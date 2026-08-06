@@ -3,6 +3,7 @@ package com.skillswap.common;
 import io.sentry.Sentry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -60,6 +61,21 @@ public class GlobalExceptionHandler {
     public ApiResponse<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         LOG.warn("Invalid request: {}", ex.getMessage(), ex);
         return new ApiResponse<>("Request failed", baseError("BAD_REQUEST", ex.getMessage(), false));
+    }
+
+    /**
+     * Database unique-constraint violations (e.g. two simultaneous signups
+     * claiming the same username/email, or an admin tool creating a duplicate
+     * handle). These are client errors — 409 Conflict — never 500s. The
+     * message stays generic because the same exception can be raised by
+     * several columns (email, username, referral code, …).
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public ApiResponse<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        LOG.warn("Constraint violation: {}", ex.getMessage());
+        return new ApiResponse<>("Request failed",
+                baseError("CONFLICT", "That value is already in use. Please choose a different one.", false));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

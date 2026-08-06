@@ -861,17 +861,97 @@ describe("useAuthProfile – route protection", () => {
     });
   });
 
-  it("logged in + already at learner dashboard → no redirect", async () => {
+  it("logged in with a complete profile + already at learner dashboard → no redirect", async () => {
     getActiveAuthToken.mockReturnValue("mock-token");
     extractJwtUserId.mockReturnValue(42);
     client.get.mockResolvedValue({
-      data: { data: { id: 42, fullName: "Test User", role: "LEARNER" } },
+      data: {
+        data: {
+          id: 42,
+          fullName: "Test User",
+          role: "LEARNER",
+          skills: "React",
+          aboutMe: "Developer",
+          githubUrl: "https://github.com/test",
+          linkedinUrl: "https://linkedin.com/in/test",
+        },
+      },
     });
 
     renderAt("/learner/dashboard");
     await tick(100);
 
     // Already at the correct place, no redirect
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  // ── mandatory onboarding gating ──────────────────────────
+
+  it("logged in with incomplete profile + protected path → redirects to /complete-profile", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    // No skills/aboutMe and no profileCompleted → onboarding required.
+    client.get.mockResolvedValue({
+      data: { data: { id: 42, fullName: "New User", role: "LEARNER" } },
+    });
+
+    renderAt("/learner/dashboard");
+    await tick(100);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+      replace: true,
+    });
+  });
+
+  it("logged in with incomplete profile + /complete-profile → stays (no redirect loop)", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    client.get.mockResolvedValue({
+      data: { data: { id: 42, fullName: "New User", role: "MENTOR" } },
+    });
+
+    renderAt("/complete-profile");
+    await tick(100);
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("logged in with a complete profile + /complete-profile → redirects to role dashboard", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    client.get.mockResolvedValue({
+      data: {
+        data: {
+          id: 42,
+          fullName: "Test User",
+          role: "MENTOR",
+          skills: "Java",
+          aboutMe: "Mentor",
+          githubUrl: "https://github.com/m",
+          linkedinUrl: "https://linkedin.com/in/m",
+        },
+      },
+    });
+
+    renderAt("/complete-profile");
+    await tick(100);
+
+    // Onboarding must never be shown again once complete.
+    expect(mockNavigate).toHaveBeenCalledWith("/mentor/dashboard", {
+      replace: true,
+    });
+  });
+
+  it("logged in as ADMIN with incomplete-looking profile → no onboarding", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    client.get.mockResolvedValue({
+      data: { data: { id: 42, fullName: "Admin", role: "ADMIN" } },
+    });
+
+    renderAt("/admin/dashboard");
+    await tick(100);
+
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 });

@@ -51,6 +51,9 @@ vi.mock("./pages/TeachingPage", () => ({
 vi.mock("./pages/ProfileSetup", () => ({
   default: () => <div>Profile Setup</div>,
 }));
+vi.mock("./pages/CompleteProfilePage", () => ({
+  default: () => <div>Complete Profile Page</div>,
+}));
 vi.mock("./pages/MentorProfilePage", () => ({
   default: () => <div>Mentor Profile</div>,
 }));
@@ -120,6 +123,28 @@ describe("App role routing", () => {
 
   const mockNoProfile = () => {
     client.get.mockResolvedValue({ data: { message: "OK", data: null } });
+  };
+
+  /** Profile whose server-persisted profileCompleted flag is false. */
+  const mockIncompleteProfile = () => {
+    client.get.mockImplementation((url) => {
+      if (url === "/api/v1/users/me") {
+        return Promise.resolve({
+          data: {
+            data: {
+              id: 1,
+              role: "LEARNER",
+              fullName: "New Learner",
+              profileCompleted: false,
+            },
+          },
+        });
+      }
+      if (url === "/api/v1/notifications/unread-count") {
+        return Promise.resolve({ data: { data: 0 } });
+      }
+      return Promise.resolve({ data: { message: "OK", data: [] } });
+    });
   };
 
   afterEach(() => {
@@ -256,6 +281,61 @@ describe("App role routing", () => {
 
     expect(screen.queryByText("Learner Dashboard")).not.toBeInTheDocument();
     expect(screen.queryByText("Mentor Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("routes incomplete learners to the Complete Profile page (no dashboard access)", async () => {
+    mockIncompleteProfile();
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/learner/dashboard"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Complete Profile Page")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Learner Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("blocks every direct URL until the profile is complete (no bypass)", async () => {
+    mockIncompleteProfile();
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/learner/mentors"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Complete Profile Page")).toBeInTheDocument();
+    });
+  });
+
+  it("never shows onboarding to admins", async () => {
+    mockProfileForRole("ADMIN");
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/admin/dashboard"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText("Complete Profile Page")).not.toBeInTheDocument();
   });
 
   it("serves the admin login page to logged-out visitors", async () => {

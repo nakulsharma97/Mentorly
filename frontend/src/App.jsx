@@ -12,6 +12,7 @@ import { createPerformanceReporter, initGlobalMonitoring } from "./utils/monitor
 import { roleRoot } from "./modules/common/routeUtils";
 import { useAuthProfile } from "./hooks/useAuth";
 import { useToasts } from "./hooks/useToasts";
+import { isProfileComplete, PROFILE_ONBOARDING_PATH } from "./modules/common/profileCompletion";
 
 const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
 
@@ -26,8 +27,11 @@ export default function App() {
   const pathname = location.pathname;
   const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
+  // The onboarding page renders its own minimal top bar (brand + logout), so
+  // the full global navbar (with dashboard links) is hidden while onboarding.
   const shouldShowGlobalNavbar =
     pathname !== "/" &&
+    !pathname.startsWith(PROFILE_ONBOARDING_PATH) &&
     !pathname.startsWith("/learner") &&
     !pathname.startsWith("/mentor");
 
@@ -116,6 +120,13 @@ export default function App() {
         title: loggedMode === "signup" ? "Account created" : "Welcome back",
         message: "Authentication successful. Loading your dashboard.",
       });
+      // Mandatory onboarding: incomplete mentors/learners go straight to the
+      // Complete Profile page — no dashboard, no other page.
+      if (user?.role !== "ADMIN" && !isProfileComplete(user)) {
+        localStorage.removeItem("auth_post_redirect");
+        navigate(PROFILE_ONBOARDING_PATH, { replace: true });
+        return;
+      }
       const post = localStorage.getItem("auth_post_redirect");
       if (post) {
         localStorage.removeItem("auth_post_redirect");

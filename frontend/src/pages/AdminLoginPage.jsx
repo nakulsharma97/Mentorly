@@ -20,15 +20,15 @@ import "./AdminLoginPage.css";
  *     persisted (so their account is never activated from this portal).
  */
 export default function AdminLoginPage({ onLoggedIn, notify }) {
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const emailInputRef = useRef(null);
+  const loginIdInputRef = useRef(null);
   const titleId = "admin-login-title";
 
   useEffect(() => {
-    emailInputRef.current?.focus();
+    loginIdInputRef.current?.focus();
   }, []);
 
   const onSubmit = async (e) => {
@@ -42,7 +42,7 @@ export default function AdminLoginPage({ onLoggedIn, notify }) {
       clearAuthSessionState();
 
       const response = await client.post("/api/v1/auth/login", {
-        email: email.trim(),
+        emailOrUsername: loginId.trim(),
         password,
       });
       const authResponse = resolveAuthResponsePayload(response.data);
@@ -146,19 +146,19 @@ export default function AdminLoginPage({ onLoggedIn, notify }) {
 
           <form onSubmit={onSubmit} className="admin-login-form">
             <UIField
-              label="Email"
-              htmlFor="admin-login-email"
+              label="Email or Username"
+              htmlFor="admin-login-id"
               className="admin-login-field-group"
             >
               <input
-                id="admin-login-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                ref={emailInputRef}
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="admin-login-id"
+                name="emailOrUsername"
+                type="text"
+                autoComplete="username"
+                ref={loginIdInputRef}
+                placeholder="Email or username"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
                 disabled={submitting}
                 required
               />

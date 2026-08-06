@@ -7,6 +7,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.TestPropertySource;
 
+import com.skillswap.common.ApiClientException;
 import static com.skillswap.auth.AuthDtos.ForgotPasswordRequest;
 import static com.skillswap.auth.AuthDtos.LoginRequest;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,10 +52,12 @@ class AuthRateLimitIntegrationTest {
         String ip = "10.1.0.11";
         LoginRequest req = new LoginRequest("nobody-login@example.com", WRONG_PASSWORD);
 
+        // Wrong credentials now surface as a generic 401 ApiClientException
+        // (anti-enumeration) — the rate-limit counters are what this test checks.
         for (int i = 0; i < 5; i++) {
             assertThatThrownBy(() -> authService.login(req, ip))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Invalid credentials");
+                    .isInstanceOf(ApiClientException.class)
+                    .hasMessageContaining("No account found");
         }
 
         // 6th attempt: the LOGIN counter has reached the threshold → rejected.
@@ -86,7 +89,7 @@ class AuthRateLimitIntegrationTest {
             String email = "nobody-" + i + "@example.com";
             assertThatThrownBy(() -> authService.login(
                     new LoginRequest(email, WRONG_PASSWORD), ip))
-                    .isInstanceOf(IllegalArgumentException.class);
+                    .isInstanceOf(ApiClientException.class);
         }
 
         // The LOGIN counter is now at its threshold…
@@ -107,8 +110,8 @@ class AuthRateLimitIntegrationTest {
         // 5 failed attempts are allowed and recorded (counter 1..5).
         for (int i = 0; i < 5; i++) {
             assertThatThrownBy(() -> authService.login(req, ip))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Invalid credentials");
+                    .isInstanceOf(ApiClientException.class)
+                    .hasMessageContaining("No account found");
         }
 
         // Blocked attempts are still recorded, pushing the cumulative counter
@@ -141,10 +144,10 @@ class AuthRateLimitIntegrationTest {
                 .hasMessageContaining("Too many password reset requests");
 
         // …but a login from the same IP still uses its own counter and reaches
-        // the credential check (rejected with "Invalid credentials", not blocked).
+        // the credential check (rejected with the generic 401, not blocked).
         assertThatThrownBy(() -> authService.login(
                 new LoginRequest("nobody-login@example.com", WRONG_PASSWORD), ip))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid credentials");
+                .isInstanceOf(ApiClientException.class)
+                .hasMessageContaining("No account found");
     }
 }

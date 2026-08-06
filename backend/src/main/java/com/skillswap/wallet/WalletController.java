@@ -1,6 +1,7 @@
 package com.skillswap.wallet;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.user.User;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -29,6 +30,7 @@ import java.util.List;
 public class WalletController {
 
     private final WalletService walletService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping("/balance")
     public ApiResponse<WalletService.WalletBalance> balance(@AuthenticationPrincipal User currentUser) {
@@ -46,6 +48,8 @@ public class WalletController {
     @PostMapping("/withdraw")
     public ApiResponse<WalletLedgerEntry> withdraw(@AuthenticationPrincipal User currentUser,
             @Valid @RequestBody WithdrawRequestDTO req) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before using your wallet.");
         WalletLedgerEntry entry = walletService.withdraw(currentUser,
                 new WalletService.WithdrawRequest(req.amount(), req.description(), req.paymentMethod()));
         return new ApiResponse<>("Withdrawal processed", entry);

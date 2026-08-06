@@ -2,6 +2,7 @@ package com.skillswap.booking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
@@ -69,6 +70,9 @@ class BookingLifecycleIntegrationTest {
 
     @MockBean
     private EmailNotificationService emailNotificationService;
+
+    @MockBean
+    private ProfileCompletionGuard profileCompletionGuard;
 
     @Autowired
     private MockMvc mockMvc;

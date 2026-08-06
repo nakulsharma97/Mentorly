@@ -114,7 +114,7 @@ public class AuthController {
 
     private AuthSessionResponse sanitize(AuthResponse authResponse) {
         return new AuthSessionResponse(authResponse.email(), authResponse.role(), authResponse.token(),
-                authResponse.refreshToken(), authResponse.username());
+                authResponse.refreshToken(), authResponse.username(), authResponse.profileCompleted());
     }
 
     private String resolveAccessToken(String accessTokenCookie, String authorizationHeader) {

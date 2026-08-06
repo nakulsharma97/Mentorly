@@ -10,9 +10,12 @@ FROM users WHERE role = 'ADMIN';
 DELETE FROM users WHERE role = 'ADMIN';
 
 -- Insert the new admin user
-INSERT INTO users (email, password_hash, role, admin_sub_role, full_name, enabled, referral_code, created_at, last_active_at)
+-- (username + username_lower are NOT NULL/UNIQUE since V38/V56)
+INSERT INTO users (email, username, username_lower, password_hash, role, admin_sub_role, full_name, enabled, referral_code, created_at, last_active_at)
 VALUES (
   'nakulsharma@gmail.com',
+  'nakulsharma',
+  'nakulsharma',
   '$2b$10$Ipa2EqIojXVPXTRl.fmLFu4bhsJNBP25DaYa7uYVzaQOqNxgAaRJW',
   'ADMIN',
   'SUPER_ADMIN',

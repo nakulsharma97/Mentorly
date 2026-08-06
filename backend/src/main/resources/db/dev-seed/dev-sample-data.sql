@@ -17,10 +17,11 @@
 
 -- ── Sample Mentors ───────────────────────────────────────────
 
-INSERT IGNORE INTO users (email, username, password_hash, role, full_name, enabled, mentor_verified, skills, about_me, github_url, linkedin_url, projects, certificates, past_teaching_sessions, years_of_experience, hourly_rate, company, headline, referral_code, created_at, last_active_at)
+INSERT IGNORE INTO users (email, username, username_lower, password_hash, role, full_name, enabled, mentor_verified, skills, about_me, github_url, linkedin_url, projects, certificates, past_teaching_sessions, years_of_experience, hourly_rate, company, headline, referral_code, created_at, last_active_at)
 VALUES
 (
   'priya.sharma@example.com',
+  'priyadev',
   'priyadev',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'MENTOR',
@@ -45,6 +46,7 @@ VALUES
 (
   'raj.patel@example.com',
   'rajml',
+  'rajml',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'MENTOR',
   'Raj Patel',
@@ -67,6 +69,7 @@ VALUES
 ),
 (
   'sarah.chen@example.com',
+  'sarahcodes',
   'sarahcodes',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'MENTOR',
@@ -91,6 +94,7 @@ VALUES
 (
   'amit.kumar@example.com',
   'amitfullstack',
+  'amitfullstack',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'MENTOR',
   'Amit Kumar',
@@ -113,6 +117,7 @@ VALUES
 ),
 (
   'emma.wilson@example.com',
+  'emmadevops',
   'emmadevops',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'MENTOR',
@@ -137,10 +142,11 @@ VALUES
 
 -- ── Sample Learners ──────────────────────────────────────────
 
-INSERT IGNORE INTO users (email, username, password_hash, role, full_name, enabled, skills, about_me, referral_code, created_at, last_active_at)
+INSERT IGNORE INTO users (email, username, username_lower, password_hash, role, full_name, enabled, skills, about_me, referral_code, created_at, last_active_at)
 VALUES
 (
   'alex.johnson@example.com',
+  'alexlearner',
   'alexlearner',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'LEARNER',
@@ -154,6 +160,7 @@ VALUES
 ),
 (
   'maria.garcia@example.com',
+  'mariadata',
   'mariadata',
   '$2b$12$eqUeoZHM2YjitmaQTeKEke7lbyb77rh3wGQa0FxrohXxZN.QuZ9tS',
   'LEARNER',

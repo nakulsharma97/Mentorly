@@ -290,8 +290,12 @@ describe("LearnerMessagesPage — WebSocket integration", () => {
 
     await waitForLoaded();
 
-    // The page should show loaded conversations with the mentor name
-    expect(screen.getByRole("heading", { name: /Messages/i })).toBeInTheDocument();
+    // The page should show loaded conversations with the mentor name.
+    // The hero renders more than one heading containing "Messages" (badge
+    // + title), so assert at least one exists rather than a single match.
+    expect(
+      screen.getAllByRole("heading", { name: /Messages/i }).length,
+    ).toBeGreaterThanOrEqual(1);
     const convButtons = screen.getAllByRole("button", { name: new RegExp(mentorUser.fullName, "i") });
     expect(convButtons.length).toBeGreaterThanOrEqual(1);
   });

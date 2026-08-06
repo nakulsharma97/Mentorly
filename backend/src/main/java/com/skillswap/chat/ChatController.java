@@ -1,6 +1,7 @@
 package com.skillswap.chat;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,6 +27,7 @@ public class ChatController {
 
     private final ChatService chatService;
     private final DirectChatWebSocketHandler webSocketHandler;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping("/conversations")
     public ApiResponse<List<ChatService.ConversationDto>> listConversations(
@@ -69,6 +71,8 @@ public class ChatController {
             @AuthenticationPrincipal User user,
             @PathVariable Long bookingId,
             @RequestBody SendMessageRequest request) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before messaging.");
         return new ApiResponse<>("Message sent", chatService.createMessage(user, bookingId, request.content()));
     }
 
@@ -86,6 +90,8 @@ public class ChatController {
     public ApiResponse<ChatService.DirectConversationResponse> createOrGetDirectConversation(
             @AuthenticationPrincipal User user,
             @PathVariable Long targetUserId) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before messaging.");
         return new ApiResponse<>("Conversation ready",
                 chatService.createOrGetDirectConversation(user, targetUserId));
     }
@@ -182,6 +188,8 @@ public class ChatController {
             @AuthenticationPrincipal User user,
             @PathVariable Long conversationId,
             @RequestBody SendMessageRequest request) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before messaging.");
         ChatService.DirectMessageView saved = chatService.sendDirectMessage(user, conversationId, request.content());
         // Broadcast to all connected WebSocket sessions in real-time
         webSocketHandler.broadcastMessage(conversationId, saved);

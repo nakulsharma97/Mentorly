@@ -2,6 +2,7 @@ package com.skillswap.availability;
 
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.session.SessionAutoCreationService;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -47,6 +48,7 @@ public class AvailabilityController {
     private final UserAvailabilitySlotRepository slotRepository;
     private final BookingRepository bookingRepository;
     private final SessionAutoCreationService sessionAutoCreationService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping("/my-slots")
     public ApiResponse<List<SlotResponse>> mySlots(@AuthenticationPrincipal User user) {
@@ -58,6 +60,8 @@ public class AvailabilityController {
     @PostMapping("/my-slots")
     public ApiResponse<SlotResponse> createSlot(@AuthenticationPrincipal User user,
             @RequestBody SlotRequest req) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before setting your availability.");
         LOG.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
         validateSlotRequest(req);
 
@@ -85,6 +89,8 @@ public class AvailabilityController {
     @PatchMapping("/my-slots/{id}")
     public ApiResponse<SlotResponse> updateSlot(@AuthenticationPrincipal User user,
             @PathVariable Long id, @RequestBody SlotRequest req) {
+        profileCompletionGuard.requireProfileCompleted(user,
+                "Please complete your profile before setting your availability.");
         LOG.info("updateSlot called for userId={}, slotId={}", user.getId(), id);
         validateSlotRequest(req);
 

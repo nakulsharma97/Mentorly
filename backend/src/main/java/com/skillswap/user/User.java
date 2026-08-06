@@ -11,6 +11,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -41,6 +43,28 @@ public class User implements UserDetails {
 
     @Column(nullable = false, unique = true)
     private String username;
+
+    /**
+     * Lowercased copy of {@link #username} used to enforce case-insensitive
+     * uniqueness at the database level (see V56 migration). Always kept in
+     * sync automatically via {@link #syncUsernameLower()}.
+     */
+    @Column(name = "username_lower", nullable = false, unique = true, length = 255)
+    private String usernameLower;
+
+    /**
+     * Keeps {@code username_lower} consistent with {@code username} on every
+     * persist/update — whichever code path writes the display username (signup,
+     * OAuth provisioning, username edit, admin tooling, tests) automatically
+     * gets the normalized copy too.
+     */
+    @PrePersist
+    @PreUpdate
+    protected void syncUsernameLower() {
+        if (this.username != null) {
+            this.usernameLower = this.username.toLowerCase(java.util.Locale.ROOT);
+        }
+    }
 
     @JsonIgnore
     @Column(name = "password_hash", nullable = false)
@@ -136,6 +160,44 @@ public class User implements UserDetails {
 
     @Column(name = "last_active_at", nullable = false)
     private OffsetDateTime lastActiveAt = OffsetDateTime.now();
+
+    /**
+     * Whether the user has completed the mandatory onboarding flow. New
+     * accounts default to {@code false} and must finish their profile before
+     * accessing core features. Admins are exempt from the flow.
+     */
+    @Column(name = "profile_completed", nullable = false)
+    private boolean profileCompleted = false;
+
+    @Column(name = "country")
+    private String country;
+
+    @Column(name = "state")
+    private String state;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "timezone")
+    private String timezone;
+
+    @Column(columnDefinition = "TEXT")
+    private String education;
+
+    @Column(name = "portfolio_url", length = 1000)
+    private String portfolioUrl;
+
+    @Column(columnDefinition = "TEXT")
+    private String availability;
+
+    @Column(columnDefinition = "TEXT")
+    private String learningGoals;
+
+    @Column(name = "current_skill_level")
+    private String currentSkillLevel;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

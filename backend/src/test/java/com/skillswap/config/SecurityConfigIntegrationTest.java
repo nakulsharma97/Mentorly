@@ -1,5 +1,6 @@
 package com.skillswap.config;
 
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -57,6 +58,9 @@ class SecurityConfigIntegrationTest {
 
     @MockBean
     private EmailNotificationService emailNotificationService;
+
+    @MockBean
+    private ProfileCompletionGuard profileCompletionGuard;
 
     @Autowired
     private MockMvc mockMvc;

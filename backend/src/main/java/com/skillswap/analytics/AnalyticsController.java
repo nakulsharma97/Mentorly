@@ -1,6 +1,7 @@
 package com.skillswap.analytics;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.user.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,15 +24,19 @@ import java.util.Map;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    private final ProfileCompletionGuard profileCompletionGuard;
 
-    public AnalyticsController(AnalyticsService analyticsService) {
+    public AnalyticsController(AnalyticsService analyticsService, ProfileCompletionGuard profileCompletionGuard) {
         this.analyticsService = analyticsService;
+        this.profileCompletionGuard = profileCompletionGuard;
     }
 
     @GetMapping("/summary")
     public ApiResponse<AnalyticsDtos.AnalyticsSummaryDto> summary(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(defaultValue = "30") int rangeDays) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accessing analytics.");
         int normalized = normalizeRange(rangeDays);
         return new ApiResponse<>("Analytics summary fetched", analyticsService.buildSummary(currentUser, normalized));
     }
@@ -40,6 +45,8 @@ public class AnalyticsController {
     public ApiResponse<List<AnalyticsDtos.TrendBucketDto>> weeklyTrend(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(defaultValue = "30") int rangeDays) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accessing analytics.");
         int normalized = normalizeRange(rangeDays);
         return new ApiResponse<>("Weekly trend fetched", analyticsService.weeklyTrend(currentUser, normalized));
     }
@@ -48,6 +55,8 @@ public class AnalyticsController {
     public ApiResponse<List<AnalyticsDtos.CancellationReasonDto>> cancellationReasons(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(defaultValue = "30") int rangeDays) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accessing analytics.");
         int normalized = normalizeRange(rangeDays);
         return new ApiResponse<>("Cancellation reasons fetched",
                 analyticsService.cancellationReasons(currentUser, normalized));
@@ -57,6 +66,8 @@ public class AnalyticsController {
     public ApiResponse<AnalyticsDtos.SharePayloadDto> share(
             @AuthenticationPrincipal User currentUser,
             @RequestBody(required = false) ShareRequest request) {
+        profileCompletionGuard.requireProfileCompleted(currentUser,
+                "Please complete your profile before accessing analytics.");
         int rangeDays = normalizeRange(request == null || request.rangeDays() == null ? 30 : request.rangeDays());
         return new ApiResponse<>("Share payload generated", analyticsService.sharePayload(currentUser, rangeDays));
     }

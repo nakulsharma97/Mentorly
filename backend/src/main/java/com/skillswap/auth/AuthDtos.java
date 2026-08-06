@@ -22,7 +22,11 @@ public class AuthDtos {
                                 message = "Password must include uppercase, lowercase, and a digit")
                         String password,
                         @NotBlank String fullName,
-                        @NotBlank String username,
+                        @NotBlank
+                        @Size(min = 4, max = 30, message = "Username must be 4\u201330 characters")
+                        @Pattern(regexp = "^[A-Za-z0-9._-]{4,30}$",
+                                message = "Username may only contain letters, numbers, and . _ -")
+                        String username,
                         UserRole role,
                         String walletAddress,
                         String referralCode) {
@@ -30,23 +34,31 @@ public class AuthDtos {
 
 /**
  * Immutable data carrier for login request.
+ *
+ * A single {@code emailOrUsername} field lets users sign in with either
+ * their email address or their unique username (GitHub/LinkedIn/Discord
+ * style). The legacy {@code email} key is still accepted via
+ * {@code @JsonAlias} so existing clients keep working unchanged.
  */
         public record LoginRequest(
-                        @NotBlank String email,
+                        @NotBlank
+                        @com.fasterxml.jackson.annotation.JsonAlias("email")
+                        String emailOrUsername,
                         @NotBlank String password) {
         }
 
 /**
  * Immutable data carrier for auth response.
  */
-        public record AuthResponse(String token, String refreshToken, String email, String role, String username) {
+        public record AuthResponse(String token, String refreshToken, String email, String role, String username,
+                        Boolean profileCompleted) {
         }
 
 /**
  * Immutable data carrier for auth session response.
  */
         public record AuthSessionResponse(String email, String role, String token,
-                String refreshToken, String username) {
+                String refreshToken, String username, Boolean profileCompleted) {
         }
 
 /**
