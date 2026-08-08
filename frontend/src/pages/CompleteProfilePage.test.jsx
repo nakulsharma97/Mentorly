@@ -2,6 +2,10 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import CompleteProfilePage from "./CompleteProfilePage";
 import client from "../api/client";
 
+// The page waits ~2.1s on the success screen before calling onCompleted, so
+// the redirect assertion needs a generous budget on slower machines.
+vi.setConfig({ testTimeout: 20000 });
+
 vi.mock("../api/client", () => ({
   default: {
     get: vi.fn(),
@@ -36,7 +40,8 @@ describe("CompleteProfilePage", () => {
     expect(screen.getByLabelText(/Headline/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Hourly Price/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Portfolio URL/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Experience \(years\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Years of experience/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Additional months of experience/)).toBeInTheDocument();
   });
 
   it("shows learner-specific required fields", () => {
@@ -62,13 +67,15 @@ describe("CompleteProfilePage", () => {
 
   it("starts near 0% progress (prefilled fields count as filled)", () => {
     render(<CompleteProfilePage profile={mentorProfile} />);
-    // 2 of 17 mentor fields prefilled (fullName from profile + detected
-    // timezone) → 12%.
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "12");
+    // Section-based mirror of the backend (5 sections × 20%):
+    // basic 1/3 (fullName) + experience 1/1 (defaults to 0y/0m, a valid
+    // fresher) + contact 1/5 (detected timezone) ≈ 30.7% → 31%.
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "31");
   });
 
-  it("submits a complete profile, shows the success screen, and redirects via onCompleted", async () => {
-    const onCompleted = vi.fn();
+  it("submits a complete profile, shows the success screen, and redirects via onGoDashboard", async () => {
+    const onGoDashboard = vi.fn();
+    const onViewProfile = vi.fn();
     const notify = vi.fn();
     client.post.mockResolvedValue({
       data: { data: { ...mentorProfile, profileCompleted: true } },
@@ -77,7 +84,8 @@ describe("CompleteProfilePage", () => {
     render(
       <CompleteProfilePage
         profile={mentorProfile}
-        onCompleted={onCompleted}
+        onGoDashboard={onGoDashboard}
+        onViewProfile={onViewProfile}
         notify={notify}
       />,
     );
@@ -91,8 +99,22 @@ describe("CompleteProfilePage", () => {
     fill("Full Name", "Jane Doe");
     fill("Headline", "React Mentor");
     fill("Bio", "I love teaching React.");
-    fill("Experience \\(years\\)", "6");
-    fill("Languages", "English, Hindi");
+    // Experience: years + months dropdowns (6 years 6 months)
+    fireEvent.change(screen.getByLabelText(/Years of experience/), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByLabelText(/Additional months of experience/), {
+      target: { value: "6" },
+    });
+    expect(screen.getByText(/6 Years 6 Months/)).toBeInTheDocument();
+    // Languages: chip input — add two chips
+    const langInput = screen.getByPlaceholderText("Type a language and press Enter");
+    fireEvent.change(langInput, { target: { value: "English" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add language/i }));
+    fireEvent.change(langInput, { target: { value: "Hindi" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add language/i }));
+    expect(screen.getByRole("button", { name: /Remove English/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Remove Hindi/i })).toBeInTheDocument();
     fill("Education", "B.Tech Computer Science");
     fill("LinkedIn URL", "https://linkedin.com/in/jane");
     fill("Portfolio URL", "https://jane.dev");
@@ -108,7 +130,7 @@ describe("CompleteProfilePage", () => {
       screen.getByPlaceholderText("Type a skill and press Enter"),
       { target: { value: "React" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: /\+ Add/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Add skill/i }));
 
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
 
@@ -120,8 +142,16 @@ describe("CompleteProfilePage", () => {
       await screen.findByText(/Profile Completed Successfully/i),
     ).toBeInTheDocument();
 
+    // Both success CTA buttons are available — no waiting required.
+    expect(
+      screen.getByRole("button", { name: /Go to Dashboard/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /View Profile/i }),
+    ).toBeInTheDocument();
+
     await waitFor(
-      () => expect(onCompleted).toHaveBeenCalledTimes(1),
+      () => expect(onGoDashboard).toHaveBeenCalledTimes(1),
       { timeout: 4000 },
     );
 
@@ -131,6 +161,9 @@ describe("CompleteProfilePage", () => {
         fullName: "Jane Doe",
         country: "India",
         skills: expect.stringContaining("React"),
+        languages: "English, Hindi",
+        yearsOfExperience: 6,
+        monthsOfExperience: 6,
       }),
     );
   });

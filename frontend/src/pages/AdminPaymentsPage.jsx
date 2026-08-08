@@ -24,8 +24,7 @@ const EMPTY_ARRAY = [];
 
 const formatCurrency = (v, c = 'INR') => {
   const n = Number(v || 0);
-  if (c === 'CREDITS') return `${n.toFixed(2)} credits`;
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(n);
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(n);
 };
 
 const formatDate = (v) => {

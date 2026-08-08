@@ -36,15 +36,12 @@ const TYPE_LABELS = {
   DEBIT: "Debit",
 };
 
-const formatCurrency = (amount, currency = "CREDITS") => {
+const formatCurrency = (amount) => {
   const value = Number(amount || 0);
-  if (currency === "CREDITS") {
-    return `${value.toFixed(2)} credits`;
-  }
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-  }).format(value);
+  return `₹${value.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
 const formatDate = (value) => {
@@ -373,7 +370,7 @@ export default function WalletPage({ profile, notify }) {
       notify?.({
         type: "error",
         title: "Insufficient balance",
-        message: `Your balance is ${balanceNum.toFixed(2)} credits.`,
+        message: `Your balance is ${formatCurrency(balanceNum)}.`,
       });
       return;
     }
@@ -381,7 +378,7 @@ export default function WalletPage({ profile, notify }) {
       notify?.({
         type: "error",
         title: "Minimum amount",
-        message: "Minimum withdrawal amount is 10.00 credits.",
+        message: "Minimum withdrawal amount is ₹10.00.",
       });
       return;
     }
@@ -407,7 +404,7 @@ export default function WalletPage({ profile, notify }) {
       notify?.({
         type: "success",
         title: "Withdrawal processed",
-        message: `${amount.toFixed(2)} credits withdrawal has been recorded.`,
+        message: `${formatCurrency(amount)} withdrawal has been recorded.`,
       });
     } catch (err) {
       const detail =
@@ -439,7 +436,7 @@ export default function WalletPage({ profile, notify }) {
           </>
         }
         title={
-          profile?.role === "MENTOR" ? "Earnings & Wallet" : "Payments & Credits"
+          profile?.role === "MENTOR" ? "Earnings & Wallet" : "Payments & Wallet"
         }
         subtitle="Track your earnings, withdrawals, and balance history."
         secondaryButton={
@@ -477,7 +474,7 @@ export default function WalletPage({ profile, notify }) {
             <span className="hero-section__stats-item__value">
               {loading
                 ? "..."
-                : formatCurrency(balance?.balance, balance?.currency)}
+                : formatCurrency(balance?.balance)}
             </span>
           </div>
           <div className="hero-section__stats-divider" />
@@ -486,7 +483,7 @@ export default function WalletPage({ profile, notify }) {
             <span className="hero-section__stats-item__value">
               {loading
                 ? "..."
-                : formatCurrency(metrics.earnings, balance?.currency)}
+                : formatCurrency(metrics.earnings)}
             </span>
           </div>
           <div className="hero-section__stats-divider" />
@@ -495,7 +492,7 @@ export default function WalletPage({ profile, notify }) {
             <span className="hero-section__stats-item__value">
               {loading
                 ? "..."
-                : formatCurrency(metrics.payouts, balance?.currency)}
+                : formatCurrency(metrics.payouts)}
             </span>
           </div>
           <div className="hero-section__stats-divider" />
@@ -504,7 +501,7 @@ export default function WalletPage({ profile, notify }) {
             <span className="hero-section__stats-item__value">
               {loading
                 ? "..."
-                : formatCurrency(metrics.refunds, balance?.currency)}
+                : formatCurrency(metrics.refunds)}
             </span>
           </div>
         </div>
@@ -541,27 +538,27 @@ export default function WalletPage({ profile, notify }) {
                 value={
                   loading
                     ? "Loading…"
-                    : formatCurrency(balance?.balance, balance?.currency)
+                    : formatCurrency(balance?.balance)
                 }
                 desc="Wallet balance ready for payout"
               />
               <SsStatCard
                 icon="trending-up"
                 label="Total Earnings"
-                value={formatCurrency(metrics.earnings, balance?.currency)}
+                value={formatCurrency(metrics.earnings)}
                 desc="Revenue from completed sessions"
               />
               <SsStatCard
                 icon="arrow-up-right"
                 label="Total Payouts"
-                value={formatCurrency(metrics.payouts, balance?.currency)}
+                value={formatCurrency(metrics.payouts)}
                 desc="Withdrawals and outgoing payments"
               />
               <SsStatCard
                 icon="refresh"
                 label="Total Refunds"
-                value={formatCurrency(metrics.refunds, balance?.currency)}
-                desc="Returned credits and session refunds"
+                value={formatCurrency(metrics.refunds)}
+                desc="Refunds and session paybacks"
               />
             </div>
           </section>
@@ -893,7 +890,7 @@ export default function WalletPage({ profile, notify }) {
             <SsStatCard
               icon="arrow-up-right"
               label="Total Payouts"
-              value={formatCurrency(metrics.payouts, balance?.currency)}
+              value={formatCurrency(metrics.payouts)}
               desc="All time withdrawals"
             />
             <SsStatCard
@@ -905,7 +902,7 @@ export default function WalletPage({ profile, notify }) {
             <SsStatCard
               icon="refresh"
               label="Refunds Handled"
-              value={formatCurrency(metrics.refunds, balance?.currency)}
+              value={formatCurrency(metrics.refunds)}
               desc="Returned to learners"
             />
           </div>
@@ -919,16 +916,16 @@ export default function WalletPage({ profile, notify }) {
               <div>
                 <strong>Request a Withdrawal</strong>
                 <span>
-                  Minimum 10.00 credits · Balance:{" "}                  {loading
+                  Minimum ₹10.00 · Balance:{" "}                  {loading
                   ? "..."
-                  : formatCurrency(balance?.balance, balance?.currency)}
+                  : formatCurrency(balance?.balance)}
                 </span>
               </div>
             </div>
             <div className="wallet-withdraw-card__form">
               <div className="wallet-withdraw-card__amount-row">
                 <div className="wallet-withdraw-card__input-wrapper">
-                  <span className="wallet-withdraw-card__currency">CR</span>
+                  <span className="wallet-withdraw-card__currency">₹</span>
                   <input
                     type="number"
                     className="wallet-withdraw-card__input"
@@ -981,7 +978,7 @@ export default function WalletPage({ profile, notify }) {
               >
                 {withdrawProcessing
                   ? "Processing..."
-                  : `Withdraw ${withdrawAmount ? Number(withdrawAmount).toFixed(2) : "0.00"} credits`}
+                  : `Withdraw ${withdrawAmount ? formatCurrency(Number(withdrawAmount)) : "₹0.00"}`}
               </button>
             </div>
           </div>

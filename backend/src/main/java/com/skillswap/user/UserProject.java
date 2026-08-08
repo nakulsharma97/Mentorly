@@ -51,6 +51,14 @@ public class UserProject {
     @Column(name = "live_demo_url", length = 500)
     private String liveDemoUrl;
 
+    /** Optional role the mentor held on the project (e.g. "Full Stack Developer"). */
+    @Column(length = 200)
+    private String role;
+
+    /** Optional image URLs (comma/newline separated) showcasing the project. */
+    @Column(name = "image_urls", columnDefinition = "TEXT")
+    private String imageUrls;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 

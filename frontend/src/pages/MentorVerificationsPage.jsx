@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import client from "../api/client";
 import { normalizeSkills } from "../utils/skills";
 import Icon from "../modules/common/dashboard/Icon";
@@ -11,12 +12,24 @@ import "../modules/admin/ui/admin-ui.css";
 
 const STATUS_META = {
   PENDING: { label: "Pending", icon: "hourglass_top", className: "mv-status--pending" },
+  UNDER_REVIEW: { label: "Under review", icon: "manage_search", className: "mv-status--review" },
   APPROVED: { label: "Approved", icon: "verified", className: "mv-status--approved" },
   REJECTED: { label: "Rejected", icon: "cancel", className: "mv-status--rejected" },
+  SUSPENDED: { label: "Suspended", icon: "block", className: "mv-status--suspended" },
   MORE_INFORMATION_REQUIRED: { label: "More info", icon: "contact_support", className: "mv-status--more-info" },
 };
 
-const STATUS_ORDER = ["PENDING", "MORE_INFORMATION_REQUIRED", "APPROVED", "REJECTED"];
+const STATUS_ORDER = ["PENDING", "UNDER_REVIEW", "MORE_INFORMATION_REQUIRED", "APPROVED", "REJECTED", "SUSPENDED"];
+
+/** One-tap rejection reasons admins can pick instead of typing a custom one. */
+const REJECT_PRESETS = [
+  "Incomplete Profile",
+  "Missing Certificates",
+  "Invalid Identity Proof",
+  "Poor Profile Description",
+  "Incorrect Skill Information",
+  "Low Quality Profile",
+];
 
 /* ── Helpers ──────────────────────────────────────────────── */
 
@@ -257,7 +270,10 @@ function ResumeSection({ request }) {
 function ExperienceSection({ request }) {
   const mentor = request?.mentor || {};
   const teaching = splitLines(mentor.pastTeachingSessions);
-  const projects = splitLines(mentor.projects);
+  // Structured projects (new manager) take priority; legacy free-text fallback.
+  const structuredProjects = request?.projects || [];
+  const textProjects = splitLines(mentor.projects);
+  const projects = structuredProjects.length > 0 ? structuredProjects : textProjects;
   const verifiedSkills = normalizeSkills(mentor.verifiedSkills);
 
   return (
@@ -302,11 +318,68 @@ function ExperienceSection({ request }) {
       {projects.length > 0 && (
         <div className="mv-block">
           <p className="mv-block__label">Projects</p>
-          <ul className="mv-text-list">
-            {projects.map((line, idx) => (
-              <li key={idx}>{line}</li>
-            ))}
-          </ul>
+          {typeof projects[0] === "string" ? (
+            <ul className="mv-text-list">
+              {projects.map((line, idx) => (
+                <li key={idx}>{line}</li>
+              ))}
+            </ul>
+          ) : (
+            <div className="mv-project-grid">
+              {projects.slice(0, 6).map((project) => (
+                <article className="mv-project-card" key={project.id}>
+                  <h4 className="mv-project-card__title">{project.title}</h4>
+                  {project.role && <p className="mv-project-card__role">{project.role}</p>}
+                  {project.description && <p className="mv-project-card__desc">{project.description}</p>}
+                  {project.technologies && (
+                    <div className="mv-project-card__techs">
+                      {String(project.technologies)
+                        .split(/[,\n]/)
+                        .map((t) => t.trim())
+                        .filter(Boolean)
+                        .slice(0, 6)
+                        .map((tech) => (
+                          <span key={tech} className="mv-chip">{tech}</span>
+                        ))}
+                    </div>
+                  )}
+                  {(() => {
+                    const images = String(project.imageUrls || "")
+                      .split(/[,\n]/)
+                      .map((u) => u.trim())
+                      .filter(Boolean);
+                    return images.length > 0 ? (
+                      <div className="mv-project-card__images">
+                        {images.slice(0, 3).map((src) => (
+                          <img
+                            key={src}
+                            src={src}
+                            alt={`${project.title} screenshot`}
+                            loading="lazy"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          />
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                  {(project.githubUrl || project.liveDemoUrl) && (
+                    <div className="mv-project-card__links">
+                      {project.githubUrl && (
+                        <a href={project.githubUrl} target="_blank" rel="noopener noreferrer" className="mv-project-card__link">
+                          <Icon name="code" /> GitHub
+                        </a>
+                      )}
+                      {project.liveDemoUrl && (
+                        <a href={project.liveDemoUrl} target="_blank" rel="noopener noreferrer" className="mv-project-card__link">
+                          <Icon name="open_in_new" /> Live Demo
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -399,6 +472,9 @@ const DETAIL_TABS = [
 export default function MentorVerificationsPage({ notify }) {
   const [activeStatus, setActiveStatus] = useState("PENDING");
   const [requests, setRequests] = useState([]);
+  // Request fetched via ?requestId= deep link — rendered even when it is not
+  // part of the currently active status tab's list.
+  const [deepLinkedRequest, setDeepLinkedRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -406,6 +482,7 @@ export default function MentorVerificationsPage({ notify }) {
   const [updatingId, setUpdatingId] = useState(null);
   const [rejectOpenFor, setRejectOpenFor] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectCustom, setRejectCustom] = useState(false);
   const [rejectError, setRejectError] = useState("");
   const [infoOpenFor, setInfoOpenFor] = useState(null);
   const [infoRequest, setInfoRequest] = useState("");
@@ -436,14 +513,40 @@ export default function MentorVerificationsPage({ notify }) {
     loadQueue(activeStatus);
   }, [activeStatus, loadQueue]);
 
+  // Deep-link support: ?requestId=123 (e.g. from a "New Mentor Verification
+  // Request" notification) opens that request's detail directly, even when it
+  // lives in another status tab.
+  const [searchParams] = useSearchParams();
+  const deepLinkId = searchParams.get("requestId");
+  useEffect(() => {
+    if (!deepLinkId) return undefined;
+    let alive = true;
+    client
+      .get(`/api/v1/verification/mentor/requests/${deepLinkId}`)
+      .then((res) => {
+        if (alive && res?.data?.data) {
+          setDeepLinkedRequest(res.data.data);
+          setSelectedId(Number(deepLinkId));
+          setDetailTab("overview");
+        }
+      })
+      .catch(() => {
+        // Request may have been reviewed already — fall back to the queue.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [deepLinkId]);
+
   const selected = useMemo(
-    () => requests.find((request) => request.id === selectedId) || null,
-    [requests, selectedId],
+    () => deepLinkedRequest || requests.find((request) => request.id === selectedId) || null,
+    [requests, selectedId, deepLinkedRequest],
   );
 
   const switchStatus = (status) => {
     setActiveStatus(status);
     setSelectedId(null);
+    setDeepLinkedRequest(null);
     setDetailTab("overview");
     setRejectOpenFor(null);
     setRejectReason("");
@@ -528,6 +631,7 @@ export default function MentorVerificationsPage({ notify }) {
   const openReject = (request) => {
     setRejectOpenFor(request.id);
     setRejectReason("");
+    setRejectCustom(false);
     setRejectError("");
   };
 
@@ -542,6 +646,9 @@ export default function MentorVerificationsPage({ notify }) {
       await client.patch(`/api/v1/verification/mentor/requests/${request.id}`, {
         status: "REJECTED",
         adminNote: reason,
+        // Custom messages are delivered verbatim to the mentor; preset reasons
+        // fall back to the generic guidance + the chosen reason.
+        customMessage: rejectCustom ? reason : null,
       });
       setRejectOpenFor(null);
       setRejectReason("");
@@ -560,6 +667,47 @@ export default function MentorVerificationsPage({ notify }) {
         type: "error",
         title: "Rejection failed",
         message: err?.response?.data?.data?.error || err?.response?.data?.message || "Failed to reject the verification request.",
+      });
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const suspend = async (request) => {
+    if (!window.confirm(`Suspend ${request?.mentor?.fullName || `Mentor #${request.id}`}? They will immediately stop appearing in search and lose access to marketplace features.`)) {
+      return;
+    }
+    const reason = window.prompt("Reason for suspension (shown to the mentor):")?.trim();
+    if (reason === undefined) return; // cancelled
+    if (!reason) {
+      notify?.({
+        type: "error",
+        title: "Suspension failed",
+        message: "A suspension reason is required.",
+      });
+      return;
+    }
+    setUpdatingId(request.id);
+    try {
+      await client.patch(`/api/v1/verification/mentor/requests/${request.id}`, {
+        status: "SUSPENDED",
+        adminNote: reason,
+      });
+      await loadQueue(activeStatus);
+      if (selectedId === request.id) {
+        setSelectedId(null);
+        setDetailTab("overview");
+      }
+      notify?.({
+        type: "success",
+        title: "Mentor suspended",
+        message: `${request?.mentor?.fullName || `Mentor #${request.id}`} is no longer visible to learners.`,
+      });
+    } catch (err) {
+      notify?.({
+        type: "error",
+        title: "Suspension failed",
+        message: err?.response?.data?.data?.error || err?.response?.data?.message || "Failed to suspend the mentor.",
       });
     } finally {
       setUpdatingId(null);
@@ -721,7 +869,33 @@ export default function MentorVerificationsPage({ notify }) {
                     </p>
                   </div>
                   <div className="mv-detail__actions">
-                    {(selected.status === "PENDING" || selected.status === "MORE_INFORMATION_REQUIRED") && (
+                    {selected.status === "PENDING" && (
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-cancel"
+                        disabled={updatingId === selected.id}
+                        onClick={async () => {
+                          setUpdatingId(selected.id);
+                          try {
+                            await client.patch(`/api/v1/verification/mentor/requests/${selected.id}`, {
+                              status: "UNDER_REVIEW",
+                            });
+                            await loadQueue(activeStatus);
+                          } catch (err) {
+                            notify?.({
+                              type: "error",
+                              title: "Request failed",
+                              message: err?.response?.data?.data?.error || err?.response?.data?.message || "Could not start the review.",
+                            });
+                          } finally {
+                            setUpdatingId(null);
+                          }
+                        }}
+                      >
+                        <Icon name="manage_search" /> Start review
+                      </button>
+                    )}
+                    {selected.status !== "APPROVED" && (
                       <>
                         <button
                           type="button"
@@ -749,6 +923,16 @@ export default function MentorVerificationsPage({ notify }) {
                         </button>
                       </>
                     )}
+                    {selected.status === "APPROVED" && (
+                      <button
+                        type="button"
+                        className="admin-action-btn admin-action-reject"
+                        disabled={updatingId === selected.id}
+                        onClick={() => suspend(selected)}
+                      >
+                        <Icon name="block" /> Suspend
+                      </button>
+                    )}
                     {selected.mentor?.email && (
                       <a
                         className="admin-action-btn admin-action-send"
@@ -773,15 +957,32 @@ export default function MentorVerificationsPage({ notify }) {
                 {rejectOpenFor === selected.id && (
                   <div className="mv-reject-form">
                     <label htmlFor="mv-reject-reason">Rejection reason (sent to the mentor)</label>
+                    <div className="mv-reject-presets" role="group" aria-label="Common rejection reasons">
+                      {REJECT_PRESETS.map((preset) => (
+                        <button
+                          type="button"
+                          key={preset}
+                          className={`mv-reject-preset ${rejectReason === preset ? "mv-reject-preset--active" : ""}`}
+                          onClick={() => {
+                            setRejectReason(preset);
+                            setRejectCustom(false);
+                            setRejectError("");
+                          }}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                     <textarea
                       id="mv-reject-reason"
                       rows={3}
                       value={rejectReason}
                       onChange={(e) => {
                         setRejectReason(e.target.value);
+                        setRejectCustom(true);
                         setRejectError("");
                       }}
-                      placeholder="Explain which documents or details could not be verified…"
+                      placeholder="…or write a custom message, e.g. Please upload a clearer identity proof and improve your profile description before submitting again."
                     />
                     {rejectError && <p className="mv-reject-error">{rejectError}</p>}
                     <div className="mv-reject-form__actions">

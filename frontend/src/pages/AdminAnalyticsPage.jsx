@@ -835,7 +835,7 @@ export default function AdminAnalyticsPage({ notify }) {
           </div>
           <div className="wallet-card-grid">
             <StatsCard icon="group_add" label="Total Referrals" value={formatNumber(referralAnalytics.totalReferrals)} description={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} />
-            <StatsCard icon="payments" label="Total Credits Earned" value={formatNumber(referralAnalytics.totalCreditsEarned)} description={`${referralAnalytics.avgPerReferrer} avg per referrer`} />
+            <StatsCard icon="payments" label="Total Earnings (₹)" value={`₹${Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}`} description={`${referralAnalytics.avgPerReferrer} avg per referrer`} />
             <StatsCard icon="trending_up" label="Conversion Rate" value={`${referralAnalytics.conversionRate}%`} description="Of all users have referred someone" />
             <StatsCard icon="groups" label="Users with Referral Code" value={formatNumber(referralAnalytics.usersWithReferralCode)} description="Total users who can refer" />
           </div>

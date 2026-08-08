@@ -35,6 +35,8 @@ public class UserProjectService {
         project.setTechnologies(trimToNull(request.getTechnologies()));
         project.setGithubUrl(trimToNull(request.getGithubUrl()));
         project.setLiveDemoUrl(trimToNull(request.getLiveDemoUrl()));
+        project.setRole(trimToNull(request.getRole()));
+        project.setImageUrls(trimToNull(request.getImageUrls()));
         project.setStartDate(request.getStartDate());
         project.setEndDate(request.isCurrentlyWorking() ? null : request.getEndDate());
         project.setCurrentlyWorking(request.isCurrentlyWorking());
@@ -55,6 +57,8 @@ public class UserProjectService {
         project.setTechnologies(trimToNull(request.getTechnologies()));
         project.setGithubUrl(trimToNull(request.getGithubUrl()));
         project.setLiveDemoUrl(trimToNull(request.getLiveDemoUrl()));
+        project.setRole(trimToNull(request.getRole()));
+        project.setImageUrls(trimToNull(request.getImageUrls()));
         project.setStartDate(request.getStartDate());
         project.setEndDate(request.isCurrentlyWorking() ? null : request.getEndDate());
         project.setCurrentlyWorking(request.isCurrentlyWorking());
@@ -79,6 +83,8 @@ public class UserProjectService {
         dto.setTechnologies(project.getTechnologies());
         dto.setGithubUrl(project.getGithubUrl());
         dto.setLiveDemoUrl(project.getLiveDemoUrl());
+        dto.setRole(project.getRole());
+        dto.setImageUrls(project.getImageUrls());
         dto.setStartDate(project.getStartDate());
         dto.setEndDate(project.getEndDate());
         dto.setCurrentlyWorking(project.isCurrentlyWorking());

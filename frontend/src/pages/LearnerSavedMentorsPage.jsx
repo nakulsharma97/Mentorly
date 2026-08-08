@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { normalizeSkills } from "../utils/skills";
+import { formatPrice } from "../utils/price";
 import Icon from "../modules/common/dashboard/Icon";
 import { useFavorites } from "../hooks/useFavorites";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
@@ -117,9 +118,11 @@ function FavoriteMentorCard({ favorite, pending, onRemove }) {
           <div className="lf-mentor-card__price-card">
             <span className="lf-mentor-card__price-label">Starting from</span>
             <span className="lf-mentor-card__price-value">
-              ₹{price != null ? Number(price).toFixed(0) : "Free"}
+              {formatPrice(price)}
             </span>
-            <span className="lf-mentor-card__price-unit">/session</span>
+            {price != null && Number(price) > 0 && (
+              <span className="lf-mentor-card__price-unit">/session</span>
+            )}
           </div>
 
           <div className="lf-mentor-card__actions">

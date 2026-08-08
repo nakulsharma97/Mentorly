@@ -3,11 +3,14 @@ import client from "../api/client";
 import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
 import RoleSwitcher from "../components/RoleSwitcher";
 import {
-  getProfileQualityScore,
   parseSkillTags,
   serializeSkillTags,
   SKILL_LEVELS,
 } from "../utils/profileSkills";
+import {
+  computeProfileCompletion,
+  computeProfileCompletionSections,
+} from "../modules/common/profileCompletion";
 import "./ProfileSetup.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -119,24 +122,26 @@ function CircularProgress({ value, size = 88, strokeWidth = 7 }) {
 /* ─────────────────────────────────────────────────────────────
    Completion Card (Sidebar)
    ───────────────────────────────────────────────────────────── */
-function CompletionCard({ qualityScore, completedChecks, totalChecks }) {
-  const remaining = totalChecks - completedChecks;
+function CompletionCard({ percent, sections }) {
+  const remaining = sections.filter((s) => !s.done).length;
   const message =
-    qualityScore < 33
+    percent < 33
       ? { title: "Let's get started!", text: "Fill in your profile to help learners discover you." }
-      : qualityScore < 66
+      : percent < 66
         ? { title: "Almost there!", text: "Just a few more details to complete your profile." }
-        : { title: "Looking great!", text: "Your profile is ready to impress learners." };
+        : percent < 100
+          ? { title: "Looking great!", text: "Your profile is ready to impress learners." }
+          : { title: "Profile complete!", text: "Everything is filled in — you're ready to mentor." };
 
   return (
     <div className="ps-completion">
-      <CircularProgress value={qualityScore} />
+      <CircularProgress value={percent} />
       <h4>{message.title}</h4>
       <p>{message.text}</p>
       {remaining > 0 && (
         <div className="ps-completion-remaining">
           <span>🔄</span>
-          <span><strong>{remaining}</strong> of {totalChecks} sections remaining</span>
+          <span><strong>{remaining}</strong> of {sections.length} sections remaining</span>
         </div>
       )}
     </div>
@@ -236,32 +241,25 @@ export default function ProfileSetup({
     setStructuredCertsCount(count);
   }, []);
 
-  /* ── Compute quality score ── */
-  const hasAboutMe = Boolean(String(form.aboutMe || "").trim());
-  const hasSkills = skillTags.length > 0;
-  const hasGithub = /^https?:\/\//i.test(String(form.githubUrl || "").trim());
-  const hasLinkedin = /^https?:\/\//i.test(String(form.linkedinUrl || "").trim());
-  const hasPortfolio = projects.length > 0;
-  const hasExperience = Boolean(String(form.pastTeachingSessions || "").trim());
-  const hasCertifications = Boolean(String(form.certificates || "").trim()) || structuredCertsCount > 0;
-
-  const requiredChecks = [
-    { key: "basic", label: "Basic Information", done: hasAboutMe, current: hasAboutMe ? 1 : 0, required: 1 },
-    { key: "skills", label: "Skills & Experience", done: hasSkills, current: skillTags.length, required: 1 },
-    { key: "experience", label: "Experience", done: hasExperience, current: hasExperience ? 1 : 0, required: 1 },
-    { key: "certifications", label: "Certifications", done: hasCertifications, current: hasCertifications ? 1 : 0, required: 1 },
-    { key: "portfolio", label: "Portfolio / Links", done: hasGithub && hasLinkedin, current: [hasGithub, hasLinkedin, hasPortfolio].filter(Boolean).length, required: 3 },
-  ];
-  const completedChecks = requiredChecks.filter((c) => c.done).length;
-  const totalChecks = requiredChecks.length;
-
-  const qualityScore = useMemo(
+  /* ── Completion (single source of truth) ──
+     The persisted percentage + section list come from the backend
+     (ProfileCompletionService via /users/me). The mirror helpers only fill
+     in when a response predates profileCompletionSections, and always use
+     the exact same formula as the backend. */
+  const role = initialProfile?.role;
+  const completionPercent = useMemo(
     () =>
-      getProfileQualityScore({
-        ...form,
-        skills: serializeSkillTags(skillTags),
-      }),
-    [form, skillTags],
+      typeof initialProfile?.profileCompletionPercent === "number"
+        ? initialProfile.profileCompletionPercent
+        : computeProfileCompletion(initialProfile, role),
+    [initialProfile, role],
+  );
+  const completionSections = useMemo(
+    () =>
+      Array.isArray(initialProfile?.profileCompletionSections)
+        ? initialProfile.profileCompletionSections
+        : computeProfileCompletionSections(initialProfile, role),
+    [initialProfile, role],
   );
 
   /* ── Scroll to top on step change ── */
@@ -670,13 +668,14 @@ export default function ProfileSetup({
   };
 
   const scrollToChecklist = (key) => {
-    // Map checklist keys to step indices: basic→0, skills→1, experience/certifications/portfolio→2
+    // Map shared completion-section keys to the setup steps.
     const keyStepMap = {
       basic: 0,
       skills: 1,
-      experience: 2,
-      certifications: 2,
+      experience: 1,
       portfolio: 2,
+      contact: 0,
+      goals: 1,
     };
     const stepIndex = keyStepMap[key] ?? STEPS.findIndex((s) => s.key === key);
     if (stepIndex >= 0) {
@@ -684,49 +683,15 @@ export default function ProfileSetup({
     }
   };
 
-  /* ── Build checklist data ── */
-  const checklistItems = [
-    {
-      key: "basic",
-      label: "Basic Information",
-      done: hasAboutMe,
-      current: hasAboutMe ? 1 : 0,
-      required: 1,
-      onClick: () => scrollToChecklist("basic"),
-    },
-    {
-      key: "skills",
-      label: "Skills & Experience",
-      done: hasSkills,
-      current: skillTags.length,
-      required: 1,
-      onClick: () => scrollToChecklist("skills"),
-    },
-    {
-      key: "experience",
-      label: "Experience",
-      done: hasExperience,
-      current: hasExperience ? 1 : 0,
-      required: 1,
-      onClick: () => scrollToChecklist("experience"),
-    },
-    {
-      key: "certifications",
-      label: "Certifications",
-      done: hasCertifications,
-      current: hasCertifications ? Math.max(1, structuredCertsCount) : 0,
-      required: 1,
-      onClick: () => scrollToChecklist("certifications"),
-    },
-    {
-      key: "portfolio",
-      label: "Portfolio / Links",
-      done: hasGithub && hasLinkedin,
-      current: [hasGithub, hasLinkedin, hasPortfolio].filter(Boolean).length,
-      required: 3,
-      onClick: () => scrollToChecklist("portfolio"),
-    },
-  ];
+  /* ── Build checklist data (single source of truth) ── */
+  const checklistItems = completionSections.map((section) => ({
+    key: section.key,
+    label: section.label,
+    done: section.done,
+    current: section.filled,
+    required: section.required,
+    onClick: () => scrollToChecklist(section.key),
+  }));
 
   /* ─────────────────────────────────────────────────────────────
      Render
@@ -746,9 +711,8 @@ export default function ProfileSetup({
           {/* ── Sidebar ── */}
           <aside className="ps-sidebar">
             <CompletionCard
-              qualityScore={qualityScore}
-              completedChecks={completedChecks}
-              totalChecks={totalChecks}
+              percent={completionPercent}
+              sections={completionSections}
             />
             <TipsCard checks={checklistItems} />
           </aside>
@@ -937,7 +901,7 @@ export default function ProfileSetup({
                         onChange={handleChange}
                         onBlur={handleBlur}
                       />
-                      {touchedFields.githubUrl && form.githubUrl && !hasGithub && (
+                      {touchedFields.githubUrl && form.githubUrl && !/^https?:\/\//.test(form.githubUrl) && (
                         <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
                           Please enter a full URL starting with https://
                         </p>
@@ -957,7 +921,7 @@ export default function ProfileSetup({
                         onChange={handleChange}
                         onBlur={handleBlur}
                       />
-                      {touchedFields.linkedinUrl && form.linkedinUrl && !hasLinkedin && (
+                      {touchedFields.linkedinUrl && form.linkedinUrl && !/^https?:\/\//.test(form.linkedinUrl) && (
                         <p className="ps-error" style={{ marginTop: 6, fontSize: 12, padding: "6px 10px" }}>
                           Please enter a full URL starting with https://
                         </p>

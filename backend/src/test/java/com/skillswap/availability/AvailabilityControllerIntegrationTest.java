@@ -5,6 +5,7 @@ import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
 import com.skillswap.config.RequestTraceFilter;
+import com.skillswap.user.MentorVerificationStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -124,6 +128,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(22L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -158,6 +165,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -214,6 +224,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -246,10 +259,16 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         User otherMentor = new User();
         otherMentor.setId(99L);
         otherMentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        otherMentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        otherMentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -291,6 +310,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -325,6 +347,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -359,6 +384,9 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,
@@ -381,10 +409,16 @@ class AvailabilityControllerIntegrationTest {
         User mentor = new User();
         mentor.setId(21L);
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         User otherMentor = new User();
         otherMentor.setId(99L);
         otherMentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        otherMentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        otherMentor.setProfileCompleted(true);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken(mentor, null,

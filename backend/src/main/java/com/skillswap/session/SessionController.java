@@ -80,6 +80,12 @@ public class SessionController {
         // Mandatory onboarding gate — mentors must complete their profile first.
         profileCompletionGuard.requireProfileCompleted(mentor,
                 "Please complete your profile before creating sessions.");
+        // Marketplace gate — only admin-APPROVED mentors may publish sessions.
+        if (!mentor.isApprovedMentor()) {
+            throw new BadRequestException(
+                    "Your mentor profile is awaiting verification. You cannot create sessions "
+                            + "until an admin approves your profile. Estimated review time: 24–48 hours.");
+        }
         validateCreateRequest(req);
         SkillSession session = new SkillSession();
         session.setMentor(mentor);
@@ -127,6 +133,13 @@ public class SessionController {
             @PathVariable Long id,
             @AuthenticationPrincipal User mentor,
             @RequestBody CreateSessionRequest req) {
+        // Marketplace gate — unapproved/suspended mentors must not keep editing
+        // published sessions after losing their verified status.
+        if (!mentor.isApprovedMentor()) {
+            throw new BadRequestException(
+                    "Your mentor profile is awaiting verification. You cannot manage sessions "
+                            + "until an admin approves your profile.");
+        }
         validateCreateRequest(req);
         SkillSession session = sessionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
@@ -156,6 +169,13 @@ public class SessionController {
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser,
             @RequestBody UpdateMeetingLinkRequest req) {
+        // Marketplace gate — suspended/unapproved mentors may not change links on
+        // published sessions.
+        if (!currentUser.isApprovedMentor()) {
+            throw new BadRequestException(
+                    "Your mentor profile is awaiting verification. You cannot manage sessions "
+                            + "until an admin approves your profile.");
+        }
         SkillSession session = sessionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 

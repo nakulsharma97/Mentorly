@@ -3,10 +3,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import ProfileGateModal from "../components/ProfileGateModal";
 import { SkeletonTable } from "../components/SkeletonLoaders";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import { EmptyState } from "../modules/common/dashboard/SectionCard";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
+import useMentorGate from "../modules/common/useMentorGate";
+import { formatPrice } from "../utils/price";
 import "../modules/mentor/mentor-pages.css";
 
 const VIEW_TABS = ["day", "week", "month", "agenda"];
@@ -86,8 +89,11 @@ function createCalendarDays(viewDate) {
   return days;
 }
 
-export default function MentorCalendarPage({ notify }) {
+export default function MentorCalendarPage({ profile, notify }) {
   const navigate = useNavigate();
+  // Marketplace gate — blocks availability/session actions until the
+  // mentor's profile is complete AND admin-verified.
+  const gate = useMentorGate(profile, null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [view, setView] = useState("month");
@@ -212,7 +218,7 @@ export default function MentorCalendarPage({ notify }) {
   const changeView = (nextView) => setView(nextView);
 
   const createOneOffSession = () => {
-    navigate("/mentor/teach?tab=sessions");
+    gate.requestAction(() => navigate("/mentor/teach?tab=sessions"));
   };
 
   const updateStatus = async (bookingId, status) => {
@@ -236,6 +242,11 @@ export default function MentorCalendarPage({ notify }) {
   // ─── Availability: Create / Save Slot ───
   const createAvailabilitySlot = async (event) => {
     event.preventDefault();
+    // Marketplace gate — setting availability requires a verified mentor.
+    if (gate.mode) {
+      gate.requestAction(() => {});
+      return;
+    }
 
     // Validate form
     if (!slotForm.startTime || !slotForm.endTime) {
@@ -877,11 +888,7 @@ export default function MentorCalendarPage({ notify }) {
               <div>
                 <p className="mp-block__label">Package & Payment</p>
                 <p className="mp-mini-row__m">
-                  Price:{" "}
-                  {Number(selectedEvent.priceAmount || 0).toLocaleString(
-                    "en-US",
-                    { style: "currency", currency: "USD" },
-                  )}
+                  Price: {formatPrice(selectedEvent.priceAmount)}
                 </p>
                 <p className="mp-mini-row__m">
                   Payment status: {selectedEvent.paymentStatus || "Pending"}
@@ -920,6 +927,10 @@ export default function MentorCalendarPage({ notify }) {
           </aside>
         </div>
       )}
+
+      {/* Marketplace gate modal — blocks availability/session creation until
+          the mentor's profile is complete AND admin-verified. */}
+      <ProfileGateModal {...gate.gate} />
     </div>
   );
 }

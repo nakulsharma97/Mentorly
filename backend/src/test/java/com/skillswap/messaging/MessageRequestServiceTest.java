@@ -49,6 +49,30 @@ class MessageRequestServiceTest {
     }
 
     @Test
+    void createRejectsRequestToAdmin() {
+        User sender = user(1L, "LEARNER");
+        User receiver = user(2L, "ADMIN");
+
+        assertThatThrownBy(() -> messageRequestService.createRequest(sender, receiver, "Hello"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("learners or mentors");
+
+        verify(messageRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void createRejectsRequestFromAdmin() {
+        User sender = user(1L, "ADMIN");
+        User receiver = user(2L, "LEARNER");
+
+        assertThatThrownBy(() -> messageRequestService.createRequest(sender, receiver, "Hello"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Admins cannot send");
+
+        verify(messageRequestRepository, never()).save(any());
+    }
+
+    @Test
     void createRejectsWhenReceiverBlocksNewRequests() {
         User sender = user(1L, "LEARNER");
         User receiver = user(2L, "MENTOR");

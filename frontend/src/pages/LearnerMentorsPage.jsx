@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
+import { formatPrice } from "../utils/price";
 import { useFavorites } from "../hooks/useFavorites";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
@@ -234,9 +235,11 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData }) {
           <div className="lf-mentor-card__price-card">
             <span className="lf-mentor-card__price-label">Starting from</span>
             <span className="lf-mentor-card__price-value">
-              ₹{extras.price != null ? Number(extras.price).toFixed(0) : "Free"}
+              {formatPrice(extras.price)}
             </span>
-            <span className="lf-mentor-card__price-unit">/session</span>
+            {extras.price != null && Number(extras.price) > 0 && (
+              <span className="lf-mentor-card__price-unit">/session</span>
+            )}
           </div>
 
           {extras.languages.length > 0 && (
@@ -821,9 +824,9 @@ export default function LearnerMentorsPage({ notify }) {
             <label>Max price</label>
             <select value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))}>
               <option value={0}>Any price</option>
-              <option value={25}>Under $25/hr</option>
-              <option value={50}>Under $50/hr</option>
-              <option value={100}>Under $100/hr</option>
+              <option value={500}>Under ₹500/session</option>
+              <option value={1000}>Under ₹1,000/session</option>
+              <option value={2000}>Under ₹2,000/session</option>
             </select>
           </div>
           <div className="lf-filter-group">

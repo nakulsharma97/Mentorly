@@ -147,7 +147,7 @@ class MentorVerificationControllerTest {
         MentorVerificationRequest saved = cloneRequest();
         saved.setStatus(MentorVerificationRequestStatus.PENDING);
         when(service.submit(eq(learnerUser), any(MentorVerificationDtos.SubmitMentorVerificationRequest.class)))
-                .thenReturn(MentorVerificationDto.from(saved, List.of()));
+                .thenReturn(MentorVerificationDto.from(saved, List.of(), List.of()));
 
         mockMvc.perform(post("/api/v1/verification/mentor/request")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -233,7 +233,7 @@ class MentorVerificationControllerTest {
         loginAs(adminUser);
 
         when(service.moderationQueue(adminUser, MentorVerificationRequestStatus.PENDING))
-                .thenReturn(List.of(MentorVerificationDto.from(request, List.of())));
+                .thenReturn(List.of(MentorVerificationDto.from(request, List.of(), List.of())));
 
         mockMvc.perform(get("/api/v1/verification/mentor/requests?status=PENDING"))
                 .andExpect(status().isOk())
@@ -254,7 +254,7 @@ class MentorVerificationControllerTest {
         loginAs(adminUser);
 
         when(service.requestDetail(adminUser, 1L))
-                .thenReturn(MentorVerificationDto.from(request, List.of()));
+                .thenReturn(MentorVerificationDto.from(request, List.of(), List.of()));
 
         mockMvc.perform(get("/api/v1/verification/mentor/requests/1"))
                 .andExpect(status().isOk())
@@ -281,7 +281,7 @@ class MentorVerificationControllerTest {
         saved.setUpdatedAt(OffsetDateTime.now());
 
         when(service.updateStatus(eq(adminUser), eq(1L), any()))
-                .thenReturn(MentorVerificationDto.from(saved, List.of()));
+                .thenReturn(MentorVerificationDto.from(saved, List.of(), List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -309,7 +309,7 @@ class MentorVerificationControllerTest {
         saved.setUpdatedAt(OffsetDateTime.now());
 
         when(service.updateStatus(eq(adminUser), eq(1L), any()))
-                .thenReturn(MentorVerificationDto.from(saved, List.of()));
+                .thenReturn(MentorVerificationDto.from(saved, List.of(), List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -335,7 +335,7 @@ class MentorVerificationControllerTest {
         saved.setUpdatedAt(OffsetDateTime.now());
 
         when(service.updateStatus(eq(adminUser), eq(1L), any()))
-                .thenReturn(MentorVerificationDto.from(saved, List.of()));
+                .thenReturn(MentorVerificationDto.from(saved, List.of(), List.of()));
 
         mockMvc.perform(patch("/api/v1/verification/mentor/requests/1")
                         .contentType(MediaType.APPLICATION_JSON)

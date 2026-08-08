@@ -11,6 +11,8 @@ import com.skillswap.safety.UserReport;
 import com.skillswap.safety.UserReportRepository;
 import com.skillswap.user.AdminSubRole;
 import com.skillswap.user.User;
+import com.skillswap.user.UserProjectDto;
+import com.skillswap.user.UserProjectService;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import com.skillswap.verification.MentorVerificationDto;
@@ -101,6 +103,7 @@ public class AdminController {
     private final MentorVerificationRequestRepository
             mentorVerificationRepository;
     private final MentorCertificationService mentorCertificationService;
+    private final UserProjectService userProjectService;
     private final WalletService walletService;
     private final BookingRepository bookingRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -469,7 +472,8 @@ public class AdminController {
         List<MentorVerificationDto> dtos = mentorVerificationRepository
                 .findByStatusOrderByCreatedAtAsc(status)
                 .stream()
-                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor())))
+                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor()),
+                        projectsFor(request.getMentor())))
                 .toList();
         return new ApiResponse<>("Mentor verification queue fetched", dtos);
     }
@@ -479,6 +483,13 @@ public class AdminController {
             return List.of();
         }
         return mentorCertificationService.listForMentor(mentor.getId());
+    }
+
+    private List<UserProjectDto> projectsFor(User mentor) {
+        if (mentor == null || mentor.getId() == null) {
+            return List.of();
+        }
+        return userProjectService.listProjects(mentor);
     }
 
     @PatchMapping("/users/{id}/enabled")

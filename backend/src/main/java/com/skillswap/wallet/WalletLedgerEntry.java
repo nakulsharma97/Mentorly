@@ -45,7 +45,7 @@ public class WalletLedgerEntry {
     private BigDecimal balanceAfter;
 
     @Column(nullable = false)
-    private String currency = "CREDITS";
+    private String currency = "INR";
 
     @Column(nullable = false)
     private String description;

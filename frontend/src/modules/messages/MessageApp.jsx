@@ -9,7 +9,6 @@ import ChatHeader from "./components/ChatHeader";
 import MessageList from "./components/MessageList";
 import MessageInput from "./components/MessageInput";
 import QuickReplies from "./components/QuickReplies";
-import ConversationDetails from "./components/ConversationDetails";
 import NewConversation from "./components/NewConversation";
 import EmptyConversation from "./components/EmptyConversation";
 import { unwrap } from "./utils";
@@ -54,6 +53,9 @@ export default function MessageApp({
   const [quickFilter, setQuickFilter] = useState("");
   const [sort, setSort] = useState("recent");
 
+  // The right panel defaults to the "Start New Conversation" experience —
+  // search users, suggested users and search results — so a visitor can
+  // immediately discover who to message. Selecting a chat swaps it in.
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [messageRequests, setMessageRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
@@ -630,12 +632,13 @@ export default function MessageApp({
         />
       }
       chat={
-        newChatOpen ? (
+        newChatOpen || !selConv ? (
           <NewConversation
             profile={profile}
             notify={notify}
             onClose={closeNewChat}
             onStart={startConversation}
+            variant={variant}
           />
         ) : error ? (
           <EmptyConversation
@@ -649,21 +652,6 @@ export default function MessageApp({
                 onClick={load}
               >
                 Retry
-              </button>
-            }
-          />
-        ) : !selConv ? (
-          <EmptyConversation
-            icon="forum"
-            title="Start your first conversation"
-            description="Search mentors or learners to begin chatting."
-            actions={
-              <button
-                type="button"
-                className="ms-btn ms-btn--primary ms-btn--sm"
-                onClick={openNewChat}
-              >
-                New Chat
               </button>
             }
           />
@@ -710,22 +698,6 @@ export default function MessageApp({
               uploading={uploading}
             />
           </>
-        )
-      }
-      details={
-        selConv ? (
-          <ConversationDetails
-            conversation={selConv}
-            variant={variant}
-            onAction={handleChatAction}
-          />
-        ) : (
-          <EmptyConversation
-            compact
-            icon="info"
-            title="Details"
-            description="Select a conversation to see details."
-          />
         )
       }
     />

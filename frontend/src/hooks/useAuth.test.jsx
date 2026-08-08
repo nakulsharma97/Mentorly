@@ -778,19 +778,16 @@ describe("useAuthProfile – route protection", () => {
     getActiveAuthToken.mockReturnValue("mock-token");
     extractJwtUserId.mockReturnValue(42);
 
-    // LEARNER role with complete profile → redirect to /learner/dashboard
-    // (needs skills, aboutMe, githubUrl, linkedinUrl so isProfileComplete returns true
-    //  and needsProfileSetup is false, allowing the redirect)
+    // LEARNER role with complete profile → redirect to /learner/dashboard.
+    // profileCompleted is the authoritative server flag under the unified
+    // ProfileCompletionService — needsProfileSetup stays false.
     client.get.mockResolvedValue({
       data: {
         data: {
           id: 42,
           fullName: "Test User",
           role: "LEARNER",
-          skills: "React",
-          aboutMe: "Developer",
-          githubUrl: "https://github.com/test",
-          linkedinUrl: "https://linkedin.com/in/test",
+          profileCompleted: true,
         },
       },
     });
@@ -812,10 +809,7 @@ describe("useAuthProfile – route protection", () => {
           id: 42,
           fullName: "Mentor User",
           role: "MENTOR",
-          skills: "Mentoring",
-          aboutMe: "Expert",
-          githubUrl: "https://github.com/mentor",
-          linkedinUrl: "https://linkedin.com/in/mentor",
+          profileCompleted: true,
         },
       },
     });
@@ -852,10 +846,7 @@ describe("useAuthProfile – route protection", () => {
           id: 42,
           fullName: "Test User",
           role: "LEARNER",
-          skills: "React",
-          aboutMe: "Developer",
-          githubUrl: "https://github.com/test",
-          linkedinUrl: "https://linkedin.com/in/test",
+          profileCompleted: true,
         },
       },
     });
@@ -877,10 +868,7 @@ describe("useAuthProfile – route protection", () => {
           id: 42,
           fullName: "Test User",
           role: "LEARNER",
-          skills: "React",
-          aboutMe: "Developer",
-          githubUrl: "https://github.com/test",
-          linkedinUrl: "https://linkedin.com/in/test",
+          profileCompleted: true,
         },
       },
     });
@@ -923,7 +911,7 @@ describe("useAuthProfile – route protection", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it("logged in with a complete profile + /complete-profile → redirects to role dashboard", async () => {
+  it("logged in with a complete profile + /complete-profile → stays (edit mode, no dashboard bounce)", async () => {
     getActiveAuthToken.mockReturnValue("mock-token");
     extractJwtUserId.mockReturnValue(42);
     client.get.mockResolvedValue({
@@ -932,10 +920,7 @@ describe("useAuthProfile – route protection", () => {
           id: 42,
           fullName: "Test User",
           role: "MENTOR",
-          skills: "Java",
-          aboutMe: "Mentor",
-          githubUrl: "https://github.com/m",
-          linkedinUrl: "https://linkedin.com/in/m",
+          profileCompleted: true,
         },
       },
     });
@@ -943,8 +928,9 @@ describe("useAuthProfile – route protection", () => {
     renderAt("/complete-profile");
     await tick(100);
 
-    // Onboarding must never be shown again once complete.
-    expect(mockNavigate).toHaveBeenCalledWith("/mentor/dashboard", {
+    // "Full Profile Setup" reuses the same page in edit mode — the auth
+    // layer must NOT redirect a completed profile back to the dashboard.
+    expect(mockNavigate).not.toHaveBeenCalledWith("/mentor/dashboard", {
       replace: true,
     });
   });
@@ -960,6 +946,23 @@ describe("useAuthProfile – route protection", () => {
     await tick(100);
 
     expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("logged in with incomplete profile but onboarding dismissed → dashboard is reachable (no /complete-profile bounce)", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    client.get.mockResolvedValue({
+      data: { data: { id: 42, fullName: "New Mentor", role: "MENTOR" } },
+    });
+
+    // Mentor clicked Close (✕) on the Complete Profile page earlier this
+    // session — the mandatory redirect is bypassed so they can explore.
+    sessionStorage.setItem("skillswap:onboarding_dismissed", "1");
+    renderAt("/mentor/dashboard");
+    await tick(100);
+
+    expect(mockNavigate).not.toHaveBeenCalled();
+    sessionStorage.removeItem("skillswap:onboarding_dismissed");
   });
 });
 

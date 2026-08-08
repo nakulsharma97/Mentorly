@@ -1,13 +1,13 @@
 import { motion } from "framer-motion";
 
 /**
- * Messaging workspace shell — a fixed three-column grid
- * (conversation list · chat · learner details) that fills the hosting
- * workspace content area exactly. No internal topbar: the surrounding
- * workspace chrome already provides branding and navigation, so this page
- * never scrolls — only each column scrolls internally.
+ * Messaging workspace shell — a fixed two-column grid
+ * (conversation list 35% · chat 65%) that fills the hosting workspace
+ * content area exactly. No internal topbar: the surrounding workspace
+ * chrome already provides branding and navigation, so this page never
+ * scrolls — only each column scrolls internally.
  */
-export default function MessageLayout({ sidebar, chat, details, hideDetails }) {
+export default function MessageLayout({ sidebar, chat }) {
   return (
     <section className="ms-shell" aria-label="Messaging workspace">
       <motion.div
@@ -18,7 +18,6 @@ export default function MessageLayout({ sidebar, chat, details, hideDetails }) {
       >
         <div className="ms-app__sidebar">{sidebar}</div>
         <div className="ms-app__chat">{chat}</div>
-        {!hideDetails ? <div className="ms-app__details">{details}</div> : null}
       </motion.div>
     </section>
   );

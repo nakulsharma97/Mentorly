@@ -5,6 +5,10 @@ import {
   serializeSkillTags,
   SKILL_LEVELS,
 } from "../utils/profileSkills";
+import { normalizeSkills } from "../utils/skills";
+import { computeProfileCompletion } from "../modules/common/profileCompletion";
+import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
+import MentorProjectsManager from "../components/mentor/MentorProjectsManager";
 import "./CompleteProfilePage.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -76,6 +80,8 @@ const FIELD_TYPES = {
   textarea: "textarea",
   select: "select",
   photo: "photo",
+  experience: "experience",
+  languages: "languages",
 };
 
 /** Defines every field shown on the onboarding form, per role. */
@@ -86,12 +92,12 @@ const FIELDS_BY_ROLE = {
     { name: "headline", label: "Headline", type: FIELD_TYPES.text, placeholder: "e.g. Senior React Engineer & Mentor", required: true, span: 2 },
     { name: "aboutMe", label: "Bio", type: FIELD_TYPES.textarea, placeholder: "Tell learners about your background, expertise, and teaching style…", required: true, span: 2 },
     { name: "skills", label: "Skills You Teach", type: FIELD_TYPES.chips, required: true, span: 2 },
-    { name: "yearsOfExperience", label: "Experience (years)", type: FIELD_TYPES.number, placeholder: "e.g. 6", required: true, min: 1 },
-    { name: "languages", label: "Languages", type: FIELD_TYPES.text, placeholder: "e.g. English, Hindi, Spanish", required: true },
+    { name: "experience", label: "Experience", type: FIELD_TYPES.experience, required: true, hint: "0 years is fine — freshers are welcome to mentor too." },
+    { name: "languages", label: "Languages", type: FIELD_TYPES.languages, required: true },
     { name: "education", label: "Education", type: FIELD_TYPES.text, placeholder: "e.g. B.Tech Computer Science, IIT Delhi", required: true, span: 2 },
     { name: "linkedinUrl", label: "LinkedIn URL", type: FIELD_TYPES.url, placeholder: "https://linkedin.com/in/username", required: true },
     { name: "portfolioUrl", label: "Portfolio URL", type: FIELD_TYPES.url, placeholder: "https://your-portfolio.com", required: true },
-    { name: "hourlyRate", label: "Hourly Price (credits)", type: FIELD_TYPES.number, placeholder: "e.g. 50", required: true, min: 1 },
+    { name: "hourlyRate", label: "Hourly Price (₹)", type: FIELD_TYPES.number, placeholder: "e.g. 299", required: true, min: 0, hint: "Enter 0 to offer free mentoring sessions." },
     { name: "timezone", label: "Timezone", type: FIELD_TYPES.select, required: true },
     { name: "availability", label: "Availability", type: FIELD_TYPES.textarea, placeholder: "e.g. Weekdays 6–9 PM IST · Weekends all day", required: true, span: 2 },
     { name: "country", label: "Country", type: FIELD_TYPES.text, required: true },
@@ -106,7 +112,7 @@ const FIELDS_BY_ROLE = {
     { name: "aboutMe", label: "Bio", type: FIELD_TYPES.textarea, placeholder: "A short intro about yourself and your learning journey…", required: true, span: 2 },
     { name: "skills", label: "Interested Skills", type: FIELD_TYPES.chips, required: true, span: 2 },
     { name: "currentSkillLevel", label: "Current Skill Level", type: FIELD_TYPES.select, required: true },
-    { name: "languages", label: "Languages", type: FIELD_TYPES.text, placeholder: "e.g. English, Hindi, Spanish", required: true },
+    { name: "languages", label: "Languages", type: FIELD_TYPES.languages, required: true },
     { name: "timezone", label: "Timezone", type: FIELD_TYPES.select, required: true },
     { name: "country", label: "Country", type: FIELD_TYPES.text, required: true },
     { name: "state", label: "State / Province", type: FIELD_TYPES.text, placeholder: "e.g. Maharashtra", required: true },
@@ -125,6 +131,14 @@ function defaultTimezone() {
     // fall through
   }
   return "UTC";
+}
+
+/** Humanize a years+months duration, e.g. 1y6m → "1 Year 6 Months". */
+function formatExperience(years, months) {
+  const parts = [];
+  if (years > 0) parts.push(years === 1 ? "1 Year" : `${years} Years`);
+  if (months > 0) parts.push(months === 1 ? "1 Month" : `${months} Months`);
+  return parts.length ? parts.join(" ") : "0 Years (Fresher)";
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -177,7 +191,7 @@ function SectionHeading({ icon, title, subtitle, index }) {
    Confetti / success overlay
    ───────────────────────────────────────────────────────────── */
 
-function SuccessOverlay() {
+function SuccessOverlay({ onGoDashboard, onViewProfile, editMode }) {
   const pieces = useMemo(
     () =>
       Array.from({ length: 36 }, (_, i) => ({
@@ -214,8 +228,32 @@ function SuccessOverlay() {
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <h2>🎉 Profile Completed Successfully!</h2>
-        <p>Redirecting to your dashboard…</p>
+        <h2>{editMode ? "✓ Profile Updated Successfully" : "🎉 Profile Completed Successfully"}</h2>
+        {editMode ? (
+          <p>
+            Your profile changes have been saved. Certifications and projects are
+            updated instantly — no re-verification is required for optional sections.
+          </p>
+        ) : (
+          <p>
+            Your profile has been submitted successfully. The SkillSwap Admin team will
+            review and verify your mentor profile — usually within 24 hours.
+          </p>
+        )}
+        {!editMode && (
+          <p className="cpp-success-note">
+            Until then you cannot create mentoring sessions and learners cannot discover
+            your profile. You will receive a notification once your account is verified.
+          </p>
+        )}
+        <div className="cpp-success-actions">
+          <button type="button" className="cpp-btn cpp-btn--primary" onClick={onGoDashboard}>
+            Go to Dashboard
+          </button>
+          <button type="button" className="cpp-btn cpp-btn--soft" onClick={onViewProfile}>
+            View Profile
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -225,13 +263,28 @@ function SuccessOverlay() {
    Main component
    ───────────────────────────────────────────────────────────── */
 
-export default function CompleteProfilePage({ profile, notify, onLogout, onCompleted }) {
+export default function CompleteProfilePage({
+  profile,
+  notify,
+  onLogout,
+  onDismiss,
+  onGoDashboard,
+  onViewProfile,
+}) {
   const isMentor = profile?.role === "MENTOR";
+  // Edit mode: the profile is already complete, so this is an update flow
+  // ("Full Profile Setup") rather than first-login onboarding.
+  const editMode = Boolean(profile?.profileCompleted);
   const fields = FIELDS_BY_ROLE[profile?.role] || FIELDS_BY_ROLE.LEARNER;
 
   const [form, setForm] = useState(() => {
     const initial = {};
     fields.forEach((f) => {
+      if (f.type === FIELD_TYPES.experience) {
+        initial.yearsOfExperience = profile?.yearsOfExperience ?? 0;
+        initial.monthsOfExperience = profile?.monthsOfExperience ?? 0;
+        return;
+      }
       initial[f.name] = profile?.[f.name] ?? "";
     });
     initial.timezone = initial.timezone || defaultTimezone();
@@ -243,54 +296,75 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
   const [newSkill, setNewSkill] = useState("");
   const [newSkillLevel, setNewSkillLevel] = useState("Intermediate");
   const [skillError, setSkillError] = useState("");
+  const [langTags, setLangTags] = useState(() =>
+    normalizeSkills(profile?.languages),
+  );
+  const [newLang, setNewLang] = useState("");
+  const [langError, setLangError] = useState("");
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const skillInputRef = useRef(null);
+  const langInputRef = useRef(null);
   const formRef = useRef(null);
   // Holds the server response so the success animation can hand the freshly
   // updated (profileCompleted=true) profile to the auth layer before redirect.
   const completedProfileRef = useRef(null);
 
-  /* ── Live completion % (encourages users to finish) ── */
-  const progress = useMemo(() => {
-    const required = fields.filter((f) => f.required);
-    const filled = required.filter((f) => {
-      const value = f.name === "skills" ? skillTags : form[f.name];
-      return isFieldFilled(f, value);
-    }).length;
-    return Math.round((filled / required.length) * 100);
-  }, [fields, form, skillTags]);
+  /* ── Live completion % (encourages users to finish) ──
+     Mirrors the backend ProfileCompletionService exactly (same sections,
+     same weights) so the preview always matches the persisted percentage. */
+  const progress = useMemo(
+    () =>
+      computeProfileCompletion(
+        {
+          ...form,
+          skills: skillTags.length ? "filled" : "",
+          languages: langTags.length ? "filled" : "",
+        },
+        profile?.role,
+      ),
+    [form, skillTags, langTags, profile?.role],
+  );
 
+  // Auto-redirect as a convenience, but the success overlay now also exposes
+  // explicit Go to Dashboard / View Profile buttons, so the mentor is never
+  // stuck waiting.
   useEffect(() => {
     if (!success) return undefined;
+    // Auto-redirect hands the fresh server profile (profileCompleted=true) to
+    // the auth layer so needsProfileSetup flips false and the mentor is NOT
+    // bounced straight back to onboarding.
     const timer = window.setTimeout(() => {
-      onCompleted?.(completedProfileRef.current);
-    }, 2100);
+      onGoDashboard?.(completedProfileRef.current);
+    }, 2400);
     return () => window.clearTimeout(timer);
-  }, [success, onCompleted]);
+  }, [success, onGoDashboard]);
 
-  /* ── Field value helpers ── */
-  function isFieldFilled(field, value) {
-    if (field.type === FIELD_TYPES.chips) {
-      return Array.isArray(value) && value.length > 0;
-    }
-    if (field.type === FIELD_TYPES.number) {
-      const n = Number(value);
-      return Number.isFinite(n) && n >= (field.min || 0);
-    }
-    if (field.type === FIELD_TYPES.select) {
-      return Boolean(String(value || "").trim());
-    }
-    return Boolean(String(value || "").trim());
-  }
-
+  /* ── Field validation ── */
   function validateField(field, value) {
     const text = String(value || "").trim();
     if (field.type === FIELD_TYPES.chips) {
       if (!Array.isArray(value) || value.length === 0) {
         return `Please add at least one skill.`;
+      }
+      return null;
+    }
+    if (field.type === FIELD_TYPES.experience) {
+      const years = Number(value?.yearsOfExperience);
+      const months = Number(value?.monthsOfExperience);
+      if (!Number.isFinite(years) || years < 0 || years > 30) {
+        return "Experience years must be between 0 and 30.";
+      }
+      if (!Number.isFinite(months) || months < 0 || months > 11) {
+        return "Experience months must be between 0 and 11.";
+      }
+      return null;
+    }
+    if (field.type === FIELD_TYPES.languages) {
+      if (!Array.isArray(value) || value.length === 0) {
+        return "Please add at least one language.";
       }
       return null;
     }
@@ -372,6 +446,39 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
     }
   };
 
+  /* ── Languages chip input ── */
+  const addLang = () => {
+    const value = newLang.trim();
+    if (!value) {
+      setLangError("Enter a language first.");
+      return;
+    }
+    if (langTags.some((l) => l.toLowerCase() === value.toLowerCase())) {
+      setLangError("That language is already added.");
+      return;
+    }
+    setLangTags((prev) => [...prev, value]);
+    setLangError("");
+    setNewLang("");
+    langInputRef.current?.focus();
+  };
+
+  const removeLang = (index) => {
+    setLangTags((prev) => prev.filter((_, i) => i !== index));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.languages;
+      return next;
+    });
+  };
+
+  const handleLangKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addLang();
+    }
+  };
+
   /* ── Submit ── */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -380,7 +487,11 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
     const nextErrors = {};
     fields.forEach((field) => {
       if (!field.required) return;
-      const value = field.name === "skills" ? skillTags : form[field.name];
+      let value;
+      if (field.name === "skills") value = skillTags;
+      else if (field.name === "languages") value = langTags;
+      else if (field.type === FIELD_TYPES.experience) value = form;
+      else value = form[field.name];
       const message = validateField(field, value);
       if (message) nextErrors[field.name] = message;
     });
@@ -400,7 +511,17 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
 
     setSubmitting(true);
     try {
-      const payload = { ...form, skills: serializeSkillTags(skillTags) };
+      // `form` never carries an `experience` key (it is split into
+      // yearsOfExperience + monthsOfExperience below), so spreading it is safe.
+      const payload = {
+        ...form,
+        skills: serializeSkillTags(skillTags),
+        languages: langTags.join(", "),
+      };
+      if (isMentor) {
+        payload.yearsOfExperience = Number(form.yearsOfExperience) || 0;
+        payload.monthsOfExperience = Number(form.monthsOfExperience) || 0;
+      }
       const response = await client.post("/api/v1/users/me/profile/complete", payload);
       const updated = response?.data?.data || null;
       completedProfileRef.current = updated;
@@ -499,6 +620,7 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
                 className="cpp-btn cpp-btn--soft"
                 onClick={addSkill}
                 disabled={!newSkill.trim()}
+                aria-label="Add skill"
               >
                 + Add
               </button>
@@ -526,6 +648,109 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
               </div>
             ) : (
               <p className="cpp-tags-empty">{isMentor ? "Add the skills you can teach." : "Add the skills you want to learn."}</p>
+            )}
+          </div>
+        </FieldShell>
+      );
+    }
+
+    if (field.type === FIELD_TYPES.experience) {
+      const years = Number(form.yearsOfExperience) || 0;
+      const months = Number(form.monthsOfExperience) || 0;
+      return (
+        <FieldShell key={field.name} id={id} field={field} error={error} hint={field.hint}>
+          <div className="cpp-experience" data-field={field.name}>
+            <div className="cpp-experience-group">
+              <label className="cpp-label cpp-label--inline" htmlFor="cpp-experience-years">Years</label>
+              <select
+                id="cpp-experience-years"
+                name="yearsOfExperience"
+                className="cpp-select"
+                value={years}
+                onChange={handleChange}
+                aria-label="Years of experience"
+              >
+                {Array.from({ length: 31 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i === 0 ? "0 — Fresher" : `${i} ${i === 1 ? "Year" : "Years"}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="cpp-experience-group">
+              <label className="cpp-label cpp-label--inline" htmlFor="cpp-experience-months">Months</label>
+              <select
+                id="cpp-experience-months"
+                name="monthsOfExperience"
+                className="cpp-select"
+                value={months}
+                onChange={handleChange}
+                aria-label="Additional months of experience"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i} value={i}>
+                    {i} {i === 1 ? "Month" : "Months"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p className="cpp-experience-summary">
+            <strong>{formatExperience(years, months)}</strong> of experience
+          </p>
+        </FieldShell>
+      );
+    }
+
+    if (field.type === FIELD_TYPES.languages) {
+      return (
+        <FieldShell key={field.name} id={id} field={field} error={error}>
+          <div data-field={field.name}>
+            <div className="cpp-skills-row">
+              <input
+                ref={langInputRef}
+                className="cpp-input"
+                placeholder="Type a language and press Enter"
+                value={newLang}
+                onChange={(e) => {
+                  setNewLang(e.target.value);
+                  setLangError("");
+                }}
+                onKeyDown={handleLangKeyDown}
+                aria-label={`${field.label} — type a language and press Enter to add`}
+              />
+              <button
+                type="button"
+                className="cpp-btn cpp-btn--soft"
+                onClick={addLang}
+                disabled={!newLang.trim()}
+                aria-label="Add language"
+              >
+                + Add
+              </button>
+            </div>
+            {langError && <p className="cpp-field-error">{langError}</p>}
+            {langTags.length > 0 ? (
+              <div className="cpp-tags">
+                {langTags.map((lang, idx) => (
+                  <span key={`${lang}-${idx}`} className="cpp-tag">
+                    {lang}
+                    <button
+                      type="button"
+                      className="cpp-tag-remove"
+                      onClick={() => removeLang(idx)}
+                      aria-label={`Remove ${lang}`}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="cpp-tags-empty">Add the languages you speak — e.g. English, Hindi.</p>
             )}
           </div>
         </FieldShell>
@@ -609,7 +834,13 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
 
   return (
     <main className="cpp-page">
-      {success && <SuccessOverlay />}
+      {success && (
+        <SuccessOverlay
+          editMode={editMode}
+          onGoDashboard={() => onGoDashboard?.(completedProfileRef.current)}
+          onViewProfile={() => onViewProfile?.(completedProfileRef.current)}
+        />
+      )}
 
       {/* ── Minimal top bar: brand + logout only ── */}
       <header className="cpp-topbar">
@@ -619,8 +850,25 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
         </div>
         <div className="cpp-topbar-actions">
           <span className="cpp-role-chip">
-            {isMentor ? "Mentor" : "Learner"} onboarding
+            {editMode
+              ? (isMentor ? "Mentor" : "Learner") + " profile"
+              : (isMentor ? "Mentor" : "Learner") + " onboarding"}
           </span>
+          {onDismiss && (
+            <button
+              type="button"
+              className="cpp-close"
+              onClick={onDismiss}
+              aria-label="Close and continue to dashboard"
+              title="Close and explore the dashboard"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Close
+            </button>
+          )}
           <button type="button" className="cpp-logout" onClick={onLogout}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -642,10 +890,11 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
             </svg>
             Get started
           </span>
-          <h1 className="cpp-title">Complete Your Profile</h1>
+          <h1 className="cpp-title">{editMode ? "Edit Your Profile" : "Complete Your Profile"}</h1>
           <p className="cpp-subtitle">
-            Please complete your profile before continuing to SkillSwap. This
-            only takes a couple of minutes.
+            {editMode
+              ? "Update your professional details any time. Certifications and projects are optional."
+              : "Please complete your profile before continuing to SkillSwap. This only takes a couple of minutes."}
           </p>
 
           {/* Progress */}
@@ -742,6 +991,45 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
               </div>
             </section>
 
+            {/* ── Optional: Certificates (mentor) ── */}
+            {isMentor && (
+              <section className="cpp-section cpp-section--optional" aria-labelledby="cpp-cert">
+                <SectionHeading
+                  index={4}
+                  title="Certificates"
+                  subtitle="Optional — add verified credentials to build learner trust."
+                  icon={
+                    <>
+                      <path d="M9 12l2 2 4-4" />
+                      <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z" />
+                    </>
+                  }
+                />
+                <div className="cpp-optional-grid">
+                  <MentorCertificationsManager mentorId={profile?.id} notify={notify} />
+                </div>
+              </section>
+            )}
+
+            {/* ── Optional: Projects (mentor) ── */}
+            {isMentor && (
+              <section className="cpp-section cpp-section--optional" aria-labelledby="cpp-projects">
+                <SectionHeading
+                  index={5}
+                  title="Projects"
+                  subtitle="Optional — showcase your best work to learners."
+                  icon={
+                    <>
+                      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                    </>
+                  }
+                />
+                <div className="cpp-optional-grid">
+                  <MentorProjectsManager notify={notify} />
+                </div>
+              </section>
+            )}
+
             {/* ── Actions ── */}
             <div className="cpp-actions">
               <p className="cpp-actions-note">
@@ -763,7 +1051,7 @@ export default function CompleteProfilePage({ profile, notify, onLogout, onCompl
                   </>
                 ) : (
                   <>
-                    Complete Profile
+                    {editMode ? "Save Changes" : "Complete Profile"}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="5" y1="12" x2="19" y2="12" />
                       <polyline points="12 5 19 12 12 19" />

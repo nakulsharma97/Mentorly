@@ -158,6 +158,13 @@ const iconMap = {
   event_busy: "event_busy",
   checklist: "checklist",
   pending_actions: "pending",
+  cancel: "cancel",
+  block: "block",
+  edit_note: "edit_note",
+  "manage-search": "manage_search",
+  manage_search: "manage_search",
+  "arrow-forward": "arrow_forward",
+  arrow_forward: "arrow_forward",
 
   // Default fallback
   default: "grid_view",

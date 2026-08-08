@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import client from '../api/client';
 import { normalizeSkills } from '../utils/skills';
+import { formatPrice } from '../utils/price';
 import ReportModal from '../components/ReportModal';
 
 const formatDateTime = (value) => {
@@ -21,13 +22,7 @@ const formatDateTime = (value) => {
   }).format(date);
 };
 
-const formatCredits = (value) => {
-  const amount = Number(value || 0);
-  if (!Number.isFinite(amount)) {
-    return '0 CREDITS';
-  }
-  return `${amount.toFixed(2)} CREDITS`;
-};
+const formatCredits = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 
 
@@ -460,7 +455,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
               )}
               <div style={{ padding: '8px 12px', borderRadius: 8, background: 'var(--bg)' }}>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 2 }}>PRICE</div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{formatCredits(session.priceAmount)}</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{formatPrice(session.priceAmount)}</div>
               </div>
             </div>
 
@@ -511,38 +506,58 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
 
       {step === 2 && session && (
         <div>
-          <h2 style={{ marginTop: 0 }}>Confirm Payment</h2>
-          <div style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 16, background: 'var(--card-bg)' }}>
-            <h3 style={{ margin: '0 0 10px 0' }}>{session.title}</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span>Session price</span>
-              <strong>{formatCredits(sessionPrice)}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: 'var(--muted)' }}>
-              <span>Platform fee (10%)</span>
-              <span>{formatCredits(platformFee)}</span>
-            </div>
-            <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '10px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>Total</strong>
-              <strong>{formatCredits(total)}</strong>
-            </div>
-          </div>
+          <h2 style={{ marginTop: 0 }}>{sessionPrice > 0 ? 'Confirm Payment' : 'Confirm Free Booking'}</h2>
+          {sessionPrice > 0 ? (
+            <>
+              <div style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 16, background: 'var(--card-bg)' }}>
+                <h3 style={{ margin: '0 0 10px 0' }}>{session.title}</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span>Session price</span>
+                  <strong>{formatPrice(sessionPrice)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, color: 'var(--muted)' }}>
+                  <span>Platform fee (10%)</span>
+                  <span>{formatPrice(platformFee)}</span>
+                </div>
+                <hr style={{ border: 0, borderTop: '1px solid var(--line)', margin: '10px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong>Total</strong>
+                  <strong>{formatPrice(total)}</strong>
+                </div>
+              </div>
 
-          <div style={{ marginTop: 12 }}>
-            <p style={{ margin: 0 }}>
-              Current wallet balance: <strong>{loadingWallet ? 'Loading...' : formatCredits(walletBalance)}</strong>
-            </p>
-            {!loadingWallet && hasSufficientBalance ? (
-              <p style={{ color: 'var(--success, #16a34a)', marginTop: 8 }}>✓ Sufficient balance</p>
-            ) : null}
-            {!loadingWallet && !hasSufficientBalance ? (
-              <p style={{ color: 'var(--error)', marginTop: 8 }}>
-                ✗ Insufficient balance — you can still pay via Razorpay (card/UPI/net banking).
+              <div style={{ marginTop: 12 }}>
+                <p style={{ margin: 0 }}>
+                  Current wallet balance: <strong>{loadingWallet ? 'Loading...' : formatCredits(walletBalance)}</strong>
+                </p>
+                {!loadingWallet && hasSufficientBalance ? (
+                  <p style={{ color: 'var(--success, #16a34a)', marginTop: 8 }}>✓ Sufficient balance</p>
+                ) : null}
+                {!loadingWallet && !hasSufficientBalance ? (
+                  <p style={{ color: 'var(--error)', marginTop: 8 }}>
+                    ✗ Insufficient balance — you can still pay via Razorpay (card/UPI/net banking).
+                  </p>
+                ) : null}
+                {bookingError ? <p style={{ color: 'var(--error)', marginTop: 8 }}>{bookingError}</p> : null}
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                border: '1px solid var(--success-border, #86efac)',
+                borderRadius: 14,
+                background: 'var(--success-bg, #f0fdf4)',
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <p style={{ margin: 0, color: 'var(--success-text, #166534)', lineHeight: 1.6 }}>
+                🎉 This mentor currently offers <strong>free mentoring sessions</strong>. No payment
+                required.
               </p>
-            ) : null}
-            {bookingError ? <p style={{ color: 'var(--error)', marginTop: 8 }}>{bookingError}</p> : null}
-          </div>
+              {bookingError ? <p style={{ color: 'var(--error)', marginTop: 10 }}>{bookingError}</p> : null}
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
             <button
@@ -565,7 +580,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
                 cursor: 'pointer',
               }}
             >
-              Confirm &amp; Pay
+              {sessionPrice > 0 ? 'Confirm & Pay' : 'Confirm Free Booking'}
             </button>
           </div>
         </div>

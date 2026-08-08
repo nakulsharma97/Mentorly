@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import SectionCard, { EmptyState } from "../../../common/dashboard/SectionCard";
 import Icon from "../../../common/dashboard/Icon";
-import { formatDateParts, formatTime, formatMoney } from "../../../common/dashboard/dashboardUtils";
+import { formatDateParts, formatTime } from "../../../common/dashboard/dashboardUtils";
+import { formatPrice, isFree } from "../../../utils/price";
 
 /** Professional session list: date chip, course, status badge, join + more. */
 export default function UpcomingSessions({ sessions = [] }) {
@@ -39,7 +40,7 @@ export default function UpcomingSessions({ sessions = [] }) {
                   <p className="md-row__meta">
                     <Icon name="schedule" /> {formatTime(s?.startTime)}
                     <span>·</span>
-                    <Icon name="payments" /> {formatMoney(s?.pricePerHour || 0)}/hr
+                    <Icon name="payments" /> {formatPrice(s?.pricePerHour)}{!isFree(s?.pricePerHour) ? "/hr" : ""}
                   </p>
                 </div>
                 <div className="md-row__actions">

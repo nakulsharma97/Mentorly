@@ -159,6 +159,9 @@ class AdminControllerIntegrationTest {
     private AdminService adminService;
 
     @MockitoBean
+    private com.skillswap.user.UserProjectService userProjectService;
+
+    @MockitoBean
     private AdminNotificationService adminNotificationService;
 
     @MockitoBean

@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 @Slf4j
 public class ReferralService {
 
-    private static final BigDecimal REFERRAL_CREDITS = BigDecimal.valueOf(50);
+    private static final BigDecimal REFERRAL_AMOUNT_INR = BigDecimal.valueOf(50);
 
     private final UserRepository userRepository;
     private final ReferralRewardRepository referralRewardRepository;
@@ -40,16 +40,16 @@ public class ReferralService {
 
         walletService.addEntryForUser(referrer.getId(), new WalletService.WalletEntryRequest(
                 WalletTransactionType.CREDIT,
-                REFERRAL_CREDITS,
-                "CREDITS",
+                REFERRAL_AMOUNT_INR,
+                "INR",
                 "Referral reward: your referral completed their first booking",
                 "REFERRAL",
                 bookingId));
 
         walletService.addEntryForUser(referee.getId(), new WalletService.WalletEntryRequest(
                 WalletTransactionType.CREDIT,
-                REFERRAL_CREDITS,
-                "CREDITS",
+                REFERRAL_AMOUNT_INR,
+                "INR",
                 "Welcome bonus: you completed your first booking",
                 "REFERRAL",
                 bookingId));

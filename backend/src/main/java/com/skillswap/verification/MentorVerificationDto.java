@@ -2,6 +2,7 @@ package com.skillswap.verification;
 
 import com.skillswap.mentorcertification.MentorCertificationDto;
 import com.skillswap.user.User;
+import com.skillswap.user.UserProjectDto;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -41,6 +42,7 @@ public record MentorVerificationDto(
         String email,
         String skills,
         Integer yearsOfExperience,
+        Integer monthsOfExperience,
         String bio,
         String resumeUrl,
         String certificateUrls,
@@ -50,13 +52,15 @@ public record MentorVerificationDto(
         String hourlyRate,
         String availability,
         MentorSummaryDto mentor,
-        List<MentorCertificationDto> certifications) {
+        List<MentorCertificationDto> certifications,
+        List<UserProjectDto> projects) {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
     public static MentorVerificationDto from(
             MentorVerificationRequest request,
-            List<MentorCertificationDto> certifications) {
+            List<MentorCertificationDto> certifications,
+            List<UserProjectDto> projects) {
         return new MentorVerificationDto(
                 request.getId(),
                 request.getStatus() == null ? null : request.getStatus().name(),
@@ -73,6 +77,7 @@ public record MentorVerificationDto(
                 request.getEmail(),
                 request.getSkills(),
                 request.getYearsOfExperience(),
+                request.getMonthsOfExperience(),
                 request.getBio(),
                 request.getResumeUrl(),
                 request.getCertificateUrls(),
@@ -82,7 +87,8 @@ public record MentorVerificationDto(
                 request.getHourlyRate() == null ? null : request.getHourlyRate().toPlainString(),
                 request.getAvailability(),
                 MentorSummaryDto.from(request.getMentor()),
-                certifications);
+                certifications,
+                projects);
     }
 
     private static String format(OffsetDateTime value) {

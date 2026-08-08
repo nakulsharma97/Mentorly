@@ -26,6 +26,7 @@ public final class MentorVerificationDtos {
             String headline,
             String skills,
             Integer yearsOfExperience,
+            Integer monthsOfExperience,
             String aboutMe,
             BigDecimal hourlyRate,
             String linkedinUrl,
@@ -40,11 +41,17 @@ public final class MentorVerificationDtos {
 
     /**
      * Immutable data carrier for updating verification status.
+     *
+     * @param adminNote the rejection/suspension reason (or a short note)
+     * @param customMessage when rejecting, an admin-authored message that is
+     *                      delivered to the mentor verbatim (falls back to a
+     *                      generic message + reason when null)
      */
     public record UpdateMentorVerificationStatusRequest(
             MentorVerificationRequestStatus status,
             String adminNote,
-            String requestedInfo) {
+            String requestedInfo,
+            String customMessage) {
     }
 
     /**
@@ -55,7 +62,15 @@ public final class MentorVerificationDtos {
             String status,
             String requestedInfo,
             String adminNote,
-            boolean mentorVerified) {
+            boolean mentorVerified,
+            // User-level state (kept in sync with the latest request) so the
+            // dashboard banner can distinguish PENDING / UNDER_REVIEW / REJECTED
+            // (with reason) / SUSPENDED without extra round-trips.
+            String verificationStatus,
+            String rejectionReason,
+            String submittedAt,
+            String verifiedAt,
+            boolean profileCompleted) {
 
         static MentorVerificationStatusDto from(MentorVerificationRequest latest, User user) {
             return new MentorVerificationStatusDto(
@@ -63,7 +78,12 @@ public final class MentorVerificationDtos {
                     latest == null ? null : latest.getStatus() == null ? null : latest.getStatus().name(),
                     latest == null ? null : latest.getRequestedInfo(),
                     latest == null ? null : latest.getAdminNote(),
-                    user.isMentorVerified());
+                    user.isMentorVerified(),
+                    user.getVerificationStatus() == null ? null : user.getVerificationStatus().name(),
+                    user.getRejectionReason(),
+                    user.getVerificationSubmittedAt() == null ? null : user.getVerificationSubmittedAt().toString(),
+                    user.getVerifiedAt() == null ? null : user.getVerifiedAt().toString(),
+                    user.isProfileCompleted());
         }
     }
 }

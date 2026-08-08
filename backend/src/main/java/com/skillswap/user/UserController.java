@@ -3,6 +3,7 @@ package com.skillswap.user;
 import com.skillswap.common.ApiClientException;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.ProfileCompletionGuard;
+import com.skillswap.common.ProfileCompletionService;
 import com.skillswap.common.UsernameRules;
 import com.skillswap.common.exception.BadRequestException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -49,6 +50,9 @@ public class UserController {
     private final ReferralRewardRepository referralRewardRepository;
     private final NotificationService notificationService;
     private final ProfileCompletionGuard profileCompletionGuard;
+    private final ProfileCompletionService profileCompletionService;
+    private final com.skillswap.verification.MentorVerificationService mentorVerificationService;
+    private final UserProjectService userProjectService;
 
     @GetMapping("/me")
     @Transactional
@@ -94,9 +98,9 @@ public class UserController {
 
         List<LiveMentorResponse> mentors = mentorUsers
                 .stream()
-                // Mentors who have not completed onboarding must NEVER appear in
-                // Explore / recommendations / featured lists.
-                .filter(User::isProfileCompleted)
+                // Only admin-APPROVED mentors with a completed profile may
+                // appear in Explore / recommendations / featured lists.
+                .filter(User::isApprovedMentor)
                 .map(mentor -> {
                     double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
                     long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
@@ -118,8 +122,8 @@ public class UserController {
         List<User> mentors = userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.MENTOR);
         Set<String> skills = new LinkedHashSet<>();
         for (User mentor : mentors) {
-            // Only completed mentors contribute to the discoverable skill index.
-            if (!mentor.isProfileCompleted()) {
+            // Only approved mentors contribute to the discoverable skill index.
+            if (!mentor.isApprovedMentor()) {
                 continue;
             }
             skills.addAll(extractSkillNames(mentor.getSkills()));
@@ -137,8 +141,8 @@ public class UserController {
         List<LiveMentorResponse> mentors = userRepository
                 .findByRoleAndEnabledTrueAndLastActiveAtAfterOrderByLastActiveAtDesc(UserRole.MENTOR, cutoff)
                 .stream()
-                // Incomplete mentors never surface in live-mentor listings.
-                .filter(User::isProfileCompleted)
+                // Unapproved mentors never surface in live-mentor listings.
+                .filter(User::isApprovedMentor)
                 .map(mentor -> {
                     double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
                     long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
@@ -158,9 +162,9 @@ public class UserController {
     @GetMapping("/mentors/{mentorId}")
     public ApiResponse<PublicMentorProfileResponse> mentorPublicProfile(@PathVariable Long mentorId) {
         User mentor = userRepository.findById(mentorId)
-                // Incomplete mentors are treated as non-existent: a direct URL
-                // must not reveal an onboarding-in-progress profile.
-                .filter(user -> user.getRole() == UserRole.MENTOR && user.isProfileCompleted())
+                // Unapproved / incomplete mentors are treated as non-existent: a
+                // direct URL must never reveal a profile that is not APPROVED.
+                .filter(User::isApprovedMentor)
                 .orElseThrow(() -> new IllegalArgumentException("Mentor not found"));
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
@@ -171,7 +175,12 @@ public class UserController {
 
         return new ApiResponse<>(
                 "Mentor profile fetched",
-                PublicMentorProfileResponse.from(mentor, averageRating, totalReviews, upcomingSessions));
+                PublicMentorProfileResponse.from(
+                        mentor,
+                        averageRating,
+                        totalReviews,
+                        upcomingSessions,
+                        userProjectService.listProjects(mentor)));
     }
 
     @PutMapping("/me/wallet")
@@ -243,6 +252,13 @@ public class UserController {
         if (req.yearsOfExperience() != null) {
             user.setYearsOfExperience(req.yearsOfExperience());
         }
+        if (req.monthsOfExperience() != null) {
+            Integer months = req.monthsOfExperience();
+            if (months < 0 || months > 11) {
+                throw new IllegalArgumentException("monthsOfExperience must be between 0 and 11");
+            }
+            user.setMonthsOfExperience(months);
+        }
         if (req.languages() != null) {
             user.setLanguages(trimToNull(req.languages()));
         }
@@ -279,11 +295,9 @@ public class UserController {
         if (req.currentSkillLevel() != null) {
             user.setCurrentSkillLevel(trimToNull(req.currentSkillLevel()));
         }
-        // A profile that passes the full onboarding validation can be marked
-        // complete via the regular update endpoint as well.
-        if (Boolean.TRUE.equals(req.profileCompleted())) {
-            user.setProfileCompleted(true);
-        }
+        // Profile completion is ALWAYS derived dynamically from the actual
+        // fields — a client flag is never trusted. Recompute + persist.
+        profileCompletionService.sync(user);
         userRepository.save(user);
         return new ApiResponse<>("Profile updated", UserProfileResponse.from(user));
     }
@@ -307,7 +321,23 @@ public class UserController {
         if (req.role() != UserRole.MENTOR) {
             user.setMentorVerified(false);
         }
+        // The required sections differ per role — recompute the persisted
+        // completion flag under the NEW role so the auto-submit gate below
+        // (and every other surface) sees the correct, fresh value.
+        profileCompletionService.sync(user);
         userRepository.save(user);
+
+        // Switching to MENTOR with an already-completed profile must create a
+        // verification request — a mentor who is blocked from creating
+        // sessions should never be left without a request in the admin queue.
+        if (req.role() == UserRole.MENTOR && user.isProfileCompleted()) {
+            try {
+                mentorVerificationService.autoSubmitOnProfileComplete(user);
+            } catch (Exception ex) {
+                log.warn("auto_verification_request_failed_on_role_switch userId={} error={}",
+                        user.getId(), ex.getMessage());
+            }
+        }
 
         notificationService.notifyUser(
                 user.getId(),
@@ -344,72 +374,38 @@ public class UserController {
             throw new IllegalArgumentException("Admins do not use the profile completion flow.");
         }
 
-        List<String> missing = missingRequiredFields(managedUser.getRole(), req);
-        if (!missing.isEmpty()) {
-            throw new BadRequestException(
-                    "Profile is incomplete. Missing required fields: " + String.join(", ", missing));
-        }
-
+        boolean firstCompletion = !managedUser.isProfileCompleted();
         applyProfileCompletionFields(managedUser, req);
-        managedUser.setProfileCompleted(true);
         userRepository.save(managedUser);
 
-        log.info("profile_completed userId={} role={}", managedUser.getId(), managedUser.getRole().name());
-        return new ApiResponse<>("Profile completed", UserProfileResponse.from(managedUser));
-    }
+        // The ONE source of truth decides completeness: partial payloads are
+        // persisted (so progress is never lost) but only a profile where every
+        // required section is filled may be marked completed.
+        ProfileCompletionService.Result result = ProfileCompletionService.compute(managedUser);
+        if (!result.complete()) {
+            throw new BadRequestException(
+                    "Profile is incomplete. Missing required fields: " + String.join(", ", result.missing()));
+        }
+        profileCompletionService.sync(managedUser);
+        userRepository.save(managedUser);
 
-    private static List<String> missingRequiredFields(UserRole role, ProfileCompletionRequest req) {
-        List<String> missing = new ArrayList<>();
-
-        Map<String, String> commonFields = new LinkedHashMap<>();
-        commonFields.put("fullName", req.fullName());
-        commonFields.put("profileImageUrl", req.profileImageUrl());
-        commonFields.put("aboutMe", req.aboutMe());
-        commonFields.put("skills", req.skills());
-        commonFields.put("languages", req.languages());
-        commonFields.put("country", req.country());
-        commonFields.put("state", req.state());
-        commonFields.put("city", req.city());
-        commonFields.put("timezone", req.timezone());
-        commonFields.put("phoneNumber", req.phoneNumber());
-        commonFields.forEach((name, value) -> {
-            if (!hasValue(value)) {
-                missing.add(name);
-            }
-        });
-
-        if (role == UserRole.MENTOR) {
-            if (!hasValue(req.headline())) {
-                missing.add("headline");
-            }
-            if (req.yearsOfExperience() == null || req.yearsOfExperience() <= 0) {
-                missing.add("yearsOfExperience");
-            }
-            if (!hasValue(req.education())) {
-                missing.add("education");
-            }
-            if (!hasValue(req.linkedinUrl())) {
-                missing.add("linkedinUrl");
-            }
-            if (!hasValue(req.portfolioUrl())) {
-                missing.add("portfolioUrl");
-            }
-            if (req.hourlyRate() == null || req.hourlyRate().signum() <= 0) {
-                missing.add("hourlyRate");
-            }
-            if (!hasValue(req.availability())) {
-                missing.add("availability");
-            }
-        } else {
-            // LEARNER
-            if (!hasValue(req.learningGoals())) {
-                missing.add("learningGoals");
-            }
-            if (!hasValue(req.currentSkillLevel())) {
-                missing.add("currentSkillLevel");
+        // Auto-create a PENDING verification request on FIRST completion so a
+        // mentor who is blocked from creating sessions always has a request
+        // waiting in the admin queue (never demotes approved/in-progress).
+        // A failure here must never fail profile completion itself — the
+        // dashboard's manual "Submit for Verification" CTA remains as fallback.
+        if (firstCompletion && managedUser.getRole() == UserRole.MENTOR) {
+            try {
+                mentorVerificationService.autoSubmitOnProfileComplete(managedUser);
+            } catch (Exception ex) {
+                log.warn("auto_verification_request_failed userId={} error={}",
+                        managedUser.getId(), ex.getMessage());
             }
         }
-        return missing;
+
+        log.info("profile_completed userId={} role={} percent={} firstCompletion={}",
+                managedUser.getId(), managedUser.getRole().name(), result.percent(), firstCompletion);
+        return new ApiResponse<>("Profile completed", UserProfileResponse.from(managedUser));
     }
 
     private static void applyProfileCompletionFields(User user, ProfileCompletionRequest req) {
@@ -428,8 +424,12 @@ public class UserController {
         if (hasValue(req.headline())) {
             user.setHeadline(trimToNull(req.headline()));
         }
-        if (req.yearsOfExperience() != null && req.yearsOfExperience() > 0) {
+        if (req.yearsOfExperience() != null && req.yearsOfExperience() >= 0) {
             user.setYearsOfExperience(req.yearsOfExperience());
+        }
+        Integer months = req.monthsOfExperience();
+        if (months != null && months >= 0 && months <= 11) {
+            user.setMonthsOfExperience(months);
         }
         if (hasValue(req.education())) {
             user.setEducation(trimToNull(req.education()));
@@ -440,7 +440,7 @@ public class UserController {
         if (hasValue(req.portfolioUrl())) {
             user.setPortfolioUrl(normalizeHttpUrl(req.portfolioUrl()));
         }
-        if (req.hourlyRate() != null && req.hourlyRate().signum() > 0) {
+        if (req.hourlyRate() != null && req.hourlyRate().signum() >= 0) {
             user.setHourlyRate(req.hourlyRate());
         }
         if (hasValue(req.availability())) {
@@ -506,67 +506,8 @@ public class UserController {
                 .toList();
     }
 
-    /** Required onboarding fields for mentors. */
-    private static final List<String> MENTOR_FIELDS = List.of(
-            "fullName", "headline", "aboutMe", "skills", "yearsOfExperience", "languages",
-            "education", "linkedinUrl", "portfolioUrl", "hourlyRate", "timezone", "availability",
-            "country", "state", "city", "phoneNumber", "profileImageUrl");
-
-    /** Required onboarding fields for learners. */
-    private static final List<String> LEARNER_FIELDS = List.of(
-            "fullName", "aboutMe", "learningGoals", "skills", "currentSkillLevel", "languages",
-            "country", "state", "city", "timezone", "phoneNumber", "profileImageUrl");
-
-    /**
-     * Computes the onboarding completion percentage + missing field list for a
-     * user based on the role-specific required fields. Admins are exempt.
-     */
-    private static ProfileCompletion computeProfileCompletion(User user) {
-        if (user.getRole() == UserRole.ADMIN) {
-            return new ProfileCompletion(100, List.of());
-        }
-        List<String> required = user.getRole() == UserRole.MENTOR ? MENTOR_FIELDS : LEARNER_FIELDS;
-        List<String> missing = required.stream()
-                .filter(field -> !hasProfileValue(user, field))
-                .toList();
-        int total = required.size();
-        int completed = total - missing.size();
-        int percent = Math.round(completed / (float) total * 100);
-        return new ProfileCompletion(percent, missing);
-    }
-
-    private static boolean hasProfileValue(User user, String field) {
-        return switch (field) {
-            case "fullName" -> hasValue(user.getFullName());
-            case "headline" -> hasValue(user.getHeadline());
-            case "aboutMe" -> hasValue(user.getAboutMe());
-            case "skills" -> hasValue(user.getSkills());
-            case "yearsOfExperience" ->
-                    user.getYearsOfExperience() != null && user.getYearsOfExperience() > 0;
-            case "languages" -> hasValue(user.getLanguages());
-            case "education" -> hasValue(user.getEducation());
-            case "linkedinUrl" -> hasValue(user.getLinkedinUrl());
-            case "portfolioUrl" -> hasValue(user.getPortfolioUrl());
-            case "hourlyRate" ->
-                    user.getHourlyRate() != null && user.getHourlyRate().signum() > 0;
-            case "timezone" -> hasValue(user.getTimezone());
-            case "availability" -> hasValue(user.getAvailability());
-            case "country" -> hasValue(user.getCountry());
-            case "state" -> hasValue(user.getState());
-            case "city" -> hasValue(user.getCity());
-            case "phoneNumber" -> hasValue(user.getPhoneNumber());
-            case "profileImageUrl" -> hasValue(user.getProfileImageUrl());
-            case "learningGoals" -> hasValue(user.getLearningGoals());
-            case "currentSkillLevel" -> hasValue(user.getCurrentSkillLevel());
-            default -> true;
-        };
-    }
-
     private static boolean hasValue(String value) {
         return value != null && !value.trim().isEmpty();
-    }
-
-    private record ProfileCompletion(int percent, List<String> missing) {
     }
 
 /**
@@ -607,6 +548,7 @@ public class UserController {
             @Size(max = 6000) String learningGoals,
             @Size(max = 50) String currentSkillLevel,
             Integer yearsOfExperience,
+            Integer monthsOfExperience,
             java.math.BigDecimal hourlyRate,
             Boolean profileCompleted) {
     }
@@ -623,6 +565,7 @@ public class UserController {
             String aboutMe,
             String skills,
             Integer yearsOfExperience,
+            Integer monthsOfExperience,
             String languages,
             String education,
             String linkedinUrl,
@@ -731,9 +674,11 @@ public class UserController {
             String verifiedSkills,
             Integer profileCompletionPercent,
             List<String> profileCompletionMissing,
+            List<ProfileCompletionService.SectionStatus> profileCompletionSections,
             Boolean profileCompleted,
             String headline,
             Integer yearsOfExperience,
+            Integer monthsOfExperience,
             String languages,
             String education,
             String portfolioUrl,
@@ -747,7 +692,7 @@ public class UserController {
             String learningGoals,
             String currentSkillLevel) {
         static UserProfileResponse from(User user) {
-            ProfileCompletion completion = computeProfileCompletion(user);
+            ProfileCompletionService.Result completion = ProfileCompletionService.compute(user);
             return new UserProfileResponse(
                     user.getId(),
                     user.getEmail(),
@@ -768,9 +713,11 @@ public class UserController {
                     user.getVerifiedSkills(),
                     completion.percent(),
                     completion.missing(),
+                    completion.sections(),
                     user.isProfileCompleted(),
                     user.getHeadline(),
                     user.getYearsOfExperience(),
+                    user.getMonthsOfExperience(),
                     user.getLanguages(),
                     user.getEducation(),
                     user.getPortfolioUrl(),
@@ -806,12 +753,16 @@ public class UserController {
             String verifiedSkills,
             Double averageRating,
             Long totalReviews,
-            Integer upcomingSessions) {
+            Integer upcomingSessions,
+            // Structured projects (new manager) — the legacy free-text field is
+            // still returned as `projects` for backward compatibility.
+            List<UserProjectDto> projectsList) {
         static PublicMentorProfileResponse from(
                 User mentor,
                 double averageRating,
                 long totalReviews,
-                int upcomingSessions) {
+                int upcomingSessions,
+                List<UserProjectDto> projectsList) {
             return new PublicMentorProfileResponse(
                     mentor.getId(),
                     mentor.getCreatedAt() == null ? null : mentor.getCreatedAt().toString(),
@@ -829,7 +780,8 @@ public class UserController {
                     mentor.getVerifiedSkills(),
                     Math.round(averageRating * 10.0) / 10.0,
                     totalReviews,
-                    upcomingSessions);
+                    upcomingSessions,
+                    projectsList);
         }
     }
 

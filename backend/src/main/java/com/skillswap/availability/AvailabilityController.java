@@ -62,6 +62,12 @@ public class AvailabilityController {
             @RequestBody SlotRequest req) {
         profileCompletionGuard.requireProfileCompleted(user,
                 "Please complete your profile before setting your availability.");
+        // Marketplace gate — only admin-APPROVED mentors may publish availability.
+        if (!user.isApprovedMentor()) {
+            throw new IllegalArgumentException(
+                    "Your mentor profile is awaiting verification. You cannot publish availability "
+                            + "until an admin approves your profile.");
+        }
         LOG.info("createSlot called for userId={}, req={}", user != null ? user.getId() : null, req);
         validateSlotRequest(req);
 
@@ -91,6 +97,12 @@ public class AvailabilityController {
             @PathVariable Long id, @RequestBody SlotRequest req) {
         profileCompletionGuard.requireProfileCompleted(user,
                 "Please complete your profile before setting your availability.");
+        // Marketplace gate — only admin-APPROVED mentors may publish availability.
+        if (!user.isApprovedMentor()) {
+            throw new IllegalArgumentException(
+                    "Your mentor profile is awaiting verification. You cannot publish availability "
+                            + "until an admin approves your profile.");
+        }
         LOG.info("updateSlot called for userId={}, slotId={}", user.getId(), id);
         validateSlotRequest(req);
 

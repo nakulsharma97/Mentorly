@@ -307,7 +307,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
         subtitle="Manage your mentor profile, skills, and credentials to build learner trust."
         primaryButton={
           <Link
-            to="/profile-setup"
+            to="/complete-profile"
             className="hero-section__btn hero-section__btn--primary"
           >
             <span className="material-symbols-outlined" style={{ fontSize: 20 }}>edit</span>

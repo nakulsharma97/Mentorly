@@ -2979,11 +2979,54 @@
   gap: 5px;
   font-size: 0.78rem;
   color: var(--lp-muted);
+  min-width: 0;
 }
 
 .lp-resource li .material-symbols-outlined {
   font-size: 14px;
   color: var(--lp-primary);
+  flex-shrink: 0;
+}
+
+.lp-resource li a {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lp-muted);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.lp-resource li a:hover {
+  color: var(--lp-primary-dark);
+  text-decoration: underline;
+}
+
+.lp-resource li a .lp-resource__link-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-resource li a .material-symbols-outlined {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--lp-muted);
+  opacity: 0.65;
+}
+
+.lp-resource li a:hover .material-symbols-outlined {
+  color: var(--lp-primary-dark);
+}
+
+.lp-resource__blurb {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--lp-muted);
 }
 
 .lp-resource__action {

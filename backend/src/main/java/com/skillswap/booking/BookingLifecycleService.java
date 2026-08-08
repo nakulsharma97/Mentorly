@@ -202,6 +202,12 @@ public class BookingLifecycleService {
         var session = sessionRepository.findByIdWithLock(req.sessionId())
                 .orElseThrow(() -> new IllegalArgumentException("Session not found"));
 
+        // Marketplace gate — learners may only book sessions hosted by mentors
+        // whose verification is currently APPROVED.
+        if (session.getMentor() == null || !session.getMentor().isApprovedMentor()) {
+            throw new IllegalArgumentException("This mentor is currently unavailable.");
+        }
+
         boolean alreadyBooked = bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
                 session.getId(),
                 learner.getId(),
@@ -477,7 +483,7 @@ public class BookingLifecycleService {
         walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
                 WalletTransactionType.DEBIT,
                 priceAmount,
-                "CREDITS",
+                "INR",
                 "Session booking: " + session.getTitle(),
                 "BOOKING",
                 booking.getId()));
@@ -522,7 +528,7 @@ public class BookingLifecycleService {
                 new WalletService.WalletEntryRequest(
                         WalletTransactionType.EARNING,
                         payout,
-                        "CREDITS",
+                        "INR",
                         "Session payout: " + session.getTitle()
                                 + " (after 10% platform fee)",
                         "BOOKING",
@@ -556,7 +562,7 @@ public class BookingLifecycleService {
             walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
                     WalletTransactionType.REFUND,
                     refundAmount,
-                    "CREDITS",
+                    "INR",
                     "Refund for cancelled session: " + session.getTitle(),
                     "BOOKING",
                     booking.getId()));

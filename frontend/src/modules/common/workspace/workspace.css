@@ -196,6 +196,9 @@
 .ws-sb__link-label {
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1 1 auto;
   position: relative;
   z-index: 1;
   transition: opacity 0.3s ease-in-out, width 0.3s ease-in-out, margin 0.3s ease-in-out;

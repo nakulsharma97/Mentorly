@@ -27,6 +27,12 @@ public class UserProjectDto {
 
     private String liveDemoUrl;
 
+    /** Optional role held on the project. */
+    private String role;
+
+    /** Optional image URLs (comma/newline separated). */
+    private String imageUrls;
+
     @NotNull(message = "Project start date is required")
     private LocalDate startDate;
 

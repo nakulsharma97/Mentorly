@@ -931,47 +931,92 @@ export function deriveCommunity({ mentors, bookings }) {
    Resources catalog
    ========================================================================== */
 
+/**
+ * Curated learning resources. Every entry is a REAL, maintained external
+ * link (official docs, official YouTube courses, public cheat sheets).
+ * Items are rendered as new-tab links — never as fake/placeholder text.
+ *
+ * The "Interview Questions" category is intentionally absent: there is no
+ * backend resource store, so we do not show made-up questions.
+ */
 export const RESOURCE_CATALOG = [
   {
     icon: "menu_book",
     title: "Books",
     color: "#7c3aed",
-    items: ["Head First Java", "Spring in Action", "Effective Java", "Clean Code"],
+    blurb: "Official & public programming books that open in your browser",
+    items: [
+      { title: "Oracle Java Tutorials", url: "https://docs.oracle.com/javase/tutorial/" },
+      { title: "Spring Framework Reference", url: "https://docs.spring.io/spring-framework/reference/" },
+      { title: "React Documentation", url: "https://react.dev/" },
+      { title: "MDN Web Docs", url: "https://developer.mozilla.org/" },
+      { title: "PostgreSQL Documentation", url: "https://www.postgresql.org/docs/" },
+      { title: "Docker Documentation", url: "https://docs.docker.com/" },
+      { title: "Kubernetes Documentation", url: "https://kubernetes.io/docs/" },
+    ],
     action: "Browse books",
   },
   {
     icon: "article",
     title: "Articles",
     color: "#0ea5e9",
-    items: ["Java records explained", "Spring Boot best practices", "REST design guide"],
+    blurb: "Real engineering articles from trusted publishers",
+    items: [
+      { title: "Baeldung — Spring Boot", url: "https://www.baeldung.com/spring-boot" },
+      { title: "freeCodeCamp News", url: "https://www.freecodecamp.org/news/" },
+      { title: "GeeksforGeeks — Java", url: "https://www.geeksforgeeks.org/java/" },
+      { title: "Dev.to — Java", url: "https://dev.to/t/java" },
+      { title: "Official Spring Blog", url: "https://spring.io/blog" },
+      { title: "MDN — JavaScript Guide", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" },
+    ],
     action: "Read articles",
   },
   {
     icon: "play_circle",
     title: "Videos",
     color: "#f43f5e",
-    items: ["Java full course", "Spring Security in 1 hour", "System design basics"],
+    blurb: "Official YouTube courses — opens on YouTube in a new tab",
+    items: [
+      { title: "Java Full Course for Beginners (Programming with Mosh)", url: "https://www.youtube.com/watch?v=eIrMbAQSU34" },
+      { title: "Spring Boot Full Course (Amigoscode)", url: "https://www.youtube.com/watch?v=9SGDpanrc8U" },
+      { title: "React Crash Course (freeCodeCamp)", url: "https://www.youtube.com/watch?v=bMknfKXIFA8" },
+      { title: "System Design Basics (Gaurav Sen)", url: "https://www.youtube.com/watch?v=xpDnVSmNFX0" },
+    ],
     action: "Watch videos",
   },
   {
     icon: "description",
     title: "Official Docs",
     color: "#0f766e",
-    items: ["OpenJDK docs", "Spring Reference", "Hibernate guide"],
+    blurb: "The authoritative reference for every major technology",
+    items: [
+      { title: "Java — Oracle Docs", url: "https://docs.oracle.com/en/java/" },
+      { title: "Spring Boot Reference", url: "https://docs.spring.io/spring-boot/reference/" },
+      { title: "Spring Security Reference", url: "https://docs.spring.io/spring-security/reference/" },
+      { title: "React Docs", url: "https://react.dev/" },
+      { title: "Node.js Docs", url: "https://nodejs.org/docs/latest/api/" },
+      { title: "Docker Docs", url: "https://docs.docker.com/" },
+      { title: "Git Docs", url: "https://git-scm.com/doc" },
+      { title: "PostgreSQL Docs", url: "https://www.postgresql.org/docs/" },
+      { title: "MongoDB Docs", url: "https://www.mongodb.com/docs/" },
+      { title: "Redis Docs", url: "https://redis.io/docs/" },
+      { title: "JWT Introduction", url: "https://jwt.io/introduction" },
+      { title: "REST API — MDN", url: "https://developer.mozilla.org/en-US/docs/Glossary/REST" },
+    ],
     action: "Open docs",
   },
   {
     icon: "bolt",
     title: "Cheat Sheets",
     color: "#f59e0b",
-    items: ["Java syntax cheat sheet", "Streams API card", "HTTP status codes"],
+    blurb: "Real quick-reference PDFs & cards hosted by trusted projects",
+    items: [
+      { title: "Git Cheat Sheet (GitHub PDF)", url: "https://training.github.com/downloads/github-git-cheat-sheet.pdf" },
+      { title: "SQL Cheat Sheet (LearnSQL)", url: "https://learnsql.com/blog/sql-basics-cheat-sheet/" },
+      { title: "Docker Cheat Sheet (Docker Docs)", url: "https://docs.docker.com/get-started/docker_cheatsheet.pdf" },
+      { title: "Linux Command Line (freeCodeCamp)", url: "https://www.freecodecamp.org/news/the-linux-commands-handbook/" },
+      { title: "React Cheat Sheet (React Docs)", url: "https://react.dev/learn" },
+    ],
     action: "View cheat sheets",
-  },
-  {
-    icon: "quiz",
-    title: "Interview Questions",
-    color: "#8b5cf6",
-    items: ["Top 50 Java questions", "Spring Boot interview prep", "System design 101"],
-    action: "Start practicing",
   },
 ];

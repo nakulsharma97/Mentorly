@@ -12,7 +12,11 @@ import { createPerformanceReporter, initGlobalMonitoring } from "./utils/monitor
 import { roleRoot } from "./modules/common/routeUtils";
 import { useAuthProfile } from "./hooks/useAuth";
 import { useToasts } from "./hooks/useToasts";
-import { isProfileComplete, PROFILE_ONBOARDING_PATH } from "./modules/common/profileCompletion";
+import {
+  clearOnboardingDismissal,
+  isProfileComplete,
+  PROFILE_ONBOARDING_PATH,
+} from "./modules/common/profileCompletion";
 
 const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
 
@@ -121,8 +125,10 @@ export default function App() {
         message: "Authentication successful. Loading your dashboard.",
       });
       // Mandatory onboarding: incomplete mentors/learners go straight to the
-      // Complete Profile page — no dashboard, no other page.
+      // Complete Profile page — no dashboard, no other page. A fresh login
+      // never inherits a previous session's onboarding dismissal.
       if (user?.role !== "ADMIN" && !isProfileComplete(user)) {
+        clearOnboardingDismissal();
         localStorage.removeItem("auth_post_redirect");
         navigate(PROFILE_ONBOARDING_PATH, { replace: true });
         return;

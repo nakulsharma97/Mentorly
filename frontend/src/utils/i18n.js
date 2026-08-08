@@ -13,7 +13,7 @@ export const translations = {
     createAccount: "Create Account",
     landingTitle: "Skill Swapping Platform",
     landingSubtitle:
-      "Teach, learn, and earn through fiat, credits, or Polygon payments. Join a vibrant global community today.",
+      "Teach, learn, and earn in Indian Rupees (₹). Join a vibrant community of mentors and learners today.",
     aiAssistantTitle: "AI Profile Assistant",
     aiAssistantEmpty:
       "Complete more profile details to unlock stronger recommendations.",
@@ -26,7 +26,7 @@ export const translations = {
     yourReferralCode: "Your referral code",
     invitedFriends: "Invited friends",
     successfulReferrals: "Successful referrals",
-    creditsEarned: "Credits earned",
+    creditsEarned: "Earnings (₹)",
     addReferralSuccess: "Add successful referral",
     refreshInsights: "Refresh insights",
   },
@@ -56,7 +56,7 @@ export const translations = {
     yourReferralCode: "आपका रेफरल कोड",
     invitedFriends: "आमंत्रित मित्र",
     successfulReferrals: "सफल रेफरल",
-    creditsEarned: "कमाए गए क्रेडिट्स",
+    creditsEarned: "कमाई (₹)",
     addReferralSuccess: "सफल रेफरल जोड़ें",
     refreshInsights: "इनसाइट्स रीफ्रेश करें",
   },

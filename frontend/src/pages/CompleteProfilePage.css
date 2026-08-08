@@ -115,6 +115,30 @@
   transform: translateY(-1px);
 }
 
+/* Close (✕) — dismiss onboarding and continue to the dashboard. */
+.cpp-close {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ss-border, #dceae7);
+  background: var(--ss-card, #ffffff);
+  color: var(--ss-text-secondary, #475569);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s var(--ss-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.cpp-close:hover {
+  border-color: var(--ss-text-muted, #94a3b8);
+  color: var(--ss-text, #0f172a);
+  background: var(--ss-surface, #f8fafc);
+  transform: translateY(-1px);
+}
+
 /* ── Layout ───────────────────────────────────────────────────── */
 
 .cpp-container {
@@ -698,10 +722,59 @@
 }
 
 .cpp-success-card p {
-  margin: 0;
+  margin: 0 0 10px;
+  max-width: 480px;
   font-size: 0.95rem;
   color: var(--ss-text-secondary, #475569);
-  animation: cpp-blink 1.4s ease-in-out infinite;
+}
+
+.cpp-success-note {
+  font-size: 0.82rem;
+  color: var(--ss-text-muted, #94a3b8);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.cpp-success-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.cpp-success-actions .cpp-btn {
+  padding: 12px 26px;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.2s var(--ss-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.cpp-success-actions .cpp-btn--primary {
+  background: var(--ss-primary, #0f9d8a);
+  color: #fff;
+  border: none;
+  box-shadow: 0 10px 20px rgba(15, 157, 138, 0.25);
+}
+
+.cpp-success-actions .cpp-btn--primary:hover {
+  background: var(--ss-primary-dark, #0c8576);
+  transform: translateY(-2px);
+}
+
+.cpp-success-actions .cpp-btn--soft {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.cpp-success-actions .cpp-btn--soft:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
 }
 
 @keyframes cpp-blink {
@@ -733,6 +806,39 @@
 @keyframes cpp-fall {
   0% { transform: translateY(0) rotate(0deg); }
   100% { transform: translateY(112vh) rotate(560deg); }
+}
+
+/* ── Experience (years + months) ─────────────────────────────── */
+
+.cpp-experience {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cpp-experience-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cpp-label--inline {
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ss-text-muted, #94a3b8);
+}
+
+.cpp-experience-summary {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--ss-text-muted, #64748b);
+}
+
+.cpp-experience-summary strong {
+  color: var(--ss-primary, #0f9d8a);
+  font-weight: 700;
 }
 
 /* ── Responsive ───────────────────────────────────────────────── */
@@ -769,6 +875,10 @@
     display: none;
   }
 
+  .cpp-experience {
+    grid-template-columns: 1fr;
+  }
+
   .cpp-actions {
     flex-direction: column;
     align-items: stretch;
@@ -777,4 +887,25 @@
   .cpp-submit {
     width: 100%;
   }
+}
+
+/* ── Optional sections (Certificates / Projects) ─────────────────────── */
+
+.cpp-section--optional {
+  border-top: 1px dashed rgba(15, 118, 110, 0.25);
+  padding-top: 28px;
+}
+
+.cpp-section--optional .cpp-section-head {
+  margin-bottom: 16px;
+}
+
+.cpp-optional-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cpp-optional-grid .mcm-shell {
+  width: 100%;
 }

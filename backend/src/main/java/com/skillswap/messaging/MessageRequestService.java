@@ -6,6 +6,8 @@ import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MessageRequestService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(MessageRequestService.class);
+
     private final MessageRequestRepository messageRequestRepository;
     private final DirectConversationRepository directConversationRepository;
     private final DirectMessageRepository directMessageRepository;
@@ -27,19 +31,33 @@ public class MessageRequestService {
     private final UserRepository userRepository;
 
     @Transactional
-    public MessageRequest createRequest(User sender, Long receiverId, String firstMessage) {
+    public MessageRequestView createRequest(User sender, Long receiverId, String firstMessage) {
         User receiver = userRepository.findById(receiverId)
                 .orElseThrow(() -> new IllegalArgumentException("Receiver not found"));
         return createRequest(sender, receiver, firstMessage);
     }
 
     @Transactional
-    public MessageRequest createRequest(User sender, User receiver, String firstMessage) {
+    public MessageRequestView createRequest(User sender, User receiver, String firstMessage) {
+        LOG.info("[Conversation Request] Sender ID: {}, Receiver ID: {}, firstMessage present: {}",
+                sender == null ? null : sender.getId(),
+                receiver == null ? null : receiver.getId(),
+                firstMessage != null && !firstMessage.isBlank());
         if (sender == null || receiver == null) {
             throw new IllegalArgumentException("Both users are required");
         }
         if (sender.getId().equals(receiver.getId())) {
             throw new IllegalArgumentException("You cannot message yourself");
+        }
+        // Conversation requests are a learner/mentor marketplace feature — the
+        // receiver must be the SELECTED learner or mentor, never an admin
+        // (defense in depth: search already excludes admins, but a direct API
+        // call must not be able to target one either).
+        if (receiver.getRole() == UserRole.ADMIN) {
+            throw new IllegalArgumentException("Message requests can only be sent to learners or mentors");
+        }
+        if (sender.getRole() == UserRole.ADMIN) {
+            throw new IllegalArgumentException("Admins cannot send conversation requests");
         }
         if (firstMessage == null || firstMessage.isBlank()) {
             throw new IllegalArgumentException("Your first message is required");
@@ -61,6 +79,8 @@ public class MessageRequestService {
             throw new IllegalArgumentException("A conversation already exists between these users");
         }
 
+        LOG.info("[Conversation Request] Validation passed. Saving conversation request (sender={}, receiver={})...",
+                sender.getId(), receiver.getId());
         MessageRequest request = new MessageRequest();
         request.setSender(sender);
         request.setReceiver(receiver);
@@ -69,20 +89,28 @@ public class MessageRequestService {
         request.setCreatedAt(OffsetDateTime.now());
         request.setUpdatedAt(OffsetDateTime.now());
         MessageRequest saved = messageRequestRepository.save(request);
+        LOG.info("[Conversation Request] Saved successfully. Request ID: {}, status: PENDING",
+                saved.getId());
 
-        notificationService.notifyUser(receiver.getId(), "MESSAGE_REQUEST_RECEIVED", "New message request",
-                sender.getFullName() + " wants to connect", saved.getId());
-        return saved;
+        notificationService.notifyUser(receiver.getId(), "MESSAGE_REQUEST_RECEIVED", "New Conversation Request",
+                sender.getFullName() + " wants to start a conversation with you.", saved.getId());
+        LOG.info("[Conversation Request] Notification delivered to receiver {}. Response ready.",
+                receiver.getId());
+        return MessageRequestView.from(saved);
     }
 
     @Transactional(readOnly = true)
-    public List<MessageRequest> listPendingRequests(User currentUser) {
-        return messageRequestRepository.findByReceiverIdAndStatusOrderByCreatedAtDesc(currentUser.getId(),
-                MessageRequestStatus.PENDING);
+    public List<MessageRequestView> listPendingRequests(User currentUser) {
+        List<MessageRequest> requests = messageRequestRepository
+                .findByReceiverIdAndStatusOrderByCreatedAtDesc(currentUser.getId(),
+                        MessageRequestStatus.PENDING);
+        LOG.info("[Conversation Request] Pending requests fetched for user {}: {}",
+                currentUser.getId(), requests.size());
+        return requests.stream().map(MessageRequestView::from).toList();
     }
 
     @Transactional
-    public MessageRequest acceptRequest(User currentUser, Long requestId) {
+    public MessageRequestView acceptRequest(User currentUser, Long requestId) {
         MessageRequest request = messageRequestRepository.findByIdAndReceiverId(requestId, currentUser.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (request.getStatus() != MessageRequestStatus.PENDING) {
@@ -93,27 +121,35 @@ public class MessageRequestService {
         request.setUpdatedAt(OffsetDateTime.now());
         MessageRequest saved = messageRequestRepository.save(request);
 
-        DirectConversation conversation = new DirectConversation();
-        conversation.setParticipantOne(request.getSender());
-        conversation.setParticipantTwo(request.getReceiver());
-        conversation.setCreatedAt(OffsetDateTime.now());
-        conversation.setUpdatedAt(OffsetDateTime.now());
-        DirectConversation persistedConversation = directConversationRepository.save(conversation);
+        // Never create a duplicate conversation if one already exists between
+        // the two users (e.g. they also have an accepted booking chat).
+        DirectConversation conversation = directConversationRepository
+                .findBetweenUsers(request.getSender(), request.getReceiver())
+                .orElseGet(() -> {
+                    DirectConversation created = new DirectConversation();
+                    created.setParticipantOne(request.getSender());
+                    created.setParticipantTwo(request.getReceiver());
+                    created.setCreatedAt(OffsetDateTime.now());
+                    created.setUpdatedAt(OffsetDateTime.now());
+                    return directConversationRepository.save(created);
+                });
 
         DirectMessage directMessage = new DirectMessage();
-        directMessage.setConversation(persistedConversation);
+        directMessage.setConversation(conversation);
         directMessage.setSender(request.getSender());
         directMessage.setContent(request.getFirstMessage());
         directMessage.setCreatedAt(OffsetDateTime.now());
         directMessageRepository.save(directMessage);
 
+        LOG.info("[Conversation Request] Request {} accepted by user {}. Conversation {} ready.",
+                requestId, currentUser.getId(), conversation.getId());
         notificationService.notifyUser(request.getSender().getId(), "MESSAGE_REQUEST_ACCEPTED", "Request accepted",
                 currentUser.getFullName() + " accepted your message request", saved.getId());
-        return saved;
+        return MessageRequestView.from(saved);
     }
 
     @Transactional
-    public MessageRequest declineRequest(User currentUser, Long requestId) {
+    public MessageRequestView declineRequest(User currentUser, Long requestId) {
         MessageRequest request = messageRequestRepository.findByIdAndReceiverId(requestId, currentUser.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (request.getStatus() != MessageRequestStatus.PENDING) {
@@ -123,9 +159,10 @@ public class MessageRequestService {
         request.setStatus(MessageRequestStatus.DECLINED);
         request.setUpdatedAt(OffsetDateTime.now());
         MessageRequest saved = messageRequestRepository.save(request);
+        LOG.info("[Conversation Request] Request {} declined by user {}.", requestId, currentUser.getId());
         notificationService.notifyUser(request.getSender().getId(), "MESSAGE_REQUEST_DECLINED", "Request declined",
                 currentUser.getFullName() + " declined your message request", saved.getId());
-        return saved;
+        return MessageRequestView.from(saved);
     }
 
     private void enforcePrivacy(User sender, User receiver) {

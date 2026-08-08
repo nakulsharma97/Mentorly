@@ -8,7 +8,12 @@ import client, {
 } from "../api/client";
 import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
 import { isPublicPath, roleRoot } from "../modules/common/routeUtils";
-import { isProfileComplete, PROFILE_ONBOARDING_PATH } from "../modules/common/profileCompletion";
+import {
+  clearOnboardingDismissal,
+  isOnboardingDismissed,
+  isProfileComplete,
+  PROFILE_ONBOARDING_PATH,
+} from "../modules/common/profileCompletion";
 
 export function useAuthProfile({ notify }) {
   const [profile, setProfile] = useState(null);
@@ -214,11 +219,15 @@ export function useAuthProfile({ notify }) {
   const isLoggedIn = Boolean(profile);
   // Mandatory onboarding gate: mentors + learners must complete their profile
   // before any core feature is reachable. Admins are always exempt.
+  // A mentor may dismiss the onboarding page for this session (Close ✕) and
+  // explore their dashboard — the gate then opens up, and the dashboard
+  // shows a persistent "profile incomplete" banner instead.
   const needsProfileSetup =
     isLoggedIn &&
     profileChecked &&
     profile?.role !== "ADMIN" &&
-    !isProfileComplete(profile);
+    !isProfileComplete(profile) &&
+    !isOnboardingDismissed();
 
   // Initial profile sync
   useEffect(() => {
@@ -360,11 +369,9 @@ export function useAuthProfile({ notify }) {
       return;
     }
 
-    // Profile complete — never show the onboarding page again.
-    if (pathname === PROFILE_ONBOARDING_PATH) {
-      navigate(roleRoot(profile?.role), { replace: true });
-      return;
-    }
+    // Profile complete — /complete-profile now doubles as the reusable
+    // "Edit Your Profile" page ("Full Profile Setup"), so it stays
+    // accessible. Do NOT bounce a completed profile back to the dashboard.
 
     if (
       pathname === "/" ||
@@ -394,6 +401,9 @@ export function useAuthProfile({ notify }) {
       // Clear UI state even if server call fails
     }
     clearAuthSessionState();
+    // A fresh login must re-trigger mandatory onboarding for an incomplete
+    // profile — never carry the previous session's dismissal across accounts.
+    clearOnboardingDismissal();
     setProfile(null);
     setProfileChecked(true);
     setUnreadNotifications(0);

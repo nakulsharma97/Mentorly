@@ -60,7 +60,7 @@ public class WalletController {
  */
     public record WithdrawRequestDTO(
             @NotNull(message = "Amount is required")
-            @DecimalMin(value = "10.00", message = "Minimum withdrawal amount is 10.00 credits")
+            @DecimalMin(value = "10.00", message = "Minimum withdrawal amount is ₹10.00")
             @Digits(integer = 10, fraction = 2)
             BigDecimal amount,
             @Size(max = 500)

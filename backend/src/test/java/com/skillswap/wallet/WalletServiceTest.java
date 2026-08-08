@@ -53,7 +53,7 @@ class WalletServiceTest {
         var result = walletService.balance(user);
 
         assertEquals(BigDecimal.ZERO, result.balance());
-        assertEquals("CREDITS", result.currency());
+        assertEquals("INR", result.currency());
     }
 
     @Test
@@ -110,7 +110,7 @@ class WalletServiceTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("5.00"), "desc", "Bank Transfer")));
-        assertEquals("Minimum withdrawal amount is 10.00 credits", ex.getMessage());
+        assertEquals("Minimum withdrawal amount is ₹10.00", ex.getMessage());
     }
 
     @Test
@@ -119,7 +119,7 @@ class WalletServiceTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("9.99"), "desc", "Bank Transfer")));
-        assertEquals("Minimum withdrawal amount is 10.00 credits", ex.getMessage());
+        assertEquals("Minimum withdrawal amount is ₹10.00", ex.getMessage());
     }
 
     @Test
@@ -157,7 +157,7 @@ class WalletServiceTest {
         assertEquals(WalletTransactionType.WITHDRAWAL, captured.getType());
         assertEquals(new BigDecimal("-30.00"), captured.getAmount());
         assertEquals(new BigDecimal("70.00"), captured.getBalanceAfter());
-        assertEquals("CREDITS", captured.getCurrency());
+        assertEquals("INR", captured.getCurrency());
         assertEquals("Test withdrawal", captured.getDescription());
         assertEquals("WITHDRAWAL", captured.getReferenceType());
         assertNull(captured.getReferenceId());
@@ -235,7 +235,7 @@ class WalletServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.addEntryForUser(999L,
                         new WalletService.WalletEntryRequest(WalletTransactionType.CREDIT, new BigDecimal("50.00"),
-                                "CREDITS", "Test credit", null, null)));
+                                "INR", "Test credit", null, null)));
         assertEquals("User not found", ex.getMessage());
     }
 
@@ -248,7 +248,7 @@ class WalletServiceTest {
 
         walletService.addEntryForUser(userId,
                 new WalletService.WalletEntryRequest(WalletTransactionType.CREDIT, new BigDecimal("25.00"),
-                        "CREDITS", "Bonus credit", null, null));
+                        "INR", "Bonus credit", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
         assertEquals(new BigDecimal("25.00"), entryCaptor.getValue().getAmount());
@@ -264,7 +264,7 @@ class WalletServiceTest {
 
         walletService.addEntryForUser(userId,
                 new WalletService.WalletEntryRequest(WalletTransactionType.DEBIT, new BigDecimal("40.00"),
-                        "CREDITS", "Purchase debit", null, null));
+                        "INR", "Purchase debit", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
         assertEquals(new BigDecimal("-40.00"), entryCaptor.getValue().getAmount());
@@ -279,7 +279,7 @@ class WalletServiceTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> walletService.addEntryForUser(userId,
                         new WalletService.WalletEntryRequest(WalletTransactionType.DEBIT, new BigDecimal("50.00"),
-                                "CREDITS", "Overdraft attempt", null, null)));
+                                "INR", "Overdraft attempt", null, null)));
         assertEquals("Insufficient wallet balance", ex.getMessage());
     }
 
@@ -294,7 +294,7 @@ class WalletServiceTest {
 
         walletService.addEntryForUser(userId,
                 new WalletService.WalletEntryRequest(WalletTransactionType.EARNING, new BigDecimal("100.00"),
-                        "CREDITS", "Session earnings", null, null));
+                        "INR", "Session earnings", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
         assertEquals(new BigDecimal("100.00"), entryCaptor.getValue().getAmount());
@@ -310,7 +310,7 @@ class WalletServiceTest {
 
         walletService.addEntryForUser(userId,
                 new WalletService.WalletEntryRequest(WalletTransactionType.REFUND, new BigDecimal("25.00"),
-                        "CREDITS", "Booking refund", null, null));
+                        "INR", "Booking refund", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
         assertEquals(new BigDecimal("25.00"), entryCaptor.getValue().getAmount());
@@ -328,7 +328,7 @@ class WalletServiceTest {
         // negative, negating makes it positive. The code handles signum() >= 0 → negate.
         walletService.addEntryForUser(userId,
                 new WalletService.WalletEntryRequest(WalletTransactionType.DEBIT, new BigDecimal("-30.00"),
-                        "CREDITS", "Already negative debit", null, null));
+                        "INR", "Already negative debit", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
         // -30 signum is -1 (negative), so negate() is NOT applied → amount stays -30
@@ -348,7 +348,7 @@ class WalletServiceTest {
                         null, "Null currency test", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
-        assertEquals("CREDITS", entryCaptor.getValue().getCurrency());
+        assertEquals("INR", entryCaptor.getValue().getCurrency());
     }
 
     @Test
@@ -363,7 +363,7 @@ class WalletServiceTest {
                         "", "Blank currency test", null, null));
 
         verify(ledgerRepository).save(entryCaptor.capture());
-        assertEquals("CREDITS", entryCaptor.getValue().getCurrency());
+        assertEquals("INR", entryCaptor.getValue().getCurrency());
     }
 
     // ── balance() — edge cases ───────────────────────────

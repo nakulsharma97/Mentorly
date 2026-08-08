@@ -76,9 +76,9 @@ describe('LearnerDashboard', () => {
 
     expect(within(referralHero).getByText('SKILLSWAP')).toBeInTheDocument();
     expect(within(referralHero).getByText('3')).toBeInTheDocument();
-    expect(within(referralHero).getByText('150')).toBeInTheDocument();
+    expect(within(referralHero).getByText('₹150')).toBeInTheDocument();
     expect(within(referralHero).getByText('Friends Referred')).toBeInTheDocument();
-    expect(within(referralHero).getByText('Credits Earned')).toBeInTheDocument();
+    expect(within(referralHero).getByText('Earnings (₹)')).toBeInTheDocument();
     expect(within(referralHero).getByText('Copy Code')).toBeInTheDocument();
   });
 

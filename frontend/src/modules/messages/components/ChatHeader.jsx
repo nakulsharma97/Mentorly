@@ -14,7 +14,6 @@ export default function ChatHeader({
   conversation,
   variant,
   onBack,
-  onOpenDetails,
   onAction,
 }) {
   const navigate = useNavigate();
@@ -68,11 +67,9 @@ export default function ChatHeader({
         </button>
       )}
 
-      <button
-        type="button"
+      <div
         className="ms-chat__peer"
-        onClick={onOpenDetails}
-        aria-label={`View conversation details with ${conversation?.title}`}
+        title={conversation?.title}
       >
         <Avatar
           name={conversation?.title}
@@ -112,7 +109,7 @@ export default function ChatHeader({
             </span>
           )}
         </span>
-      </button>
+      </div>
 
       <div className="ms-chat__actions">
         <div className="ms-menu" ref={menuRef}>

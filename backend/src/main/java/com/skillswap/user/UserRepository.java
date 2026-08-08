@@ -165,6 +165,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
       @Query(value = """
                   SELECT DISTINCT u.* FROM users u
                   WHERE u.enabled = true
+                    AND u.role <> 'ADMIN'
+                    AND (u.role <> 'MENTOR' OR u.verification_status = 'APPROVED')
                     AND (
                           LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
                           OR LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -186,6 +188,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
       @Query(value = """
                   SELECT DISTINCT u.* FROM users u
                   WHERE u.enabled = true
+                        AND u.role <> 'ADMIN'
                         AND (
                                           :keyword IS NULL OR :keyword = ''
                                           OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :keyword, '%'))
@@ -225,6 +228,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
       @Query(value = """
                   SELECT u.* FROM users u
                   WHERE u.enabled = true
+                        AND u.role <> 'ADMIN'
                   ORDER BY
                         CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,
                         u.last_active_at DESC,
@@ -250,6 +254,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
                   WHERE u.role = 'MENTOR'
                     AND u.enabled = true
                     AND u.profile_completed = true
+                    AND u.verification_status = 'APPROVED'
                     AND (
                           :keyword IS NULL OR :keyword = ''
                           OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)

@@ -4,11 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import LearnerCard from "./UserCard";
 import { unwrap } from "../utils";
 
-const SEARCH_PLACEHOLDER =
-  "Search learners by name, username or email...";
-
 const FIRST_MESSAGE =
   "Hi! I would like to connect and discuss our learning goals.";
+
+/** Role-aware copy — the mentor page searches learners, the learner page mentors. */
+function copyFor(variant) {
+  const isMentor = variant === "MENTOR";
+  return {
+    placeholder: isMentor
+      ? "Search learners by name, username or skill..."
+      : "Search mentors by name, username or skill...",
+    subjectPlural: isMentor ? "learners" : "mentors",
+    suggestedTitle: isMentor ? "Suggested Learners" : "Suggested Mentors",
+    emptyTitle: isMentor ? "No learners found" : "No mentors found",
+    emptyHint: isMentor
+      ? "Try another search keyword — learners across SkillSwap will appear here."
+      : "Try another search keyword — mentors across SkillSwap will appear here.",
+  };
+}
 
 /**
  * "New conversation" screen — replaces ONLY the center panel. Searches real
@@ -17,7 +30,9 @@ const FIRST_MESSAGE =
  * duplicates. Each user card carries its own request state machine:
  *   idle → sending → sent | already-sent | open
  */
-export default function NewConversation({ profile, onClose, onStart, notify }) {
+export default function NewConversation({ profile, onClose, onStart, notify, variant = "LEARNER" }) {
+  const copy = copyFor(variant);
+  const isMentorPage = variant === "MENTOR";
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +61,11 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
         });
         if (seq !== seqRef.current) return;
         const data = unwrap(res.data) || [];
-        const rows = data.map((u) => ({
+        // Admins are never messaging targets — a request must always reach
+        // the selected learner/mentor, never the platform admin.
+        const rows = data
+          .filter((u) => String(u.role || "").toUpperCase() !== "ADMIN")
+          .map((u) => ({
           id: u.userId ?? u.id,
           name: u.fullName || u.name || "User",
           username: u.username || "",
@@ -182,23 +201,28 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
     return "idle";
   };
 
-  const suggestedLearners = useMemo(
-    () => results.filter((u) => u.role === "LEARNER").slice(0, 6),
-    [results],
-  );
-
-  const suggestedMentors = useMemo(
-    () => results.filter((u) => u.role === "MENTOR").slice(0, 6),
-    [results],
+  // The primary suggestion pool is the audience the page is searching for
+  // (learners on the mentor page, mentors on the learner page). The other
+  // role is still discoverable via search but isn't pushed as a suggestion.
+  const suggestedPrimary = useMemo(
+    () =>
+      results
+        .filter((u) => (isMentorPage ? u.role === "LEARNER" : u.role === "MENTOR"))
+        .slice(0, 6),
+    [results, isMentorPage],
   );
 
   const topRated = useMemo(
     () =>
       [...results]
-        .filter((u) => typeof u.rating === "number")
+        .filter(
+          (u) =>
+            typeof u.rating === "number" &&
+            (isMentorPage ? u.role === "LEARNER" : u.role === "MENTOR"),
+        )
         .sort((a, b) => b.rating - a.rating)
         .slice(0, 6),
-    [results],
+    [results, isMentorPage],
   );
 
   const searching = Boolean(query.trim());
@@ -235,7 +259,11 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
         </button>
         <div className="ms-new__title-wrap">
           <h2>Start New Conversation</h2>
-          <p>Connect with a learner to mentor, or a mentor to learn from.</p>
+          <p>
+            {isMentorPage
+              ? "Connect with learners to mentor and start teaching."
+              : "Connect with mentors to learn from and grow your skills."}
+          </p>
         </div>
         <button
           type="button"
@@ -254,8 +282,8 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
           ref={searchRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={SEARCH_PLACEHOLDER}
-          aria-label="Search learners"
+          placeholder={copy.placeholder}
+          aria-label={`Search ${copy.subjectPlural}`}
         />
         {loading && searching ? (
           <span className="ms-new__search-spinner" aria-hidden="true" />
@@ -290,26 +318,17 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
               transition={{ duration: 0.15 }}
             >
               <section className="ms-suggested">
-                <h3>Suggested Learners</h3>
+                <h3>{copy.suggestedTitle}</h3>
                 <div className="ms-suggested__row">
-                  {suggestedLearners.length ? (
-                    suggestedLearners.map(renderCard)
+                  {suggestedPrimary.length ? (
+                    suggestedPrimary.map(renderCard)
                   ) : (
                     <p className="ms-new__hint">
-                      Type above to search for learners across SkillSwap.
+                      Type above to search for {copy.subjectPlural} across SkillSwap.
                     </p>
                   )}
                 </div>
               </section>
-
-              {suggestedMentors.length ? (
-                <section className="ms-suggested">
-                  <h3>Suggested Mentors</h3>
-                  <div className="ms-suggested__row">
-                    {suggestedMentors.map(renderCard)}
-                  </div>
-                </section>
-              ) : null}
 
               {topRated.length ? (
                 <section className="ms-suggested">
@@ -357,8 +376,8 @@ export default function NewConversation({ profile, onClose, onStart, notify }) {
                     person_search
                   </span>
                 </div>
-                <h3>No learners found</h3>
-                <p>Try another search keyword.</p>
+                <h3>{copy.emptyTitle}</h3>
+                <p>{copy.emptyHint}</p>
                 <button
                   type="button"
                   className="ms-btn ms-btn--outline ms-btn--sm"

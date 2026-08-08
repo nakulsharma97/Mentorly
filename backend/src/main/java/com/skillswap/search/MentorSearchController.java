@@ -58,9 +58,12 @@ public class MentorSearchController {
                 OffsetDateTime onlineCutoff = OffsetDateTime.now().minusMinutes(5);
 
                 List<UserSearchResult> results = users.stream()
-                                // Mentors who have not completed onboarding are
-                                // undiscoverable until their profile is complete.
-                                .filter(u -> u.getRole() != UserRole.MENTOR || u.isProfileCompleted())
+                                // Admins are never messaging targets — requests
+                                // must always go to a learner or mentor.
+                                .filter(u -> u.getRole() != UserRole.ADMIN)
+                                // Mentors are undiscoverable until an admin has
+                                // APPROVED their verification application.
+                                .filter(u -> u.getRole() != UserRole.MENTOR || u.isApprovedMentor())
                                 .filter(u -> currentUser == null || !u.getId().equals(currentUser.getId()))
                                 .map(u -> new UserSearchResult(
                                                 u.getId(),
@@ -206,13 +209,17 @@ public class MentorSearchController {
                                                 offset)
                                 : userRepository.findByRole(UserRole.MENTOR).stream()
                                                 .filter(User::isEnabled)
-                                                // Incomplete mentors never surface in Explore / Search.
-                                                .filter(User::isProfileCompleted)
+                                                // Unapproved mentors never surface in Explore / Search.
+                                                .filter(User::isApprovedMentor)
                                                 .sorted(Comparator.comparing(User::getLastActiveAt,
                                                                 Comparator.nullsLast(Comparator.reverseOrder())))
                                                 .skip(offset)
                                                 .limit(safeSize)
                                                 .toList();
+
+                // Defense-in-depth: the advanced SQL path already filters
+                // APPROVED mentors; the non-query branch is filtered above.
+                mentors = mentors.stream().filter(User::isApprovedMentor).toList();
 
                 List<MentorSearchResult> results = mentors.stream()
                                 .map(this::scoreMentor)

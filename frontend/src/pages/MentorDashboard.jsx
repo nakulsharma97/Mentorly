@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import HeroSection from "../components/HeroSection";
+import ProfileGateModal from "../components/ProfileGateModal";
 import SsIcon from "../components/ui/SsIcon";
 import { SsStatCard, SsBadge } from "../components/ui/SsCard";
+import useMentorGate from "../modules/common/useMentorGate";
 import "./MentorDashboard.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
@@ -13,11 +15,10 @@ const EMPTY_ARRAY = [];
 /* ───────────────────────── helpers ───────────────────────── */
 
 function formatMoney(amt) {
-  if (amt == null || Number.isNaN(Number(amt))) return "$0";
+  if (amt == null || Number.isNaN(Number(amt))) return "₹0";
   const n = Number(amt);
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  if (n >= 100_000) return `₹${(n / 100_000).toLocaleString("en-IN", { maximumFractionDigits: 1 })}L`;
+  return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
 function buildMonthBuckets() {
@@ -94,6 +95,7 @@ function isToday(dateLike) {
 /* ─────────────────── main component ─────────────────────── */
 
 export default function MentorDashboard({ profile }) {
+  const navigate = useNavigate();
   const firstName =
     String(profile?.fullName || "Mentor")
       .trim()
@@ -436,6 +438,14 @@ export default function MentorDashboard({ profile }) {
     return bookings.find((b) => b?.session?.id === sessionId || b?.sessionId === sessionId);
   }, [bookings]);
 
+  // ── Profile-incomplete warning banner (dismissible) ──
+  const [incompleteBannerDismissed, setIncompleteBannerDismissed] = useState(false);
+  const profileIncomplete = profile?.role === "MENTOR" && profile?.profileCompleted === false;
+  // Marketplace gate: incomplete / unverified mentors get the modal.
+  const gate = useMentorGate(profile, verificationStatus);
+  const goTeach = useCallback(() => navigate("/mentor/teach"), [navigate]);
+  const goCalendar = useCallback(() => navigate("/mentor/calendar"), [navigate]);
+
   // ── Today's sessions for timeline ──
   const todaySessions = useMemo(() => {
     return upcomingSessions.filter((s) => isToday(s?.startTime));
@@ -609,22 +619,26 @@ export default function MentorDashboard({ profile }) {
           </>
         }
         secondaryButton={
-          <Link
-            to="/mentor/calendar"
+          <button
+            type="button"
             className="hero-section__btn hero-section__btn--secondary"
+            onClick={() => gate.requestAction(goCalendar)}
+            title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
           >
             <SsIcon name="calendar" size={18} />
             Manage Calendar
-          </Link>
+          </button>
         }
         primaryButton={
-          <Link
-            to="/mentor/teach"
+          <button
+            type="button"
             className="hero-section__btn hero-section__btn--primary"
+            onClick={() => gate.requestAction(goTeach)}
+            title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
           >
             <SsIcon name="plus" size={18} />
             Create Session
-          </Link>
+          </button>
         }
         floatingCards={
           <div className="hero-section__quick-grid" aria-hidden="true">
@@ -664,20 +678,131 @@ export default function MentorDashboard({ profile }) {
         </button>
       </HeroSection>
 
+      {/* ═══════════════════ PROFILE INCOMPLETE WARNING BANNER ═══════════════════ */}
+      {profileIncomplete && !incompleteBannerDismissed && (
+        <div className="mdash2-incomplete-banner" role="alert">
+          <div className="mdash2-incomplete-banner__icon">
+            <SsIcon name="alert-triangle" size={22} />
+          </div>
+          <div className="mdash2-incomplete-banner__text">
+            <strong>⚠️ Your profile is incomplete.</strong>
+            <span>
+              Complete your profile to create mentoring sessions and submit your
+              account for verification.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="ss-btn ss-btn--primary ss-btn--sm"
+            onClick={() => navigate("/complete-profile")}
+          >
+            <SsIcon name="edit" size={16} />
+            Complete Profile
+          </button>
+          <button
+            type="button"
+            className="mdash2-incomplete-banner__dismiss"
+            onClick={() => setIncompleteBannerDismissed(true)}
+            aria-label="Dismiss warning"
+            title="Dismiss"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* ═══════════════════ VERIFICATION BANNER ═══════════════════ */}
       {!verificationStatus?.mentorVerified && (
-        <div className="mdash2-verify">
+        <div
+          className={`mdash2-verify mdash2-verify--${String(
+            verificationStatus?.verificationStatus || "pending",
+          ).toLowerCase()}`}
+        >
           <div className="mdash2-verify__icon">
-            <SsIcon name="shield" size={24} />
+            <SsIcon
+              name={
+                verificationStatus?.verificationStatus === "REJECTED"
+                  ? "cancel"
+                  : verificationStatus?.verificationStatus === "SUSPENDED"
+                    ? "block"
+                    : verificationStatus?.verificationStatus === "MORE_INFORMATION_REQUIRED"
+                      ? "edit_note"
+                      : verificationStatus?.verificationStatus === "UNDER_REVIEW"
+                        ? "manage_search"
+                        : "shield"
+              }
+              size={24}
+            />
           </div>
           <div className="mdash2-verify__text">
-            <strong>Verification pending</strong>
-            <span>Complete mentor verification to increase trust and booking conversions.</span>
+            <strong>
+              {verificationStatus?.verificationStatus === "REJECTED"
+                ? "Verification rejected"
+                : verificationStatus?.verificationStatus === "SUSPENDED"
+                  ? "Mentor account suspended"
+                  : verificationStatus?.verificationStatus === "MORE_INFORMATION_REQUIRED"
+                    ? "Additional information required"
+                    : verificationStatus?.verificationStatus === "UNDER_REVIEW"
+                      ? "Verification under review"
+                      : verificationStatus?.verificationStatus === "NOT_SUBMITTED"
+                        ? "Submit for verification"
+                        : "Verification pending"}
+            </strong>
+            <span>
+              {verificationStatus?.verificationStatus === "REJECTED"
+                ? `Your verification was not approved${
+                    verificationStatus.rejectionReason
+                      ? ` — ${verificationStatus.rejectionReason}`
+                      : ""
+                  } Update your profile and submit again.`
+                : verificationStatus?.verificationStatus === "SUSPENDED"
+                  ? `Your mentor account is suspended${
+                      verificationStatus.rejectionReason
+                        ? ` — ${verificationStatus.rejectionReason}`
+                        : ""
+                    } Marketplace features are disabled until an admin reviews your account.`
+                  : verificationStatus?.verificationStatus === "MORE_INFORMATION_REQUIRED"
+                    ? `The Admin has requested additional information before approving your profile.${
+                        verificationStatus.rejectionReason
+                          ? ` Required changes: ${verificationStatus.rejectionReason}`
+                          : ""
+                      } Update your profile and submit again.`
+                    : verificationStatus?.verificationStatus === "UNDER_REVIEW"
+                      ? "Our team is reviewing your application. You cannot create sessions or appear in search until you are approved."
+                      : verificationStatus?.verificationStatus === "PENDING"
+                      ? verificationStatus?.requestId
+                        ? "Your profile has been submitted and is awaiting admin review — estimated review time 24–48 hours. Only admin-approved mentors appear in search and can create sessions."
+                        : "Only admin-approved mentors appear in search and can create sessions. Submit your application to get verified — estimated review time 24–48 hours."
+                      : "Only admin-approved mentors appear in search and can create sessions. Submit your application to get verified — estimated review time 24–48 hours."}
+            </span>
           </div>
-          <Link to="/profile-setup" className="ss-btn ss-btn--primary ss-btn--sm">
-            <SsIcon name="edit" size={16} />
-            Finish Profile
-          </Link>
+          {verificationStatus?.verificationStatus === "REJECTED" ||
+          verificationStatus?.verificationStatus === "MORE_INFORMATION_REQUIRED" ||
+          verificationStatus?.verificationStatus === "NOT_SUBMITTED" ||
+          (verificationStatus?.verificationStatus === "PENDING" &&
+            !verificationStatus?.requestId) ||
+          !verificationStatus?.verificationStatus ? (
+            <Link
+              to={verificationStatus?.profileCompleted ? "/become-mentor" : "/complete-profile"}
+              className="ss-btn ss-btn--primary ss-btn--sm"
+            >
+              <SsIcon name={verificationStatus?.profileCompleted ? "workspace_premium" : "edit"} size={16} />
+              {verificationStatus?.verificationStatus === "REJECTED" ||
+              verificationStatus?.verificationStatus === "MORE_INFORMATION_REQUIRED"
+                ? "Update Profile & Submit Again"
+                : verificationStatus?.profileCompleted
+                  ? "Submit for Verification"
+                  : "Finish Profile"}
+            </Link>
+          ) : (
+            <Link to="/complete-profile" className="ss-btn ss-btn--primary ss-btn--sm">
+              <SsIcon name="edit" size={16} />
+              Edit Profile
+            </Link>
+          )}
         </div>
       )}
 
@@ -698,7 +823,7 @@ export default function MentorDashboard({ profile }) {
             desc="Scheduled mentoring sessions"
           />
           <SsStatCard
-            icon="dollar-sign"
+            icon="currency_rupee"
             value={formatMoney(stats.monthlyEarnings)}
             label="Monthly Earnings"
             trend={analytics.monthGrowth}
@@ -837,13 +962,23 @@ export default function MentorDashboard({ profile }) {
                   <div className="mdash2-request-card__actions">
                     <button
                       className="ss-btn ss-btn--primary ss-btn--sm"
-                      onClick={() => handleBookingStatus(b.id || b.bookingId, "ACCEPTED")}
+                      onClick={() =>
+                        gate.requestAction(() =>
+                          handleBookingStatus(b.id || b.bookingId, "ACCEPTED"),
+                        )
+                      }
+                      title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
                     >
                       Accept
                     </button>
                     <button
                       className="ss-btn ss-btn--danger ss-btn--sm"
-                      onClick={() => handleBookingStatus(b.id || b.bookingId, "CANCELLED")}
+                      onClick={() =>
+                        gate.requestAction(() =>
+                          handleBookingStatus(b.id || b.bookingId, "CANCELLED"),
+                        )
+                      }
+                      title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
                     >
                       Decline
                     </button>
@@ -1037,7 +1172,7 @@ export default function MentorDashboard({ profile }) {
                 <p className="mdash2-earnings__stat-value">
                   {stats.completedSessions > 0
                     ? formatMoney(stats.totalEarnings / stats.completedSessions)
-                    : "$0"}
+                    : "₹0"}
                 </p>
               </div>
             </div>
@@ -1115,20 +1250,30 @@ export default function MentorDashboard({ profile }) {
         {/* Quick Actions */}
         <div>
           <div className="mdash2-actions-grid">
-            <Link to="/mentor/teach" className="mdash2-action-card">
+            <button
+              type="button"
+              className="mdash2-action-card"
+              onClick={() => gate.requestAction(goTeach)}
+              title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
+            >
               <div className="mdash2-action-card__icon" style={{ background: "rgba(15,157,138,0.10)", color: "#0F9D8A" }}>
                 <SsIcon name="video" size={22} />
               </div>
               <p className="mdash2-action-card__title">Create Session</p>
               <p className="mdash2-action-card__desc">Schedule a session</p>
-            </Link>
-            <Link to="/mentor/calendar" className="mdash2-action-card">
+            </button>
+            <button
+              type="button"
+              className="mdash2-action-card"
+              onClick={() => gate.requestAction(goCalendar)}
+              title={gate.mode ? "Your account is awaiting Admin verification." : undefined}
+            >
               <div className="mdash2-action-card__icon" style={{ background: "rgba(59,130,246,0.10)", color: "#3B82F6" }}>
                 <SsIcon name="calendar" size={22} />
               </div>
               <p className="mdash2-action-card__title">Availability</p>
               <p className="mdash2-action-card__desc">Set your hours</p>
-            </Link>
+            </button>
             <Link to="/mentor/students" className="mdash2-action-card">
               <div className="mdash2-action-card__icon" style={{ background: "rgba(139,92,246,0.10)", color: "#8B5CF6" }}>
                 <SsIcon name="users" size={22} />
@@ -1182,7 +1327,7 @@ export default function MentorDashboard({ profile }) {
             <SsIcon name="trending-up" size={18} />
             Mentor Progress
           </h3>
-          <Link to="/profile-setup" className="mdash2-students__link">
+          <Link to="/complete-profile" className="mdash2-students__link">
             Complete Profile →
           </Link>
         </div>
@@ -1248,8 +1393,8 @@ export default function MentorDashboard({ profile }) {
                 <span className="mdash2-referral__stat-label">Friends Referred</span>
               </div>
               <div className="mdash2-referral__stat">
-                <span className="mdash2-referral__stat-value">{totalCredits}</span>
-                <span className="mdash2-referral__stat-label">Credits Earned</span>
+                <span className="mdash2-referral__stat-value">₹{Number(totalCredits || 0).toLocaleString("en-IN")}</span>
+                <span className="mdash2-referral__stat-label">Earnings (₹)</span>
               </div>
               <div className="mdash2-referral__stat">
                 <span className="mdash2-referral__stat-value">{currentTier?.label || "Beginner"}</span>
@@ -1300,6 +1445,10 @@ export default function MentorDashboard({ profile }) {
           </div>
         </div>
       )}
+
+      {/* Marketplace gate modal — blocks create/publish/availability/accept
+          until the mentor's profile is complete AND admin-verified. */}
+      <ProfileGateModal {...gate.gate} />
 
     </div>
   );

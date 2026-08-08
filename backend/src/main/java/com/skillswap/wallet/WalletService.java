@@ -27,7 +27,7 @@ public class WalletService {
         BigDecimal balance = ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(user.getId())
                 .map(WalletLedgerEntry::getBalanceAfter)
                 .orElse(BigDecimal.ZERO);
-        return new WalletBalance(balance, "CREDITS");
+        return new WalletBalance(balance, "INR");
     }
 
     @Transactional
@@ -56,7 +56,7 @@ public class WalletService {
         entry.setType(request.type());
         entry.setAmount(signedAmount);
         entry.setBalanceAfter(nextBalance);
-        entry.setCurrency(request.currency() == null || request.currency().isBlank() ? "CREDITS" : request.currency());
+        entry.setCurrency(request.currency() == null || request.currency().isBlank() ? "INR" : request.currency());
         entry.setDescription(request.description());
         entry.setReferenceType(request.referenceType());
         entry.setReferenceId(request.referenceId());
@@ -74,13 +74,13 @@ public class WalletService {
         }
 
         if (request.amount().compareTo(new BigDecimal("10.00")) < 0) {
-            throw new IllegalArgumentException("Minimum withdrawal amount is 10.00 credits");
+            throw new IllegalArgumentException("Minimum withdrawal amount is ₹10.00");
         }
 
         return addEntry(currentUser, new WalletEntryRequest(
                 WalletTransactionType.WITHDRAWAL,
                 request.amount(),
-                "CREDITS",
+                "INR",
                 request.description() != null && !request.description().isBlank()
                         ? request.description()
                         : "Wallet withdrawal to "

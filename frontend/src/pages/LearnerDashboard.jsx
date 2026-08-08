@@ -377,7 +377,7 @@ export default function LearnerDashboard({ profile }) {
   const nextSession = upcomingSessions[0] || null;
   const currentCourses = roadmaps.filter((r) => Number(r.progressPercent || 0) < 100).slice(0, 6);
 
-  // Rewards tiers for referral progress
+  // Rewards tiers for referral progress (values in Indian Rupees)
   const REWARD_TIERS = [
     { referrals: 1, label: "Beginner", credits: 50, icon: "star" },
     { referrals: 3, label: "Bronze", credits: 200, icon: "military_tech" },
@@ -542,10 +542,10 @@ export default function LearnerDashboard({ profile }) {
                   <SsIcon name="share" size={14} /> Referral Rewards
                 </span>
                 <h2 className="ld-referral-hero__title">
-                  Invite Friends, Earn Credits
+                  Invite Friends, Earn ₹
                 </h2>
                 <p className="ld-referral-hero__subtitle">
-                  Share your unique referral link and earn <strong>50 credits</strong> for every friend who completes their first booking.
+                  Share your unique referral link and earn <strong>₹50</strong> for every friend who completes their first booking.
                 </p>
               </div>
               <div className="ld-referral-hero__stats">
@@ -556,9 +556,9 @@ export default function LearnerDashboard({ profile }) {
                   </span>
                 </div>
                 <div className="ld-referral-hero__stat ld-referral-hero__stat--highlight">
-                  <span className="ld-referral-hero__stat-value">{totalCredits}</span>
+                  <span className="ld-referral-hero__stat-value">₹{Number(totalCredits || 0).toLocaleString("en-IN")}</span>
                   <span className="ld-referral-hero__stat-label">
-                    <SsIcon name="payments" size={14} /> Credits Earned
+                    <SsIcon name="payments" size={14} /> Earnings (₹)
                   </span>
                 </div>
                 <div className="ld-referral-hero__stat">
@@ -603,7 +603,7 @@ export default function LearnerDashboard({ profile }) {
                         <span className="ld-referral-tier__name">{tier.label}</span>
                         <span className="ld-referral-tier__req">{tier.referrals} referrals</span>
                       </div>
-                      <span className="ld-referral-tier__reward">{tier.credits} cr</span>
+                      <span className="ld-referral-tier__reward">₹{tier.credits}</span>
                     </div>
                   );
                 })}

@@ -330,7 +330,7 @@ export default function AdminOperationsPage({ notify }) {
         <>
           <div className="au-stats" style={{ marginBottom: 18 }}>
             <AuStat icon={Share2} label="Total Referrals" value={formatNumber(referralAnalytics.totalReferrals)} subtitle={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} tone="blue" index={0} />
-            <AuStat icon={WalletIcon} label="Credits Earned" value={formatNumber(referralAnalytics.totalCreditsEarned)} subtitle={`${referralAnalytics.avgPerReferrer} avg per referrer`} tone="green" index={1} />
+            <AuStat icon={WalletIcon} label="Earnings (₹)" value={`₹${Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}`} subtitle={`${referralAnalytics.avgPerReferrer} avg per referrer`} tone="green" index={1} />
             <AuStat icon={BarChart3} label="Conversion Rate" value={`${referralAnalytics.conversionRate}%`} subtitle="Of all users have referred someone" tone="violet" index={2} />
             <AuStat icon={UsersIcon} label="Users w/ Referral Code" value={formatNumber(referralAnalytics.usersWithReferralCode)} subtitle="Total users who can refer" tone="amber" index={3} />
           </div>
@@ -357,7 +357,7 @@ export default function AdminOperationsPage({ notify }) {
                     <span>#</span>
                     <span>Name</span>
                     <span style={{ textAlign: 'right' }}>Referrals</span>
-                    <span style={{ textAlign: 'right' }}>Credits</span>
+                    <span style={{ textAlign: 'right' }}>Earnings (₹)</span>
                   </div>
                   {referralAnalytics.topReferrers.map((referrer) => (
                     <div key={referrer.userId} className="admin-referrer-row">
@@ -371,7 +371,7 @@ export default function AdminOperationsPage({ notify }) {
                         {referrer.referralCount}
                       </span>
                       <span className="admin-referrer-credits">
-                        {formatNumber(referrer.creditsEarned)}
+                        ₹{Number(referrer.creditsEarned || 0).toLocaleString("en-IN")}
                       </span>
                     </div>
                   ))}
@@ -891,8 +891,8 @@ export default function AdminOperationsPage({ notify }) {
                   <small>{formatNumber(referralAnalytics.totalReferrers)} unique referrers</small>
                 </div>
                 <div className="admin-payment-stat">
-                  <span>Credits Earned</span>
-                  <strong>{formatNumber(referralAnalytics.totalCreditsEarned)}</strong>
+                  <span>Earnings (₹)</span>
+                  <strong>₹{Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}</strong>
                   <small>{referralAnalytics.avgPerReferrer} avg each</small>
                 </div>
                 <div className="admin-payment-stat">

@@ -1,6 +1,8 @@
 package com.skillswap.booking;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -107,4 +109,27 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
          * Recent completed bookings (newest first) — feeds the recent-activity timeline.
          */
         List<Booking> findTop5ByBookingStatusOrderByCreatedAtDesc(BookingStatus status);
+
+        /**
+         * Paginated, searchable session history for one learner. Supports an
+         * optional status filter and a keyword search over the session title and
+         * mentor name. Rows are ordered by the actual session time (falling back
+         * to the booking creation time) so the newest activity surfaces first.
+         *
+         * @param learnerId the owning learner
+         * @param status    optional status filter (null = all)
+         * @param search    optional keyword over session title / mentor name
+         * @param pageable  paging + size
+         */
+        @Query("SELECT b FROM Booking b JOIN b.session s LEFT JOIN s.mentor m "
+                + "WHERE b.learner.id = :learnerId "
+                + "AND (:status IS NULL OR b.bookingStatus = :status) "
+                + "AND (:search IS NULL OR :search = '' "
+                + "   OR LOWER(s.title) LIKE LOWER(CONCAT('%', :search, '%')) "
+                + "   OR (m IS NOT NULL AND LOWER(m.fullName) LIKE LOWER(CONCAT('%', :search, '%')))) "
+                + "ORDER BY COALESCE(s.endTime, b.createdAt) DESC")
+        Page<Booking> searchLearnerHistory(@Param("learnerId") Long learnerId,
+                @Param("status") BookingStatus status,
+                @Param("search") String search,
+                Pageable pageable);
 }

@@ -89,7 +89,7 @@ class WalletControllerIntegrationTest {
         setSecurityContext(learner);
 
         when(walletService.balance(any(User.class)))
-                .thenReturn(new WalletService.WalletBalance(new BigDecimal("250.00"), "CREDITS"));
+                .thenReturn(new WalletService.WalletBalance(new BigDecimal("250.00"), "INR"));
 
         try {
             mockMvc.perform(get("/api/v1/wallet/balance")
@@ -97,7 +97,7 @@ class WalletControllerIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.message").value("Wallet balance fetched"))
                     .andExpect(jsonPath("$.data.balance").value(250.00))
-                    .andExpect(jsonPath("$.data.currency").value("CREDITS"));
+                    .andExpect(jsonPath("$.data.currency").value("INR"));
         } finally {
             SecurityContextHolder.clearContext();
         }
@@ -109,7 +109,7 @@ class WalletControllerIntegrationTest {
         setSecurityContext(learner);
 
         when(walletService.balance(any(User.class)))
-                .thenReturn(new WalletService.WalletBalance(BigDecimal.ZERO, "CREDITS"));
+                .thenReturn(new WalletService.WalletBalance(BigDecimal.ZERO, "INR"));
 
         try {
             mockMvc.perform(get("/api/v1/wallet/balance")
@@ -133,7 +133,7 @@ class WalletControllerIntegrationTest {
         entry.setType(WalletTransactionType.EARNING);
         entry.setAmount(new BigDecimal("50.00"));
         entry.setBalanceAfter(new BigDecimal("150.00"));
-        entry.setCurrency("CREDITS");
+        entry.setCurrency("INR");
         entry.setDescription("Session earnings");
         entry.setReferenceType("BOOKING");
         entry.setReferenceId(88L);
@@ -279,7 +279,7 @@ class WalletControllerIntegrationTest {
         entry.setType(WalletTransactionType.WITHDRAWAL);
         entry.setAmount(new BigDecimal("-50.00"));
         entry.setBalanceAfter(new BigDecimal("50.00"));
-        entry.setCurrency("CREDITS");
+        entry.setCurrency("INR");
         entry.setDescription("Withdrawal via Bank Transfer");
 
         when(walletService.withdraw(any(User.class), any()))
@@ -318,7 +318,7 @@ class WalletControllerIntegrationTest {
         entry.setType(WalletTransactionType.WITHDRAWAL);
         entry.setAmount(new BigDecimal("-10.00"));
         entry.setBalanceAfter(new BigDecimal("90.00"));
-        entry.setCurrency("CREDITS");
+        entry.setCurrency("INR");
         entry.setDescription("Minimum withdrawal");
 
         when(walletService.withdraw(any(User.class), any()))
@@ -356,7 +356,7 @@ class WalletControllerIntegrationTest {
         entry.setType(WalletTransactionType.WITHDRAWAL);
         entry.setAmount(new BigDecimal("-25.00"));
         entry.setBalanceAfter(new BigDecimal("75.00"));
-        entry.setCurrency("CREDITS");
+        entry.setCurrency("INR");
         entry.setDescription("Wallet withdrawal to bank account");
 
         when(walletService.withdraw(any(User.class), any()))

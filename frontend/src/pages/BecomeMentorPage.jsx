@@ -467,15 +467,16 @@ export default function BecomeMentorPage({ profile, notify }) {
                 {errors.yearsOfExperience && <span className="bcm-field__error">{errors.yearsOfExperience}</span>}
               </Field>
 
-              <Field label="Hourly price (₹ / credits)">
+              <Field label="Hourly price (₹)">
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.hourlyRate}
                   onChange={(e) => setField("hourlyRate", e.target.value)}
-                  placeholder="e.g. 500"
+                  placeholder="e.g. 299 — enter 0 for free sessions"
                 />
+                <span className="bcm-field__hint">Enter 0 to offer free mentoring sessions.</span>
               </Field>
 
               <Field label="Availability">

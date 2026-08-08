@@ -27,26 +27,26 @@ public class MessageRequestController {
     private final MessageRequestService messageRequestService;
 
     @PostMapping
-    public ApiResponse<MessageRequest> createRequest(
+    public ApiResponse<MessageRequestView> createRequest(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody CreateRequestRequest request) {
-        MessageRequest created = messageRequestService.createRequest(currentUser, request.receiver(),
+        MessageRequestView created = messageRequestService.createRequest(currentUser, request.receiver(),
                 request.firstMessage());
         return new ApiResponse<>("Message request sent", created);
     }
 
     @GetMapping
-    public ApiResponse<List<MessageRequest>> listPending(@AuthenticationPrincipal User currentUser) {
+    public ApiResponse<List<MessageRequestView>> listPending(@AuthenticationPrincipal User currentUser) {
         return new ApiResponse<>("Pending requests fetched", messageRequestService.listPendingRequests(currentUser));
     }
 
     @PutMapping("/{id}/accept")
-    public ApiResponse<MessageRequest> accept(@AuthenticationPrincipal User currentUser, @PathVariable Long id) {
+    public ApiResponse<MessageRequestView> accept(@AuthenticationPrincipal User currentUser, @PathVariable Long id) {
         return new ApiResponse<>("Message request accepted", messageRequestService.acceptRequest(currentUser, id));
     }
 
     @PutMapping("/{id}/decline")
-    public ApiResponse<MessageRequest> decline(@AuthenticationPrincipal User currentUser, @PathVariable Long id) {
+    public ApiResponse<MessageRequestView> decline(@AuthenticationPrincipal User currentUser, @PathVariable Long id) {
         return new ApiResponse<>("Message request declined", messageRequestService.declineRequest(currentUser, id));
     }
 

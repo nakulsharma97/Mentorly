@@ -244,7 +244,74 @@ class MentorVerificationWorkflowIntegrationTest {
                 .andExpect(jsonPath("$.data.requestedInfo").value("Please upload a recent government ID"));
     }
 
-    // ── 7. Duplicate pending applications are rejected ──
+    // ── 7. Fresh mentor accounts start at NOT_SUBMITTED (spec Step 1) ──
+
+    @Test
+    void givenFreshMentorAccount_whenCreated_thenVerificationStatusIsNotSubmitted() {
+        User mentor = createUser("fresh+" + UUID.randomUUID() + "@example.com",
+                "fresh" + UUID.randomUUID().toString().substring(0, 6), UserRole.MENTOR);
+        mentor.setProfileCompleted(false);
+        userRepository.save(mentor);
+
+        User reloaded = userRepository.findById(mentor.getId()).orElseThrow();
+        assertThat(reloaded.getVerificationStatus())
+                .isEqualTo(com.skillswap.user.MentorVerificationStatus.NOT_SUBMITTED);
+        assertThat(reloaded.isMentorVerified()).isFalse();
+        assertThat(reloaded.isProfileCompleted()).isFalse();
+        assertThat(requestRepository.findByMentorIdOrderByCreatedAtDesc(mentor.getId())).isEmpty();
+    }
+
+    // ── 8. Resubmission after MORE_INFORMATION_REQUIRED returns to PENDING (spec Step 8) ──
+
+    @Test
+    void givenMoreInfoRequiredRequest_whenMentorResubmits_thenNewRequestIsPending()
+            throws Exception {
+        User mentor = createUser("resub+" + UUID.randomUUID() + "@example.com",
+                "resub" + UUID.randomUUID().toString().substring(0, 6), UserRole.MENTOR);
+        mentor.setProfileCompleted(true);
+        userRepository.save(mentor);
+
+        MentorVerificationRequest moreInfo = new MentorVerificationRequest();
+        moreInfo.setMentor(mentor);
+        moreInfo.setFullName("Resub Mentor");
+        moreInfo.setEmail(mentor.getEmail());
+        moreInfo.setSkills("Java");
+        moreInfo.setStatus(MentorVerificationRequestStatus.MORE_INFORMATION_REQUIRED);
+        moreInfo.setRequestedInfo("Please upload a professional profile picture");
+        moreInfo.setSubmittedAt(java.time.OffsetDateTime.now());
+        requestRepository.save(moreInfo);
+
+        String application = """
+                {
+                  "fullName": "Resub Mentor",
+                  "email": "%s",
+                  "skills": "Java, Spring Boot",
+                  "resumeUrl": "https://example.com/resume-updated.pdf"
+                }
+                """.formatted(mentor.getEmail());
+
+        mockMvc.perform(post("/api/v1/verification/mentor/request")
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(application))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+
+        // The latest request is the resubmission and it is PENDING again.
+        MentorVerificationRequest latest = requestRepository
+                .findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId()).orElseThrow();
+        assertThat(latest.getStatus()).isEqualTo(MentorVerificationRequestStatus.PENDING);
+        assertThat(latest.getSkills()).contains("Spring Boot");
+
+        User reloaded = userRepository.findById(mentor.getId()).orElseThrow();
+        assertThat(reloaded.getVerificationStatus())
+                .isEqualTo(com.skillswap.user.MentorVerificationStatus.PENDING);
+        assertThat(reloaded.getRejectionReason()).isNull();
+        assertThat(reloaded.isMentorVerified()).isFalse();
+    }
+
+    // ── 9. Duplicate pending applications are rejected ──
 
     @Test
     void givenPendingRequest_whenUserAppliesAgain_thenDuplicateRejected()
@@ -267,12 +334,129 @@ class MentorVerificationWorkflowIntegrationTest {
                         .content(secondApplication))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.error").value(
-                        org.hamcrest.Matchers.containsString("already have a pending")));
+                        org.hamcrest.Matchers.containsString("already have a verification request in progress")));
 
         assertThat(requestRepository.countByStatus(MentorVerificationRequestStatus.PENDING)).isEqualTo(1);
     }
 
     // ── Helpers ──
+
+    // ── 10. Completing a mentor profile auto-creates a PENDING request ──
+
+    @Test
+    void givenMentorCompletingProfile_whenProfileCompleted_thenVerificationRequestAutoCreated()
+            throws Exception {
+        User mentor = createUser("mentor+" + UUID.randomUUID() + "@example.com",
+                "mentor" + UUID.randomUUID().toString().substring(0, 6), UserRole.MENTOR);
+        mentor.setProfileCompleted(false);
+        userRepository.save(mentor);
+
+        String payload = """
+                {
+                  "fullName": "Auto Mentor",
+                  "profileImageUrl": "https://example.com/photo.jpg",
+                  "headline": "Full Stack Mentor",
+                  "aboutMe": "Teaching Java and React for free.",
+                  "skills": "Java, React",
+                  "languages": "English, Hindi",
+                  "yearsOfExperience": 1,
+                  "monthsOfExperience": 6,
+                  "education": "B.Tech",
+                  "linkedinUrl": "https://linkedin.com/in/automentor",
+                  "portfolioUrl": "https://automentor.dev",
+                  "hourlyRate": 0,
+                  "timezone": "Asia/Kolkata",
+                  "availability": "Weekends",
+                  "country": "India",
+                  "state": "Delhi",
+                  "city": "New Delhi",
+                  "phoneNumber": "+91 99999 11111"
+                }
+                """.formatted();
+
+        mockMvc.perform(post("/api/v1/users/me/profile/complete")
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk());
+
+        // A PENDING request must exist for this mentor with a submission time.
+        MentorVerificationRequest request = requestRepository
+                .findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId())
+                .orElseThrow(() -> new AssertionError("Expected an auto-created verification request"));
+        assertThat(request.getStatus()).isEqualTo(MentorVerificationRequestStatus.PENDING);
+        assertThat(request.getSubmittedAt()).isNotNull();
+        assertThat(request.getSkills()).contains("Java");
+
+        User reloaded = userRepository.findById(mentor.getId()).orElseThrow();
+        assertThat(reloaded.isProfileCompleted()).isTrue();
+        assertThat(reloaded.isMentorVerified()).isFalse();
+        assertThat(reloaded.getVerificationStatus())
+                .isEqualTo(com.skillswap.user.MentorVerificationStatus.PENDING);
+        assertThat(reloaded.getVerificationSubmittedAt()).isNotNull();
+
+        // The admin queue must contain the auto-created request.
+        mockMvc.perform(get("/api/v1/verification/mentor/requests")
+                        .with(csrf())
+                        .with(user(admin))
+                        .param("status", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.mentor.email=='" + mentor.getEmail() + "')]").isNotEmpty());
+    }
+
+    // ── 11. Completing a profile again never duplicates the request ──
+
+    @Test
+    void givenMentorWithPendingRequest_whenProfileCompletedAgain_thenNoDuplicateRequest()
+            throws Exception {
+        User mentor = createUser("mentor2+" + UUID.randomUUID() + "@example.com",
+                "mentor2" + UUID.randomUUID().toString().substring(0, 6), UserRole.MENTOR);
+        mentor.setProfileCompleted(true);
+        userRepository.save(mentor);
+
+        MentorVerificationRequest existing = new MentorVerificationRequest();
+        existing.setMentor(mentor);
+        existing.setFullName("Auto Mentor");
+        existing.setEmail(mentor.getEmail());
+        existing.setStatus(MentorVerificationRequestStatus.PENDING);
+        existing.setSubmittedAt(java.time.OffsetDateTime.now());
+        requestRepository.save(existing);
+
+        String payload = """
+                {
+                  "fullName": "Auto Mentor",
+                  "profileImageUrl": "https://example.com/photo.jpg",
+                  "headline": "Full Stack Mentor",
+                  "aboutMe": "Teaching Java and React for free.",
+                  "skills": "Java, React",
+                  "languages": "English",
+                  "yearsOfExperience": 2,
+                  "monthsOfExperience": 0,
+                  "education": "B.Tech",
+                  "linkedinUrl": "https://linkedin.com/in/automentor",
+                  "portfolioUrl": "https://automentor.dev",
+                  "hourlyRate": 100,
+                  "timezone": "Asia/Kolkata",
+                  "availability": "Weekends",
+                  "country": "India",
+                  "state": "Delhi",
+                  "city": "New Delhi",
+                  "phoneNumber": "+91 99999 11111"
+                }
+                """.formatted();
+
+        mockMvc.perform(post("/api/v1/users/me/profile/complete")
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk());
+
+        // Only the original request exists — the second completion did not
+        // create a duplicate or demote the mentor.
+        assertThat(requestRepository.findByMentorIdOrderByCreatedAtDesc(mentor.getId())).hasSize(1);
+    }
 
     private User createUser(String email, String username, UserRole role) {
         User user = new User();

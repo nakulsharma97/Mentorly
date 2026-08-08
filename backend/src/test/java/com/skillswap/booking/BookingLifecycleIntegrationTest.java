@@ -9,6 +9,7 @@ import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SkillSession;
+import com.skillswap.user.MentorVerificationStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
@@ -424,6 +425,11 @@ class BookingLifecycleIntegrationTest {
         user.setReferralCode("TEST-" + UUID.randomUUID());
         user.setFullName(role.name() + " User " + UUID.randomUUID().toString().substring(0, 8));
         user.setEnabled(true);
+        if (role == UserRole.MENTOR) {
+            // Marketplace gates require an admin-APPROVED verification status.
+            user.setVerificationStatus(MentorVerificationStatus.APPROVED);
+            user.setProfileCompleted(true);
+        }
         return userRepository.save(user);
     }
 

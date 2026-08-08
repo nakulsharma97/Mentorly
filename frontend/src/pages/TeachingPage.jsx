@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import MobileBottomNav from "../components/MobileBottomNav";
+import ProfileGateModal from "../components/ProfileGateModal";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import Icon from "../modules/common/dashboard/Icon";
 import StatsCard from "../modules/common/dashboard/StatsCard";
+import useMentorGate from "../modules/common/useMentorGate";
 import "../modules/mentor/mentor-pages.css";
 
 const SORT_OPTIONS = [
@@ -28,9 +30,9 @@ const STATUS_TABS = [
 const ISO_DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const formatCurrency = (value) =>
-  new Intl.NumberFormat(undefined, {
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
@@ -48,7 +50,7 @@ const formatDateTime = (value) => {
 
 /* ═══════════════════ Session Requests Section ═══════════════════ */
 
-function SessionRequestsSection({ notify, highlightRequestId }) {
+function SessionRequestsSection({ notify, highlightRequestId, gateRequest }) {
   const highlightRef = useRef(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,9 +105,12 @@ function SessionRequestsSection({ notify, highlightRequestId }) {
   }, [showAcceptModal]);
 
   const handleAccept = (requestId) => {
-    setAcceptingRequestId(requestId);
-    setAcceptMessage("");
-    setShowAcceptModal(true);
+    // Marketplace gate — accepting a request requires a verified mentor.
+    gateRequest?.(() => {
+      setAcceptingRequestId(requestId);
+      setAcceptMessage("");
+      setShowAcceptModal(true);
+    });
   };
 
   const handleAcceptConfirm = async () => {
@@ -581,11 +586,20 @@ const statusPillClass = (status) => {
   }
 };
 
-export default function TeachingPage({ notify }) {
+export default function TeachingPage({ profile: profileProp, notify }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightRequestId = searchParams.get("requestId");
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(profileProp || null);
+  // Marketplace gate — blocks create/publish/availability/accept until the
+  // mentor's profile is complete AND admin-verified.
+  const gate = useMentorGate(profile, null);
+
+  // Keep the local copy in sync when the parent supplies a fresher profile
+  // (e.g. after the mentor completes onboarding and navigates here).
+  useEffect(() => {
+    if (profileProp) setProfile(profileProp);
+  }, [profileProp]);
   const [sessions, setSessions] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [availabilitySlots, setAvailabilitySlots] = useState([]);
@@ -756,22 +770,40 @@ export default function TeachingPage({ notify }) {
   }, [mentorSessions, searchTerm, statusFilter, sortKey, upcomingOnly]);
 
   const openSessionModal = (session = null) => {
-    setEditingSession(session);
-    setSessionForm({
-      title: session?.title || "",
-      sessionType: session?.sessionType || "1:1 Mentoring",
-      description: session?.description || "",
-      startTime: session?.startTime || "",
-      endTime: session?.endTime || "",
-      priceAmount: String(session?.priceAmount || session?.pricePerHour || 0),
-      meetingLink: session?.meetingLink || "",
-      maxParticipants: session?.maxParticipants || session?.capacity || 1,
-      cancellationWindowHours: session?.cancellationWindowHours || 24,
-      rescheduleWindowHours: session?.rescheduleWindowHours || 12,
+    // Marketplace gate — creating a session requires a verified mentor.
+    gate.requestAction(() => {
+      setEditingSession(session);
+      if (session) {
+        setSessionForm({
+          title: session.title || "",
+          sessionType: session.sessionType || "1:1 Mentoring",
+          description: session.description || "",
+          startTime: session.startTime ? session.startTime.slice(0, 16) : "",
+          endTime: session.endTime ? session.endTime.slice(0, 16) : "",
+          priceAmount: session.priceAmount != null ? session.priceAmount : "",
+          meetingLink: session.meetingLink || "",
+          maxParticipants: session.maxParticipants || 1,
+          cancellationWindowHours: session.cancellationWindowHours ?? 24,
+          rescheduleWindowHours: session.rescheduleWindowHours ?? 12,
+        });
+      } else {
+        setSessionForm({
+          title: "",
+          sessionType: "1:1 Mentoring",
+          description: "",
+          startTime: "",
+          endTime: "",
+          priceAmount: "",
+          meetingLink: "",
+          maxParticipants: 1,
+          cancellationWindowHours: 24,
+          rescheduleWindowHours: 12,
+        });
+      }
+      setSessionErrors({});
+      setSessionMessage("");
+      setIsSessionModalOpen(true);
     });
-    setSessionErrors({});
-    setSessionMessage("");
-    setIsSessionModalOpen(true);
   };
 
   const validateSession = (form) => {
@@ -953,18 +985,21 @@ export default function TeachingPage({ notify }) {
   };
 
   const openAvailabilityModal = (slot = null, dayOfWeek = null) => {
-    setEditingAvailability(slot);
-    setAvailabilityForm({
-      dayOfWeek: dayOfWeek ?? slot?.dayOfWeek ?? 1,
-      startTime: slot?.startTime || "09:00",
-      endTime: slot?.endTime || "17:00",
-      timezone:
-        slot?.timezone ||
-        Intl.DateTimeFormat().resolvedOptions().timeZone ||
-        "UTC",
+    // Marketplace gate — setting availability requires a verified mentor.
+    gate.requestAction(() => {
+      setEditingAvailability(slot);
+      setAvailabilityForm({
+        dayOfWeek: dayOfWeek ?? slot?.dayOfWeek ?? 1,
+        startTime: slot?.startTime || "09:00",
+        endTime: slot?.endTime || "17:00",
+        timezone:
+          slot?.timezone ||
+          Intl.DateTimeFormat().resolvedOptions().timeZone ||
+          "UTC",
+      });
+      setAvailabilityMessage("");
+      setIsAvailabilityModalOpen(true);
     });
-    setAvailabilityMessage("");
-    setIsAvailabilityModalOpen(true);
   };
 
   const saveAvailability = async (event) => {
@@ -1078,14 +1113,14 @@ export default function TeachingPage({ notify }) {
         <button
           type="button"
           className="md-btn md-btn--outline md-btn--sm"
-          onClick={() => navigate("/mentor/calendar")}
+          onClick={() => gate.requestAction(() => navigate("/mentor/calendar"))}
         >
           <Icon name="schedule" /> Set Availability
         </button>
         <button
           type="button"
           className="md-btn md-btn--ghost md-btn--sm"
-          onClick={() => navigate("/mentor/calendar")}
+          onClick={() => gate.requestAction(() => navigate("/mentor/calendar"))}
         >
           <Icon name="calendar_month" /> Import Calendar
         </button>
@@ -1493,7 +1528,11 @@ export default function TeachingPage({ notify }) {
           </div>
 
           {/* Session Requests */}
-          <SessionRequestsSection notify={notify} highlightRequestId={highlightRequestId} />
+          <SessionRequestsSection
+            notify={notify}
+            highlightRequestId={highlightRequestId}
+            gateRequest={gate.requestAction}
+          />
 
           {/* Quick Tips */}
           <div className="md-card md-animate" style={{ gap: 14 }}>
@@ -1964,6 +2003,10 @@ export default function TeachingPage({ notify }) {
       )}
 
       <MobileBottomNav />
+
+      {/* Marketplace gate modal — blocks create/publish/availability/accept
+          until the mentor's profile is complete AND admin-verified. */}
+      <ProfileGateModal {...gate.gate} />
     </div>
   );
 }

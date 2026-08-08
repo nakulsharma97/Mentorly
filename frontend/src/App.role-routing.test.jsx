@@ -94,6 +94,10 @@ describe("App role routing", () => {
             data: {
               id: 1,
               role,
+              // Authoritative completion flag under the unified
+              // ProfileCompletionService — the old skills/aboutMe heuristic
+              // no longer decides onboarding.
+              profileCompleted: true,
               skills: role === "MENTOR" ? "Java,Spring Boot" : "React",
               aboutMe: role === "MENTOR" ? "Mentor profile" : "Learner profile",
               githubUrl:

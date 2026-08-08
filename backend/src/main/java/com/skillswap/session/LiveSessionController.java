@@ -42,6 +42,14 @@ public class LiveSessionController {
         if (currentUser.getRole() != UserRole.MENTOR && currentUser.getRole() != UserRole.ADMIN) {
             throw new UnauthorizedException("Only mentors and admins can create live sessions");
         }
+        // Marketplace gate — only admin-APPROVED mentors may host live sessions
+        // (admins are exempt). This is defense-in-depth: the route already
+        // requires the ADMIN role, but the guard keeps mentor callers honest.
+        if (currentUser.getRole() == UserRole.MENTOR && !currentUser.isApprovedMentor()) {
+            throw new com.skillswap.common.exception.BadRequestException(
+                    "Your mentor profile is awaiting verification. You cannot create live sessions "
+                            + "until an admin approves your profile.");
+        }
 
         return new ApiResponse<>("Live session created", liveSessionService.createLiveSession(request, currentUser));
     }

@@ -48,6 +48,10 @@ public class MentorVerificationRequest {
     @Column(name = "years_of_experience")
     private Integer yearsOfExperience;
 
+    /** Month remainder of total experience (0–11) at submission time. */
+    @Column(name = "months_of_experience")
+    private Integer monthsOfExperience;
+
     @Column(name = "bio", columnDefinition = "TEXT")
     private String bio;
 

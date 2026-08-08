@@ -128,6 +128,15 @@ public class User implements UserDetails {
     @Column(name = "years_of_experience")
     private Integer yearsOfExperience;
 
+    /**
+     * Month remainder of total experience (0–11). Combined with
+     * {@link #yearsOfExperience} so mentors can record precise durations such
+     * as "1 year 6 months" or "3 months" (0 years). Null means "not provided"
+     * or "whole years only".
+     */
+    @Column(name = "months_of_experience")
+    private Integer monthsOfExperience;
+
     @Column(name = "languages")
     private String languages;
 
@@ -143,6 +152,37 @@ public class User implements UserDetails {
 
     @Column(nullable = false)
     private boolean mentorVerified = false;
+
+    /**
+     * User-level mentor verification state (NOT_SUBMITTED / PENDING /
+     * UNDER_REVIEW / APPROVED / REJECTED / MORE_INFORMATION_REQUIRED /
+     * SUSPENDED). Kept in sync by {@code MentorVerificationService} on every
+     * submission and review decision. Only {@code APPROVED} mentors are visible
+     * to learners and allowed to use marketplace features.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", nullable = false, length = 32)
+    private MentorVerificationStatus verificationStatus = MentorVerificationStatus.NOT_SUBMITTED;
+
+    /** When the mentor was last approved (null unless currently/ever APPROVED). */
+    @Column(name = "verified_at")
+    private OffsetDateTime verifiedAt;
+
+    /** Admin user id who approved the mentor. */
+    @Column(name = "verified_by")
+    private Long verifiedBy;
+
+    /** When the latest verification application was submitted. */
+    @Column(name = "verification_submitted_at")
+    private OffsetDateTime verificationSubmittedAt;
+
+    /** When an admin last reviewed (approved/rejected/suspended) the mentor. */
+    @Column(name = "verification_reviewed_at")
+    private OffsetDateTime verificationReviewedAt;
+
+    /** Admin-supplied reason for a REJECTED or SUSPENDED decision. */
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
 
     @Column(nullable = false)
     private boolean enabled = true;
@@ -198,6 +238,17 @@ public class User implements UserDetails {
 
     @Column(name = "current_skill_level")
     private String currentSkillLevel;
+
+    /**
+     * Whether this user is a fully verified mentor who is allowed to appear in
+     * learner-facing listings, publish availability, create sessions, receive
+     * bookings, and accept learner messages.
+     */
+    public boolean isApprovedMentor() {
+        return role == UserRole.MENTOR
+                && verificationStatus == MentorVerificationStatus.APPROVED
+                && profileCompleted;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

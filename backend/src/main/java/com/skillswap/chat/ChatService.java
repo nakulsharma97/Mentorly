@@ -12,6 +12,7 @@ import com.skillswap.safety.UserBlockRepository;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
+import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -342,9 +343,18 @@ public class ChatService {
         }
 
         // Check if direct conversation already exists — never create duplicates.
+        // Existing conversations stay fully accessible even if the mentor was
+        // later suspended/rejected (only NEW conversations are gated below).
         Optional<DirectConversation> existing = directConversationRepository.findBetweenUsers(currentUser, target);
         if (existing.isPresent()) {
             return toDirectConversationResponse(currentUser, existing.get());
+        }
+
+        // Marketplace gate — only admin-APPROVED mentors may receive NEW learner
+        // conversations. Placed after the existing-conversation lookup so opening
+        // a previous chat is never blocked.
+        if (target.getRole() == UserRole.MENTOR && !target.isApprovedMentor()) {
+            throw new IllegalArgumentException("This mentor is currently unavailable for messaging.");
         }
 
         // Create new direct conversation

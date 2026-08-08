@@ -14,16 +14,16 @@ const toNumber = (value) => {
 };
 
 const formatCurrency = (value) =>
-  new Intl.NumberFormat(undefined, {
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     maximumFractionDigits: 2,
   }).format(toNumber(value));
 
 const formatCompactCurrency = (value) =>
-  new Intl.NumberFormat(undefined, {
+  new Intl.NumberFormat("en-IN", {
     style: "currency",
-    currency: "USD",
+    currency: "INR",
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(toNumber(value));

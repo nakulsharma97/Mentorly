@@ -2336,8 +2336,8 @@ export function LearnerProfilePage() {
                 <strong>{referral?.totalReferrals ?? 0}</strong>
               </div>
               <div>
-                <span>Credits</span>
-                <strong>{referral?.totalCreditsEarned ?? 0}</strong>
+                <span>Earnings (₹)</span>
+                <strong>₹{(referral?.totalCreditsEarned ?? 0).toLocaleString("en-IN")}</strong>
               </div>
             </div>
           </DetailCard>

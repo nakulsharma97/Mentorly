@@ -5,6 +5,7 @@ import { getErrorFeedback, getInfoFeedback } from "../utils/comingSoon";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import ReportModal from "../components/ReportModal";
 import { normalizeSkills } from "../utils/skills";
+import { formatPrice, isFree } from "../utils/price";
 import BookingFlowPage from "./BookingFlowPage";
 import HeroSection from "../components/HeroSection";
 import "./MentorProfilePage.css";
@@ -416,6 +417,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
 
       {/* ══ HERO ══ */}
       <HeroSection
+        className="mpr-hero-compact"
         badge={
           <>
             <Icon name="verified" /> {mentor?.mentorVerified ? "Verified Mentor" : "Mentor Profile"}
@@ -532,75 +534,6 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
           <Icon name="flag" /> Report
         </button>
       </HeroSection>
-
-      {/* ══ BOOKING CARD — moved below the hero per unified design system ══ */}
-      <div className="mpr-booking-strip">
-        <div className="mpr-booking-card mpr-booking-card--hero">
-          <div className="mpr-booking-card__price">
-            <span className="mpr-booking-card__price-val">
-              {sessions.length > 0 && sessions[0]?.priceAmount
-                ? `₹${Number(sessions[0].priceAmount).toLocaleString()}`
-                : "₹999"}
-            </span>
-            <span className="mpr-booking-card__price-unit">/hour</span>
-          </div>
-
-          <div className="mpr-booking-card__avail-status">
-            <Icon name="circle" />
-            {upcomingSlots.length > 0 ? "Available Today" : "Next Available: Soon"}
-          </div>
-
-          <div className="mpr-booking-card__summary">
-            <div className="mpr-booking-card__summary-row">
-              <span>Response time</span>
-              <strong>{trustSnapshot.responseLabel}</strong>
-            </div>
-            <div className="mpr-booking-card__summary-row">
-              <span>Session duration</span>
-              <strong>{sessions.length > 0 && sessions[0]?.duration ? sessions[0].duration : "60 min"}</strong>
-            </div>
-            <div className="mpr-booking-card__summary-row">
-              <span>Next slot</span>
-              <strong>{upcomingSlots.length > 0 ? formatDateTime(upcomingSlots[0].startTime) : "Check schedule"}</strong>
-            </div>
-          </div>
-
-          <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => {
-            if (!isLoggedIn) { onRequireLogin?.(); return; }
-            if (sessions.length === 1) {
-              setSelectedSessionForBooking(sessions[0]);
-              setBookingStep("calendar");
-            } else {
-              setBookingStep("sessions");
-              setSelectedSessionForBooking(null);
-            }
-            setShowBookingModal(true);
-          }}>
-            <Icon name="event" /> Book Session
-          </button>
-
-          <button type="button" className="mpr-booking-card__view-schedule" onClick={() => setShowFullSchedule(true)}>
-            <Icon name="calendar_month" /> View Full Schedule
-          </button>
-
-          <button type="button" className="mpr-booking-card__view-schedule" onClick={() => { if (!isLoggedIn) { onRequireLogin?.(); return; } setShowRequestModal(true); }}>
-            <Icon name="handshake" /> Request Custom Session
-          </button>
-
-          <div className="mpr-booking-card__divider" />
-
-          <div className="mpr-booking-card__trust">
-            <span><Icon name="lock" /> Secure Payments</span>
-            <span><Icon name="verified" /> Money-Back Guarantee</span>
-          </div>
-
-          {skillChips.length > 0 && (
-            <div className="mpr-booking-card__skills">
-              {skillChips.map(sk => <span key={sk} className="mpr-chip">{sk}</span>)}
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* ═══ STATS ROW ═══ */}
       <div className="mpr-stats-row">
@@ -1019,7 +952,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                       </div>
                       <div className="mpr-session-card__bottom">
                         <span className="mpr-session-card__price">
-                          {session.priceAmount ? `₹${Number(session.priceAmount).toLocaleString()}` : "Free"}
+                          {formatPrice(session.priceAmount)}
                         </span>
                         <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--sm" onClick={() => handleBookSession(session.id)}>
                           Book Now
@@ -1077,31 +1010,102 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
           )}
 
           {/* ── Projects ── */}
-          {mentor?.projects ? (
-            <section className={`mpr-section-card ${visibleSections[8] ? "mpr-animate-in" : ""}`} data-section="8">
-              <div className="mpr-section-card__head">
-                <Icon name="folder_open" />
-                <h2>Projects</h2>
-              </div>
-              <div className="mpr-projects-grid">
-                {parseLines(mentor.projects).slice(0, 6).length > 0 ? (
-                  parseLines(mentor.projects).slice(0, 6).map((proj, i) => (
-                    <div key={i} className="mpr-project-card">
-                      <div className="mpr-project-card__top">
-                        <div className="mpr-project-card__icon"><Icon name={["code","dns","cloud","storage","terminal","dataset"][i % 6]} /></div>
-                        <span className="mpr-project-card__name">{proj}</span>
+          {(() => {
+            // Structured projects (new manager) take priority; legacy free-text
+            // projects are a fallback so old profiles still render.
+            const structured = mentor?.projectsList || [];
+            const textProjects = parseLines(mentor?.projects).slice(0, 6);
+            const hasAny = structured.length > 0 || textProjects.length > 0;
+            if (!hasAny) return null;
+            return (
+              <section className={`mpr-section-card ${visibleSections[8] ? "mpr-animate-in" : ""}`} data-section="8">
+                <div className="mpr-section-card__head">
+                  <Icon name="folder_open" />
+                  <h2>Projects</h2>
+                </div>
+                <div className="mpr-projects-grid">
+                  {structured.length > 0 ? (
+                    structured.slice(0, 6).map((proj, i) => (
+                      <div key={proj.id || i} className="mpr-project-card">
+                        <div className="mpr-project-card__top">
+                          <div className="mpr-project-card__icon"><Icon name={["code","dns","cloud","storage","terminal","dataset"][i % 6]} /></div>
+                          <span className="mpr-project-card__name">{proj.title}</span>
+                        </div>
+                        {(proj.role || proj.startDate) && (
+                          <p className="mpr-project-card__role">
+                            {proj.role}
+                            {proj.role && (proj.startDate || proj.endDate) ? " · " : ""}
+                            {(() => {
+                              const start = proj.startDate ? String(proj.startDate).slice(0, 7) : "";
+                              const end = proj.currentlyWorking ? "Present" : proj.endDate ? String(proj.endDate).slice(0, 7) : "";
+                              if (!start && !end) return "";
+                              return start ? `${start} – ${end || "Present"}` : end;
+                            })()}
+                          </p>
+                        )}
+                        {proj.description && <p className="mpr-project-card__desc">{proj.description}</p>}
+                        {(() => {
+                          const techs = String(proj.technologies || "")
+                            .split(/[,\n]/)
+                            .map((t) => t.trim())
+                            .filter(Boolean);
+                          return techs.length > 0 ? (
+                            <div className="mpr-project-card__techs">
+                              {techs.slice(0, 4).map((tech) => (
+                                <span key={tech} className="mpr-project-card__tech">{tech}</span>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
+                        {(() => {
+                          const images = String(proj.imageUrls || "")
+                            .split(/[,\n]/)
+                            .map((u) => u.trim())
+                            .filter(Boolean);
+                          return images.length > 0 ? (
+                            <div className="mpr-project-card__images">
+                              {images.slice(0, 3).map((src) => (
+                                <img
+                                  key={src}
+                                  src={src}
+                                  alt={`${proj.title} screenshot`}
+                                  loading="lazy"
+                                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                                />
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
+                        {(proj.githubUrl || proj.liveDemoUrl) && (
+                          <div className="mpr-project-card__actions">
+                            {proj.githubUrl && (
+                              <a href={proj.githubUrl} target="_blank" rel="noopener noreferrer">
+                                <Icon name="code" /> GitHub
+                              </a>
+                            )}
+                            {proj.liveDemoUrl && (
+                              <a href={proj.liveDemoUrl} target="_blank" rel="noopener noreferrer">
+                                <Icon name="open_in_new" /> Live Demo
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="mpr-empty">
-                    <Icon name="folder_off" />
-                    <h4>No projects have been shared yet.</h4>
-                  </div>
-                )}
-              </div>
-            </section>
-          ) : null}
+                    ))
+                  ) : (
+                    textProjects.map((proj, i) => (
+                      <div key={i} className="mpr-project-card">
+                        <div className="mpr-project-card__top">
+                          <div className="mpr-project-card__icon"><Icon name={["code","dns","cloud","storage","terminal","dataset"][i % 6]} /></div>
+                          <span className="mpr-project-card__name">{proj}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+            );
+          })()}
 
 
 
@@ -1118,7 +1122,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     <div className="mpr-session-info-card__icon"><Icon name={["record_voice_over","explore","description","psychology","code","school","group","star"][i % 8]} /></div>
                     <div className="mpr-session-info-card__info">
                       <span className="mpr-session-info-card__type">{s.title || `Session ${i + 1}`}</span>
-                      <span className="mpr-session-info-card__detail">{s.duration || "60 min"} • {s.priceAmount ? `₹${Number(s.priceAmount).toLocaleString()}` : "Free"} • {s.sessionType || "1:1"}</span>
+                      <span className="mpr-session-info-card__detail">{s.duration || "60 min"} • {formatPrice(s.priceAmount)} • {s.sessionType || "1:1"}</span>
                     </div>
                   </div>
                 ))}
@@ -1152,6 +1156,139 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
             </section>
           )}
         </div>
+
+        {/* ═══ SIDEBAR — booking, availability, links ═══ */}
+        <aside className="mpr-sidebar">
+          <div className="mpr-booking-card mpr-booking-card--sidebar">
+            <div className="mpr-booking-card__price">
+              <span className="mpr-booking-card__price-val">
+                {formatPrice(sessions[0]?.priceAmount ?? mentor?.hourlyRate)}
+              </span>
+              {!isFree(sessions[0]?.priceAmount ?? mentor?.hourlyRate) && (
+                <span className="mpr-booking-card__price-unit">/hour</span>
+              )}
+            </div>
+
+            <div className="mpr-booking-card__avail-status">
+              <Icon name="circle" />
+              {upcomingSlots.length > 0 ? "Available Today" : "Next Available: Soon"}
+            </div>
+
+            <div className="mpr-booking-card__summary">
+              <div className="mpr-booking-card__summary-row">
+                <span>Response time</span>
+                <strong>{trustSnapshot.responseLabel}</strong>
+              </div>
+              <div className="mpr-booking-card__summary-row">
+                <span>Session duration</span>
+                <strong>{sessions.length > 0 && sessions[0]?.duration ? sessions[0].duration : "60 min"}</strong>
+              </div>
+              <div className="mpr-booking-card__summary-row">
+                <span>Next slot</span>
+                <strong>{upcomingSlots.length > 0 ? formatDateTime(upcomingSlots[0].startTime) : "Check schedule"}</strong>
+              </div>
+            </div>
+
+            <button type="button" className="mpr-btn mpr-btn--primary mpr-btn--lg mpr-booking-card__cta" onClick={() => {
+              if (!isLoggedIn) { onRequireLogin?.(); return; }
+              if (sessions.length === 1) {
+                setSelectedSessionForBooking(sessions[0]);
+                setBookingStep("calendar");
+              } else {
+                setBookingStep("sessions");
+                setSelectedSessionForBooking(null);
+              }
+              setShowBookingModal(true);
+            }}>
+              <Icon name="event" /> Book Session
+            </button>
+
+            <button type="button" className="mpr-booking-card__view-schedule" onClick={() => setShowFullSchedule(true)}>
+              <Icon name="calendar_month" /> View Full Schedule
+            </button>
+
+            <button type="button" className="mpr-booking-card__view-schedule" onClick={() => { if (!isLoggedIn) { onRequireLogin?.(); return; } setShowRequestModal(true); }}>
+              <Icon name="handshake" /> Request Custom Session
+            </button>
+
+            <div className="mpr-booking-card__divider" />
+
+            <div className="mpr-booking-card__trust">
+              <span><Icon name="lock" /> Secure Payments</span>
+              <span><Icon name="verified" /> Money-Back Guarantee</span>
+            </div>
+          </div>
+
+          {/* ── Availability ── */}
+          <section className="mpr-sidebar-card" aria-label="Availability">
+            <div className="mpr-sidebar-card__head">
+              <Icon name="calendar_month" />
+              <h3>Availability</h3>
+            </div>
+            {(() => {
+              const raw = mentor?.availability;
+              const hasRaw = raw && !/^\s*\[?\s*\]?\s*$/.test(String(raw));
+              if (hasRaw) {
+                return (
+                  <div className="mpr-availability-tags">
+                    {String(raw)
+                      .replace(/[\[\]"]/g, "")
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .slice(0, 8)
+                      .map((day) => <span key={day} className="mpr-chip">{day}</span>)}
+                  </div>
+                );
+              }
+              if (upcomingSlots.length > 0) {
+                return (
+                  <div className="mpr-availability-list">
+                    {upcomingSlots.slice(0, 3).map((s) => (
+                      <div key={s.id} className="mpr-availability-item">
+                        <Icon name="schedule" />
+                        <span>{formatDateTime(s.startTime)}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return <p className="mpr-sidebar-card__empty">Schedule not published yet.</p>;
+            })()}
+            {mentor?.timezone && (
+              <p className="mpr-sidebar-card__tz">
+                <Icon name="language" /> {mentor.timezone}
+              </p>
+            )}
+          </section>
+
+          {/* ── Professional Links ── */}
+          {(() => {
+            const links = [
+              { key: "linkedinUrl", label: "LinkedIn", icon: "badge" },
+              { key: "githubUrl", label: "GitHub", icon: "code" },
+              { key: "portfolioUrl", label: "Portfolio", icon: "web" },
+            ].filter((l) => mentor?.[l.key]);
+            if (links.length === 0) return null;
+            return (
+              <section className="mpr-sidebar-card" aria-label="Professional Links">
+                <div className="mpr-sidebar-card__head">
+                  <Icon name="link" />
+                  <h3>Professional Links</h3>
+                </div>
+                <div className="mpr-links-list">
+                  {links.map((l) => (
+                    <a key={l.key} href={mentor[l.key]} target="_blank" rel="noopener noreferrer" className="mpr-link-item">
+                      <Icon name={l.icon} />
+                      <span>{l.label}</span>
+                      <Icon name="open_in_new" />
+                    </a>
+                  ))}
+                </div>
+              </section>
+            );
+          })()}
+        </aside>
       </div>
 
       {showReportModal && (

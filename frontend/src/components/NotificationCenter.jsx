@@ -44,6 +44,7 @@ const NOTIF_TYPE_CONFIG = {
   MENTOR_VERIFICATION_REQUEST: { icon: "verified_user", color: "#7c3aed", label: "Verification Request" },
   VERIFICATION_APPROVED: { icon: "verified", color: "#16a34a", label: "Verification Approved" },
   VERIFICATION_REJECTED: { icon: "cancel", color: "#dc2626", label: "Verification Rejected" },
+  VERIFICATION_MORE_INFO: { icon: "edit_note", color: "#f59e0b", label: "Additional Info Required" },
   PAYMENT_RECEIVED: { icon: "payments", color: "#16a34a", label: "Payment Received" },
   PAYMENT_UPDATE: { icon: "payments", color: "#0891b2", label: "Payment Update" },
   PAYOUT_RELEASED: { icon: "account_balance_wallet", color: "#16a34a", label: "Payout Released" },
@@ -585,6 +586,7 @@ export default function NotificationCenter({
         MENTOR_VERIFICATION_REQUEST: "/admin/verifications",
         VERIFICATION_APPROVED: "/admin/verifications",
         VERIFICATION_REJECTED: "/admin/verifications",
+        VERIFICATION_MORE_INFO: "/admin/verifications",
 
         // ── Sessions / Bookings ──
         SESSION_REQUEST_RECEIVED: "/admin/sessions",
@@ -674,6 +676,23 @@ export default function NotificationCenter({
             CERTIFICATION_EARNED: isMentor
               ? "/mentor/dashboard"
               : "/learner/certificates",
+
+            // ── Mentor Verification ──
+            MENTOR_VERIFICATION: isMentor
+              ? "/mentor/dashboard"
+              : null,
+            MENTOR_VERIFICATION_REQUEST: isMentor
+              ? "/mentor/dashboard"
+              : null,
+            VERIFICATION_APPROVED: isMentor
+              ? "/mentor/dashboard"
+              : null,
+            VERIFICATION_REJECTED: isMentor
+              ? "/mentor/dashboard"
+              : null,
+            VERIFICATION_MORE_INFO: isMentor
+              ? "/mentor/dashboard"
+              : null,
 
             // ── Role / Account ──
             ROLE_SWITCHED: isMentor

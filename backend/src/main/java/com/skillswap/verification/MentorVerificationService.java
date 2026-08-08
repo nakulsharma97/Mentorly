@@ -10,9 +10,13 @@ import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.user.AdminSubRole;
 import com.skillswap.user.User;
+import com.skillswap.user.UserProjectDto;
+import com.skillswap.user.UserProjectService;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,9 +46,18 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MentorVerificationService {
 
+    private static final Logger log = LoggerFactory.getLogger(MentorVerificationService.class);
+
+    /** Frontend route where admins review the verification queue. */
+    private static final String ADMIN_VERIFICATIONS_URL = "/admin/verifications";
+
+    /** Frontend route where mentors land after an approval / rejection. */
+    private static final String MENTOR_DASHBOARD_URL = "/mentor/dashboard";
+
     private final MentorVerificationRequestRepository requestRepository;
     private final UserRepository userRepository;
     private final MentorCertificationService certificationService;
+    private final UserProjectService userProjectService;
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
     private final AuditLogService auditLogService;
@@ -60,11 +73,37 @@ public class MentorVerificationService {
         if (currentUser.getRole() == UserRole.ADMIN) {
             throw new IllegalArgumentException("Admins cannot apply to become a mentor");
         }
-        requestRepository.findFirstByMentorIdAndStatusOrderByCreatedAtDesc(
-                        currentUser.getId(), MentorVerificationRequestStatus.PENDING)
-                .ifPresent(existing -> {
-                    throw new IllegalArgumentException("You already have a pending verification request");
-                });
+        // Verification eligibility: mentors may only apply once their profile is
+        // 100% complete (the persisted flag is kept in sync by
+        // ProfileCompletionService, so this is the same single source of truth).
+        if (currentUser.getRole() == UserRole.MENTOR && !currentUser.isProfileCompleted()) {
+            throw new IllegalArgumentException(
+                    "Complete your profile before requesting verification.");
+        }
+        // Only allow a fresh application when the previous one was REJECTED,
+        // SUSPENDED, or awaiting MORE_INFORMATION_REQUIRED (the applicant must
+        // be able to revise and resubmit — per spec Step 7/8). In-progress
+        // applications (PENDING / UNDER_REVIEW) and already-APPROVED mentors
+        // cannot submit again — otherwise a resubmission would silently demote
+        // an approved mentor to PENDING and remove them from search.
+        MentorVerificationRequest latest = requestRepository
+                .findFirstByMentorIdOrderByCreatedAtDesc(currentUser.getId()).orElse(null);
+        if (latest != null) {
+            switch (latest.getStatus()) {
+                case PENDING, UNDER_REVIEW -> throw new IllegalArgumentException(
+                        "You already have a verification request in progress");
+                case APPROVED -> throw new IllegalArgumentException(
+                        "Your mentor profile is already verified");
+                default -> {
+                    // REJECTED / SUSPENDED / MORE_INFORMATION_REQUIRED → resubmission allowed.
+                }
+            }
+        }
+
+        // Every resubmission returns to PENDING (spec Step 8) so the admin
+        // queue sees the new request; a first application also starts PENDING.
+        boolean resubmission = latest != null;
+        MentorVerificationRequestStatus initialStatus = MentorVerificationRequestStatus.PENDING;
 
         // Identity proof is optional — the resume URL doubles as evidence when
         // no separate document is provided. At least one URL is expected so the
@@ -84,6 +123,7 @@ public class MentorVerificationService {
         request.setEmail(trimToNull(req.email()));
         request.setSkills(trimToNull(req.skills()));
         request.setYearsOfExperience(req.yearsOfExperience());
+        request.setMonthsOfExperience(req.monthsOfExperience());
         request.setBio(trimToNull(req.aboutMe()));
         request.setResumeUrl(normalizeOptionalHttpUrl(req.resumeUrl()));
         request.setCertificateUrls(trimToNull(req.certificateUrls()));
@@ -94,24 +134,109 @@ public class MentorVerificationService {
         request.setAvailability(trimToNull(req.availability()));
         request.setDocumentUrl(documentUrl);
         request.setDocumentType(documentType);
-        request.setStatus(MentorVerificationRequestStatus.PENDING);
+        request.setStatus(initialStatus);
         request.setSubmittedAt(OffsetDateTime.now());
 
         // Mirror the application onto the user's profile so the admin review
         // panel (and the public mentor profile) reflects the application.
         syncUserProfile(currentUser, req);
+
+        // Keep the user-level verification status in sync so search / listing /
+        // session / booking guards see the latest state immediately.
+        OffsetDateTime now = OffsetDateTime.now();
+        currentUser.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.PENDING);
+        currentUser.setVerificationSubmittedAt(now);
+        currentUser.setVerificationReviewedAt(null);
+        currentUser.setRejectionReason(null);
+        currentUser.setMentorVerified(false);
         userRepository.save(currentUser);
 
         MentorVerificationRequest saved = requestRepository.save(request);
 
+        // Mentor confirmation (INFO / HIGH) — covers first submission and resubmission.
         notificationService.notifyUser(
                 currentUser.getId(),
                 "MENTOR_VERIFICATION",
-                "Application submitted",
-                "Your mentor verification application is now pending review.",
-                saved.getId());
+                "Verification Request Submitted",
+                "Your mentor profile has been submitted successfully. Our Admin Team will review it within 24 hours.",
+                saved.getId(),
+                null,
+                "HIGH",
+                MENTOR_DASHBOARD_URL,
+                "View Status",
+                null);
+        log.info("[Verification] Verification {} userId={} status={}",
+                resubmission ? "Resubmitted" : "Submitted",
+                currentUser.getId(),
+                initialStatus.name());
 
-        return MentorVerificationDto.from(saved, certificationsFor(currentUser));
+        // Every submission (first + resubmission) alerts the admins.
+        notifyAdminsOfNewRequest(currentUser, saved);
+
+        return MentorVerificationDto.from(saved, certificationsFor(currentUser), projectsFor(currentUser));
+    }
+
+    /**
+     * Auto-submission triggered by the onboarding flow: as soon as a MENTOR
+     * completes their profile for the first time, a PENDING verification
+     * request is created from the saved profile fields — so a mentor who is
+     * blocked from creating sessions always has a request the admin can
+     * review. Never duplicates an existing request and never demotes an
+     * already-approved mentor.
+     */
+    @Transactional
+    public void autoSubmitOnProfileComplete(User mentor) {
+        if (mentor == null || mentor.getRole() != UserRole.MENTOR || !mentor.isProfileCompleted()) {
+            return;
+        }
+        // Never overwrite an existing request: in-progress applications stay
+        // untouched and APPROVED mentors must never be demoted.
+        if (requestRepository.findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId()).isPresent()) {
+            log.info("[Verification] Auto-submit skipped userId={} reason=existing-request", mentor.getId());
+            return;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        MentorVerificationRequest request = new MentorVerificationRequest();
+        request.setMentor(mentor);
+        request.setFullName(mentor.getFullName());
+        request.setEmail(mentor.getEmail());
+        request.setSkills(mentor.getSkills());
+        request.setYearsOfExperience(mentor.getYearsOfExperience());
+        request.setMonthsOfExperience(mentor.getMonthsOfExperience());
+        request.setBio(mentor.getAboutMe());
+        request.setHourlyRate(mentor.getHourlyRate());
+        request.setAvailability(mentor.getAvailability());
+        request.setLinkedinUrl(mentor.getLinkedinUrl());
+        request.setResumeUrl(mentor.getResumeUrl());
+        request.setStatus(MentorVerificationRequestStatus.PENDING);
+        request.setSubmittedAt(now);
+        requestRepository.save(request);
+
+        mentor.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.PENDING);
+        mentor.setMentorVerified(false);
+        mentor.setVerificationSubmittedAt(now);
+        mentor.setVerificationReviewedAt(null);
+        mentor.setRejectionReason(null);
+        userRepository.save(mentor);
+
+        log.info("[Verification] Mentor Profile Completed + Verification Request Created userId={} status=PENDING",
+                mentor.getId());
+
+        // Mentor confirmation notification.
+        notificationService.notifyUser(
+                mentor.getId(),
+                "MENTOR_VERIFICATION",
+                "Verification Request Submitted",
+                "Your mentor profile has been submitted for verification. Our Admin Team will review your request shortly.",
+                request.getId(),
+                null,
+                "MEDIUM",
+                MENTOR_DASHBOARD_URL,
+                "View Status",
+                null);
+
+        notifyAdminsOfNewRequest(mentor, request);
     }
 
     /**
@@ -125,7 +250,8 @@ public class MentorVerificationService {
     public List<MentorVerificationDto> myRequests(User user) {
         return requestRepository.findByMentorIdOrderByCreatedAtDesc(user.getId())
                 .stream()
-                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor())))
+                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor()),
+                        projectsFor(request.getMentor())))
                 .toList();
     }
 
@@ -133,16 +259,20 @@ public class MentorVerificationService {
 
     public List<MentorVerificationDto> moderationQueue(User currentUser, MentorVerificationRequestStatus status) {
         AdminUtils.ensureAdmin(currentUser);
-        return requestRepository.findByStatusOrderByCreatedAtAsc(status)
-                .stream()
-                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor())))
+        List<MentorVerificationRequest> queue = requestRepository.findByStatusOrderByCreatedAtAsc(status);
+        log.info("[Verification] Admin Verification API Called adminId={} status={} pendingCount={}",
+                currentUser.getId(), status.name(), queue.size());
+        return queue.stream()
+                .map(request -> MentorVerificationDto.from(request, certificationsFor(request.getMentor()),
+                        projectsFor(request.getMentor())))
                 .toList();
     }
 
     public MentorVerificationDto requestDetail(User currentUser, Long id) {
         AdminUtils.ensureAdmin(currentUser);
         MentorVerificationRequest request = findRequest(id);
-        return MentorVerificationDto.from(request, certificationsFor(request.getMentor()));
+        return MentorVerificationDto.from(request, certificationsFor(request.getMentor()),
+                projectsFor(request.getMentor()));
     }
 
     /**
@@ -173,10 +303,16 @@ public class MentorVerificationService {
         request.setUpdatedAt(OffsetDateTime.now());
 
         User mentor = request.getMentor();
+        OffsetDateTime now = OffsetDateTime.now();
         String decisionLabel;
         switch (nextStatus) {
             case APPROVED -> {
                 mentor.setMentorVerified(true);
+                mentor.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.APPROVED);
+                mentor.setVerifiedAt(now);
+                mentor.setVerifiedBy(currentUser.getId());
+                mentor.setVerificationReviewedAt(now);
+                mentor.setRejectionReason(null);
                 if (mentor.getRole() != UserRole.MENTOR && mentor.getRole() != UserRole.ADMIN) {
                     mentor.setRole(UserRole.MENTOR);
                 }
@@ -186,14 +322,41 @@ public class MentorVerificationService {
             }
             case REJECTED -> {
                 mentor.setMentorVerified(false);
+                mentor.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.REJECTED);
+                mentor.setRejectionReason(trimToNull(req.adminNote()));
+                mentor.setVerificationReviewedAt(now);
                 userRepository.save(mentor);
                 emailNotificationService.sendVerificationRejected(mentor, request.getAdminNote());
                 decisionLabel = "Rejected";
+            }
+            case SUSPENDED -> {
+                mentor.setMentorVerified(false);
+                mentor.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.SUSPENDED);
+                mentor.setRejectionReason(trimToNull(req.adminNote()));
+                mentor.setVerificationReviewedAt(now);
+                userRepository.save(mentor);
+                decisionLabel = "Suspended";
+            }
+            case UNDER_REVIEW -> {
+                mentor.setVerificationStatus(com.skillswap.user.MentorVerificationStatus.UNDER_REVIEW);
+                mentor.setVerificationReviewedAt(now);
+                userRepository.save(mentor);
+                decisionLabel = "Moved to review";
             }
             case MORE_INFORMATION_REQUIRED -> {
                 if (request.getRequestedInfo() == null) {
                     throw new IllegalArgumentException("Requested information is required for this status");
                 }
+                // The mentor dashboard renders a dedicated "Additional
+                // Information Required" banner from this status — unless the
+                // mentor is already APPROVED, in which case they stay visible.
+                if (mentor.getVerificationStatus() != com.skillswap.user.MentorVerificationStatus.APPROVED) {
+                    mentor.setVerificationStatus(
+                            com.skillswap.user.MentorVerificationStatus.MORE_INFORMATION_REQUIRED);
+                }
+                mentor.setRejectionReason(null);
+                mentor.setVerificationReviewedAt(now);
+                userRepository.save(mentor);
                 decisionLabel = "Requested more information";
             }
             default -> decisionLabel = nextStatus.name();
@@ -211,36 +374,122 @@ public class MentorVerificationService {
             // Audit must never fail the verification decision.
         }
 
+        String notificationType = "MENTOR_VERIFICATION";
         String title;
         String message;
+        String priority = "MEDIUM";
         switch (nextStatus) {
             case APPROVED -> {
-                title = "Mentor verification approved";
-                message = "Congratulations! Your mentor profile has been verified. "
-                        + "You now have access to your mentor dashboard.";
+                notificationType = "VERIFICATION_APPROVED";
+                priority = "HIGH";
+                title = "🎉 Congratulations! Your Profile Has Been Verified";
+                message = "Your mentor profile has been successfully verified by the SkillSwap Admin Team. "
+                        + "You can now create mentoring sessions, receive learner bookings, "
+                        + "appear in Explore Mentors, and start earning on SkillSwap.";
+                log.info("[Verification] Verification Approved adminId={} mentorId={}",
+                        currentUser.getId(), mentor.getId());
             }
             case REJECTED -> {
-                title = "Mentor verification rejected";
-                message = "Your mentor verification request was not approved."
+                notificationType = "VERIFICATION_REJECTED";
+                priority = "HIGH";
+                title = "Profile Verification Rejected";
+                // A custom message from the admin is delivered verbatim; a
+                // default reason pill gets the generic guidance + the reason.
+                String custom = trimToNull(req.customMessage());
+                if (custom != null) {
+                    message = custom;
+                } else {
+                    message = "Your mentor profile could not be verified at this time. "
+                            + "Please review your profile, make the required changes and submit again."
+                            + (request.getAdminNote() == null ? "" : " Reason: " + request.getAdminNote());
+                }
+                log.info("[Verification] Verification Rejected adminId={} mentorId={} reason={}",
+                        currentUser.getId(), mentor.getId(), request.getAdminNote());
+            }
+            case SUSPENDED -> {
+                notificationType = "VERIFICATION_REJECTED";
+                priority = "HIGH";
+                title = "Mentor Account Suspended";
+                message = "Your mentor account has been suspended."
                         + (request.getAdminNote() == null ? "" : " Reason: " + request.getAdminNote());
+                log.warn("[Verification] Verification Suspended adminId={} mentorId={} reason={}",
+                        currentUser.getId(), mentor.getId(), request.getAdminNote());
+            }
+            case UNDER_REVIEW -> {
+                title = "Verification under review";
+                message = "Your verification application is now under review by our team.";
+                log.info("[Verification] Verification Under Review adminId={} mentorId={}",
+                        currentUser.getId(), mentor.getId());
             }
             case MORE_INFORMATION_REQUIRED -> {
-                title = "More information requested";
-                message = "The admin needs more information to finish reviewing your application."
-                        + (request.getRequestedInfo() == null ? "" : " " + request.getRequestedInfo())
-                        + " Please revise and resubmit your application.";
+                notificationType = "VERIFICATION_MORE_INFO";
+                priority = "HIGH";
+                title = "Additional Information Required";
+                message = "The Admin has requested additional information before approving your profile.\n"
+                        + "Required Changes:\n"
+                        + (request.getRequestedInfo() == null ? "Please update your profile and resubmit."
+                                : request.getRequestedInfo())
+                        + "\n\nPlease update your profile and submit again.";
+                log.info("[Verification] More Information Requested adminId={} mentorId={} requestedInfo={}",
+                        currentUser.getId(), mentor.getId(), request.getRequestedInfo());
             }
             default -> {
                 title = "Verification updated";
                 message = "Your verification status changed to " + nextStatus.name() + ".";
             }
         }
-        notificationService.notifyUser(mentor.getId(), "MENTOR_VERIFICATION", title, message, saved.getId());
+        notificationService.notifyUser(
+                mentor.getId(),
+                notificationType,
+                title,
+                message,
+                saved.getId(),
+                null,
+                priority,
+                MENTOR_DASHBOARD_URL,
+                "View Status",
+                null);
+        log.info("[Verification] Notification Created type={} mentorId={} priority={}",
+                notificationType, mentor.getId(), priority);
 
-        return MentorVerificationDto.from(saved, certificationsFor(mentor));
+        return MentorVerificationDto.from(saved, certificationsFor(mentor), projectsFor(mentor));
     }
 
     /* ── Private helpers ───────────────────────────────────────── */
+
+    /**
+     * Alerts every admin that a new (or re-submitted) verification request is
+     * waiting — HIGH priority, deep-link to the review queue.
+     */
+    private void notifyAdminsOfNewRequest(User mentor, MentorVerificationRequest request) {
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+        if (admins.isEmpty()) {
+            log.warn("[Verification] No admins found to notify for new verification request mentorId={}",
+                    mentor.getId());
+            return;
+        }
+        String submittedLabel = request.getSubmittedAt() == null
+                ? "just now"
+                : request.getSubmittedAt().toString().replace("T", " ").substring(0, 19);
+        String username = mentor.getDisplayUsername() == null ? mentor.getEmail() : mentor.getDisplayUsername();
+        String message = "A new mentor has submitted their profile for verification.\n"
+                + "Mentor: " + mentor.getFullName() + " (" + username + ")\n"
+                + "Submitted: " + submittedLabel;
+        for (User admin : admins) {
+            notificationService.notifyUser(
+                    admin.getId(),
+                    "MENTOR_VERIFICATION_REQUEST",
+                    "New Mentor Verification Request",
+                    message,
+                    request.getId(),
+                    null,
+                    "HIGH",
+                    ADMIN_VERIFICATIONS_URL,
+                    "Review Request",
+                    null);
+        }
+        log.info("[Verification] Admin Notification Created count={} requestId={}", admins.size(), request.getId());
+    }
 
     private MentorVerificationRequest findRequest(Long id) {
         return requestRepository.findById(id)
@@ -252,6 +501,13 @@ public class MentorVerificationService {
             return List.of();
         }
         return certificationService.listForMentor(mentor.getId());
+    }
+
+    private List<UserProjectDto> projectsFor(User mentor) {
+        if (mentor == null || mentor.getId() == null) {
+            return List.of();
+        }
+        return userProjectService.listProjects(mentor);
     }
 
     private void syncUserProfile(User user, SubmitMentorVerificationRequest req) {
@@ -266,6 +522,9 @@ public class MentorVerificationService {
         }
         if (req.yearsOfExperience() != null) {
             user.setYearsOfExperience(req.yearsOfExperience());
+        }
+        if (req.monthsOfExperience() != null) {
+            user.setMonthsOfExperience(req.monthsOfExperience());
         }
         if (req.aboutMe() != null && !req.aboutMe().isBlank()) {
             user.setAboutMe(req.aboutMe().trim());

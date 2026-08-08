@@ -13,6 +13,7 @@ import com.skillswap.roadmap.LearningRoadmap;
 import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.user.MentorVerificationStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
 import com.skillswap.wallet.WalletService;
@@ -102,6 +103,9 @@ class BookingLifecycleServiceTest {
         mentor.setId(2L);
         mentor.setEmail("mentor@test.com");
         mentor.setRole(UserRole.MENTOR);
+        // Marketplace gates require an admin-APPROVED verification status.
+        mentor.setVerificationStatus(MentorVerificationStatus.APPROVED);
+        mentor.setProfileCompleted(true);
 
         otherUser = new User();
         otherUser.setId(3L);

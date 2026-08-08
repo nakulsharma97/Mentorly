@@ -58,20 +58,10 @@ export const serializeSkillTags = (tags) => {
 };
 
 export const getProfileQualityScore = (profile) => {
+  // The backend (ProfileCompletionService) is the single source of truth.
+  // Never compute a divergent local score.
   if (typeof profile?.profileCompletionPercent === "number") {
     return profile.profileCompletionPercent;
   }
-
-  const requiredChecks = [
-    Boolean(String(profile?.skills || "").trim()),
-    Boolean(String(profile?.aboutMe || "").trim()),
-    Boolean(String(profile?.githubUrl || "").trim()),
-    Boolean(String(profile?.linkedinUrl || "").trim()),
-    Boolean(String(profile?.pastTeachingSessions || "").trim()),
-    Boolean(String(profile?.certificates || "").trim()),
-    Boolean(String(profile?.projects || "").trim() || Boolean(profile?.projectsList?.length)),
-  ];
-
-  const completed = requiredChecks.filter(Boolean).length;
-  return Math.round((completed / requiredChecks.length) * 100);
+  return 0;
 };

@@ -1,12 +1,14 @@
 package com.skillswap.user;
 
 import com.skillswap.common.ProfileCompletionGuard;
+import com.skillswap.common.ProfileCompletionService;
 import com.skillswap.config.EndpointRateLimitFilter;
 import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
 import com.skillswap.config.RequestTraceFilter;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.referral.ReferralRewardRepository;
+import com.skillswap.verification.MentorVerificationService;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.session.SessionRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -41,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(ProfileCompletionGuard.class)
+@Import({ProfileCompletionGuard.class, ProfileCompletionService.class})
 class UserControllerCompleteProfileIntegrationTest {
 
     @Autowired
@@ -61,6 +63,12 @@ class UserControllerCompleteProfileIntegrationTest {
 
     @MockitoBean
     private NotificationService notificationService;
+
+    @MockitoBean
+    private MentorVerificationService mentorVerificationService;
+
+    @MockitoBean
+    private UserProjectService userProjectService;
 
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;

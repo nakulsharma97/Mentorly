@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    SKILLSWAP MESSAGING — PREMIUM MENTORING DESIGN SYSTEM
-   A fixed three-column mentoring workspace:
-     [320px conversation list] [flexible chat] [320px learner details]
+   A clean two-column workspace:
+     [conversation list 35%] [chat / new conversation 65%]
    Tokens: bg #F8FAFC · cards #FFFFFF · radius 20px · gap 20px · soft shadows
    · Inter · Framer Motion. Rendered inside the workspace shell, so this page
    never scrolls — only each column scrolls internally.
@@ -92,20 +92,19 @@
   --ms-shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Fixed 3-Column Shell ────────────────────────────────────────────────── */
+/* ── Fixed 2-Column Shell (35% / 65%) ───────────────────────────────────── */
 
 .ms-app__container {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(300px, 35%) minmax(0, 65%);
   gap: 20px;
   align-items: stretch;
 }
 
 .ms-app__sidebar,
-.ms-app__chat,
-.ms-app__details {
+.ms-app__chat {
   position: relative;
   min-height: 0;
   background: var(--ms-card);
@@ -457,36 +456,60 @@
   gap: 10px;
 }
 
+/* Filter tab bar — shared by Mentor & Learner Messages. Pills size to their
+ * content and the row scrolls horizontally (scrollbar hidden) so no tab label
+ * is ever clipped or truncated. */
 .ms-tabs-v2 {
   display: flex;
-  gap: 2px;
-  border-bottom: 1px solid var(--ms-border);
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+  scroll-behavior: smooth;
   padding-bottom: 2px;
 }
 
+.ms-tabs-v2::-webkit-scrollbar {
+  display: none;
+}
+
 .ms-tab-v2__btn {
-  padding: 7px 10px;
-  font-size: 0.76rem;
+  flex-shrink: 0;
+  min-width: fit-content;
+  padding: 10px 18px;
+  font-size: 0.8rem;
   font-weight: 700;
   font-family: inherit;
   color: var(--ms-muted);
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 999px;
   transition: all 0.18s;
   white-space: nowrap;
+  text-overflow: clip;
+  overflow: visible;
 }
 
 .ms-tab-v2__btn:hover {
   color: var(--ms-text);
   background: var(--ms-hover);
+  border-color: color-mix(in srgb, var(--ms-border) 60%, transparent);
 }
 
 .ms-tab-v2__btn.is-active {
-  color: var(--ms-primary-dark);
-  border-bottom-color: var(--ms-primary);
+  color: #fff;
+  background: var(--ms-primary);
+  border-color: var(--ms-primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--ms-primary) 30%, transparent);
+}
+
+[data-theme="dark"] .ms-tab-v2__btn.is-active {
+  color: #04211d;
+  background: var(--ms-primary);
 }
 
 .ms-filter-controls-v2 {
@@ -645,21 +668,14 @@
   display: flex;
   align-items: center;
   gap: 20px; /* Avatar → User info (margin-left 20px equivalent) */
-  border: none;
   background: transparent;
   text-align: left;
-  cursor: pointer;
   padding: 4px 0;
   border-radius: 12px;
-  transition: background 0.18s;
 }
 
 .ms-chat__peer > .ms-avatar {
   flex-shrink: 0;
-}
-
-.ms-chat__peer:hover {
-  background: var(--ms-hover);
 }
 
 .ms-chat__peer-meta {
@@ -1548,7 +1564,11 @@
   font-weight: 700;
   color: var(--ms-text);
   line-height: 1.25;
-  overflow-wrap: anywhere;
+  /* Names must never wrap — single line with ellipsis (LinkedIn/Slack style). */
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-overflow: ellipsis;
 }
 
 .ms-user__verified {
@@ -1687,7 +1707,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 140px;
+  width: 160px;
   height: 44px;
   padding: 0 18px;
   border-radius: 14px;
@@ -1788,316 +1808,6 @@
   font-size: 16px;
   flex-shrink: 0;
 }
-
-/* ── Right details panel (320px) ─────────────────────────────────────────── */
-
-.ms-details {
-  padding: 8px 20px 20px;
-  overflow-y: auto;
-  min-height: 0;
-  height: 100%;
-  scrollbar-width: thin;
-}
-
-.ms-details::-webkit-scrollbar {
-  width: 6px;
-}
-
-.ms-details::-webkit-scrollbar-thumb {
-  background: var(--ms-border);
-  border-radius: 999px;
-}
-
-.ms-details__section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 22px 0;
-  border-bottom: 1px solid var(--ms-border);
-}
-
-.ms-details__section:first-child {
-  padding-top: 20px;
-}
-
-.ms-details__section--actions {
-  border-bottom: none;
-}
-
-.ms-details__identity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.ms-details__identity h2 {
-  font-size: 1.1rem;
-  font-weight: 800;
-  margin: 12px 0 4px;
-  color: var(--ms-text);
-}
-
-.ms-details__role {
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--ms-primary-dark);
-  background: rgba(20, 184, 166, 0.1);
-  padding: 3px 12px;
-  border-radius: 99px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.ms-details__presence {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.72rem;
-  color: var(--ms-faint);
-  margin-top: 8px;
-}
-
-.ms-details__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ms-faint);
-}
-
-.ms-details__presence.is-online {
-  color: var(--ms-primary-dark);
-  font-weight: 600;
-}
-
-.ms-details__presence.is-online .ms-details__dot {
-  background: #14b8a6;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
-}
-
-.ms-details__block {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ms-details__label {
-  font-size: 0.68rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--ms-faint);
-  margin: 0;
-}
-
-.ms-details__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.ms-details__chip {
-  padding: 3px 10px;
-  border-radius: 99px;
-  background: var(--ms-bg);
-  border: 1px solid var(--ms-border);
-  color: var(--ms-muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.ms-details__session {
-  background: linear-gradient(180deg, var(--ms-card), color-mix(in srgb, var(--ms-bg) 55%, var(--ms-card)));
-  border: 1px solid var(--ms-border);
-  border-radius: 18px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.ms-details__session-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.ms-details__session-head .material-symbols-outlined {
-  color: var(--ms-primary);
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.ms-session-card__title {
-  font-size: 0.84rem;
-  font-weight: 700;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ms-text);
-}
-
-.ms-details__rows {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ms-details__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.74rem;
-  color: var(--ms-muted);
-}
-
-.ms-details__row strong {
-  color: var(--ms-text);
-  font-weight: 600;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
-.ms-details__value--ok {
-  color: var(--ms-primary-dark) !important;
-}
-
-.ms-details__join {
-  text-align: center;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  text-decoration: none;
-}
-
-.ms-details__join-locked {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--ms-bg);
-  border: 1px dashed var(--ms-border);
-  color: var(--ms-faint);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.ms-details__join-locked .material-symbols-outlined {
-  font-size: 15px;
-}
-
-.ms-details__progress {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 14px;
-  background: var(--ms-bg);
-  border: 1px solid var(--ms-border);
-}
-
-.ms-details__progress-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: var(--ms-muted);
-}
-
-.ms-details__progress-head .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--ms-primary);
-}
-
-.ms-details__progress-bar {
-  height: 6px;
-  border-radius: 99px;
-  background: var(--ms-border);
-  overflow: hidden;
-}
-
-.ms-details__progress-fill {
-  display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--ms-primary), #34d399);
-  transition: width 0.4s ease;
-}
-
-.ms-details__files {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.ms-details__file {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--ms-bg);
-  border: 1px solid var(--ms-border);
-  text-decoration: none;
-  color: var(--ms-text);
-  font-size: 0.78rem;
-  font-weight: 500;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.18s;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ms-details__file:hover {
-  border-color: var(--ms-primary);
-  background: var(--ms-card);
-  transform: translateX(2px);
-}
-
-.ms-details__file .material-symbols-outlined {
-  color: var(--ms-primary);
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.ms-details__actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.ms-details__actions .ms-btn {
-  font-size: 0.73rem;
-  padding: 9px 8px;
-  border-radius: 11px;
-  justify-content: center;
-}
-
-.ms-details__actions .ms-btn .material-symbols-outlined {
-  font-size: 15px;
-}
-
-.ms-details__danger {
-  color: var(--ms-danger) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
-}
-
-.ms-details__danger:hover {
-  background: rgba(239, 68, 68, 0.06) !important;
-}
-
 /* ── Shared buttons & icons ──────────────────────────────────────────────── */
 
 .ms-btn {
@@ -2513,26 +2223,67 @@
 
 .ms-req {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
   border: 1px solid rgba(245, 158, 11, 0.25);
   background: rgba(245, 158, 11, 0.05);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.ms-req__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .ms-req__meta {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .ms-req__name {
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--ms-text);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-req__username {
+  font-size: 0.72rem;
+  color: var(--ms-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-req__role {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ms-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ms-req__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ms-req__skill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ms-primary-dark);
+  background: var(--ms-chip-bg, rgba(20, 184, 166, 0.12));
+  border-radius: 999px;
+  padding: 2px 8px;
   white-space: nowrap;
 }
 
@@ -2544,9 +2295,16 @@
   white-space: nowrap;
 }
 
+.ms-req__message {
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--ms-muted);
+  margin: 0;
+}
+
 .ms-req__actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* ── Search highlight ────────────────────────────────────────────────────── */
@@ -2562,18 +2320,15 @@
 
 @media (max-width: 1240px) {
   .ms-app__container {
-    grid-template-columns: 280px minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(270px, 38%) minmax(0, 62%);
     gap: 16px;
   }
 }
 
 @media (max-width: 1024px) {
-  /* Two columns on tablet — details move behind the chat */
+  /* Tablet — two columns with adjusted widths */
   .ms-app__container {
-    grid-template-columns: 280px minmax(0, 1fr);
-  }
-  .ms-app__details {
-    display: none;
+    grid-template-columns: minmax(240px, 40%) minmax(0, 60%);
   }
 
   /* User cards: button moves below the details, full-width row */
@@ -2610,9 +2365,6 @@
        chat simply fills the grid — no gap below the card, no hero guessing. */
     height: 100%;
     min-height: 420px;
-  }
-  .ms-app__details {
-    display: none;
   }
   .ms-chat__back {
     display: flex;

@@ -155,6 +155,16 @@
   color: #b45309;
 }
 
+.mv-status--review {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.mv-status--suspended {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 .mv-status--approved {
   background: #d1fae5;
   color: #047857;
@@ -168,6 +178,16 @@
 [data-theme="dark"] .mv-status--pending {
   background: rgba(245, 158, 11, 0.18);
   color: #fbbf24;
+}
+
+[data-theme="dark"] .mv-status--review {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .mv-status--suspended {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
 }
 
 [data-theme="dark"] .mv-status--approved {
@@ -307,6 +327,51 @@
   outline: none;
   border-color: #ef4444;
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.mv-reject-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mv-reject-preset {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mv-reject-preset:hover {
+  border-color: #14b8a6;
+  color: #0f766e;
+  background: rgba(20, 184, 166, 0.08);
+}
+
+.mv-reject-preset--active {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .mv-reject-preset {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .mv-reject-preset:hover,
+[data-theme="dark"] .mv-reject-preset--active {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
 }
 
 .mv-reject-error {
@@ -816,4 +881,78 @@
 @keyframes mv-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ── Structured project cards in the admin review ─────────────── */
+
+.mv-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.mv-project-card {
+  background: var(--mv-card-bg, #fff);
+  border: 1px solid rgba(100, 116, 139, 0.15);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mv-project-card__title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--mv-fg, #0f172a);
+}
+.mv-project-card__desc {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--mv-muted, #64748b);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.mv-project-card__techs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mv-project-card__links {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+.mv-project-card__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--mv-accent, #0f766e);
+  text-decoration: none;
+}
+.mv-project-card__link:hover {
+  text-decoration: underline;
+}
+
+.mv-project-card__role {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mv-accent, #0f766e);
+}
+.mv-project-card__images {
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+.mv-project-card__images img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.15);
 }
