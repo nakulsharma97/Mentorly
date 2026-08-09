@@ -7,9 +7,13 @@ import HeroSection from "../../../components/HeroSection";
  * <HeroSection /> so every page renders the same unified gradient / radius /
  * buttons. Actions render after the copy via {children}.
  */
+// Mentor Workspace heroes are standardized on the compact variant so every
+// page (Dashboard, Manage Sessions, Students, Calendar, Messages, Wallet,
+// Settings, …) shares the SAME height/padding/type via one class.
 export default function MentorPageHero({ eyebrow, icon, title, sub, children }) {
   return (
     <HeroSection
+      className="hero-section--compact"
       badge={eyebrow ? (
         <>
           {icon ? <Icon name={icon} /> : null} {eyebrow}

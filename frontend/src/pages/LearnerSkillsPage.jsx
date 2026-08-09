@@ -13,55 +13,6 @@ const EMPTY_ARRAY = [];
 /* Skills and mentor metrics are served live from the backend — no hardcoded
    featured lists or invented learner/mentor counts are used here anymore. */
 
-const LEARNING_PATHS_DATA = [
-  {
-    id: "java-developer",
-    title: "Java Developer",
-    icon: "code",
-    gradient: "linear-gradient(135deg,#ed8b00,#e8a530)",
-    steps: ["Java", "OOP", "Collections", "Spring", "Spring Boot", "REST APIs", "Microservices"],
-    duration: "6-9 months",
-    skills: 7,
-  },
-  {
-    id: "frontend-developer",
-    title: "Frontend Developer",
-    icon: "web",
-    gradient: "linear-gradient(135deg,#61dafb,#3178c6)",
-    steps: ["HTML", "CSS", "JavaScript", "React", "Redux", "Next.js"],
-    duration: "4-8 months",
-    skills: 6,
-  },
-  {
-    id: "python-developer",
-    title: "Python Developer",
-    icon: "code",
-    gradient: "linear-gradient(135deg,#3776ab,#306998)",
-    steps: ["Python", "OOP", "Libraries", "Flask", "APIs", "Automation"],
-    duration: "4-7 months",
-    skills: 6,
-  },
-  {
-    id: "cloud-engineer",
-    title: "Cloud Engineer",
-    icon: "cloud",
-    gradient: "linear-gradient(135deg,#FF9900,#232F3E)",
-    steps: ["Cloud Basics", "EC2", "S3", "Lambda", "Docker", "CI/CD"],
-    duration: "6-10 months",
-    skills: 6,
-  },
-];
-
-const CAREERS_DATA = [
-  { id: "backend-developer", title: "Backend Developer", icon: "dns", color: "#0F9D8A", salary: "₹8-20 LPA", skills: "Java, Spring Boot, SQL", experience: "1-3 years" },
-  { id: "frontend-developer", title: "Frontend Developer", icon: "web", color: "#3B82F6", salary: "₹6-18 LPA", skills: "React, JavaScript, CSS", experience: "1-3 years" },
-  { id: "full-stack-developer", title: "Full Stack Developer", icon: "code", color: "#8B5CF6", salary: "₹10-25 LPA", skills: "React, Node.js, MongoDB", experience: "2-5 years" },
-  { id: "cloud-engineer", title: "Cloud Engineer", icon: "cloud", color: "#EC4899", salary: "₹12-30 LPA", skills: "AWS, Docker, Kubernetes", experience: "3-6 years" },
-  { id: "ai-engineer", title: "AI Engineer", icon: "psychology", color: "#F59E0B", salary: "₹15-35 LPA", skills: "Python, ML, Deep Learning", experience: "2-5 years" },
-  { id: "devops-engineer", title: "DevOps Engineer", icon: "terminal", color: "#EF4444", salary: "₹10-28 LPA", skills: "Docker, K8s, CI/CD", experience: "2-5 years" },
-  { id: "data-analyst", title: "Data Analyst", icon: "analytics", color: "#14B8A6", salary: "₹5-15 LPA", skills: "SQL, Python, Statistics", experience: "0-2 years" },
-];
-
 function resourceUrl(skillName, label) {
   const name = (skillName || "").toLowerCase();
   const enc = encodeURIComponent(name);
@@ -265,97 +216,12 @@ function SkillCard({ skill }) {
         )}
         <div className="sk-card__actions">
           <Link to={`/learner/skills/${slug}`} className="sk-card__roadmap-link" onClick={(e) => e.stopPropagation()}>
-            <Icon name="route" /> Explore Roadmap
+            <Icon name="auto_stories" /> Explore Skill
           </Link>
           <Link to={`/learner/mentors?skill=${encodeURIComponent(skill.name)}`} className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn" onClick={(e) => e.stopPropagation()}>
             <Icon name="person_search" /> Find Mentor
           </Link>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function PathCard({ path }) {
-  return (
-    <div className="sk-path-card--catalog md-animate">
-      <div className="sk-path-card--catalog__header" style={{ background: path.gradient }}>
-        <Icon name={path.icon} />
-        <h3>{path.title}</h3>
-        <span className="sk-path-card--catalog__duration"><Icon name="schedule" /> {path.duration}</span>
-      </div>
-      <div className="sk-path-card--catalog__body">
-        <div className="sk-path-card--catalog__steps">
-          {path.steps.slice(0, 4).map((step, i) => (
-            <span key={step} className="sk-path-step">
-              <span className="sk-path-step__dot" />
-              {step}
-              {i < path.steps.slice(0, 4).length - 1 && <span className="sk-path-step__line" />}
-            </span>
-          ))}
-          {path.steps.length > 4 && <span className="sk-path-step__more">+{path.steps.length - 4} more</span>}
-        </div>
-        <div className="sk-path-card--catalog__meta">
-          <span><Icon name="auto_stories" /> {path.skills} skills</span>
-          <span>&bull;</span>
-          <span><Icon name="schedule" /> {path.duration}</span>
-        </div>
-      </div>
-      <div className="sk-path-card--catalog__actions">
-        <Link to={`/learner/roadmaps/${path.id}`} className="sk-card__roadmap-link">
-          <Icon name="route" /> View Roadmap
-        </Link>
-        <Link to={`/learner/mentors?skill=${encodeURIComponent(path.steps[0])}`} className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn">
-          <Icon name="person_search" /> Find Mentor
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function CareerCard({ career }) {
-  const navigate = useNavigate();
-  const openCareer = () => navigate(`/learner/careers/${career.id}`);
-  return (
-    <div className="sk-career-card--catalog md-animate">
-      <div
-        role="link"
-        tabIndex={0}
-        aria-label={`Open ${career.title} career details`}
-        onClick={openCareer}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openCareer();
-          }
-        }}
-        style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 8, cursor: "pointer" }}
-      >
-        <div className="sk-career-card--catalog__top">
-          <span className="sk-career-card--catalog__icon" style={{ color: career.color }}>
-            <Icon name={career.icon} />
-          </span>
-          <h3 className="sk-career-card--catalog__title">{career.title}</h3>
-        </div>
-        <div className="sk-career-card--catalog__salary">
-          <Icon name="currency_rupee" /> {career.salary}
-        </div>
-        <div className="sk-career-card--catalog__detail">
-          <span className="sk-career-card--catalog__label">Skills needed:</span>
-          <span className="sk-career-card--catalog__value">{career.skills}</span>
-        </div>
-        <div className="sk-career-card--catalog__detail">
-          <span className="sk-career-card--catalog__label">Experience:</span>
-          <span className="sk-career-card--catalog__value">{career.experience}</span>
-        </div>
-      </div>
-      <div className="sk-career-card--catalog__actions">
-        <Link to={`/learner/careers/${career.id}`} className="sk-card__roadmap-link" onClick={(e) => e.stopPropagation()}>
-          <Icon name="open_in_new" /> View Career
-        </Link>
-        <Link to={`/learner/mentors?skill=${encodeURIComponent(career.skills.split(",")[0].trim())}`} className="sk-btn sk-btn--primary sk-btn--sm sk-card__mentor-btn" onClick={(e) => e.stopPropagation()}>
-          <Icon name="person_search" /> Find Mentor
-        </Link>
       </div>
     </div>
   );
@@ -530,26 +396,6 @@ export default function LearnerSkillsPage() {
     }));
   }, [mentors, debouncedQuery]);
 
-  // ── filtered learning paths (search-aware) ──
-  const filteredPaths = useMemo(() => {
-    if (!debouncedQuery) return LEARNING_PATHS_DATA;
-    const q = debouncedQuery.toLowerCase();
-    return LEARNING_PATHS_DATA.filter((p) =>
-      p.title.toLowerCase().includes(q) ||
-      p.steps.some((s) => s.toLowerCase().includes(q))
-    );
-  }, [debouncedQuery]);
-
-  // ── filtered careers (search-aware) ──
-  const filteredCareers = useMemo(() => {
-    if (!debouncedQuery) return CAREERS_DATA;
-    const q = debouncedQuery.toLowerCase();
-    return CAREERS_DATA.filter((c) =>
-      c.title.toLowerCase().includes(q) ||
-      c.skills.toLowerCase().includes(q)
-    );
-  }, [debouncedQuery]);
-
   const hasAnyDifficulty = useMemo(() => skills.some((s) => Boolean(skillDifficulty(s))), [skills]);
 
   const categories = useMemo(() => {
@@ -568,6 +414,7 @@ export default function LearnerSkillsPage() {
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ═══ 1. HERO ═══ */}
       <MentorPageHero
+        compact
         eyebrow="SKILLS"
         icon="auto_stories"
         title="Explore Skills"
@@ -718,29 +565,7 @@ export default function LearnerSkillsPage() {
 
       {/* ═══ REMOVED: Browse Categories — redundant since this is already Explore Skills ═══ */}
 
-      {/* ═══ 3. LEARNING PATHS ═══ */}
-      <section>
-        <div className="sk-section__head">
-          <h2 className="sk-section__title"><Icon name="route" /> Learning Paths</h2>
-          <Link to={`/learner/roadmaps/${LEARNING_PATHS_DATA[0].id}`} className="sk-section__link">View All <Icon name="arrow_forward" /></Link>
-        </div>
-        <div className="sk-paths-scroll">
-          {filteredPaths.map((path) => <PathCard key={path.title} path={path} />)}
-        </div>
-      </section>
-
-      {/* ═══ 4. CAREER OPPORTUNITIES ═══ */}
-      <section>
-        <div className="sk-section__head">
-          <h2 className="sk-section__title"><Icon name="work" /> Career Opportunities</h2>
-          <span className="sk-section__count">{filteredCareers.length} career{filteredCareers.length !== 1 ? "s" : ""}</span>
-        </div>
-        <div className="sk-career-grid--catalog">
-          {filteredCareers.map((career) => <CareerCard key={career.title} career={career} />)}
-        </div>
-      </section>
-
-      {/* ═══ 5. LEARNING RESOURCES ═══ */}
+      {/* ═══ 3. LEARNING RESOURCES ═══ */}
       <section>
         <div className="sk-section__head">
           <h2 className="sk-section__title"><Icon name="school" /> Learning Resources</h2>

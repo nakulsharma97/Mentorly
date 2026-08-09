@@ -152,6 +152,31 @@
   overflow: hidden;
 }
 
+/* Logout is a <button type="button"> while nav links are <a> — scope with
+   [type="button"] to beat the global forms.css button reset
+   (padding: 11px 22px; font-size: .88rem; font-weight: 700; radius: 10px)
+   which would otherwise misalign it vs. the links. Same pattern as
+   .ws-top__burger. Values mirror the ws-sb__link--sm sizing that Profile
+   and Settings use, and justify-content: flex-start keeps icon + text
+   grouped on the left (never stretched or centered). */
+.ws-sb__logout[type="button"] {
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: none;
+  font-family: var(--type-font, 'Inter', sans-serif);
+  font-size: var(--type-navbar, 15px);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  justify-content: flex-start;
+}
+
+/* The label must never stretch or push the text toward the center — it
+   hugs the icon so the pair stays grouped on the left like every link. */
+.ws-sb__logout .ws-sb__link-label {
+  flex: 0 1 auto;
+}
+
 /* Subtle background shimmer on hover */
 .ws-sb__link::before,
 .ws-sb__logout::before {
@@ -310,10 +335,14 @@
 .ws-sb__logout .ws-sb__link-icon { color: #dc2626; }
 .ws-sb__logout:hover {
   background: color-mix(in srgb, #dc2626 8%, transparent) !important;
+  color: #b91c1c;
   transform: translateX(3px);
 }
+.ws-sb__logout:hover .ws-sb__link-icon {
+  color: #b91c1c;
+}
 
-.ws-sb__logout::before {
+.ws-sb__logout[type="button"]::before {
   background: linear-gradient(135deg, color-mix(in srgb, #dc2626 6%, transparent), transparent 60%);
 }
 

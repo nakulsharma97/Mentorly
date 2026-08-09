@@ -231,7 +231,6 @@ class RefundWorkflowIntegrationTest {
         user.setRole(role);
         user.setUsername(email.substring(0, email.indexOf('@')).replaceAll("[^a-zA-Z0-9_]", "")
                 + UUID.randomUUID().toString().substring(0, 4));
-        user.setReferralCode("REF-" + UUID.randomUUID());
         user.setFullName(role.name() + " User " + UUID.randomUUID().toString().substring(0, 8));
         user.setEnabled(true);
         return userRepository.save(user);

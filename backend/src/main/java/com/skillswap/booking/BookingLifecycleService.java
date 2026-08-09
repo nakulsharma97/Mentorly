@@ -9,9 +9,6 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
-import com.skillswap.referral.ReferralService;
-import com.skillswap.roadmap.LearningRoadmap;
-import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
@@ -51,9 +48,7 @@ public class BookingLifecycleService {
     private final NotificationService notificationService;
     private final EmailNotificationService emailNotificationService;
     private final WalletService walletService;
-    private final ReferralService referralService;
     private final SessionRepository sessionRepository;
-    private final LearningRoadmapRepository learningRoadmapRepository;
     private final BookingIdempotencyKeyRepository bookingIdempotencyKeyRepository;
     private final MeterRegistry meterRegistry;
 
@@ -249,13 +244,6 @@ public class BookingLifecycleService {
                     true);
         }
 
-        LearningRoadmap roadmap = new LearningRoadmap();
-        roadmap.setBooking(savedBooking);
-        roadmap.setTitle("Roadmap: " + session.getTitle());
-        roadmap.setMilestones(defaultMilestonesFor(session.getTitle()));
-        roadmap.setProgressPercent(0);
-        learningRoadmapRepository.save(roadmap);
-
         sessionWaitlistRepository
                 .findBySessionIdAndLearnerIdAndStatus(session.getId(), learner.getId(),
                         WaitlistStatus.ACTIVE)
@@ -360,16 +348,6 @@ public class BookingLifecycleService {
         emailNotificationService.sendNotificationEmail(booking.getSession().getMentor(), subject, body);
     }
 
-    private static String defaultMilestonesFor(String sessionTitle) {
-        String safeTitle = sessionTitle == null ? "Session" : sessionTitle.replace("\"", "\\\"");
-        return "["
-                + "{\"title\":\"Kickoff and current level check\",\"status\":\"PENDING\"},"
-                + "{\"title\":\"Core concepts for " + safeTitle + "\",\"status\":\"PENDING\"},"
-                + "{\"title\":\"Hands-on assignment\",\"status\":\"PENDING\"},"
-                + "{\"title\":\"Review and next-step plan\",\"status\":\"PENDING\"}"
-                + "]";
-    }
-
     private static String sessionTitle(Booking booking) {
         SkillSession session = booking.getSession();
         return session == null || session.getTitle() == null ? "your session" : session.getTitle();
@@ -402,7 +380,6 @@ public class BookingLifecycleService {
                     "IN_PROGRESS can only be set by the system scheduler");
             case COMPLETED -> {
                 Booking booking = completeBooking(id, currentUser);
-                grantReferralRewardIfNeeded(booking);
                 releaseEscrowForCompletedBooking(booking);
                 emailService.sendBookingCompleted(
                         booking.getLearner(),
@@ -422,18 +399,6 @@ public class BookingLifecycleService {
             default -> throw new IllegalArgumentException(
                     "Use the dedicated booking lifecycle endpoints for state transitions");
         };
-    }
-
-    @Transactional
-    public void grantReferralRewardIfNeeded(Booking booking) {
-        if (booking == null || booking.getLearner() == null) {
-            return;
-        }
-        long completedCount = bookingRepository.countByLearnerIdAndBookingStatus(
-                booking.getLearner().getId(), BookingStatus.COMPLETED);
-        if (completedCount == 1) {
-            referralService.processReferralReward(booking.getLearner().getId(), booking.getId());
-        }
     }
 
     public Booking acceptBooking(Long bookingId, User currentUser) {
@@ -467,17 +432,28 @@ public class BookingLifecycleService {
             throw new IllegalArgumentException("Session price must be greater than zero");
         }
 
+        // A payment already exists for this booking — either a gateway intent in
+        // flight (INITIATED: nothing charged yet, the gateway captures the funds
+        // when the learner completes checkout) or a payment already escrowed via
+        // the gateway. In both cases the escrow is (or will be) held by the
+        // gateway, so the wallet path must be skipped entirely. Checking the
+        // wallet balance first (as this method used to) wrongly blocked
+        // acceptance for gateway payers whose wallet was never funded, and
+        // debiting the wallet while a gateway intent was in flight could
+        // double-charge learners who also complete the gateway checkout.
+        Payment existingPayment = booking.getPayment();
+        if (existingPayment != null) {
+            LOG.info("Payment already exists for booking {}, status={} — skipping wallet escrow",
+                    booking.getId(), existingPayment.getStatus());
+            return;
+        }
+
+        // ── Wallet-escrow path (no payment created yet) ──
+        // The learner is paying from their SkillSwap wallet: require a
+        // sufficient balance and hold the funds in escrow.
         BigDecimal currentBalance = walletService.balance(learner).balance();
         if (currentBalance.compareTo(priceAmount) < 0) {
             throw new IllegalArgumentException("Insufficient wallet balance to accept this booking");
-        }
-
-        // Check if there's already an active payment for this booking to prevent double-charging
-        Payment existingPayment = booking.getPayment();
-        if (existingPayment != null && existingPayment.getStatus() != PaymentStatus.INITIATED) {
-            LOG.info("Payment already processed for booking {}, status={}",
-                    booking.getId(), existingPayment.getStatus());
-            return;
         }
 
         walletService.addEntryForUser(learner.getId(), new WalletService.WalletEntryRequest(
@@ -488,7 +464,7 @@ public class BookingLifecycleService {
                 "BOOKING",
                 booking.getId()));
 
-        Payment payment = existingPayment != null ? existingPayment : Payment.builder()
+        Payment payment = Payment.builder()
                 .orderId("WALLET_" + java.util.UUID.randomUUID().toString().replace("-", ""))
                 .learnerId(booking.getLearner().getId())
                 .mentorId(booking.getSession().getMentor().getId())
@@ -499,11 +475,6 @@ public class BookingLifecycleService {
                 .status(PaymentStatus.ESCROWED)
                 .createdAt(OffsetDateTime.now())
                 .build();
-
-        if (existingPayment != null) {
-            payment.setAmount(priceAmount);
-            payment.setStatus(PaymentStatus.ESCROWED);
-        }
 
         payment = paymentRepository.save(payment);
         booking.setPayment(payment);

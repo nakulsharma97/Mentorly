@@ -54,10 +54,3 @@ export const getBookingStatusMeta = (booking) => {
   );
 };
 
-export const getRoadmapMilestoneCount = (roadmap) => {
-  const raw = String(roadmap?.milestones || "").trim();
-  if (!raw) {
-    return 0;
-  }
-  return raw.split(/\r?\n/).filter(Boolean).length;
-};

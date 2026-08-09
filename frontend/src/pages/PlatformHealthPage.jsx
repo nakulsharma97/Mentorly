@@ -5,9 +5,6 @@ import HeroSection from "../components/HeroSection";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
-import ExcelJS from "exceljs";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./PlatformHealthPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -357,6 +354,7 @@ export default function PlatformHealthPage({ notify }) {
   const handleExportXlsx = useCallback(async () => {
     setExporting((p) => ({ ...p, xlsx: true }));
     try {
+      const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "SkillSwap";
       workbook.created = new Date();
@@ -376,9 +374,11 @@ export default function PlatformHealthPage({ notify }) {
     }
   }, [exportRows, notify]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     setExporting((p) => ({ ...p, pdf: true }));
     try {
+      const { default: jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
       const h = health || {};
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);

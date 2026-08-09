@@ -8,6 +8,7 @@ import com.skillswap.messaging.DirectConversation;
 import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
+import com.skillswap.common.SchedulerLockService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ public class StoredFileService {
     private final StoredFileRepository storedFileRepository;
     private final BookingRepository bookingRepository;
     private final DirectConversationRepository directConversationRepository;
+    private final SchedulerLockService schedulerLockService;
 
     @Value("${app.files.expiration-days:30}")
     private int expirationDays;
@@ -207,23 +209,26 @@ public class StoredFileService {
     @Scheduled(cron = "${app.files.cleanup-cron:0 30 3 * * *}")
     @Transactional
     public void purgeExpired() {
-        List<StoredFile> expired = storedFileRepository.findByExpiresAtBefore(OffsetDateTime.now());
-        if (expired.isEmpty()) {
-            return;
-        }
-        int deletedFiles = 0;
-        int deletedRows = 0;
-        for (StoredFile file : expired) {
-            Path path = resolvePath(file);
-            try {
-                boolean removed = Files.deleteIfExists(path);
-                deletedFiles += removed ? 1 : 0;
-            } catch (Exception ex) {
-                LOG.warn("Failed to delete expired file on disk: id={}, path={}", file.getId(), path, ex);
+        // Leader lock so only one instance (k8s replica) runs the nightly sweep.
+        schedulerLockService.runIfLeader("files-expired-purge", () -> {
+            List<StoredFile> expired = storedFileRepository.findByExpiresAtBefore(OffsetDateTime.now());
+            if (expired.isEmpty()) {
+                return;
             }
-            storedFileRepository.delete(file);
-            deletedRows++;
-        }
-        LOG.info("Purged {} expired files ({} rows deleted)", deletedFiles, deletedRows);
+            int deletedFiles = 0;
+            int deletedRows = 0;
+            for (StoredFile file : expired) {
+                Path path = resolvePath(file);
+                try {
+                    boolean removed = Files.deleteIfExists(path);
+                    deletedFiles += removed ? 1 : 0;
+                } catch (Exception ex) {
+                    LOG.warn("Failed to delete expired file on disk: id={}, path={}", file.getId(), path, ex);
+                }
+                storedFileRepository.delete(file);
+                deletedRows++;
+            }
+            LOG.info("Purged {} expired files ({} rows deleted)", deletedFiles, deletedRows);
+        });
     }
 }

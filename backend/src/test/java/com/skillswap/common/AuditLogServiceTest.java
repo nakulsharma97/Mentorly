@@ -25,7 +25,7 @@ class AuditLogServiceTest {
         adminSettingRepository = mock(AdminSettingRepository.class);
         // Proxy headers are not trusted in unit tests (trusted-proxy off).
         auditLogService = new AuditLogService(auditLogRepository, adminSettingRepository,
-                new ClientIpResolver(false));
+                new ClientIpResolver(false), mock(SchedulerLockService.class));
     }
 
     private void stubRetentionSetting(String rawValue) {

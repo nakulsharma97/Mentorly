@@ -36,7 +36,7 @@ describe("MentorDashboard Dark Mode", () => {
     ).toBe("dark");
   });
 
-  it("renders all sections in dark mode without crashing", async () => {
+  it("renders all dashboard sections in dark mode without crashing", async () => {
     renderMentorDashboard();
 
     // Wait for data to load
@@ -44,59 +44,35 @@ describe("MentorDashboard Dark Mode", () => {
       expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
     });
 
-    // Verify all 11 sections render without errors in dark mode
-    // Section 1 - Hero
+    // Hero
     expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
 
-    // Section 2 - Quick Stats
-    const statLabels = screen.getAllByText(/Sessions|Students|Earnings|Rating/i);
+    // KPI stats
+    const statLabels = screen.getAllByText(/Sessions|Students|Rating|Earnings/i);
     expect(statLabels.length).toBeGreaterThanOrEqual(3);
 
-    // Section 3 - Today's Schedule
-    expect(screen.getByText(/Today's Schedule/i)).toBeInTheDocument();
+    // Upcoming Sessions
+    expect(screen.getByText(/Upcoming Sessions/i)).toBeInTheDocument();
 
-    // Section 4 - Requests
+    // Session Requests
     expect(screen.getByText(/Session Requests/i)).toBeInTheDocument();
 
-    // Section 5 - Students
+    // Session Overview
+    expect(screen.getByText(/Session Overview/i)).toBeInTheDocument();
+
+    // Recent Students
     expect(screen.getByText(/Recent Students/i)).toBeInTheDocument();
 
-    // Section 6 - Earnings
-    const earnings = screen.getAllByText(/Monthly Earnings/i);
-    expect(earnings.length).toBeGreaterThanOrEqual(1);
+    // Recent Reviews
+    expect(screen.getByText(/Recent Reviews/i)).toBeInTheDocument();
 
-    // Section 7 - Performance Analytics
-    const ratings = screen.getAllByText("Average Rating");
-    expect(ratings.length).toBeGreaterThanOrEqual(1);
+    // Monthly Earnings
+    expect(screen.getAllByText(/Monthly Earnings/i).length).toBeGreaterThanOrEqual(1);
 
-    // Section 9 - Activity
-    expect(screen.getByText(/Recent Activity/i)).toBeInTheDocument();
-
-    // Section 10 - Quick Actions
-    const actions = screen.getAllByText(/Availability|Messages|Students|Analytics|Payments|Resources|Reviews/i);
-    expect(actions.length).toBeGreaterThanOrEqual(3);
-
-    // Section 11 - Progress
-    expect(screen.getByText(/Mentor Progress/i)).toBeInTheDocument();
-  });
-
-  it("renders dark mode CSS variables correctly on card elements", async () => {
-    renderMentorDashboard();
-
-    await waitFor(() => {
-      expect(screen.getByText(/Good (Morning|Afternoon|Evening)/i)).toBeInTheDocument();
-    });
-
-    // Find a stat card and verify it has the dark mode class
-    const earningsLabels = screen.getAllByText(/Monthly Earnings/i);
-    expect(earningsLabels.length).toBeGreaterThanOrEqual(1);
-
-    // Verify dark mode token values are correct for this environment
-    // In jsdom, CSS variables are always computed as empty strings
-    // But the data-theme attribute being set ensures the CSS cascade works
+    // Invite Friends
     expect(
-      document.documentElement.getAttribute("data-theme"),
-    ).toBe("dark");
+      screen.getByRole("button", { name: /Invite Friends/i }),
+    ).toBeInTheDocument();
   });
 
   it("renders verification banner in dark mode", async () => {
@@ -113,15 +89,17 @@ describe("MentorDashboard Dark Mode", () => {
     ).toBe("dark");
   });
 
-  it("renders referral section in dark mode", async () => {
+  it("renders invite friends card in dark mode", async () => {
     renderMentorDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText(/Referral Rewards/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Invite Friends/i })).toBeInTheDocument();
     });
 
-    // Verify the referral code appears correctly
-    expect(screen.getByText("SKILLSWAP")).toBeInTheDocument();
+    // Verify the invite subtitle appears correctly
+    expect(
+      screen.getByText(/Know someone who wants to learn from experienced mentors/i),
+    ).toBeInTheDocument();
 
     // Dark mode should be active
     expect(
@@ -144,8 +122,8 @@ describe("MentorDashboard Dark Mode", () => {
     ).toBe("light");
 
     // All sections should still render
-    expect(screen.getByText(/Today's Schedule/i)).toBeInTheDocument();
-    expect(screen.getByText(/Recent Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upcoming Sessions/i)).toBeInTheDocument();
+    expect(screen.getByText(/Recent Reviews/i)).toBeInTheDocument();
 
     // Switch back to dark mode
     document.documentElement.setAttribute("data-theme", "dark");
@@ -154,6 +132,6 @@ describe("MentorDashboard Dark Mode", () => {
     ).toBe("dark");
 
     // Everything still renders
-    expect(screen.getByText(/Mentor Progress/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Monthly Earnings/i).length).toBeGreaterThanOrEqual(1);
   });
 });

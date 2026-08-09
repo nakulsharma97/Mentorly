@@ -8,9 +8,6 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
-import com.skillswap.referral.ReferralService;
-import com.skillswap.roadmap.LearningRoadmap;
-import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.MentorVerificationStatus;
@@ -66,13 +63,7 @@ class BookingLifecycleServiceTest {
     private WalletService walletService;
 
     @Mock
-    private ReferralService referralService;
-
-    @Mock
     private SessionRepository sessionRepository;
-
-    @Mock
-    private LearningRoadmapRepository learningRoadmapRepository;
 
     @Mock
     private BookingIdempotencyKeyRepository bookingIdempotencyKeyRepository;
@@ -173,7 +164,6 @@ class BookingLifecycleServiceTest {
     void createBookingSuccess() {
         when(sessionRepository.findByIdWithLock(session.getId())).thenReturn(Optional.of(session));
         when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(learningRoadmapRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(bookingIdempotencyKeyRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(bookingIdempotencyKeyRepository.findByUserIdAndEndpointAndIdempotencyKey(
                 anyLong(), anyString(), anyString())).thenReturn(Optional.empty());
@@ -186,7 +176,6 @@ class BookingLifecycleServiceTest {
         assertEquals(learner.getId(), result.getLearner().getId());
         verify(notificationService).notifyUser(eq(mentor.getId()), eq("BOOKING_CREATED"),
                 anyString(), anyString(), any());
-        verify(learningRoadmapRepository).save(any());
     }
 
     @Test
@@ -453,6 +442,46 @@ class BookingLifecycleServiceTest {
                 () -> bookingLifecycleService.holdEscrowForAcceptedBooking(booking));
     }
 
+    @Test
+    void holdEscrowSkipsWhenGatewayPaymentAlreadyEscrowed() {
+        // A learner who paid through the gateway already has an ESCROWED
+        // payment — the mentor's accept must succeed even with an empty wallet
+        // (the wallet was never the funding source) and must not touch it.
+        Payment escrowed = Payment.builder()
+                .id(210L)
+                .amount(new BigDecimal("100.00"))
+                .status(PaymentStatus.ESCROWED)
+                .gateway("razorpay")
+                .build();
+        booking.setPayment(escrowed);
+
+        bookingLifecycleService.holdEscrowForAcceptedBooking(booking);
+
+        verify(walletService, never()).addEntryForUser(anyLong(), any());
+        verify(paymentRepository, never()).save(any());
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void holdEscrowSkipsWhenGatewayIntentInFlight() {
+        // INITIATED = a gateway order was created but not yet captured. Nothing
+        // has been charged, so the wallet must not be debited on top of it
+        // (double-charge) nor block acceptance for a wallet-less learner.
+        Payment initiated = Payment.builder()
+                .id(211L)
+                .amount(new BigDecimal("100.00"))
+                .status(PaymentStatus.INITIATED)
+                .gateway("razorpay")
+                .build();
+        booking.setPayment(initiated);
+
+        bookingLifecycleService.holdEscrowForAcceptedBooking(booking);
+
+        verify(walletService, never()).addEntryForUser(anyLong(), any());
+        verify(paymentRepository, never()).save(any());
+        verify(bookingRepository, never()).save(any());
+    }
+
     // ── releaseEscrowForCompletedBooking ─────────────────
 
     @Test
@@ -583,9 +612,7 @@ class BookingLifecycleServiceTest {
         session.setEndTime(OffsetDateTime.now().minusMinutes(5));
         when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(bookingRepository.countByLearnerIdAndBookingStatus(learner.getId(), BookingStatus.COMPLETED))
-                .thenReturn(1L);
-        // Grant referral reward needs a real payment escrowed for releaseEscrow to proceed
+        // Completing a booking needs a real payment escrowed for releaseEscrow to proceed
         Payment escrow = Payment.builder().id(200L).amount(new BigDecimal("100.00")).status(PaymentStatus.ESCROWED).build();
         booking.setPayment(escrow);
         when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -594,7 +621,6 @@ class BookingLifecycleServiceTest {
                 BookingStatus.COMPLETED, emailNotificationService);
 
         assertEquals(BookingStatus.COMPLETED, result.getBookingStatus());
-        verify(referralService).processReferralReward(learner.getId(), booking.getId());
     }
 
     @Test
@@ -639,25 +665,4 @@ class BookingLifecycleServiceTest {
         verify(emailNotificationService, times(2)).sendNotificationEmail(any(), anyString(), anyString());
     }
 
-    // ── grantReferralRewardIfNeeded ──────────────────────
-
-    @Test
-    void grantReferralRewardOnFirstCompletedBooking() {
-        when(bookingRepository.countByLearnerIdAndBookingStatus(learner.getId(), BookingStatus.COMPLETED))
-                .thenReturn(1L);
-
-        bookingLifecycleService.grantReferralRewardIfNeeded(booking);
-
-        verify(referralService).processReferralReward(learner.getId(), booking.getId());
-    }
-
-    @Test
-    void grantReferralRewardSkipsIfNotFirst() {
-        when(bookingRepository.countByLearnerIdAndBookingStatus(learner.getId(), BookingStatus.COMPLETED))
-                .thenReturn(5L);
-
-        bookingLifecycleService.grantReferralRewardIfNeeded(booking);
-
-        verify(referralService, never()).processReferralReward(anyLong(), anyLong());
-    }
 }

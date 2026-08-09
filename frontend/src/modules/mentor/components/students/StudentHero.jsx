@@ -1,15 +1,73 @@
-import HeroSection, { HeroGlassCard } from "../../../../components/HeroSection";
+import HeroSection from "../../../../components/HeroSection";
+
+/**
+ * Rating → status caption (mirrors the Reviews page hero stat treatment).
+ */
+function ratingStatus(avg) {
+  if (avg <= 0) return { label: "No ratings yet", tone: "muted" };
+  if (avg >= 4.5) return { label: "Excellent", tone: "excellent" };
+  if (avg >= 4) return { label: "Good", tone: "good" };
+  if (avg >= 3) return { label: "Fair", tone: "fair" };
+  return { label: "Needs work", tone: "needs" };
+}
+
+const STAT_CARDS = [
+  {
+    key: "total",
+    icon: "groups",
+    label: "Total Students",
+    status: "All Time",
+    statusTone: "muted",
+  },
+  {
+    key: "active",
+    icon: "bolt",
+    label: "Active Students",
+    status: "Currently active",
+    statusTone: "muted",
+  },
+  {
+    key: "completed",
+    icon: "task_alt",
+    label: "Completed Sessions",
+    status: "Across all learners",
+    statusTone: "muted",
+  },
+  {
+    key: "rating",
+    icon: "star",
+    label: "Average Rating",
+    statusTone: "dynamic",
+  },
+];
 
 /**
  * StudentHero — Students page hero. Delegates to the shared <HeroSection />
  * so every page renders the same unified gradient / radius / buttons / glass
- * cards. Only the badge, copy, buttons and art differ.
+ * cards. The right-hand art column shows four REAL, dynamically-computed KPI
+ * cards (total / active / completed / average rating) — same treatment as the
+ * Reviews & Ratings hero — instead of decorative mock glass cards.
  */
-export default function StudentHero({ total, onRefresh, onNewSession, refreshing }) {
-  const bars = [38, 62, 46, 80, 58, 92, 70];
+export default function StudentHero({
+  stats = {},
+  loading = false,
+  onRefresh,
+  onNewSession,
+  refreshing,
+}) {
+  const values = {
+    total: Number(stats.total) || 0,
+    active: Number(stats.active) || 0,
+    completed: Number(stats.completed) || 0,
+    rating:
+      typeof stats.avgRating === "number" && stats.avgRating > 0
+        ? stats.avgRating.toFixed(1)
+        : "\u2014",
+  };
 
   return (
     <HeroSection
+      className="hero-section--compact hero-section--students"
       badge="👨‍🎓 My Students"
       title="My Students"
       subtitle="Track learner progress, manage mentoring sessions and monitor achievements."
@@ -35,46 +93,37 @@ export default function StudentHero({ total, onRefresh, onNewSession, refreshing
         </button>
       }
       ariaLabel="My students overview"
-      illustration={
-        <>
-          <HeroGlassCard className="hero-section__glass--stat">
-            <div className="hero-section__glass-num">{total}</div>
-            <div className="hero-section__glass-label">Active learners</div>
-          </HeroGlassCard>
-
-          <HeroGlassCard className="hero-section__glass--main">
-            <div className="hero-section__glass-head">
-              <span className="hero-section__glass-icon">
-                <span className="material-symbols-outlined">school</span>
-              </span>
-              <div>
-                <div className="hero-section__glass-title">Mentorship Hub</div>
-                <div className="hero-section__glass-sub">Weekly progress</div>
+      floatingCards={
+        <div className="ss-hero-stats" role="group" aria-label="Student statistics">
+          {STAT_CARDS.map((card) => {
+            const status =
+              card.statusTone === "dynamic"
+                ? ratingStatus(Number(stats.avgRating) || 0)
+                : { label: card.status, tone: card.statusTone };
+            return (
+              <div key={card.key} className="ss-hero-stat">
+                <span className="ss-hero-stat__icon">
+                  <span className="material-symbols-outlined">{card.icon}</span>
+                </span>
+                <div className="ss-hero-stat__info">
+                  {loading ? (
+                    <span className="ss-hero-stat__skeleton" aria-hidden="true" />
+                  ) : (
+                    <span className="ss-hero-stat__value">{values[card.key]}</span>
+                  )}
+                  <span className="ss-hero-stat__label">{card.label}</span>
+                  {!loading && (
+                    <span
+                      className={`ss-hero-stat__status ss-hero-stat__status--${status.tone}`}
+                    >
+                      {status.label}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="hero-section__glass-avatars">
-              <span className="hero-section__glass-avatar">AR</span>
-              <span className="hero-section__glass-avatar">PK</span>
-              <span className="hero-section__glass-avatar">RS</span>
-              <span className="hero-section__glass-avatar">+2</span>
-            </div>
-          </HeroGlassCard>
-
-          <HeroGlassCard className="hero-section__glass--chart">
-            <div className="hero-section__glass-sub" style={{ marginBottom: 8 }}>
-              Sessions this month
-            </div>
-            <div className="hero-section__glass-bars">
-              {bars.map((h, i) => (
-                <span
-                  key={i}
-                  className="hero-section__glass-bar"
-                  style={{ height: `${h}%` }}
-                />
-              ))}
-            </div>
-          </HeroGlassCard>
-        </>
+            );
+          })}
+        </div>
       }
     />
   );

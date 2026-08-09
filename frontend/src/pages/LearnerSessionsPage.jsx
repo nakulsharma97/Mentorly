@@ -1085,6 +1085,7 @@ export default function LearnerSessionsPage() {
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero ===== */}
       <MentorPageHero
+        compact
         eyebrow="SESSIONS"
         icon="calendar_month"
         title="Your Booked Sessions"

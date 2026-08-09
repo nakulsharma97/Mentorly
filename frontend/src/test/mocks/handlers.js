@@ -5,12 +5,15 @@ const now = Date.now();
 // Mirrors the REAL backend shape: users.skills is a comma-separated string and
 // SkillSession serializes a computed sessionSkills: List<String> array. Any
 // test rendering these must normalize before .map/.slice (see utils/skills.js).
+// Mirrors the real backend shapes (raw Booking entity with nested
+// session/learner/payment, raw SkillSession entity with sessionSkills,
+// and the ReviewSummaryResponse object for /reviews/mentor).
 const mockBookings = [
   {
     id: 101,
     bookingStatus: "PENDING",
     paymentStatus: "PENDING",
-    learner: { id: 11, fullName: "Learner One" },
+    learner: { id: 11, fullName: "Learner One", displayUsername: "learner1" },
     session: {
       id: 501,
       title: "React Fundamentals",
@@ -20,8 +23,7 @@ const mockBookings = [
       meetingProvider: "GOOGLE_CALENDAR",
       liveSessionStatus: "SCHEDULED",
       sessionSkills: ["React", "JavaScript", "Redux"],
-      mentor: { id: 21, fullName: "Mentor Prime", skills: "React, JavaScript, Redux" },
-      skill: { name: "React" },
+      mentor: { id: 21, fullName: "Mentor Prime" },
     },
     payment: { amount: 0 },
   },
@@ -29,7 +31,7 @@ const mockBookings = [
     id: 102,
     bookingStatus: "COMPLETED",
     paymentStatus: "COMPLETED",
-    learner: { id: 12, fullName: "Learner Two" },
+    learner: { id: 12, fullName: "Learner Two", displayUsername: "learner2" },
     session: {
       id: 502,
       title: "Spring Boot API Design",
@@ -39,10 +41,27 @@ const mockBookings = [
       meetingProvider: "GOOGLE_CALENDAR",
       liveSessionStatus: "ENDED",
       sessionSkills: ["Java", "Spring Boot", "REST APIs"],
-      mentor: { id: 21, fullName: "Mentor Prime", skills: "Java, Spring Boot, REST APIs" },
-      skill: { name: "Spring Boot" },
+      mentor: { id: 21, fullName: "Mentor Prime" },
     },
     payment: { amount: 1000 },
+  },
+  {
+    id: 103,
+    bookingStatus: "ACCEPTED",
+    paymentStatus: "COMPLETED",
+    learner: { id: 13, fullName: "Learner Three", displayUsername: "learner3" },
+    session: {
+      id: 503,
+      title: "System Design Deep Dive",
+      startTime: new Date(now + 3 * 24 * 60 * 60 * 1000).toISOString(),
+      endTime: new Date(now + 3 * 24 * 60 * 60 * 1000 + 90 * 60000).toISOString(),
+      priceAmount: 1999,
+      meetingProvider: "GOOGLE_CALENDAR",
+      liveSessionStatus: "SCHEDULED",
+      sessionSkills: ["System Design", "Scalability"],
+      mentor: { id: 21, fullName: "Mentor Prime" },
+    },
+    payment: { amount: 1999 },
   },
 ];
 
@@ -61,20 +80,35 @@ const mockSessions = [
     id: 601,
     title: "Mentor Upcoming Session",
     startTime: new Date(now + 48 * 60 * 60 * 1000).toISOString(),
-    pricePerHour: 1200,
-    confirmedBookings: 1,
-    skill: { name: "React" },
+    endTime: new Date(now + 48 * 60 * 60 * 1000 + 60 * 60000).toISOString(),
+    priceAmount: 1200,
+    status: "PENDING",
+    sessionSkills: ["React", "JavaScript"],
   },
 ];
 
-const mockReviews = [
-  {
-    id: 401,
-    rating: 5,
-    comment: "Great session!",
-    learner: { id: 11, fullName: "Learner One" },
-  },
-];
+// GET /api/v1/reviews/mentor returns a ReviewSummaryResponse OBJECT
+// (not an array): { averageRating, totalReviews, reviews: [...] }.
+const mockReviews = {
+  averageRating: 4.8,
+  totalReviews: 1,
+  recommendationRate: 100,
+  fiveStarReviews: 1,
+  distribution: { 5: 1, 4: 0, 3: 0, 2: 0, 1: 0 },
+  reviews: [
+    {
+      id: 401,
+      mentorId: 21,
+      learnerId: 11,
+      learnerName: "Learner One",
+      learnerUsername: "learner1",
+      rating: 5,
+      comment: "Great session!",
+      replyText: null,
+      createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  ],
+};
 
 // Accept the NotificationCenter real-time WebSocket connection in unit tests.
 // The component opens ws://<host>/ws/notifications on mount; without a
@@ -116,15 +150,6 @@ export const handlers = [
   }),
   http.get("*/api/v1/certifications/me", () => {
     return HttpResponse.json({ data: [] });
-  }),
-  http.get("*/api/v1/users/me/referral", () => {
-    return HttpResponse.json({
-      data: {
-        referralCode: "SKILLSWAP",
-        totalReferrals: 3,
-        totalCreditsEarned: 150,
-      },
-    });
   }),
   http.get("*/api/v1/sessions", () => {
     return HttpResponse.json({ data: mockSessions });

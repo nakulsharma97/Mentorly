@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -51,11 +52,54 @@ public class ChatService {
 
     public List<ConversationDto> listConversations(User currentUser, String query, String filter) {
         List<Booking> bookings = loadBookingsForUser(currentUser);
-        return bookings.stream()
-                .map(booking -> toConversation(currentUser, booking))
+
+        // One conversation per user PAIR — every booking with the same peer
+        // groups into a single row so repeated sessions never create duplicate
+        // chats (Pritil Thakur appears once, not once per booked session).
+        Map<Long, ConversationDto> byParticipant = new LinkedHashMap<>();
+        for (Booking booking : bookings) {
+            User participant = getConversationParticipant(currentUser, booking);
+            ConversationDto row = toConversation(currentUser, booking);
+            byParticipant.merge(participant.getId(), row, this::mergeConversationRows);
+        }
+
+        return byParticipant.values().stream()
                 .filter(conversation -> filterConversation(conversation, query, filter))
                 .sorted((a, b) -> b.lastMessageAt().compareTo(a.lastMessageAt()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Merges two booking-chat rows that share the same participant pair. The
+     * row with the most recent activity becomes the live row (its booking is
+     * the one the UI opens), unread totals are summed, and the session count
+     * accumulates — no messages are ever lost, every booking stays readable.
+     */
+    private ConversationDto mergeConversationRows(ConversationDto a, ConversationDto b) {
+        ConversationDto recent = a.lastMessageAt().compareTo(b.lastMessageAt()) >= 0 ? a : b;
+        return new ConversationDto(
+                recent.bookingId(),
+                recent.sessionTitle(),
+                recent.participantId(),
+                recent.participantName(),
+                recent.participantUsername(),
+                recent.participantRole(),
+                recent.participantSkills(),
+                recent.participantProfileImageUrl(),
+                recent.participantVerified(),
+                recent.participantOnline(),
+                recent.participantPresenceText(),
+                recent.participantEmail(),
+                recent.lastMessagePreview(),
+                recent.lastMessageAt(),
+                a.unreadCount() + b.unreadCount(),
+                recent.bookingStatus(),
+                recent.startTime(),
+                recent.durationMinutes(),
+                recent.paymentStatus(),
+                recent.meetingLink(),
+                recent.meetingPlatform(),
+                a.sessionCount() + b.sessionCount());
     }
 
     /**
@@ -71,9 +115,9 @@ public class ChatService {
 
         List<UnifiedConversationDto> results = new ArrayList<>();
 
-        // Booking chats
-        for (Booking booking : loadBookingsForUser(currentUser)) {
-            ConversationDto conv = toConversation(currentUser, booking);
+        // Booking chats — grouped by user pair (one row per peer, never one
+        // per session), matching the conversation list the sidebar shows.
+        for (ConversationDto conv : listConversations(currentUser, null, null)) {
             if (matchesSearch(conv, q)) {
                 results.add(UnifiedConversationDto.fromBooking(conv));
             }
@@ -284,7 +328,8 @@ public class ChatService {
                 session.getDurationMinutes(),
                 booking.getPaymentStatus() == null ? null : booking.getPaymentStatus().name(),
                 session.getMeetingLink(),
-                session.getMeetingProvider() == null ? null : session.getMeetingProvider().name());
+                session.getMeetingProvider() == null ? null : session.getMeetingProvider().name(),
+                1);
     }
 
     private User getConversationParticipant(User currentUser, Booking booking) {
@@ -700,7 +745,8 @@ public class ChatService {
             Long durationMinutes,
             String paymentStatus,
             String meetingLink,
-            String meetingPlatform) {
+            String meetingPlatform,
+            int sessionCount) {
     }
 
     /**

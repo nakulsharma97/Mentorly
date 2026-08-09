@@ -393,7 +393,6 @@ class FileAccessIntegrationTest {
         user.setRole(role);
         user.setUsername(email.substring(0, email.indexOf('@')).replaceAll("[^a-zA-Z0-9_]", "")
                 + UUID.randomUUID().toString().substring(0, 4));
-        user.setReferralCode("FILE-" + UUID.randomUUID());
         user.setFullName(role.name() + " " + UUID.randomUUID().toString().substring(0, 6));
         user.setEnabled(enabled);
         return userRepository.save(user);

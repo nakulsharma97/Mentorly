@@ -297,6 +297,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
     <div className="pp-shell">
       {/* ── Hero ── */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <span className="pp-hero__eyebrow-dot" />

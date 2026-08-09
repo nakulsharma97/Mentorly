@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
-import StatsCard from "../modules/common/dashboard/StatsCard";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
-import ExcelJS from "exceljs";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./AdminAnalyticsPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -221,7 +217,6 @@ export default function AdminAnalyticsPage({ notify }) {
   // ── Data state ────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState(null);
-  const [referralAnalytics, setReferralAnalytics] = useState(null);
   const [error, setError] = useState(null);
   const [exporting, setExporting] = useState({ csv: false, xlsx: false, pdf: false });
 
@@ -272,20 +267,6 @@ export default function AdminAnalyticsPage({ notify }) {
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
-
-  // ── Referral analytics (kept from the existing page) ──────────
-  const loadReferralAnalytics = useCallback(async () => {
-    try {
-      const res = await client.get("/api/v1/admin/referral-analytics");
-      setReferralAnalytics(res?.data?.data || null);
-    } catch (err) {
-      console.warn("Failed to load referral analytics:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadReferralAnalytics();
-  }, [loadReferralAnalytics]);
 
   // ── Auto-refresh (deduped errors — toast only when the message changes) ──
   useEffect(() => {
@@ -380,6 +361,7 @@ export default function AdminAnalyticsPage({ notify }) {
   const handleExportXlsx = useCallback(async () => {
     setExporting((prev) => ({ ...prev, xlsx: true }));
     try {
+      const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "SkillSwap";
       workbook.created = new Date();
@@ -401,9 +383,11 @@ export default function AdminAnalyticsPage({ notify }) {
     }
   }, [exportRows, notify]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     setExporting((prev) => ({ ...prev, pdf: true }));
     try {
+      const { default: jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
       const h = dashboard?.health || {};
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);
@@ -590,7 +574,7 @@ export default function AdminAnalyticsPage({ notify }) {
             <button
               type="button"
               className="hero-section__btn hero-section__btn--primary"
-              onClick={() => { loadDashboard(); loadReferralAnalytics(); }}
+              onClick={() => loadDashboard()}
             >
               <span className="material-symbols-outlined">refresh</span>
               Refresh
@@ -825,43 +809,6 @@ export default function AdminAnalyticsPage({ notify }) {
         </div>
       </div>
 
-      {/* ── Referral analytics (kept) ── */}
-      {referralAnalytics && (
-        <>
-          <div className="admin-section-divider">
-            <span className="admin-section-divider__line" />
-            <span className="admin-section-divider__label"><Icon name="share" /> Referral Analytics</span>
-            <span className="admin-section-divider__line" />
-          </div>
-          <div className="wallet-card-grid">
-            <StatsCard icon="group_add" label="Total Referrals" value={formatNumber(referralAnalytics.totalReferrals)} description={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} />
-            <StatsCard icon="payments" label="Total Earnings (₹)" value={`₹${Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}`} description={`${referralAnalytics.avgPerReferrer} avg per referrer`} />
-            <StatsCard icon="trending_up" label="Conversion Rate" value={`${referralAnalytics.conversionRate}%`} description="Of all users have referred someone" />
-            <StatsCard icon="groups" label="Users with Referral Code" value={formatNumber(referralAnalytics.usersWithReferralCode)} description="Total users who can refer" />
-          </div>
-          <div className="aa-grid" style={{ marginBottom: 18 }}>
-            <SectionCard title="Referral Trend" icon="timeline">
-              {referralAnalytics.referralTrend?.length > 0 ? (
-                <TrendChart data={referralAnalytics.referralTrend} type="bar" height={180} valueFormatter={(v) => `${v} referrals`} />
-              ) : (
-                <div className="admin-empty-state"><Icon name="timeline" /><p>No referral data yet.</p></div>
-              )}
-            </SectionCard>
-            <SectionCard title="Top Referrers" icon="leaderboard" headerExtra={
-              <span className="admin-count-badge">{referralAnalytics.topReferrers?.length || 0} users</span>
-            }>
-              {referralAnalytics.topReferrers?.length > 0 ? (
-                <RankedBars
-                  items={referralAnalytics.topReferrers.map((r) => ({ name: r.name, count: r.referralCount }))}
-                  empty="No referrers yet." emptyIcon="group_add" suffix="referrals"
-                />
-              ) : (
-                <div className="admin-empty-state"><Icon name="group_add" /><p>No referrers yet.</p></div>
-              )}
-            </SectionCard>
-          </div>
-        </>
-      )}
     </section>
   );
 }

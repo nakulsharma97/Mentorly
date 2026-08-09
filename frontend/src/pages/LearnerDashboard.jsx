@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
 import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
+import ShareModal from "../components/ShareModal";
 import "./LearnerDashboard.css";
 
 /* ==========================================================================
@@ -174,14 +175,10 @@ export default function LearnerDashboard({ profile }) {
 
   const [loading, setLoading] = useState(true);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
-  const [roadmaps, setRoadmaps] = useState([]);
   const [certifications, setCertifications] = useState([]);
   const [recommendedMentors, setRecommendedMentors] = useState([]);
   const [streak, setStreak] = useState(0);
-  const [roadmapCompletion, setRoadmapCompletion] = useState(0);
-  const [referral, setReferral] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const copyTimeoutRef = useRef(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [series, setSeries] = useState({ weekly: [], monthly: [], hours: [] });
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -199,18 +196,15 @@ export default function LearnerDashboard({ profile }) {
     try {
       setLoading(true);
       await client.post("/api/v1/certifications/evaluate").catch(() => null);
-      const [bookingsRes, roadmapsRes, watchlistRes, certificationsRes, mentorsRes, referralRes] =
+      const [bookingsRes, watchlistRes, certificationsRes, mentorsRes] =
         await Promise.all([
           client.get("/api/v1/bookings"),
-          client.get("/api/v1/roadmaps"),
           client.get("/api/v1/watchlist/skills"),
           client.get("/api/v1/certifications/me").catch(() => ({ data: { data: [] } })),
           client.get("/api/v1/users/mentors").catch(() => ({ data: { data: [] } })),
-          client.get("/api/v1/users/me/referral").catch(() => ({ data: { data: null } })),
         ]);
 
       const allBookings = bookingsRes.data.data || [];
-      const allRoadmaps = roadmapsRes.data.data || [];
       const watchlist = watchlistRes.data.data || [];
 
       const sortedUpcoming = allBookings
@@ -227,13 +221,6 @@ export default function LearnerDashboard({ profile }) {
       const completedBookings = allBookings.filter(
         (b) => (b.bookingStatus || b.status) === "COMPLETED",
       );
-
-      const roadmapPct = allRoadmaps.length
-        ? Math.round(
-            allRoadmaps.reduce((s, r) => s + Number(r.progressPercent || 0), 0) /
-              allRoadmaps.length,
-          )
-        : 0;
 
       const uniqueSkills = new Set(
         completedBookings.map((b) => b?.session?.skill?.name).filter(Boolean),
@@ -264,10 +251,6 @@ export default function LearnerDashboard({ profile }) {
       });
       hours.forEach((m) => { m.value = Number(m.value.toFixed(1)); });
 
-      // Referral data
-      const referralData = referralRes?.data?.data || null;
-      setReferral(referralData);
-
       // Recommended mentors
       const mentors = mentorsRes.data.data || [];
       const ranked = [...mentors]
@@ -275,11 +258,9 @@ export default function LearnerDashboard({ profile }) {
         .slice(0, 6);
 
       setUpcomingSessions(sortedUpcoming);
-      setRoadmaps(allRoadmaps);
       setCertifications(certificationsRes.data.data || []);
       setRecommendedMentors(ranked);
       setStreak(computeStreak(activeDays));
-      setRoadmapCompletion(roadmapPct);
       setSeries({ weekly, monthly, hours });
       setStats({
         totalBookings: allBookings.length,
@@ -310,103 +291,17 @@ export default function LearnerDashboard({ profile }) {
     );
   }
 
-  const referralLink = referral
-    ? `https://skillswap.app/signup?ref=${referral.referralCode}`
-    : '';
-
-  const handleCopyLink = async () => {
-    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    try {
-      await navigator.clipboard.writeText(referralLink);
-    } catch {
-      // Fallback for environments without clipboard API
-      const textarea = document.createElement('textarea');
-      textarea.value = referralLink;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-    }
-    setCopied(true);
-    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleShare = (platform) => {
-    const profileName = profile?.fullName || "A friend";
-    const referralCode = referral?.referralCode || "";
-    const url = encodeURIComponent(referralLink);
-
-    if (platform === "email" || platform === "gmail") {
-      const subject = encodeURIComponent(`${profileName} has invited you to join SkillSwap!`);
-      const body = encodeURIComponent(
-        `Hi there,\n\n` +
-        `${profileName} has been learning on SkillSwap and wanted to share it with you!\n\n` +
-        `SkillSwap connects learners with expert mentors for 1-on-1 sessions across 100+ skills like programming, design, data science, and more.\n\n` +
-        `Join using ${profileName}'s personal referral link below and get started on your learning journey:\n` +
-        `${referralLink}\n\n` +
-        `Referral code: ${referralCode}\n\n` +
-        `Happy learning!\n` +
-        `The SkillSwap Team`
-      );
-      if (platform === "gmail") {
-        window.open(
-          `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`,
-          '_blank',
-          'noopener,noreferrer'
-        );
-      } else {
-        window.open(
-          `mailto:?subject=${subject}&body=${body}`,
-          '_blank',
-          'noopener,noreferrer'
-        );
-      }
-      return;
-    }
-
-    const text = encodeURIComponent(
-      `Join SkillSwap and start learning! Use my referral code ${referralCode} to get started.`
-    );
-    const links = {
-      whatsapp: `https://wa.me/?text=${text}%20${url}`,
-      twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
-    };
-    window.open(links[platform], '_blank', 'noopener,noreferrer');
-  };
-
   const nextSession = upcomingSessions[0] || null;
-  const currentCourses = roadmaps.filter((r) => Number(r.progressPercent || 0) < 100).slice(0, 6);
-
-  // Rewards tiers for referral progress (values in Indian Rupees)
-  const REWARD_TIERS = [
-    { referrals: 1, label: "Beginner", credits: 50, icon: "star" },
-    { referrals: 3, label: "Bronze", credits: 200, icon: "military_tech" },
-    { referrals: 5, label: "Silver", credits: 500, icon: "workspace_premium" },
-    { referrals: 10, label: "Gold", credits: 1200, icon: "verified" },
-    { referrals: 25, label: "Platinum", credits: 5000, icon: "diamond" },
-  ];
-
-  const totalReferrals = referral?.totalReferrals || 0;
-  const totalCredits = referral?.totalCreditsEarned || 0;
-  let currentTierIndex = 0;
-  for (let i = REWARD_TIERS.length - 1; i >= 0; i--) {
-    if (totalReferrals >= REWARD_TIERS[i].referrals) {
-      currentTierIndex = i;
-      break;
-    }
-  }
-  const currentTier = REWARD_TIERS[currentTierIndex >= 0 ? currentTierIndex : 0];
-  const nextTier = REWARD_TIERS.find((t) => totalReferrals < t.referrals);
-  const progressToNext = nextTier
-    ? Math.min(100, (totalReferrals / nextTier.referrals) * 100)
-    : 100;
-  const nextTierReferralsNeeded = nextTier ? nextTier.referrals - totalReferrals : 0;
+  const sessionCompletion = stats.totalBookings
+    ? Math.round((stats.completedSessions / stats.totalBookings) * 100)
+    : 0;
 
   return (
     <div className="ss-page ld-page">
 
       {/* ═══════════════════ HERO SECTION — Unified Design System ═══════════════════ */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <SsIcon name="sparkles" size={14} />
@@ -453,13 +348,13 @@ export default function LearnerDashboard({ profile }) {
           <div className="ld-hero-glass-cards">
             <div className="ld-hero-glass">
               <p className="ld-hero-glass__label">
-                <SsIcon name="trending_up" size={14} /> Roadmap Progress
+                <SsIcon name="trending_up" size={14} /> Sessions Completed
               </p>
               <div className="ld-hero-glass__ring">
-                <ProgressRing value={roadmapCompletion} size={80} stroke={7} />
+                <ProgressRing value={sessionCompletion} size={80} stroke={7} />
               </div>
-              <p className="ld-hero-glass__value" style={{ textAlign: "center" }}>{roadmapCompletion}%</p>
-              <p className="ld-hero-glass__desc" style={{ textAlign: "center" }}>Overall learning completion</p>
+              <p className="ld-hero-glass__value" style={{ textAlign: "center" }}>{stats.completedSessions}</p>
+              <p className="ld-hero-glass__desc" style={{ textAlign: "center" }}>{sessionCompletion}% completion rate</p>
             </div>
             {nextSession && (
               <div className="ld-hero-glass">
@@ -531,167 +426,23 @@ export default function LearnerDashboard({ profile }) {
         </div>
       </HeroSection>
 
-      {/* ═══════════════════ REFERRAL SECTION ═══════════════════ */}
-      {referral && (
-        <div className="ld-referral-hero">
-          <div className="ld-referral-hero__bg" />
-          <div className="ld-referral-hero__content">
-            <div className="ld-referral-hero__header">
-              <div className="ld-referral-hero__title-group">
-                <span className="ld-referral-hero__eyebrow">
-                  <SsIcon name="share" size={14} /> Referral Rewards
-                </span>
-                <h2 className="ld-referral-hero__title">
-                  Invite Friends, Earn ₹
-                </h2>
-                <p className="ld-referral-hero__subtitle">
-                  Share your unique referral link and earn <strong>₹50</strong> for every friend who completes their first booking.
-                </p>
-              </div>
-              <div className="ld-referral-hero__stats">
-                <div className="ld-referral-hero__stat">
-                  <span className="ld-referral-hero__stat-value">{totalReferrals}</span>
-                  <span className="ld-referral-hero__stat-label">
-                    <SsIcon name="group" size={14} /> Friends Referred
-                  </span>
-                </div>
-                <div className="ld-referral-hero__stat ld-referral-hero__stat--highlight">
-                  <span className="ld-referral-hero__stat-value">₹{Number(totalCredits || 0).toLocaleString("en-IN")}</span>
-                  <span className="ld-referral-hero__stat-label">
-                    <SsIcon name="payments" size={14} /> Earnings (₹)
-                  </span>
-                </div>
-                <div className="ld-referral-hero__stat">
-                  <span className="ld-referral-hero__stat-value">{currentTier?.label || "Beginner"}</span>
-                  <span className="ld-referral-hero__stat-label">
-                    <SsIcon name="emoji_events" size={14} /> Current Tier
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Rewards Progress */}
-            <div className="ld-referral-progress">
-              <div className="ld-referral-progress__header">
-                <span className="ld-referral-progress__title">
-                  <SsIcon name="trending_up" size={14} /> Rewards Progress
-                </span>
-                {nextTier ? (
-                  <span className="ld-referral-progress__next">
-                    {nextTierReferralsNeeded} more referral{nextTierReferralsNeeded !== 1 ? "s" : ""} to reach <strong>{nextTier.label}</strong>
-                  </span>
-                ) : (
-                  <span className="ld-referral-progress__next ld-referral-progress__next--done">
-                    <SsIcon name="check_circle" size={14} /> Maximum tier reached!
-                  </span>
-                )}
-              </div>
-              <div className="ld-referral-progress__tiers">
-                {REWARD_TIERS.map((tier, idx) => {
-                  const isUnlocked = totalReferrals >= tier.referrals;
-                  const isCurrent = !isUnlocked && idx > 0 && totalReferrals < tier.referrals &&
-                    (idx === 0 || totalReferrals >= REWARD_TIERS[idx - 1].referrals);
-                  return (
-                    <div
-                      key={tier.referrals}
-                      className={`ld-referral-tier${isUnlocked ? " is-unlocked" : ""}${isCurrent ? " is-current" : ""}`}
-                    >
-                      <div className="ld-referral-tier__icon">
-                        <SsIcon name={tier.icon} size={18} />
-                      </div>
-                      <div className="ld-referral-tier__info">
-                        <span className="ld-referral-tier__name">{tier.label}</span>
-                        <span className="ld-referral-tier__req">{tier.referrals} referrals</span>
-                      </div>
-                      <span className="ld-referral-tier__reward">₹{tier.credits}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="ld-referral-progress__bar">
-                <div className="ld-referral-progress__track">
-                  <div
-                    className="ld-referral-progress__fill"
-                    style={{ width: `${Math.min(100, progressToNext)}%` }}
-                  />
-                </div>
-                <span className="ld-referral-progress__pct">
-                  {totalReferrals} / {nextTier?.referrals || totalReferrals} referrals
-                </span>
-              </div>
-            </div>
-
-            {/* Referral Code & Share */}
-            <div className="ld-referral-share">
-              <div className="ld-referral-share__code-section">
-                <span className="ld-referral-share__label">Your Referral Code</span>
-                <div className="ld-referral-share__code-box">
-                  <span className="ld-referral-share__code">{referral.referralCode}</span>
-                  <button
-                    type="button"
-                    className={"ld-referral-share__copy-btn" + (copied ? " is-copied" : "")}
-                    onClick={handleCopyLink}
-                    aria-label={copied ? "Copied" : "Copy referral code"}
-                  >
-                    <SsIcon name={copied ? "check" : "content_copy"} size={16} />
-                    <span>{copied ? "Copied!" : "Copy Code"}</span>
-                  </button>
-                </div>
-              </div>
-              <div className="ld-referral-share__actions">
-                <span className="ld-referral-share__label">Share Via</span>
-                <div className="ld-referral-share__buttons">
-                  <button
-                    type="button"
-                    className="ld-referral-share__btn ld-referral-share__btn--copy"
-                    onClick={handleCopyLink}
-                    aria-label="Copy referral link"
-                  >
-                    <SsIcon name={copied ? "check" : "link"} size={16} />
-                    <span>{copied ? "Copied" : "Copy Link"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ld-referral-share__btn ld-referral-share__btn--whatsapp"
-                    onClick={() => handleShare("whatsapp")}
-                    aria-label="Share on WhatsApp"
-                  >
-                    <SsIcon name="chat" size={16} />
-                    <span>WhatsApp</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ld-referral-share__btn ld-referral-share__btn--twitter"
-                    onClick={() => handleShare("twitter")}
-                    aria-label="Share on Twitter"
-                  >
-                    <SsIcon name="alternate_email" size={16} />
-                    <span>Twitter</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ld-referral-share__btn ld-referral-share__btn--gmail"
-                    onClick={() => handleShare("gmail")}
-                    aria-label="Compose in Gmail"
-                  >
-                    <SsIcon name="mail" size={16} />
-                    <span>Gmail</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ld-referral-share__btn ld-referral-share__btn--email"
-                    onClick={() => handleShare("email")}
-                    aria-label="Share via Email"
-                  >
-                    <SsIcon name="alternate_email" size={16} />
-                    <span>Email</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* ═══════════════════ INVITE FRIENDS — non-monetary sharing ═══════════════════ */}
+      <div className="ld-invite">
+        <div className="ld-invite__content">
+          <span className="ld-invite__eyebrow">
+            <SsIcon name="share" size={14} /> Invite Friends
+          </span>
+          <h2 className="ld-invite__title">Know someone who wants to learn from mentors?</h2>
+          <p className="ld-invite__subtitle">
+            Share SkillSwap with your friends. No rewards, no tracking — just help them find the right mentor.
+          </p>
         </div>
-      )}
+        <div className="ld-invite__actions">
+          <button type="button" className="ld-invite__btn ld-invite__btn--primary" onClick={() => setShowInviteModal(true)}>
+            <SsIcon name="person_add" size={16} /> Invite Friends
+          </button>
+        </div>
+      </div>
 
       {/* ═══════════════════ STAT CARDS — Custom with Mini Charts ═══════════════════ */}
       <section>
@@ -759,49 +510,34 @@ export default function LearnerDashboard({ profile }) {
         </div>
       </section>
 
-      {/* ═══════════════════ CONTINUE LEARNING ═══════════════════ */}
-      {currentCourses.length > 0 && (
-        <section>
-          <div className="ss-card">
-            <div className="ss-card__header">
-              <h3 className="ss-card__title">
-                <SsIcon name="play_circle" size={20} /> Continue Learning
-              </h3>
-              <Link to="/learner/learning" className="ss-btn ss-btn--ghost ss-btn--sm">
-                View All <SsIcon name="arrow_forward" size={16} />
+      {/* ═══════════════════ DAILY TASKS ═══════════════════ */}
+      <section>
+        <div className="ss-card">
+          <div className="ss-card__header">
+            <h3 className="ss-card__title">
+              <SsIcon name="task_alt" size={20} /> Daily Tasks
+            </h3>
+            <Link to="/learner/tasks" className="ss-btn ss-btn--ghost ss-btn--sm">
+              View Daily Tasks <SsIcon name="arrow_forward" size={16} />
+            </Link>
+          </div>
+          <div className="ss-empty" style={{ padding: "24px 20px" }}>
+            <div className="ss-empty__icon">
+              <SsIcon name="checklist" size={36} />
+            </div>
+            <h3 className="ss-empty__title">Stay consistent, one task at a time</h3>
+            <p className="ss-empty__desc">
+              Organize your learning around real mentor sessions, notes, assignments and your own
+              goals with a simple daily task list.
+            </p>
+            <div className="ss-empty__actions">
+              <Link to="/learner/tasks" className="ss-btn ss-btn--primary ss-btn--sm">
+                <SsIcon name="add" size={16} /> Open Daily Tasks
               </Link>
             </div>
-            <div className="ld-courses-scroll">
-              {currentCourses.map((course, idx) => {
-                const pct = Math.round(Number(course.progressPercent || 0));
-                return (
-                  <article key={course.id || idx} className="ld-course-card">
-                    <div className="ld-course-card__thumb" style={{ background: `linear-gradient(135deg,#0f766e,#14b8a6)` }}>
-                      <SsIcon name={course.category === "Frontend" ? "web" : "code"} size={32} />
-                      <span className="ld-course-card__pct">{pct}%</span>
-                    </div>
-                    <div className="ld-course-card__body">
-                      <h4 className="ld-course-card__title">{course.title || "Learning roadmap"}</h4>
-                      <p className="ld-course-card__mentor">
-                        <SsIcon name="person" size={14} /> {course.mentorName || course.mentor?.fullName || "Self-paced"}
-                      </p>
-                      <div className="ld-course-card__track">
-                        <div className="ld-course-card__fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <div className="ld-course-card__foot">
-                        <span className="ld-course-card__pct-label">{pct}% complete</span>
-                        <Link to="/learner/learning" className="ss-btn ss-btn--primary ss-btn--sm">
-                          <SsIcon name="play_arrow" size={16} /> Resume
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* ═══════════════════ ROW 1: Upcoming Sessions + Learning Progress ═══════════════════ */}
       <div className="ss-grid-sidebar">
@@ -896,8 +632,8 @@ export default function LearnerDashboard({ profile }) {
                 <span className="ld-progress-stat__lbl">Hours</span>
               </div>
               <div className="ld-progress-stat">
-                <span className="ld-progress-stat__val">{roadmapCompletion}%</span>
-                <span className="ld-progress-stat__lbl">Complete</span>
+                <span className="ld-progress-stat__val">{stats.totalBookings}</span>
+                <span className="ld-progress-stat__lbl">Total</span>
               </div>
             </div>
           </div>
@@ -998,53 +734,55 @@ export default function LearnerDashboard({ profile }) {
         </div>
       </div>
 
-      {/* ═══════════════════ ROW 3: Learning Roadmap + Recent Certificates ═══════════════════ */}
+      {/* ═══════════════════ ROW 3: Session Timeline + Recent Certificates ═══════════════════ */}
       <div className="ss-grid-sidebar">
-        {/* Learning Roadmap */}
+        {/* Session Timeline */}
         <div className="ss-card">
           <div className="ss-card__header">
             <h3 className="ss-card__title">
-              <SsIcon name="timeline" size={20} /> Learning Roadmap
+              <SsIcon name="timeline" size={20} /> Session Timeline
             </h3>
             <Link to="/learner/learning" className="ss-btn ss-btn--ghost ss-btn--sm">
-              Open Roadmap <SsIcon name="arrow_forward" size={16} />
+              View All <SsIcon name="arrow_forward" size={16} />
             </Link>
           </div>
-          {roadmaps.length > 0 ? (
+          {upcomingSessions.length > 0 || stats.completedSessions > 0 ? (
             <div className="ld-timeline">
-              {roadmaps.slice(0, 5).map((r, idx) => {
-                const pct = Math.round(Number(r.progressPercent || 0));
-                const done = pct >= 100;
-                const current = !done && (idx === 0 || Number(roadmaps[idx - 1]?.progressPercent || 0) >= 100);
-                return (
-                  <div key={r.id || idx} className={`ld-timeline__item${done ? " is-done" : ""}${current ? " is-current" : ""}`}>
-                    <span className="ld-timeline__dot">
-                      {done ? <SsIcon name="check" size={16} /> : current ? <SsIcon name="radio_button_checked" size={16} /> : <SsIcon name="radio_button_unchecked" size={16} />}
-                    </span>
-                    <div className="ld-timeline__body">
-                      <div className="ld-timeline__head">
-                        <strong>{r.title || "Learning roadmap"}</strong>
-                        <span className="ld-timeline__pct">{pct}%</span>
-                      </div>
-                      <div className="ld-timeline__bar">
-                        <div className="ld-timeline__fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="ld-timeline__meta">
-                        {done ? "Completed" : current ? "In progress" : "Upcoming"}
-                        {r.mentorName ? ` \u00b7 ${r.mentorName}` : ""}
+              {[...upcomingSessions, ...(stats.completedSessions > 0 ? [{ completed: true }] : [])]
+                .slice(0, 5)
+                .map((booking, idx) => {
+                  const session = booking?.session || {};
+                  const mentor = session?.mentor || {};
+                  const title = session?.title || "Session";
+                  const isUpcoming = !booking.completed;
+                  return (
+                    <div key={booking.id || idx} className={`ld-timeline__item${isUpcoming ? " is-current" : " is-done"}`}>
+                      <span className="ld-timeline__dot">
+                        {isUpcoming ? <SsIcon name="event" size={16} /> : <SsIcon name="check" size={16} />}
                       </span>
+                      <div className="ld-timeline__body">
+                        <div className="ld-timeline__head">
+                          <strong>{title}</strong>
+                          <span className="ld-timeline__pct">{isUpcoming ? "Upcoming" : "Completed"}</span>
+                        </div>
+                        <span className="ld-timeline__meta">
+                          {mentor?.fullName ? `\u00b7 ${mentor.fullName}` : ""}
+                          {session?.startTime
+                            ? ` \u00b7 ${new Date(session.startTime).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+                            : ""}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           ) : (
             <div className="ss-empty" style={{ padding: "32px 20px" }}>
               <div className="ss-empty__icon">
                 <SsIcon name="timeline" size={36} />
               </div>
-              <h3 className="ss-empty__title">No roadmaps yet</h3>
-              <p className="ss-empty__desc">Book a session to generate your learning roadmap.</p>
+              <h3 className="ss-empty__title">No sessions yet</h3>
+              <p className="ss-empty__desc">Book a mentor session — it will show up here.</p>
               <div className="ss-empty__actions">
                 <Link to="/learner/mentors" className="ss-btn ss-btn--primary ss-btn--sm">
                   Find Mentors
@@ -1091,6 +829,19 @@ export default function LearnerDashboard({ profile }) {
           )}
         </div>
       </div>
+
+      {/* ═══════════ INVITE FRIENDS MODAL — non-monetary sharing ═══════════ */}
+      {showInviteModal && (
+        <ShareModal
+          title="Invite Friends"
+          subtitle="Know someone who wants to learn from experienced mentors? Share SkillSwap with them."
+          url={window.location.origin + "/signup"}
+          text="Join me on SkillSwap and learn from experienced mentors."
+          copyLabel="Copy Invite Link"
+          copyDoneLabel="Invite link copied!"
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
     </div>
   );
 }

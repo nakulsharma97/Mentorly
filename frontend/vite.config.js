@@ -32,6 +32,27 @@ export default defineConfig({
   },
   preview: {
     port: 5174,
+    // Mirror the dev-server proxy so `vite preview` (prod build) can be
+    // exercised locally against the real backend without CORS or a custom
+    // VITE_API_BASE_URL.
+    proxy: {
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/oauth2": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/ws": {
+        target: "http://localhost:8080",
+        ws: true,
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   test: {
     globals: true,
@@ -40,7 +61,7 @@ export default defineConfig({
     exclude: ["node_modules/**", "dist/**", "e2e/**"],
   },
   build: {
-    cssMinify: false,
+    cssMinify: true,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {

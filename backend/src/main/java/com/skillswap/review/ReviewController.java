@@ -120,9 +120,13 @@ public class ReviewController {
                         review.getLearner().getId(),
                         review.getMentor().getFullName(),
                         review.getMentor().getDisplayUsername(),
+                        review.getMentor().getProfileImageUrl(),
                         review.getRating(),
                         review.getComment(),
                         null,
+                        review.getBooking() != null && review.getBooking().getSession() != null
+                                ? review.getBooking().getSession().getTitle()
+                                : null,
                         review.getCreatedAt() == null ? null : review.getCreatedAt().toString()))
                 .toList();
 
@@ -285,20 +289,29 @@ public class ReviewController {
             Long learnerId,
             String learnerName,
             String learnerUsername,
+            String learnerProfileImageUrl,
             Integer rating,
             String comment,
             String replyText,
+            String skillName,
             String createdAt) {
         static ReviewItemResponse from(MentorReview review) {
+            String skillName = review.getBooking() != null
+                    && review.getBooking().getSession() != null
+                    && review.getBooking().getSession().getTitle() != null
+                            ? review.getBooking().getSession().getTitle()
+                            : null;
             return new ReviewItemResponse(
                     review.getId(),
                     review.getMentor().getId(),
                     review.getLearner().getId(),
                     review.getLearner().getFullName(),
                     review.getLearner().getDisplayUsername(),
+                    review.getLearner().getProfileImageUrl(),
                     review.getRating(),
                     review.getComment(),
                     review.getReplyText(),
+                    skillName,
                     review.getCreatedAt() == null ? null : review.getCreatedAt().toString());
         }
     }

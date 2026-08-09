@@ -4437,11 +4437,11 @@
   align-items: center;
   gap: 10px;
   flex: 1;
-  min-width: 240px;
+  min-width: 220px;
   max-width: 480px;
-  height: 52px;
-  padding: 0 18px;
-  border-radius: 16px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
   border: 1px solid var(--md-border);
   background: var(--panel);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
@@ -7215,6 +7215,17 @@
   transform: translateY(-1px);
 }
 
+/* Dark mode — .ld-btn--primary stays a white button; the global dark
+   icon rule would repaint its glyph near-white on the white button
+   (invisible), so pin the glyph to the button's dark-teal text color.
+   Light mode is untouched.
+   NOTE: currently unused in JSX — retained with a working dark mode for
+   future use. */
+[data-theme="dark"] .ld-btn--primary .material-symbols-outlined,
+[data-theme="dark"] .ld-btn--primary .md__icon {
+  color: #0b5f52;
+}
+
 .ld-btn--ghost {
   background: rgba(255, 255, 255, 0.12);
   color: #ecfdf5;
@@ -7258,8 +7269,7 @@
 }
 
 /* ----------------------------------------------------------- progress ring */
-.
-ld-ring {
+.ld-ring {
   display: block;
   flex-shrink: 0;
 }

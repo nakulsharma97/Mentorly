@@ -12,6 +12,7 @@ import { createPerformanceReporter, initGlobalMonitoring } from "./utils/monitor
 import { roleRoot } from "./modules/common/routeUtils";
 import { useAuthProfile } from "./hooks/useAuth";
 import { useToasts } from "./hooks/useToasts";
+import { prefetchWorkspacePages } from "./modules/common/routePrefetch";
 import {
   clearOnboardingDismissal,
   isProfileComplete,
@@ -29,7 +30,6 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const pathname = location.pathname;
-  const routeTransitionKey = `${pathname}${location.search}`;
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
   // The onboarding page renders its own minimal top bar (brand + logout), so
   // the full global navbar (with dashboard links) is hidden while onboarding.
@@ -42,6 +42,15 @@ export default function App() {
   useEffect(() => {
     initGlobalMonitoring();
   }, []);
+
+  // Warm the code-split chunks for the most common workspace pages at idle so
+  // the first navigation to them renders instantly instead of waiting for the
+  // lazy chunk to load/transform on the critical path.
+  useEffect(() => {
+    if (!auth.isLoggedIn) return undefined;
+    prefetchWorkspacePages(auth.profile?.role);
+    return undefined;
+  }, [auth.isLoggedIn, auth.profile?.role]);
 
   useEffect(() => {
     const stopRouteTiming = createPerformanceReporter("route.transition", {
@@ -221,7 +230,6 @@ export default function App() {
 
         {auth.maintenanceMode && auth.profile?.role !== "ADMIN" ? null : (
           <div
-            key={routeTransitionKey}
             id="route-content"
             style={{ padding: 0, margin: 0 }}
             tabIndex={-1}

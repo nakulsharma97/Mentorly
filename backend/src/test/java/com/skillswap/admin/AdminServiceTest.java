@@ -8,7 +8,6 @@ import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.payment.PaymentStatus;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.safety.UserReportRepository;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SkillSession;
@@ -74,9 +73,6 @@ class AdminServiceTest {
     private AdminNotifPreferenceRepository adminNotifPreferenceRepository;
 
     @Mock
-    private ReferralRewardRepository referralRewardRepository;
-
-    @Mock
     private UserReportRepository reportRepository;
 
     @Mock
@@ -104,7 +100,7 @@ class AdminServiceTest {
                 userRepository, bookingRepository, paymentRepository, paymentService,
                 walletService, notificationService, emailNotificationService, auditLogRepository,
                 sessionRepository, adminSettingRepository, adminNotifPreferenceRepository,
-                referralRewardRepository, reportRepository, mentorVerificationRepository,
+                reportRepository, mentorVerificationRepository,
                 waitlistRepository);
         admin = new User();
         admin.setId(1L);

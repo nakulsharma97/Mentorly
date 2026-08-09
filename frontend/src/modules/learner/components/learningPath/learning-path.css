@@ -534,6 +534,17 @@
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.3);
 }
 
+/* Dark mode — .lp-btn--hero stays a white pill; the global
+   `[data-theme="dark"] .material-symbols-outlined` rule would repaint its
+   icon glyph near-white (invisible on white), so pin the glyph to the
+   button's navy text color. Light mode is untouched.
+   NOTE: currently unused in JSX — retained with a working dark mode for
+   future use. */
+[data-theme="dark"] .lp-btn--hero .material-symbols-outlined,
+[data-theme="dark"] .lp-btn--hero .md__icon {
+  color: #0b1e3a;
+}
+
 .lp-btn--ghost-hero {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
@@ -1811,6 +1822,25 @@
 
 .lp-cert__seal .material-symbols-outlined {
   font-size: 30px;
+}
+
+/* Dark mode — the seal keeps a light circular surface; the global dark
+   icon rule would repaint its glyph near-white on the white seal
+   (invisible), so give the seal a teal translucent surface + border and a
+   bright teal glyph (same treatment as .hero-section__glass-icon). Light
+   mode is untouched.
+   NOTE: currently unused in JSX — retained with a working dark mode for
+   future use. */
+[data-theme="dark"] .lp-cert__seal {
+  background: rgba(45, 212, 191, 0.16);
+  border: 1px solid rgba(45, 212, 191, 0.38);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
+  color: var(--brand-300, #5eead4);
+}
+
+[data-theme="dark"] .lp-cert__seal .material-symbols-outlined,
+[data-theme="dark"] .lp-cert__seal .md__icon {
+  color: var(--brand-300, #5eead4);
 }
 
 .lp-cert__shine {

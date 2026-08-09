@@ -31,6 +31,7 @@ public class AuditLogService {
     private final AuditLogRepository auditLogRepository;
     private final AdminSettingRepository adminSettingRepository;
     private final ClientIpResolver clientIpResolver;
+    private final SchedulerLockService schedulerLockService;
 
     /**
      * The injected resolver, mirrored to a static field so the widely-used
@@ -412,16 +413,19 @@ public class AuditLogService {
      */
     @Scheduled(cron = "0 15 3 * * *")
     public void nightlyRetentionPurge() {
-        try {
-            int days = configuredRetentionDays();
-            OffsetDateTime cutoff = OffsetDateTime.now().minusDays(days);
-            int removed = auditLogRepository.purgeOlderThan(cutoff);
-            if (removed > 0) {
-                log.info("Nightly audit retention: purged {} entries older than {} days", removed, days);
+        // Leader lock so only one instance (k8s replica) runs the retention sweep.
+        schedulerLockService.runIfLeader("audit-retention-purge", () -> {
+            try {
+                int days = configuredRetentionDays();
+                OffsetDateTime cutoff = OffsetDateTime.now().minusDays(days);
+                int removed = auditLogRepository.purgeOlderThan(cutoff);
+                if (removed > 0) {
+                    log.info("Nightly audit retention: purged {} entries older than {} days", removed, days);
+                }
+            } catch (Exception e) {
+                log.warn("Nightly audit retention purge failed", e);
             }
-        } catch (Exception e) {
-            log.warn("Nightly audit retention purge failed", e);
-        }
+        });
     }
 
     /**

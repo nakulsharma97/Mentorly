@@ -1,4 +1,4 @@
-import { render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
+import { render, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { http, HttpResponse } from 'msw';
 import LearnerDashboard from './LearnerDashboard';
@@ -51,35 +51,27 @@ describe('LearnerDashboard', () => {
     });
   });
 
-  it('renders roadmap progress percentage', async () => {
+  it('renders the Daily Tasks card linking to the tasks page', async () => {
     renderLearnerDashboard();
 
     await waitFor(() => {
-      expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
+      expect(screen.getByText('Daily Tasks')).toBeInTheDocument();
     });
 
-    const roadmapLink = screen.getByRole('link', { name: /Open Roadmap/i });
-    expect(roadmapLink).toBeInTheDocument();
+    const tasksLink = screen.getByRole('link', { name: /Open Daily Tasks/i });
+    expect(tasksLink).toBeInTheDocument();
   });
 
-  it('renders referral summary card', async () => {
+  it('renders invite friends card', async () => {
     renderLearnerDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText('Referral Rewards')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Invite Friends/i })).toBeInTheDocument();
     });
 
-    // Scope stat-value assertions to the referral hero so they never collide
-    // with identical numbers rendered elsewhere (e.g. session-row days).
-    const referralHero = screen.getByText('Referral Rewards').closest('.ld-referral-hero');
-    expect(referralHero).not.toBeNull();
-
-    expect(within(referralHero).getByText('SKILLSWAP')).toBeInTheDocument();
-    expect(within(referralHero).getByText('3')).toBeInTheDocument();
-    expect(within(referralHero).getByText('₹150')).toBeInTheDocument();
-    expect(within(referralHero).getByText('Friends Referred')).toBeInTheDocument();
-    expect(within(referralHero).getByText('Earnings (₹)')).toBeInTheDocument();
-    expect(within(referralHero).getByText('Copy Code')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Know someone who wants to learn from mentors/i),
+    ).toBeInTheDocument();
   });
 
   it('renders achievements section', async () => {

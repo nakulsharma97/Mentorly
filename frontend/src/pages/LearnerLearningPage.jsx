@@ -247,7 +247,7 @@ function Hero({ learnerName, overview, onContinue }) {
             <Icon name="person_search" /> Browse Mentors
           </Link>
           <Link to="/learner/sessions" className="ml-btn ml-btn--glass">
-            <Icon name="calendar_add" /> Book Session
+            <Icon name="calendar_add_on" /> Book Session
           </Link>
         </div>
       </div>
@@ -860,6 +860,9 @@ function TodoList({ todos, suggestions, busy, onAdd, onToggle, onSaveEdit, onDel
         <h2 className="ml-section-title">
           <Icon name="checklist" /> Today's Todo List
         </h2>
+        <Link to="/learner/tasks" className="ml-btn ml-btn--outline ml-btn--sm">
+          <Icon name="task_alt" /> View Daily Tasks
+        </Link>
       </div>
 
       {totalCount > 0 && (
@@ -1418,7 +1421,7 @@ export default function LearnerLearningPage() {
     }
   }, [state.data, navigate]);
 
-  const continueResources = useCallback(() => navigate("/learner/roadmaps"), [navigate]);
+  const continueResources = useCallback(() => navigate("/learner/resources"), [navigate]);
 
   const dash = state.data;
 

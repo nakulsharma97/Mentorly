@@ -2,12 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   ArrowRight, BadgeCheck, BarChart3, CreditCard, Flag, LayoutDashboard,
-  MessageSquare, Share2, Users as UsersIcon, Wallet as WalletIcon,
+  MessageSquare, Users as UsersIcon,
 } from 'lucide-react';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
-import SectionCard from '../modules/common/dashboard/SectionCard';
-import TrendChart from '../modules/common/dashboard/TrendChart';
 import {
   AuHero,
   AuPageHeader,
@@ -57,7 +55,6 @@ const TABS = [
   { key: 'reports', label: 'Reports', icon: Flag },
   { key: 'conversations', label: 'Conversations', icon: MessageSquare },
   { key: 'payments', label: 'Payments', icon: CreditCard },
-  { key: 'referral', label: 'Referrals', icon: Share2 },
 ];
 
 const PATH_TAB_MAP = {
@@ -65,7 +62,6 @@ const PATH_TAB_MAP = {
   reports: 'reports',
   conversations: 'conversations',
   payments: 'payments',
-  referral: 'referral',
 };
 
 export default function AdminOperationsPage({ notify }) {
@@ -91,10 +87,6 @@ export default function AdminOperationsPage({ notify }) {
   const convRequestRef = useRef(0);
   const msgRequestRef = useRef(0);
   const messagesEndRef = useRef(null);
-
-  // ── Referral state ──
-  const [referralAnalytics, setReferralAnalytics] = useState(null);
-  const [referralLoading, setReferralLoading] = useState(false);
 
   // ── Payments state ──
   const [paymentsData, setPaymentsData] = useState(null);
@@ -147,18 +139,6 @@ export default function AdminOperationsPage({ notify }) {
     }
   }, [notify, convTypeFilter, convSearchApplied]);
 
-  const loadReferralAnalytics = useCallback(async () => {
-    setReferralLoading(true);
-    try {
-      const res = await client.get('/api/v1/admin/referral-analytics');
-      setReferralAnalytics(res?.data?.data || null);
-    } catch {
-      notify?.({ type: 'error', title: 'Referral analytics unavailable', message: 'Could not load referral data.' });
-    } finally {
-      setReferralLoading(false);
-    }
-  }, [notify]);
-
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
     try {
@@ -177,8 +157,7 @@ export default function AdminOperationsPage({ notify }) {
 
   useEffect(() => {
     loadAdminData();
-    loadReferralAnalytics(); // Eager load for tab badge
-  }, [loadAdminData, loadReferralAnalytics]);
+  }, [loadAdminData]);
 
   // Debounce the conversation search box: wait until the user stops typing
   // before triggering a request, so each keystroke does not fire an API call.
@@ -196,10 +175,6 @@ export default function AdminOperationsPage({ notify }) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [convMessages, convMessagesLoading, selectedConv?.id]);
-
-  useEffect(() => {
-    if (activeTab === 'referral') loadReferralAnalytics();
-  }, [activeTab, loadReferralAnalytics]);
 
   useEffect(() => {
     if (activeTab === 'payments') loadPayments();
@@ -304,87 +279,6 @@ export default function AdminOperationsPage({ notify }) {
     } catch { notify?.({ type: 'error', title: 'Export failed', message: 'Could not export payments.' }); }
     finally { setPaymentExporting(false); }
   };
-
-  const formatNumber = (v) => Number(v || 0).toLocaleString();
-
-  const renderReferralTab = () => (
-    <section className="admin-panel">
-      <div className="admin-section-heading">
-        <div>
-          <p className="admin-eyebrow">Referral Program</p>
-          <h2>Referral Analytics</h2>
-        </div>
-        <button type="button" className="admin-refresh-btn" onClick={loadReferralAnalytics} disabled={referralLoading}>
-          {referralLoading ? 'Loading...' : 'Refresh'}
-        </button>
-      </div>
-
-      {referralLoading ? (
-        <p>Loading referral analytics...</p>
-      ) : !referralAnalytics ? (
-        <div className="admin-empty-state">
-          <Icon name="share" />
-          <p>No referral data available yet.</p>
-        </div>
-      ) : (
-        <>
-          <div className="au-stats" style={{ marginBottom: 18 }}>
-            <AuStat icon={Share2} label="Total Referrals" value={formatNumber(referralAnalytics.totalReferrals)} subtitle={`${formatNumber(referralAnalytics.totalReferrers)} unique referrers`} tone="blue" index={0} />
-            <AuStat icon={WalletIcon} label="Earnings (₹)" value={`₹${Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}`} subtitle={`${referralAnalytics.avgPerReferrer} avg per referrer`} tone="green" index={1} />
-            <AuStat icon={BarChart3} label="Conversion Rate" value={`${referralAnalytics.conversionRate}%`} subtitle="Of all users have referred someone" tone="violet" index={2} />
-            <AuStat icon={UsersIcon} label="Users w/ Referral Code" value={formatNumber(referralAnalytics.usersWithReferralCode)} subtitle="Total users who can refer" tone="amber" index={3} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
-            <SectionCard title="Referral Trend (12 months)" icon="timeline">
-              {referralAnalytics.referralTrend?.length > 0 ? (
-                <TrendChart data={referralAnalytics.referralTrend} type="bar" height={180}
-                  valueFormatter={(v) => `${v} referrals`} />
-              ) : (
-                <div className="admin-empty-state"><Icon name="timeline" /><p>No referral trend data yet.</p></div>
-              )}
-            </SectionCard>
-            <SectionCard title="Top Referrers" icon="leaderboard" headerExtra={
-              <span className="admin-count-badge">{referralAnalytics.topReferrers?.length || 0} users</span>
-            }>
-              {referralAnalytics.topReferrers?.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 0' }}>
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: '32px 1fr 80px 80px', gap: 8,
-                    padding: '6px 8px', fontSize: '0.72rem', fontWeight: 700,
-                    color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>
-                    <span>#</span>
-                    <span>Name</span>
-                    <span style={{ textAlign: 'right' }}>Referrals</span>
-                    <span style={{ textAlign: 'right' }}>Earnings (₹)</span>
-                  </div>
-                  {referralAnalytics.topReferrers.map((referrer) => (
-                    <div key={referrer.userId} className="admin-referrer-row">
-                      <span className={`admin-referrer-rank${referrer.rank <= 3 ? ' admin-referrer-rank--top' : ''}`}>
-                        {referrer.rank}
-                      </span>
-                      <span className="admin-referrer-name">
-                        {referrer.name}
-                      </span>
-                      <span className="admin-referrer-count">
-                        {referrer.referralCount}
-                      </span>
-                      <span className="admin-referrer-credits">
-                        ₹{Number(referrer.creditsEarned || 0).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="admin-empty-state"><Icon name="group_add" /><p>No referrers yet.</p></div>
-              )}
-            </SectionCard>
-          </div>
-        </>
-      )}
-    </section>
-  );
 
   // ── Render helpers ──
   const renderSummary = () => (
@@ -780,9 +674,6 @@ export default function AdminOperationsPage({ notify }) {
                 onClick={() => setActiveTab(tab.key)}>
                 <IconCmp size={16} />
                 {tab.label}
-                {tab.key === 'referral' && referralAnalytics && (
-                  <span className="au-badge au-badge--purple" style={{ marginLeft: 4, height: 22, padding: "0 8px" }}>{referralAnalytics.totalReferrals}</span>
-                )}
               </button>
             );
           })}
@@ -869,58 +760,6 @@ export default function AdminOperationsPage({ notify }) {
             </div>
           </section>
 
-          {/* ── Referral Summary Widget ── */}
-          {referralAnalytics && (
-            <section className="admin-panel">
-              <div className="admin-section-heading">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className="admin-eyebrow" style={{ margin: 0 }}>
-                    <Icon name="share" /> Referral Program
-                  </span>
-                  <span className="admin-count-badge">{referralAnalytics.totalReferrals} total</span>
-                </div>
-                <button type="button" className="admin-refresh-btn"
-                  onClick={() => setActiveTab('referral')}>
-                  View Details <Icon name="arrow_forward" />
-                </button>
-              </div>
-              <div className="admin-payment-stats">
-                <div className="admin-payment-stat">
-                  <span>Referrals</span>
-                  <strong>{formatNumber(referralAnalytics.totalReferrals)}</strong>
-                  <small>{formatNumber(referralAnalytics.totalReferrers)} unique referrers</small>
-                </div>
-                <div className="admin-payment-stat">
-                  <span>Earnings (₹)</span>
-                  <strong>₹{Number(referralAnalytics.totalCreditsEarned || 0).toLocaleString("en-IN")}</strong>
-                  <small>{referralAnalytics.avgPerReferrer} avg each</small>
-                </div>
-                <div className="admin-payment-stat">
-                  <span>Conversion Rate</span>
-                  <strong>{referralAnalytics.conversionRate}%</strong>
-                  <small>Of all users referred someone</small>
-                </div>
-                <div className="admin-payment-stat">
-                  <span>Users w/ Code</span>
-                  <strong>{formatNumber(referralAnalytics.usersWithReferralCode)}</strong>
-                  <small>Total who can refer</small>
-                </div>
-              </div>
-
-              {/* Mini sparkline */}
-              {referralAnalytics.referralTrend?.length > 0 && (
-                <div style={{ marginTop: 4, opacity: 0.7 }}>
-                  <TrendChart
-                    data={referralAnalytics.referralTrend}
-                    type="area"
-                    height={60}
-                    gradientId="refSparkline"
-                    valueFormatter={(v) => `${v} referrals`}
-                  />
-                </div>
-              )}
-            </section>
-          )}
           {renderReportsTab()}
           {renderVerificationsLink()}
         </>
@@ -928,7 +767,6 @@ export default function AdminOperationsPage({ notify }) {
       {activeTab === 'reports' && renderReportsTab()}
       {activeTab === 'conversations' && renderConversationsTab()}
       {activeTab === 'payments' && renderPaymentsTab()}
-      {activeTab === 'referral' && renderReferralTab()}
       </div>
     </div>
   );

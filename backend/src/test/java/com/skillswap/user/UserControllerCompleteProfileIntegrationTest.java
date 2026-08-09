@@ -7,7 +7,6 @@ import com.skillswap.config.JwtAuthenticationFilter;
 import com.skillswap.config.MaintenanceModeFilter;
 import com.skillswap.config.RequestTraceFilter;
 import com.skillswap.notification.NotificationService;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.verification.MentorVerificationService;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.session.SessionRepository;
@@ -57,9 +56,6 @@ class UserControllerCompleteProfileIntegrationTest {
 
     @MockitoBean
     private SessionRepository sessionRepository;
-
-    @MockitoBean
-    private ReferralRewardRepository referralRewardRepository;
 
     @MockitoBean
     private NotificationService notificationService;

@@ -169,6 +169,15 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
 }
 
+/* Dark mode — hero primary buttons stay white pills; the global dark icon
+   rule would render their material-symbols glyphs near-white on white, so
+   pin the glyph to the button's dark-teal text color (Students "New
+   Session", Reviews "Export", …). Light mode is untouched. */
+[data-theme="dark"] .hero-section__btn--primary .material-symbols-outlined,
+[data-theme="dark"] .hero-section__btn--primary .md__icon {
+  color: var(--hero-btn-text, #0f766e);
+}
+
 .hero-section__btn--primary:hover:not(:disabled) {
   background: #f0fdfa;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
@@ -274,6 +283,27 @@
   justify-content: center;
   font-size: 22px;
   flex-shrink: 0;
+}
+
+/* Dark mode — hero glass icon chip.
+   The global `[data-theme="dark"] .material-symbols-outlined` rule in
+   styles.css repaints every icon glyph near-white (var(--text)). On the
+   hero's LIGHT glass chip that produces white-on-white (invisible), so in
+   dark mode the chip gets a teal translucent surface + border and a bright
+   teal glyph. This chip is shared by every page that renders it (Mentor
+   Students "Mentorship Hub", Mentor Reviews "Total Reviews", Mentor
+   Profile, Admin Reports) → one consistent dark-mode treatment across the
+   workspace. Light mode is untouched. */
+[data-theme="dark"] .hero-section__glass-icon {
+  background: rgba(20, 184, 166, 0.16);
+  border: 1px solid rgba(20, 184, 166, 0.38);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.08), 0 4px 14px rgba(0, 0, 0, 0.25);
+  color: var(--brand-300, #5eead4);
+}
+
+[data-theme="dark"] .hero-section__glass-icon .material-symbols-outlined,
+[data-theme="dark"] .hero-section__glass-icon .md__icon {
+  color: var(--brand-300, #5eead4);
 }
 
 .hero-section__glass-title {
@@ -466,6 +496,64 @@
 .hero-section__art .au-hero__particle:nth-of-type(2) { bottom: 18%; left: 8%; }
 .hero-section__art .au-hero__particle:nth-of-type(3) { top: 22%; left: 22%; }
 
+/* ─────────────────────────────────────────────────────────────────────
+   COMPACT VARIANT — application-header heroes (Learner Workspace)
+   ~300px tall, tighter type, smaller art. Adds a premium SaaS header
+   feel (LinkedIn / Notion / Linear) instead of a landing banner.
+   ───────────────────────────────────────────────────────────────────── */
+
+.hero-section--compact {
+  --hero-margin-bottom: 28px;
+  min-height: 300px;
+  padding: 32px 36px;
+  gap: 24px;
+}
+
+.hero-section--compact .hero-section__badge {
+  margin: 0 0 14px;
+  padding: 8px 14px;
+  font-size: 12px;
+}
+
+.hero-section--compact .hero-section__title {
+  margin: 0 0 12px;
+  font-size: 36px;
+  line-height: 1.15;
+}
+
+.hero-section--compact .hero-section__subtitle {
+  font-size: 15.5px;
+  line-height: 1.5;
+  max-width: 560px;
+}
+
+.hero-section--compact .hero-section__actions {
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.hero-section--compact .hero-section__btn {
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 14px;
+  font-size: 15px;
+}
+
+/* Right-side visual — scaled to ~185px so it supports, not dominates. */
+.hero-section--compact .hero-section__art-inner {
+  transform: scale(0.72);
+  transform-origin: center;
+}
+
+/* Section spacing after the hero: 28px (24–32 target) inside flex-gap
+   containers — subtract each container's gap like the default hero does. */
+.md-page > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px */
+.ss-page > .hero-section--compact { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px */
+.ms-page > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px */
+.rpx-container > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px (Mentor Reviews) */
+.pp-shell > .hero-section--compact { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px (Professional Profile) */
+.ss-crm__inner > .hero-section--compact { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px (My Students) */
+
 /* ── Responsive ──────────────────────────────────────────────────────
    Desktop 320px → Laptop 320px → Tablet 420px → Mobile auto (stacked). */
 
@@ -476,6 +564,11 @@
     justify-content: flex-start;
     gap: 24px;
     min-height: 420px;
+  }
+
+  .hero-section--compact {
+    min-height: auto; /* compact stays compact when it stacks */
+    gap: 16px;
   }
 
   .hero-section__content {
@@ -489,6 +582,10 @@
     width: 100%;
     justify-content: center;
   }
+
+  .hero-section--compact .hero-section__art {
+    display: none; /* drop the decorative art on tablet — content first */
+  }
 }
 
 @media (max-width: 640px) {
@@ -497,7 +594,12 @@
     padding: 28px 24px;
   }
 
+  .hero-section--compact {
+    padding: 22px 20px;
+  }
+
   .hero-section__title { font-size: 32px; }
+  .hero-section--compact .hero-section__title { font-size: 30px; }
   .hero-section__subtitle { font-size: 16px; }
   .hero-section__actions { flex-direction: column; align-items: stretch; }
   .hero-section__btn { width: 100%; }

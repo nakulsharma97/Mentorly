@@ -1,10 +1,14 @@
 package com.skillswap.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.skillswap.booking.Booking;
+import com.skillswap.booking.BookingRepository;
 import com.skillswap.messaging.DirectConversation;
 import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.messaging.DirectMessage;
 import com.skillswap.messaging.DirectMessageRepository;
+import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SkillSession;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -23,6 +27,8 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +89,12 @@ class ChatEnhancementsIntegrationTest {
 
     @Autowired
     private DirectMessageRepository directMessageRepository;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private SessionRepository sessionRepository;
 
     private User alice;
     private User bob;
@@ -219,6 +231,29 @@ class ChatEnhancementsIntegrationTest {
         assertThat(reloaded.isArchived()).isTrue();
     }
 
+    // ── 6. Booking chats group into ONE conversation per mentor ──
+
+    @Test
+    void givenMultipleBookingsWithSameMentor_whenListingConversations_thenOneGroupedRow() throws Exception {
+        User learner = alice;
+        User mentor = bob;
+        SkillSession session = persistSession(mentor, "Spring Boot");
+        persistBooking(learner, session);
+        persistBooking(learner, session);
+        persistBooking(learner, session);
+
+        // Three sessions with the same mentor must collapse into a single
+        // conversation row carrying sessionCount = 3 — never three rows.
+        mockMvc.perform(get("/api/v1/chat/conversations")
+                        .with(csrf())
+                        .with(user(learner)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].participantId").value(mentor.getId()))
+                .andExpect(jsonPath("$.data[0].participantName").value(mentor.getFullName()))
+                .andExpect(jsonPath("$.data[0].sessionCount").value(3));
+    }
+
     // ── Helpers ──
 
     private User createUser(String email, String username, UserRole role) {
@@ -229,7 +264,6 @@ class ChatEnhancementsIntegrationTest {
         user.setRole(role);
         user.setEnabled(true);
         user.setPasswordHash(passwordEncoder.encode("TestPass123!"));
-        user.setReferralCode("REF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10));
         return userRepository.save(user);
     }
 
@@ -246,5 +280,24 @@ class ChatEnhancementsIntegrationTest {
         msg.setSender(sender);
         msg.setContent(content);
         return directMessageRepository.save(msg);
+    }
+
+    private SkillSession persistSession(User mentor, String title) {
+        SkillSession session = new SkillSession();
+        session.setMentor(mentor);
+        session.setTitle(title);
+        session.setDescription("Integration test session");
+        session.setStartTime(OffsetDateTime.now().plusDays(1));
+        session.setEndTime(OffsetDateTime.now().plusDays(1).plusHours(1));
+        session.setPriceAmount(new BigDecimal("499"));
+        session.setSessionType("ONLINE");
+        return sessionRepository.save(session);
+    }
+
+    private Booking persistBooking(User learner, SkillSession session) {
+        Booking booking = new Booking();
+        booking.setLearner(learner);
+        booking.setSession(session);
+        return bookingRepository.save(booking);
     }
 }

@@ -143,7 +143,6 @@ class OAuthLoginSecurityIntegrationTest {
         user.setRole(role);
         user.setUsername(email.substring(0, email.indexOf('@')).replaceAll("[^a-zA-Z0-9_]", "")
                 + UUID.randomUUID().toString().substring(0, 4));
-        user.setReferralCode("OAUTH-" + UUID.randomUUID());
         user.setFullName("OAuth Test " + UUID.randomUUID().toString().substring(0, 6));
         user.setEnabled(enabled);
         return userRepository.save(user);

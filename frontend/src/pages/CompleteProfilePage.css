@@ -741,7 +741,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 12px;
+  width: 100%;
   margin-top: 22px;
 }
 
@@ -818,8 +820,14 @@
 
 .cpp-experience-group {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cpp-experience-group .cpp-select {
+  flex: 1;
+  min-width: 0;
 }
 
 .cpp-label--inline {
@@ -828,6 +836,8 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ss-text-muted, #94a3b8);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cpp-experience-summary {
@@ -886,6 +896,16 @@
 
   .cpp-submit {
     width: 100%;
+  }
+
+  .cpp-success-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cpp-success-actions .cpp-btn {
+    width: 100%;
+    max-width: 300px;
   }
 }
 

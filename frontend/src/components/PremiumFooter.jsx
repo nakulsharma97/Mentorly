@@ -70,7 +70,7 @@ export default function PremiumFooter({ onScrollToSection }) {
                 </li>
                 <li>
                   <a href="#" className="footer-link">
-                    Roadmaps
+                    Daily Tasks
                   </a>
                 </li>
                 <li>
@@ -128,7 +128,7 @@ export default function PremiumFooter({ onScrollToSection }) {
                 </li>
                 <li>
                   <a href="#" className="footer-link">
-                    Careers
+                    Certificates
                   </a>
                 </li>
                 <li>

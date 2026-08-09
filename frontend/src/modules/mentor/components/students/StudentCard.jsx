@@ -4,15 +4,14 @@ import { initials, formatDateParts, formatTime } from "../../../common/dashboard
 
 /**
  * Premium student card (min-height 220, radius 20) — top row: avatar 72px,
- * identity + skill badge, animated progress with completed/remaining topics,
- * next-session block. Bottom action bar: Message / View Roadmap / Schedule.
+ * identity + skill badge, animated session progress with completed/remaining
+ * sessions, next-session block. Bottom action bar: Message / Schedule.
  */
 export default function StudentCard({
   student,
   selected,
   onSelect,
   onMessage,
-  onViewRoadmap,
   onSchedule,
   index = 0,
 }) {
@@ -20,9 +19,8 @@ export default function StudentCard({
   const time = student.nextBooking?.start ? formatTime(student.nextBooking.start) : null;
   const platform = student.nextBooking?.platform || "";
 
-  const totalTopics = student.milestones?.length || 0;
-  const total = totalTopics || (student.totalSessions ?? 0);
-  const remaining = Math.max(0, total - (student.topicsCompleted || 0));
+  const total = student.totalSessions ?? 0;
+  const remaining = Math.max(0, total - (student.completed || 0));
 
   return (
     <motion.article
@@ -64,7 +62,7 @@ export default function StudentCard({
 
         <StudentProgress
           value={student.progress}
-          topics={student.topicsCompleted}
+          topics={student.completed}
           remaining={remaining}
           showTopics
         />
@@ -108,15 +106,6 @@ export default function StudentCard({
         >
           <span className="material-symbols-outlined">chat_bubble</span>
           Message
-        </button>
-        <button
-          type="button"
-          className="ss-card__action ss-card__action--outline"
-          aria-label={`View ${student.name}'s roadmap`}
-          onClick={() => onViewRoadmap?.(student)}
-        >
-          <span className="material-symbols-outlined">map</span>
-          View Roadmap
         </button>
         <button
           type="button"

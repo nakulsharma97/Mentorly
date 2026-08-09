@@ -11,8 +11,6 @@ import com.skillswap.config.RequestTraceFilter;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.payment.PaymentRepository;
-import com.skillswap.referral.ReferralService;
-import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
@@ -76,13 +74,7 @@ class BookingControllerIntegrationTest {
     private BookingLifecycleService bookingLifecycleService;
 
     @MockBean
-    private ReferralService referralService;
-
-    @MockBean
     private SessionRepository sessionRepository;
-
-    @MockBean
-    private LearningRoadmapRepository learningRoadmapRepository;
 
     @MockBean
     private PaymentRepository paymentRepository;

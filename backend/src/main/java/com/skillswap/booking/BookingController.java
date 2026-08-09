@@ -127,7 +127,6 @@ public class BookingController {
         profileCompletionGuard.requireProfileCompleted(currentUser,
                         "Please complete your profile before managing bookings.");
         Booking saved = bookingLifecycleService.completeBooking(id, currentUser);
-        bookingLifecycleService.grantReferralRewardIfNeeded(saved);
         // Payout parity with the COMPLETED status-update path: escrowed funds
         // must be released to the mentor here too, otherwise completing via
         // this endpoint would leave the money stuck in escrow forever.

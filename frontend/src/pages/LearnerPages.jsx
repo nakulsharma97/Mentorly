@@ -173,37 +173,25 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function parseMilestones(value) {
-  // Roadmap milestones share the skills storage format — normalize first.
-  return normalizeSkills(value).map((entry, index) => ({
-    id: `${index}-${entry}`,
-    title: entry,
-  }));
-}
-
 function useLearnerLearningData(refreshKey = 0) {
   return useResource(async () => {
-    const [roadmaps, bookings, certifications, mentors, savedMentors, savedSkills, profile, referral] =
+    const [bookings, certifications, mentors, savedMentors, savedSkills, profile] =
       await Promise.all([
-        apiGet("/api/v1/roadmaps"),
         apiGet("/api/v1/bookings"),
         apiGet("/api/v1/certifications/me"),
         apiGet("/api/v1/users/mentors").catch(() => []),
         apiGet("/api/v1/watchlist/mentors").catch(() => []),
         apiGet("/api/v1/watchlist/skills").catch(() => []),
         apiGet("/api/v1/users/me"),
-        apiGet("/api/v1/users/me/referral").catch(() => null),
       ]);
 
     return {
-      roadmaps: roadmaps || EMPTY_ARRAY,
       bookings: bookings || EMPTY_ARRAY,
       certifications: certifications || EMPTY_ARRAY,
       mentors,
       savedMentors: savedMentors || EMPTY_ARRAY,
       savedSkills: savedSkills || EMPTY_ARRAY,
       profile,
-      referral,
     };
   }, [refreshKey]);
 }
@@ -355,10 +343,10 @@ function SessionCard({ booking }) {
             Open Chat
           </Link>
           <Link
-            to="/learner/path"
+            to="/learner/learning"
             className="md-btn md-btn--outline md-btn--sm"
           >
-            View Roadmap
+            Open My Learning
           </Link>
         </div>
       </div>
@@ -613,6 +601,7 @@ export function LearnerMentorsPage() {
     <div className="lp-shell md">
       {/* ── Hero ── */}
       <HeroSection
+        className="hero-section--compact"
         badge={<><Icon name="person_search" /> Mentor Marketplace</>}
         title="Find Your Perfect Mentor"
         subtitle="Discover expert mentors across 100+ skills. Book 1-on-1 sessions, save favourites, and accelerate your growth."
@@ -907,6 +896,7 @@ export function LearnerSkillsPage() {
     <div className="lp-shell md">
       {/* ── Hero ── */}
       <HeroSection
+        className="hero-section--compact"
         badge={<><Icon name="auto_stories" /> Skill Explorer</>}
         title="Explore Skills & Learning Paths"
         subtitle="Browse hundreds of in-demand skills, find expert mentors, and start your personalised learning journey today."
@@ -1114,13 +1104,8 @@ function buildWeeklySeries(bookings) {
   return values;
 }
 
-function deriveRoadmapMilestones(roadmap) {
-  return parseMilestones(roadmap?.milestones || "");
-}
-
 function LearningSummary({ data, onRefresh }) {
   const {
-    roadmaps,
     bookings,
     certifications,
     savedMentors,
@@ -1128,10 +1113,6 @@ function LearningSummary({ data, onRefresh }) {
     profile,
   } = data;
   const { upcoming, completed, totalHours } = buildBookingStats(bookings);
-  const activeRoadmap =
-    roadmaps.find((roadmap) => Number(roadmap.progressPercent || 0) < 100) ||
-    roadmaps[0] ||
-    null;
   const weeklySeries = buildWeeklySeries(bookings);
   const profileCompletion = Number(profile?.profileCompletionPercent || 0);
 
@@ -1182,7 +1163,7 @@ function LearningSummary({ data, onRefresh }) {
     <div className="lp-shell">
       <PageHeader
         title="Learning Path"
-        subtitle="A backend-driven learning roadmap with progress, sessions, certificates, and real achievements."
+        subtitle="Your session-based learning progress, daily tasks, certificates and real achievements."
         actions={
           <button
             type="button"
@@ -1195,10 +1176,10 @@ function LearningSummary({ data, onRefresh }) {
       />
       <div className="ld-stats md-animate">
         <StatsCard
-          icon="route"
-          label="Roadmaps"
-          value={roadmaps.length}
-          description="Current roadmap plans"
+          icon="task_alt"
+          label="Completed sessions"
+          value={completed.length}
+          description="Sessions finished"
         />
         <StatsCard
           icon="event"
@@ -1222,36 +1203,29 @@ function LearningSummary({ data, onRefresh }) {
 
       <div className="ld-row md-animate">
         <div className="ld-c8">
-          <DetailCard title="Current learning" icon="school">
-            {activeRoadmap ? (
-              <div className="lp-learning-hero">
-                <div>
-                  <span className="md-badge md-badge--info">
-                    {activeRoadmap.title}
-                  </span>
-                  <h3>{activeRoadmap.title}</h3>
-                  <p>
-                    Roadmap progress and milestones are loaded from the backend.
-                  </p>
-                </div>
-                <div className="lp-learning-hero__stats">
-                  <strong>{Number(activeRoadmap.progressPercent || 0)}%</strong>
-                  <span>Progress</span>
-                </div>
+          <DetailCard
+            title="Daily Tasks"
+            icon="task_alt"
+            action="Open tasks"
+            actionTo="/learner/tasks"
+          >
+            <div className="lp-detail-stack">
+              <div>
+                <span>Learning routine</span>
+                <strong>Organize tasks around your sessions</strong>
               </div>
-            ) : (
-              <EmptyState
-                icon="school"
-                title="No learning roadmap yet"
-                description="Book a session to generate a roadmap on the backend."
-                actionLabel="Browse mentors"
-                actionTo="/learner/mentors"
-              />
-            )}
+              <div>
+                <span>Next sessions</span>
+                <strong>
+                  {upcoming.length} upcoming book
+                  {upcoming.length === 1 ? "" : "ings"}
+                </strong>
+              </div>
+            </div>
           </DetailCard>
         </div>
         <div className="ld-c4">
-          <DetailCard title="Career goals" icon="flag">
+          <DetailCard title="Learning goals" icon="flag">
             <div className="lp-detail-stack">
               <div>
                 <span>Profile completion</span>
@@ -1264,12 +1238,6 @@ function LearningSummary({ data, onRefresh }) {
                     "Add skills in profile"}
                 </strong>
               </div>
-              <div>
-                <span>Referral code</span>
-                <strong>
-                  {profile?.referralCode || profile?.email || "Unavailable"}
-                </strong>
-              </div>
             </div>
           </DetailCard>
         </div>
@@ -1277,32 +1245,30 @@ function LearningSummary({ data, onRefresh }) {
 
       <div className="ld-row md-animate">
         <div className="ld-c8">
-          <DetailCard title="Roadmap timeline" icon="timeline">
-            {activeRoadmap ? (
+          <DetailCard title="Recent sessions" icon="timeline">
+            {completed.length > 0 ? (
               <div className="lp-timeline">
-                {deriveRoadmapMilestones(activeRoadmap).length ? (
-                  deriveRoadmapMilestones(activeRoadmap).map((step, index) => (
-                    <div className="lp-timeline__item" key={step.id}>
-                      <span className="lp-timeline__dot">{index + 1}</span>
-                      <div>
-                        <strong>{step.title}</strong>
-                        <p>{activeRoadmap.title}</p>
-                      </div>
+                {completed.slice(0, 5).map((booking) => (
+                  <div className="lp-timeline__item" key={booking.id}>
+                    <span className="lp-timeline__dot">
+                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                        task_alt
+                      </span>
+                    </span>
+                    <div>
+                      <strong>{booking.session?.title || "Session"}</strong>
+                      <p>{booking.session?.mentor?.fullName || ""}</p>
                     </div>
-                  ))
-                ) : (
-                  <EmptyState
-                    icon="timeline"
-                    title="No milestones on this roadmap"
-                    description="The backend roadmap exists but does not yet have milestones."
-                  />
-                )}
+                  </div>
+                ))}
               </div>
             ) : (
               <EmptyState
                 icon="timeline"
-                title="No roadmap data"
-                description="No roadmap records were returned for this learner."
+                title="No sessions yet"
+                description="Completed mentor sessions will show up here."
+                actionLabel="Browse mentors"
+                actionTo="/learner/mentors"
               />
             )}
           </DetailCard>
@@ -1410,7 +1376,7 @@ function LearningSummary({ data, onRefresh }) {
               <EmptyState
                 icon="auto_stories"
                 title="No skill watchlist"
-                description="Add skills from the Explore Skills page to shape your roadmap."
+                description="Add skills from the Explore Skills page to personalise your learning."
                 actionLabel="Explore skills"
                 actionTo="/learner/skills"
               />
@@ -1823,7 +1789,7 @@ export function LearnerCertificatesPage() {
           </>
         }
         title="Your Certificates"
-        subtitle="View and manage certificates issued for completed learning milestones and achievements."
+        subtitle="View and manage certificates issued for completed sessions and achievements."
         primaryButton={
           <button
             type="button"
@@ -1906,7 +1872,7 @@ export function LearnerCertificatesPage() {
             </div>
             <h3 className="md-empty__title">No certificates yet</h3>
             <p className="md-empty__desc">
-              Complete learning milestones to earn certificates. Use the Re-evaluate button above to check for new eligible certificates.
+              Complete mentor sessions to earn certificates. Use the Re-evaluate button above to check for new eligible certificates.
             </p>
             <button
               type="button"
@@ -2254,9 +2220,7 @@ export function LearnerProfilePage() {
 
   const {
     profile,
-    referral,
     certifications,
-    roadmaps,
     savedMentors,
     savedSkills,
   } = data;
@@ -2265,7 +2229,7 @@ export function LearnerProfilePage() {
     <div className="lp-shell">
       <PageHeader
         title="Profile"
-        subtitle="Your live learner profile, referral data, and saved backend records."
+        subtitle="Your live learner profile and saved backend records."
       />
       <div className="ld-stats md-animate">
         <StatsCard
@@ -2321,23 +2285,19 @@ export function LearnerProfilePage() {
           </DetailCard>
         </div>
         <div className="ld-c4">
-          <DetailCard title="Referral" icon="share">
+          <DetailCard title="Learning profile" icon="school">
             <div className="lp-detail-stack">
               <div>
-                <span>Code</span>
-                <strong>
-                  {referral?.referralCode ||
-                    profile?.referralCode ||
-                    "Unavailable"}
-                </strong>
+                <span>Saved mentors</span>
+                <strong>{savedMentors.length}</strong>
               </div>
               <div>
-                <span>Referrals</span>
-                <strong>{referral?.totalReferrals ?? 0}</strong>
+                <span>Saved skills</span>
+                <strong>{savedSkills.length}</strong>
               </div>
               <div>
-                <span>Earnings (₹)</span>
-                <strong>₹{(referral?.totalCreditsEarned ?? 0).toLocaleString("en-IN")}</strong>
+                <span>Certificates</span>
+                <strong>{certifications.length}</strong>
               </div>
             </div>
           </DetailCard>
@@ -2345,23 +2305,18 @@ export function LearnerProfilePage() {
       </div>
       <SectionCard title="Learning progress" icon="timeline">
         <div className="lp-detail-stack">
-          {roadmaps.length ? (
-            roadmaps.map((roadmap) => (
-              <div key={roadmap.id}>
-                <strong>{roadmap.title}</strong>
-                <ProgressBar
-                  value={roadmap.progressPercent}
-                  label={`${roadmap.progressPercent || 0}% complete`}
-                />
-              </div>
-            ))
-          ) : (
-            <EmptyState
-              icon="timeline"
-              title="No roadmap data"
-              description="A booked session will create a roadmap on the backend."
-            />
-          )}
+          <div>
+            <span>Profile completion</span>
+            <strong>{profile?.profileCompletionPercent || 0}%</strong>
+          </div>
+          <div>
+            <span>Certificates earned</span>
+            <strong>{certifications.length}</strong>
+          </div>
+          <div>
+            <span>Saved mentors</span>
+            <strong>{savedMentors.length}</strong>
+          </div>
         </div>
       </SectionCard>
       <SectionCard title="Certificates" icon="workspace_premium">
@@ -2641,7 +2596,6 @@ export function LearnerAchievementsPage() {
 
   const {
     certifications,
-    roadmaps,
     savedMentors,
     savedSkills,
     bookings,
@@ -2650,10 +2604,6 @@ export function LearnerAchievementsPage() {
   const completedBookings = bookings.filter(
     (booking) =>
       String(booking?.bookingStatus || "").toUpperCase() === "COMPLETED",
-  );
-  const totalProgress = roadmaps.reduce(
-    (sum, roadmap) => sum + Number(roadmap.progressPercent || 0),
-    0,
   );
 
   const items = [
@@ -2683,9 +2633,9 @@ export function LearnerAchievementsPage() {
       icon: "person",
     },
     {
-      title: "Roadmap progress",
-      detail: `${roadmaps.length ? Math.round(totalProgress / roadmaps.length) : 0}% average progress`,
-      icon: "route",
+      title: "Sessions scheduled",
+      detail: `${bookings.length} total bookings`,
+      icon: "event",
     },
   ];
 
@@ -2700,7 +2650,7 @@ export function LearnerAchievementsPage() {
           </>
         }
         title="Your Achievements"
-        subtitle="Track your learning milestones, certificates, saved mentors, and overall progress across the platform."
+        subtitle="Track your completed sessions, certificates, saved mentors, and overall progress across the platform."
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">military_tech</span>

@@ -87,7 +87,7 @@ export default function RoleGuide() {
                         arrow_right
                       </span>
                       <span>
-                        Track your learning progress with structured roadmaps
+                        Track your progress across mentor sessions and daily tasks
                       </span>
                     </li>
                     <li className="flex items-start gap-3">
@@ -205,7 +205,7 @@ export default function RoleGuide() {
                       <span className="material-symbols-outlined text-sm text-primary mt-0.5 flex-shrink-0">
                         arrow_right
                       </span>
-                      <span>Create learning roadmaps for your learners</span>
+                      <span>Share notes and assignments to guide your learners</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="material-symbols-outlined text-sm text-primary mt-0.5 flex-shrink-0">
@@ -300,7 +300,7 @@ export default function RoleGuide() {
                   { feature: "Create Sessions", learner: false, mentor: true },
                   { feature: "Book Sessions", learner: true, mentor: false },
                   { feature: "Manage Bookings", learner: false, mentor: true },
-                  { feature: "Learning Roadmaps", learner: true, mentor: true },
+                  { feature: "Daily Tasks", learner: true, mentor: false },
                   { feature: "Leave Reviews", learner: true, mentor: false },
                   { feature: "Receive Reviews", learner: false, mentor: true },
                   { feature: "Set Pricing", learner: false, mentor: true },

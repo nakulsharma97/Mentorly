@@ -4,9 +4,6 @@ import Icon from "../modules/common/dashboard/Icon";
 import HeroSection from "../components/HeroSection";
 import SectionCard from "../modules/common/dashboard/SectionCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
-import ExcelJS from "exceljs";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 import "./AdminOperationsPage.css";
 import "./AuditLogPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -470,6 +467,7 @@ export default function AuditLogPage({ notify }) {
   const handleExportXlsx = useCallback(async () => {
     setExporting((prev) => ({ ...prev, xlsx: true }));
     try {
+      const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "SkillSwap";
       workbook.created = new Date();
@@ -491,9 +489,11 @@ export default function AuditLogPage({ notify }) {
     }
   }, [exportRows, notify, notifyOnce]);
 
-  const handleExportPdf = useCallback(() => {
+  const handleExportPdf = useCallback(async () => {
     setExporting((prev) => ({ ...prev, pdf: true }));
     try {
+      const { default: jsPDF } = await import("jspdf");
+      await import("jspdf-autotable");
       const rows = logs?.content || [];
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);

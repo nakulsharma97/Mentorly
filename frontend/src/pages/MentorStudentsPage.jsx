@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import client from "../api/client";
 import ReportModal from "../components/ReportModal";
 import StudentHero from "../modules/mentor/components/students/StudentHero";
-import StudentStats from "../modules/mentor/components/students/StudentStats";
 import StudentSearchBar from "../modules/mentor/components/students/StudentSearchBar";
 import StudentCard from "../modules/mentor/components/students/StudentCard";
 import StudentDetailsPanel from "../modules/mentor/components/students/StudentDetailsPanel";
@@ -31,20 +30,6 @@ function derivePlatform(link) {
   return l ? "Video call" : "";
 }
 
-function parseMilestones(raw) {
-  return String(raw || "")
-    .split(/\r?\n|,|;|\||•/)
-    .map((m) => m.trim())
-    .filter(Boolean);
-}
-
-function assignStatus(i, total, pct) {
-  const doneCount = total > 0 ? Math.round((pct / 100) * total) : 0;
-  if (i < doneCount) return "reviewed";
-  if (i === doneCount) return "progress";
-  return "pending";
-}
-
 export default function MentorStudentsPage({ profile, notify }) {
   const navigate = useNavigate();
   const panelRef = useRef(null);
@@ -67,7 +52,7 @@ export default function MentorStudentsPage({ profile, notify }) {
     setLoading(true);
     setError(false);
     try {
-      const [bookingsRes, reviewsRes, roadmapsRes] = await Promise.all([
+      const [bookingsRes, reviewsRes] = await Promise.all([
         client.get("/api/v1/bookings"),
         profile?.id
           ? client.get(`/api/v1/reviews/mentor/${profile.id}`).catch(() => ({
@@ -76,13 +61,11 @@ export default function MentorStudentsPage({ profile, notify }) {
           : Promise.resolve({
               data: { data: { reviews: [], averageRating: 0 } },
             }),
-        client.get("/api/v1/roadmaps").catch(() => ({ data: { data: [] } })),
       ]);
 
       const bookings = bookingsRes?.data?.data || [];
       const reviewSummary = reviewsRes?.data?.data || {};
       const reviews = reviewSummary.reviews || [];
-      const roadmaps = roadmapsRes?.data?.data || [];
 
       const now = Date.now();
       const map = new Map();
@@ -138,43 +121,21 @@ export default function MentorStudentsPage({ profile, notify }) {
         list.push(r);
         reviewsByLearner.set(r.learnerId, list);
       });
-      const roadmapByLearner = new Map();
-      roadmaps.forEach((rm) => {
-        const lid = rm?.learner?.id || rm?.booking?.learner?.id;
-        if (lid && !roadmapByLearner.has(lid)) roadmapByLearner.set(lid, rm);
-      });
-
       const list = Array.from(map.values()).map((s) => {
         const completed = s.bookings.filter(
           (b) => b.status === "COMPLETED",
         ).length;
         const total = s.bookings.length;
-        const rm = roadmapByLearner.get(s.id);
-        const roadmapPct = rm ? Number(rm.progressPercent || 0) : null;
         const progress =
-          roadmapPct !== null
-            ? roadmapPct
-            : total > 0
-              ? Math.round((completed / total) * 100)
-              : 0;
+          total > 0 ? Math.round((completed / total) * 100) : 0;
         const upcoming = s.bookings
           .filter((b) => b.isUpcoming)
           .sort((a, b) => new Date(a.start) - new Date(b.start))[0];
 
-        const milestones = rm ? parseMilestones(rm.milestones) : [];
-        const topicsCompleted =
-          milestones.length > 0
-            ? Math.round((progress / 100) * milestones.length)
-            : completed;
         const revs = reviewsByLearner.get(s.id) || [];
         const rating = revs.length
           ? revs.reduce((acc, r) => acc + Number(r.rating || 0), 0) / revs.length
           : 0;
-        const assignments = milestones.map((m, i) => ({
-          title: m,
-          sub: `${i + 1} of ${milestones.length} · roadmap topic`,
-          status: assignStatus(i, milestones.length, progress),
-        }));
 
         return {
           ...s,
@@ -183,14 +144,11 @@ export default function MentorStudentsPage({ profile, notify }) {
           totalSessions: total,
           completed,
           progress,
-          roadmapTitle: rm?.title || rm?.name || "",
-          milestones,
-          topicsCompleted,
           nextBooking: upcoming || null,
           reviews: revs,
           rating,
           reviewCount: revs.length,
-          assignments,
+          assignments: [],
           status: deriveStatus(s.bookings),
         };
       });
@@ -232,8 +190,7 @@ export default function MentorStudentsPage({ profile, notify }) {
         (s) =>
           s.name.toLowerCase().includes(q) ||
           s.email.toLowerCase().includes(q) ||
-          s.skills.toLowerCase().includes(q) ||
-          (s.roadmapTitle || "").toLowerCase().includes(q),
+          s.skills.toLowerCase().includes(q),
       );
     if (skillFilter !== "all")
       list = list.filter((s) => s.skillSet.has(skillFilter));
@@ -284,14 +241,6 @@ export default function MentorStudentsPage({ profile, notify }) {
     }
   };
 
-  const viewRoadmap = (s) => {
-    setSelectedId(s.id);
-    setPanelTab("Roadmap");
-    if (window.innerWidth < 1100) {
-      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
   const openSchedule = () => {
     navigate("/mentor/calendar");
   };
@@ -329,17 +278,16 @@ export default function MentorStudentsPage({ profile, notify }) {
     <div className="ss-crm">
       <div className="ss-crm__inner">
         <StudentHero
-          total={stats.active}
+          stats={{
+            total: stats.total,
+            active: stats.active,
+            completed: stats.completedSessions,
+            avgRating: summary.averageRating,
+          }}
+          loading={loading}
           refreshing={loading}
           onRefresh={loadStudents}
           onNewSession={() => navigate("/mentor/calendar")}
-        />
-
-        <StudentStats
-          total={stats.total}
-          active={stats.active}
-          completed={stats.completedSessions}
-          avgRating={summary.averageRating}
         />
 
         <div className="ss-crm__grid">
@@ -433,7 +381,6 @@ export default function MentorStudentsPage({ profile, notify }) {
                     selected={panelStudent?.id === s.id}
                     onSelect={selectStudent}
                     onMessage={() => navigate("/mentor/messages")}
-                    onViewRoadmap={viewRoadmap}
                     onSchedule={openSchedule}
                   />
                 ))}

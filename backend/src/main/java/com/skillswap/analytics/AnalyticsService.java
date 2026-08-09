@@ -4,8 +4,6 @@ import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
-import com.skillswap.roadmap.LearningRoadmap;
-import com.skillswap.roadmap.LearningRoadmapRepository;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,18 +33,15 @@ public class AnalyticsService {
 
         private final BookingRepository bookingRepository;
         private final PaymentRepository paymentRepository;
-        private final LearningRoadmapRepository learningRoadmapRepository;
 
         @Value("${app.frontend-base-url:http://localhost:5174}")
         private String frontendBaseUrl;
 
         public AnalyticsService(
                         BookingRepository bookingRepository,
-                        PaymentRepository paymentRepository,
-                        LearningRoadmapRepository learningRoadmapRepository) {
+                        PaymentRepository paymentRepository) {
                 this.bookingRepository = bookingRepository;
                 this.paymentRepository = paymentRepository;
-                this.learningRoadmapRepository = learningRoadmapRepository;
         }
 
         public AnalyticsDtos.AnalyticsSummaryDto buildSummary(User currentUser, int rangeDays) {
@@ -104,11 +99,7 @@ public class AnalyticsService {
                                 : paymentRepository.findByLearnerIdAndCreatedAtGreaterThanEqual(
                                                 currentUser.getId(), cutoff);
 
-                List<LearningRoadmap> roadmaps = mentor
-                                ? learningRoadmapRepository.findByBookingSessionMentorId(currentUser.getId())
-                                : learningRoadmapRepository.findByBookingLearnerId(currentUser.getId());
-
-                return new AnalyticsDataset(mentor, normalizedRange, now, filteredBookings, payments, roadmaps);
+                return new AnalyticsDataset(mentor, normalizedRange, now, filteredBookings, payments);
         }
 
         private AnalyticsDtos.AnalyticsSummaryDto buildSummaryFromDataset(AnalyticsDataset dataset) {
@@ -167,20 +158,6 @@ public class AnalyticsService {
                                                                 .toUpperCase(Locale.ROOT)))
                                 .count();
 
-                List<Integer> progressValues = dataset.roadmaps().stream()
-                                .map(roadmap -> roadmap.getProgressPercent() == null ? 0 : roadmap.getProgressPercent())
-                                .filter(value -> value > 0)
-                                .toList();
-                int averageProgress = progressValues.isEmpty()
-                                ? 0
-                                : (int) Math.round(progressValues.stream().mapToInt(Integer::intValue).average()
-                                                .orElse(0));
-
-                int lowProgressRoadmaps = (int) dataset.roadmaps().stream()
-                                .map(roadmap -> roadmap.getProgressPercent() == null ? 0 : roadmap.getProgressPercent())
-                                .filter(value -> value > 0 && value < 40)
-                                .count();
-
                 List<Payment> amountPayments = dataset.mentor() ? releasedPayments : settledPayments;
                 double averageSessionValue = amountPayments.isEmpty()
                                 ? 0
@@ -221,7 +198,7 @@ public class AnalyticsService {
 
                 AnalyticsDtos.LearnerHistoryDto learnerHistory = buildLearnerHistory(relevantBookings, settledPayments);
 
-                int organic = Math.min(85, 40 + (int) Math.round(averageProgress * 0.35));
+                int organic = Math.min(85, 40 + (int) Math.round(completionRate * 0.3));
                 int referral = 25;
                 int social = Math.max(8, 100 - organic - referral);
                 AnalyticsDtos.AcquisitionDto acquisitions = new AnalyticsDtos.AcquisitionDto(organic, referral, social);
@@ -246,8 +223,6 @@ public class AnalyticsService {
                                 round1(totalHoursLearned),
                                 learnerHistory,
                                 completionRate,
-                                averageProgress,
-                                lowProgressRoadmaps,
                                 cancelledCount,
                                 upcomingSessionsCount,
                                 round1(averageSessionValue),
@@ -456,8 +431,7 @@ public class AnalyticsService {
                         int rangeDays,
                         OffsetDateTime now,
                         List<Booking> bookings,
-                        List<Payment> payments,
-                        List<LearningRoadmap> roadmaps) {
+                        List<Payment> payments) {
         }
 
         private static final class MutableMentorHistory {

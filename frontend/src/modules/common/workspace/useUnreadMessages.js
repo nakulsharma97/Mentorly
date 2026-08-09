@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router";
 import client from "../../../api/client";
 import { unwrap } from "../../messages/utils";
 import {
@@ -52,9 +53,17 @@ export function useUnreadMessageCount() {
  */
 export function useUnreadMessagePolling(profile) {
   const role = String(profile?.role || "").toUpperCase();
+  const { pathname } = useLocation();
+  // The Messages page already keeps the shared unread store fresh from its
+  // own loaded conversations (MessageApp publishes the live total), so
+  // polling the same two conversation endpoints again there would duplicate
+  // the requests on every poll/focus. Skip while on a messages page and do
+  // one immediate refresh when the user leaves it.
+  const isMessagesPage = String(pathname || "").endsWith("/messages");
 
   useEffect(() => {
     if (role !== "MENTOR" && role !== "LEARNER") return undefined;
+    if (isMessagesPage) return undefined;
 
     let alive = true;
     let timer = null;
@@ -86,5 +95,5 @@ export function useUnreadMessagePolling(profile) {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onFocus);
     };
-  }, [role]);
+  }, [role, isMessagesPage]);
 }

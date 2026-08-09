@@ -1,6 +1,7 @@
 package com.skillswap.notification;
 
 import com.skillswap.admin.AdminNotificationService;
+import com.skillswap.common.SchedulerLockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -27,6 +28,7 @@ public class NotificationBroadcastScheduler {
 
     private final NotificationBroadcastRepository broadcastRepository;
     private final AdminNotificationService adminNotificationService;
+    private final SchedulerLockService schedulerLockService;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -36,15 +38,19 @@ public class NotificationBroadcastScheduler {
             return; // previous run still in progress
         }
         try {
-            OffsetDateTime now = OffsetDateTime.now();
-            List<NotificationBroadcast> due = broadcastRepository.findDueScheduled(now);
-            for (NotificationBroadcast broadcast : due) {
-                try {
-                    processOne(broadcast);
-                } catch (Exception ex) {
-                    log.error("Failed to send due broadcast {}: {}", broadcast.getId(), ex.getMessage());
+            // Leader lock: with multiple app instances only one pod may send
+            // due broadcasts, otherwise learners get duplicate notifications.
+            schedulerLockService.runIfLeader("notification-broadcast-poll", () -> {
+                OffsetDateTime now = OffsetDateTime.now();
+                List<NotificationBroadcast> due = broadcastRepository.findDueScheduled(now);
+                for (NotificationBroadcast broadcast : due) {
+                    try {
+                        processOne(broadcast);
+                    } catch (Exception ex) {
+                        log.error("Failed to send due broadcast {}: {}", broadcast.getId(), ex.getMessage());
+                    }
                 }
-            }
+            });
         } finally {
             running.set(false);
         }

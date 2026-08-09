@@ -9,7 +9,7 @@ import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
 /* ── Curated enrichment catalog ──
-   These entries provide editorial learning content (roadmaps, resources, careers)
+   These entries provide editorial learning content (resources, docs, practice links)
    for well-known skills. Names/categories are always overridden by the live
    /api/v1/skills record, and mentors come from the live /api/v1/users/mentors
    endpoint — no fake people or metrics are shipped here anymore. */
@@ -23,9 +23,7 @@ const SKILL_DETAILS = {
     description: "Build enterprise-grade applications with Java, one of the most versatile and widely-used programming languages in the world. Java powers everything from Android apps to large-scale backend systems.",
     whatYouLearn: ["Java syntax & fundamentals", "Object-Oriented Programming", "Collections Framework", "Exception Handling", "File I/O & Serialization", "Multithreading & Concurrency", "JDBC & Database Access", "Spring Boot & REST APIs"],
     prerequisites: ["Basic programming logic", "Understanding of variables & loops", "Familiarity with any programming language"],
-    careerPaths: ["Backend Developer", "Android Developer", "Full Stack Developer"],
     avgSalary: "₹6-25 LPA",
-    roadmapId: "java-developer",
     docUrl: "https://docs.oracle.com/en/java/",
     youtubeUrl: "https://www.youtube.com/results?search_query=java+programming+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -40,9 +38,7 @@ const SKILL_DETAILS = {
     description: "Master React to build fast, interactive user interfaces. The most popular frontend library for modern web apps, used by companies like Facebook, Netflix, and Airbnb.",
     whatYouLearn: ["JSX & Components", "State & Props", "Hooks (useState, useEffect)", "Event Handling", "Conditional Rendering", "Lists & Keys", "Forms & Controlled Inputs", "React Router", "State Management (Context/Redux)"],
     prerequisites: ["HTML & CSS basics", "JavaScript fundamentals (ES6+)", "Understanding of DOM"],
-    careerPaths: ["Frontend Developer", "UI Developer", "Full Stack Developer"],
     avgSalary: "₹6-18 LPA",
-    roadmapId: "frontend-developer",
     docUrl: "https://react.dev/",
     youtubeUrl: "https://www.youtube.com/results?search_query=react+js+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -57,9 +53,7 @@ const SKILL_DETAILS = {
     description: "Create production-grade Spring-based applications with minimal fuss. The go-to framework for Java microservices and cloud-native applications.",
     whatYouLearn: ["Spring Boot Basics", "Dependency Injection", "REST API Development", "Spring Data JPA", "Security with Spring Security", "Microservices Architecture", "Testing with JUnit & Mockito", "Deployment & Monitoring"],
     prerequisites: ["Java fundamentals", "Understanding of OOP", "Basic SQL knowledge"],
-    careerPaths: ["Backend Developer", "Java Developer", "Microservices Developer"],
     avgSalary: "₹8-22 LPA",
-    roadmapId: "java-developer",
     docUrl: "https://spring.io/projects/spring-boot",
     youtubeUrl: "https://www.youtube.com/results?search_query=spring+boot+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -74,9 +68,7 @@ const SKILL_DETAILS = {
     description: "Learn Python programming from scratch. The most beginner-friendly language powering AI, data science, automation, and web development.",
     whatYouLearn: ["Python Basics & Syntax", "Data Structures (Lists, Dicts, Sets)", "Functions & Modules", "File Handling", "OOP in Python", "Libraries (NumPy, Pandas)", "APIs & Web Scraping", "Basic ML with Scikit-learn"],
     prerequisites: ["No programming experience needed"],
-    careerPaths: ["Python Developer", "Data Scientist", "AI Engineer"],
     avgSalary: "₹5-20 LPA",
-    roadmapId: "python-developer",
     docUrl: "https://docs.python.org/3/",
     youtubeUrl: "https://www.youtube.com/results?search_query=python+course+for+beginners",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -91,9 +83,7 @@ const SKILL_DETAILS = {
     description: "Build scalable server-side applications with JavaScript. Event-driven architecture for modern backends and real-time applications.",
     whatYouLearn: ["Node.js Runtime & NPM", "Express.js Framework", "RESTful APIs", "Database Integration (MongoDB, SQL)", "Authentication & Authorization", "File System & Streams", "WebSockets & Real-time", "Testing & Deployment"],
     prerequisites: ["JavaScript fundamentals (ES6+)", "Basic understanding of web servers"],
-    careerPaths: ["Backend Developer", "Full Stack Developer", "API Developer"],
     avgSalary: "₹6-18 LPA",
-    roadmapId: "fullstack-developer",
     docUrl: "https://nodejs.org/docs/latest/api/",
     youtubeUrl: "https://www.youtube.com/results?search_query=node+js+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -108,9 +98,7 @@ const SKILL_DETAILS = {
     description: "Master Amazon Web Services — the world's leading cloud platform. From EC2 to Lambda, learn to deploy and scale applications in the cloud.",
     whatYouLearn: ["AWS Core Services (EC2, S3, RDS)", "Lambda & Serverless", "API Gateway", "DynamoDB", "CloudFormation & IaC", "CI/CD with CodePipeline", "Monitoring with CloudWatch", "Security & IAM"],
     prerequisites: ["Basic understanding of cloud computing", "Command line familiarity", "Networking basics"],
-    careerPaths: ["Cloud Engineer", "DevOps Engineer", "Solutions Architect"],
     avgSalary: "₹10-30 LPA",
-    roadmapId: "cloud-engineer",
     docUrl: "https://docs.aws.amazon.com/",
     youtubeUrl: "https://www.youtube.com/results?search_query=aws+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -125,9 +113,7 @@ const SKILL_DETAILS = {
     description: "Containerise your applications with Docker. Simplify deployment, scaling, and environment consistency across development and production.",
     whatYouLearn: ["Docker Basics & Architecture", "Images & Containers", "Dockerfile & Building", "Docker Compose", "Networking & Volumes", "Registry & Hub", "Docker Swarm", "CI/CD with Docker"],
     prerequisites: ["Command line basics", "Understanding of Linux", "Basic networking"],
-    careerPaths: ["DevOps Engineer", "Platform Engineer", "Cloud Engineer"],
     avgSalary: "₹8-25 LPA",
-    roadmapId: "devops-engineer",
     docUrl: "https://docs.docker.com/",
     youtubeUrl: "https://www.youtube.com/results?search_query=docker+course",
     practiceUrl: "https://leetcode.com/problemset/",
@@ -142,9 +128,7 @@ const SKILL_DETAILS = {
     description: "Query and manage relational databases with SQL. An essential skill for every developer and data professional — from backend engineers to data analysts.",
     whatYouLearn: ["SELECT, INSERT, UPDATE, DELETE", "JOINs & Subqueries", "Aggregation & Grouping", "Indexes & Performance", "Normalization & Schema Design", "Transactions & ACID", "Stored Procedures", "Views & CTEs"],
     prerequisites: ["No programming experience needed", "Basic logical thinking"],
-    careerPaths: ["Data Analyst", "Backend Developer", "Database Administrator"],
     avgSalary: "₹4-15 LPA",
-    roadmapId: "data-analyst",
     docUrl: "https://www.w3schools.com/sql/",
     youtubeUrl: "https://www.youtube.com/results?search_query=sql+course+for+beginners",
     practiceUrl: "https://leetcode.com/problemset/database/",
@@ -219,9 +203,7 @@ export default function SkillDetailPage({ notify }) {
           description: catalog.description || "",
           whatYouLearn: catalog.whatYouLearn || [],
           prerequisites: catalog.prerequisites || [],
-          careerPaths: catalog.careerPaths || [],
           avgSalary: catalog.avgSalary || "",
-          roadmapId: catalog.roadmapId || null,
           docUrl: catalog.docUrl || "",
           youtubeUrl: catalog.youtubeUrl || "",
           practiceUrl: catalog.practiceUrl || "",
@@ -337,6 +319,7 @@ export default function SkillDetailPage({ notify }) {
 
       {/* Header — unified hero design system */}
       <MentorPageHero
+        compact
         eyebrow={skill.category}
         icon={skill.category === "Backend" ? "dns" : "code"}
         title={skill.name}
@@ -403,44 +386,6 @@ export default function SkillDetailPage({ notify }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Career Paths */}
-          {skill.careerPaths.length > 0 && (
-            <div className="mp-stat" style={{ padding: 24 }}>
-              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon name="work" style={{ color: "var(--mp-purple)" }} /> Career Opportunities
-              </h3>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {skill.careerPaths.map((cp) => (
-                  <Link
-                    key={cp}
-                    to={`/learner/careers/${cp.toLowerCase().replace(/\s+/g, "-")}`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 999, background: "var(--mp-purple-light)", color: "var(--mp-purple)", fontSize: "0.85rem", fontWeight: 700, textDecoration: "none", transition: "all 0.15s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mp-purple)"; e.currentTarget.style.color = "#fff"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--mp-purple-light)"; e.currentTarget.style.color = "var(--mp-purple)"; }}
-                  >
-                    <Icon name="arrow_forward" style={{ fontSize: 16 }} /> {cp}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Learning Roadmap */}
-          {skill.roadmapId && (
-            <div className="mp-stat" style={{ padding: 24 }}>
-              <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon name="route" style={{ color: "var(--mp-primary)" }} /> Learning Roadmap
-              </h3>
-              <p style={{ margin: "0 0 16px", color: "var(--mp-text-secondary)", fontSize: "0.9rem" }}>
-                Follow this structured path to master {skill.name}. Click "View Full Roadmap" for a detailed learning plan with milestones and projects.
-              </p>
-              <Link to={`/learner/roadmaps/${skill.roadmapId}`} className="mp-btn mp-btn--primary" style={{ textDecoration: "none" }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>route</span>
-                View Full Roadmap
-              </Link>
             </div>
           )}
 

@@ -959,10 +959,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
-  min-height: 320px;
-  max-height: 380px;
-  padding: 36px 40px;
+  gap: 24px;
+  min-height: 300px;
+  max-height: 340px;
+  padding: 32px 36px;
   border-radius: var(--hero-radius, 32px);
   background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
   color: #fff;
@@ -1007,12 +1007,12 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   background: var(--hero-badge-bg, rgba(255, 255, 255, 0.12));
   border: 1px solid var(--hero-badge-border, rgba(255, 255, 255, 0.18));
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 999px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1026,8 +1026,8 @@
 }
 
 .ml-hero-greet {
-  margin: 0 0 10px;
-  font-size: 2.1rem;
+  margin: 0 0 8px;
+  font-size: 1.75rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -1037,17 +1037,17 @@
 
 .ml-hero-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.88);
-  max-width: 520px;
+  max-width: 500px;
 }
 
 .ml-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 /* Hero buttons: primary = white pill with teal text, secondary = glass. */
@@ -1061,6 +1061,17 @@
 .ml-btn--hero-primary:hover {
   background: #f0fdfa;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
+}
+
+/* Dark mode — the white hero pill keeps its dark-teal text; the global
+   `[data-theme="dark"] .material-symbols-outlined` rule in styles.css
+   repaints icon glyphs near-white, which is invisible on the white pill.
+   Pin the glyph to the button's text color (same treatment as the shared
+   .hero-section__btn--primary). Used by My Learning "Continue Learning"
+   and Daily Tasks "Add Task". Light mode is untouched. */
+[data-theme="dark"] .ml-btn--hero-primary .material-symbols-outlined,
+[data-theme="dark"] .ml-btn--hero-primary .md__icon {
+  color: var(--hero-btn-text, #0f766e);
 }
 
 .ml-hero .ml-btn--glass {
@@ -1079,10 +1090,10 @@
   position: relative;
   z-index: 1;
   flex: 0 0 auto;
-  width: 268px;
+  width: 232px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .ml-hero-quick-item {
@@ -1090,7 +1101,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 3px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 16px;
   background: var(--hero-glass-bg, rgba(255, 255, 255, 0.12));
   border: 1px solid var(--hero-glass-border, rgba(255, 255, 255, 0.18));

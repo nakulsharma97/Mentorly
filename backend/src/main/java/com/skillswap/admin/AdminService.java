@@ -10,7 +10,6 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.payment.PaymentService;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.safety.UserReportRepository;
 import com.skillswap.user.User;
@@ -53,7 +52,6 @@ public class AdminService {
     private final SessionRepository sessionRepository;
     private final AdminSettingRepository adminSettingRepository;
     private final AdminNotifPreferenceRepository adminNotifPreferenceRepository;
-    private final ReferralRewardRepository referralRewardRepository;
     private final UserReportRepository reportRepository;
     private final MentorVerificationRequestRepository mentorVerificationRepository;
     private final SessionWaitlistRepository waitlistRepository;

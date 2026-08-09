@@ -30,7 +30,6 @@ import com.skillswap.wallet.WalletService;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.chat.ChatMessage;
 import com.skillswap.chat.ChatMessageRepository;
 import com.skillswap.messaging.DirectConversation;
@@ -120,7 +119,6 @@ public class AdminController {
     private final AdminSettingRepository adminSettingRepository;
     private final AdminNotifPreferenceRepository
             adminNotifPreferenceRepository;
-    private final ReferralRewardRepository referralRewardRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final SkillWatchlistRepository skillWatchlistRepository;
     private final FlaggedContentRepository flaggedContentRepository;
@@ -2009,82 +2007,6 @@ public class AdminController {
     }
 
     // ════════════════════════════════════════════════
-    //  Admin — Referral Analytics
-    // ════════════════════════════════════════════════
-
-    @GetMapping("/referral-analytics")
-    public ApiResponse<AdminReferralAnalyticsDto> getReferralAnalytics(
-            @AuthenticationPrincipal User currentUser) {
-        ensureAdmin(currentUser);
-
-        List<Long> distinctReferrerIds = referralRewardRepository.findDistinctReferrerIds();
-        long totalReferrals = referralRewardRepository.count();
-        long totalReferrers = distinctReferrerIds.size();
-        long totalCreditsEarned = totalReferrals * 50L;
-
-        // Users who have a referral code
-        long usersWithReferralCode = userRepository.countByReferralCodeIsNotNull();
-
-        double avgPerReferrer = totalReferrers > 0
-                ? Math.round((double) totalReferrals / totalReferrers * 10.0) / 10.0
-                : 0.0;
-
-        long totalUsers = userRepository.count();
-        double conversionRate = totalUsers > 0
-                ? Math.round((double) totalReferrers / totalUsers * 100.0 * 10.0) / 10.0
-                : 0.0;
-
-        // Monthly referral trend (Java-level grouping for DB portability)
-        Map<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> monthCounts =
-                new LinkedHashMap<>();
-        OffsetDateTime now = OffsetDateTime.now();
-        java.time.format.DateTimeFormatter labelFmt = java.time.format.DateTimeFormatter.ofPattern("MMM");
-        // Build last 12 months as baseline using YearMonth keys to avoid year collision
-        for (int i = 11; i >= 0; i--) {
-            java.time.YearMonth ym = java.time.YearMonth.from(now.minusMonths(i));
-            monthCounts.put(ym, new java.util.concurrent.atomic.AtomicLong(0));
-        }
-        List<Object[]> monthlyRaw = referralRewardRepository.countByMonth();
-        for (Object[] row : monthlyRaw) {
-            int year = ((Number) row[0]).intValue();
-            int month = ((Number) row[1]).intValue();
-            long count = ((Number) row[2]).longValue();
-            java.time.YearMonth ym = java.time.YearMonth.of(year, month);
-            java.util.concurrent.atomic.AtomicLong counter = monthCounts.get(ym);
-            if (counter != null) {
-                counter.addAndGet(count);
-            }
-        }
-        List<MonthlyBucket> referralTrend = new ArrayList<>();
-        for (Map.Entry<java.time.YearMonth, java.util.concurrent.atomic.AtomicLong> entry
-                : monthCounts.entrySet()) {
-            referralTrend.add(new MonthlyBucket(labelFmt.format(entry.getKey()), entry.getValue().doubleValue()));
-        }
-
-        // Top referrers
-        List<Object[]> topRaw = referralRewardRepository.findTopReferrersRaw();
-        List<AdminReferrerDto> topReferrers = new ArrayList<>();
-        int rank = 1;
-        for (Object[] row : topRaw) {
-            Long userId = ((Number) row[0]).longValue();
-            long count = ((Number) row[1]).longValue();
-            User referrerUser = userRepository.findById(userId).orElse(null);
-            String name = referrerUser != null ? referrerUser.getFullName() : "Deleted User";
-            String username = referrerUser != null ? referrerUser.getDisplayUsername() : "";
-            topReferrers.add(new AdminReferrerDto(rank, userId, name, username, (int) count, (int) count * 50));
-            rank++;
-            if (rank > 10) {
-                break; // Top 10
-            }
-        }
-
-        return new ApiResponse<>("Referral analytics fetched",
-                new AdminReferralAnalyticsDto(totalReferrals, totalReferrers, totalCreditsEarned,
-                        avgPerReferrer, conversionRate, usersWithReferralCode,
-                        referralTrend, topReferrers));
-    }
-
-    // ════════════════════════════════════════════════
     //  Admin — Notification Preferences (DB-backed - Feature 2)
     // ════════════════════════════════════════════════
 
@@ -2730,19 +2652,4 @@ public class AdminController {
     public record AdminBulkRoleRequest(
             @jakarta.validation.constraints.NotEmpty List<Long> ids,
             @NotBlank String role) { }
-
-    // Referral Analytics DTOs
-/**
- * Immutable data carrier for admin referral analytics.
- */
-    public record AdminReferralAnalyticsDto(
-            long totalReferrals, long totalReferrers, long totalCreditsEarned,
-            double avgPerReferrer, double conversionRate, long usersWithReferralCode,
-            List<MonthlyBucket> referralTrend, List<AdminReferrerDto> topReferrers) { }
-
-/**
- * Immutable data carrier for admin referrer.
- */
-    public record AdminReferrerDto(
-            int rank, Long userId, String name, String username, int referralCount, int creditsEarned) { }
 }

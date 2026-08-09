@@ -237,6 +237,7 @@ export default function LearnerSavedMentorsPage({ notify }) {
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ═══ HERO (unified design system) ═══ */}
       <MentorPageHero
+        compact
         eyebrow="FAVORITES"
         icon="favorite"
         title="My Favorite Mentors"

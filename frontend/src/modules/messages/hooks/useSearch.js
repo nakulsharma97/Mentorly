@@ -39,8 +39,10 @@ export default function useSearch() {
         const data = unwrap(res.data);
         // Normalize the backend search rows to the exact same shape the
         // conversation list uses (prefixed id, convId, kind, title, …) so
-        // selecting a search result opens the correct thread.
-        setResults(Array.isArray(data) ? data.map(normalizeRow) : []);
+        // selecting a search result opens the correct thread. Rows are then
+        // deduped per person — one conversation per user pair, never one per
+        // booked session.
+        setResults(Array.isArray(data) ? dedupeRows(data.map(normalizeRow)) : []);
       } catch (err) {
         if (seq !== seqRef.current) return;
         setResults([]);
@@ -90,5 +92,49 @@ function normalizeRow(r) {
     online: Boolean(r?.participantOnline),
     presence: r?.participantPresenceText || "Offline",
     sessionTitle: r?.sessionTitle || "",
+    sessionCount: Number(r?.sessionCount || 0),
+    participantId: r?.participantId,
   };
+}
+
+/**
+ * Collapse search results to ONE row per user pair (booking + direct rows for
+ * the same person merge, keeping the most recent activity).
+ */
+function dedupeRows(rows) {
+  const byParticipant = new Map();
+  for (const row of rows) {
+    const key =
+      row.participantId != null
+        ? `p-${row.participantId}`
+        : `${row.kind}-${row.convId}`;
+    const existing = byParticipant.get(key);
+    if (!existing) {
+      byParticipant.set(key, {
+        ...row,
+        threads: [{ kind: row.kind, convId: row.convId }],
+      });
+      continue;
+    }
+    const rowTime = new Date(row.time || 0).getTime();
+    const existingTime = new Date(existing.time || 0).getTime();
+    const newer = rowTime >= existingTime ? row : existing;
+    byParticipant.set(key, {
+      ...newer,
+      time: newer.time || existing.time || row.time,
+      subtitle:
+        rowTime >= existingTime
+          ? row.subtitle || existing.subtitle
+          : existing.subtitle || row.subtitle,
+      unreadCount: existing.unreadCount + row.unreadCount,
+      sessionCount: Math.max(existing.sessionCount || 0, row.sessionCount || 0),
+      threads: [
+        ...(existing.threads || [{ kind: existing.kind, convId: existing.convId }]),
+        { kind: row.kind, convId: row.convId },
+      ],
+    });
+  }
+  return [...byParticipant.values()].sort(
+    (a, b) => new Date(b.time || 0) - new Date(a.time || 0),
+  );
 }

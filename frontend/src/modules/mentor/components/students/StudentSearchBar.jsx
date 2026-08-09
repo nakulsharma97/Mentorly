@@ -26,7 +26,7 @@ export default function StudentSearchBar({
           type="search"
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search student by name, email, skill or roadmap..."
+          placeholder="Search student by name, email or skill..."
           aria-label="Search students"
         />
       </label>

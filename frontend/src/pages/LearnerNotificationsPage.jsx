@@ -14,6 +14,7 @@ export default function LearnerNotificationsPage({ notify }) {
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero (unified design system) ===== */}
       <MentorPageHero
+        compact
         eyebrow="NOTIFICATIONS"
         icon="notifications"
         title="Notification Center"

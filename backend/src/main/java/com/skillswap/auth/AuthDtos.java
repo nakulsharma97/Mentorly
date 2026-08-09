@@ -28,8 +28,7 @@ public class AuthDtos {
                                 message = "Username may only contain letters, numbers, and . _ -")
                         String username,
                         UserRole role,
-                        String walletAddress,
-                        String referralCode) {
+                        String walletAddress) {
         }
 
 /**

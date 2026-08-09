@@ -21,7 +21,6 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.safety.ReportPriority;
 import com.skillswap.safety.ReportStatus;
@@ -130,9 +129,6 @@ class AdminControllerIntegrationTest {
     private AdminSettingRepository adminSettingRepository;
     @MockitoBean
     private AdminNotifPreferenceRepository adminNotifPreferenceRepository;
-
-    @MockitoBean
-    private ReferralRewardRepository referralRewardRepository;
 
     @MockitoBean
     private MentorReviewRepository mentorReviewRepository;

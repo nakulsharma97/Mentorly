@@ -1,5 +1,6 @@
 package com.skillswap.admin;
 
+import com.skillswap.common.SchedulerLockService;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -29,6 +30,7 @@ public class AdminScheduledReportService {
     private final UserRepository userRepository;
     private final AdminSettingRepository adminSettingRepository;
     private final EmailNotificationService emailNotificationService;
+    private final SchedulerLockService schedulerLockService;
 
     @Value("${app.admin.email:}")
     private String adminEmail;
@@ -38,39 +40,43 @@ public class AdminScheduledReportService {
      */
     @Scheduled(cron = "0 0 7 * * *", zone = "UTC")
     public void generateAndSendScheduledReport() {
-        String frequency = getReportFrequency();
+        // Leader lock so admins never receive duplicate scheduled reports
+        // when the app runs on multiple instances (k8s replicas).
+        schedulerLockService.runIfLeader("admin-scheduled-report", () -> {
+            String frequency = getReportFrequency();
 
-        if ("none".equalsIgnoreCase(frequency)) {
-            return;
-        }
+            if ("none".equalsIgnoreCase(frequency)) {
+                return;
+            }
 
-        boolean shouldSend = false;
-        int dayOfMonth = OffsetDateTime.now().getDayOfMonth();
+            boolean shouldSend = false;
+            int dayOfMonth = OffsetDateTime.now().getDayOfMonth();
 
-        if ("weekly".equalsIgnoreCase(frequency) && OffsetDateTime.now().getDayOfWeek().getValue() == 1) {
-            shouldSend = true;
-        } else if ("monthly".equalsIgnoreCase(frequency) && dayOfMonth == 1) {
-            shouldSend = true;
-        }
+            if ("weekly".equalsIgnoreCase(frequency) && OffsetDateTime.now().getDayOfWeek().getValue() == 1) {
+                shouldSend = true;
+            } else if ("monthly".equalsIgnoreCase(frequency) && dayOfMonth == 1) {
+                shouldSend = true;
+            }
 
-        if (!shouldSend) {
-            return;
-        }
+            if (!shouldSend) {
+                return;
+            }
 
-        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
-        if (admins.isEmpty()) {
-            log.info("Scheduled report skipped — no admin users found");
-            return;
-        }
+            List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+            if (admins.isEmpty()) {
+                log.info("Scheduled report skipped — no admin users found");
+                return;
+            }
 
-        String reportBody = buildReportBody(frequency);
-        for (User admin : admins) {
-            emailNotificationService.sendNotificationEmail(
-                    admin,
-                    "SkillSwap " + (frequency.equals("weekly") ? "Weekly" : "Monthly") + " Dashboard Report",
-                    reportBody);
-        }
-        log.info("Scheduled {} report sent to {} admin(s)", frequency, admins.size());
+            String reportBody = buildReportBody(frequency);
+            for (User admin : admins) {
+                emailNotificationService.sendNotificationEmail(
+                        admin,
+                        "SkillSwap " + (frequency.equals("weekly") ? "Weekly" : "Monthly") + " Dashboard Report",
+                        reportBody);
+            }
+            log.info("Scheduled {} report sent to {} admin(s)", frequency, admins.size());
+        });
     }
 
     private String getReportFrequency() {

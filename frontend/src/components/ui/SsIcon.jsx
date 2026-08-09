@@ -165,6 +165,8 @@ const iconMap = {
   manage_search: "manage_search",
   "arrow-forward": "arrow_forward",
   arrow_forward: "arrow_forward",
+  "currency_rupee": "currency_rupee",
+  "currency-rupee": "currency_rupee",
 
   // Default fallback
   default: "grid_view",

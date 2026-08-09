@@ -150,7 +150,6 @@ public class AdminDataInitializer implements CommandLineRunner {
         admin.setFullName(adminName.trim());
         admin.setRole(UserRole.ADMIN);
         admin.setAdminSubRole(AdminSubRole.SUPER_ADMIN);
-        admin.setReferralCode(generateReferralCode());
         admin.setEnabled(true);
         admin.setCreatedAt(OffsetDateTime.now());
         admin.setLastActiveAt(OffsetDateTime.now());
@@ -172,10 +171,6 @@ public class AdminDataInitializer implements CommandLineRunner {
         return !normalized.contains("dev")
                 && !normalized.contains("local")
                 && !normalized.contains("test");
-    }
-
-    private static String generateReferralCode() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
     }
 
     /**

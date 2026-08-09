@@ -188,7 +188,6 @@ class SecurityConfigIntegrationTest {
         user.setPasswordHash(passwordEncoder.encode("Password123!"));
         user.setRole(role);
         user.setUsername(prefix + UUID.randomUUID().toString().substring(0, 6));
-        user.setReferralCode("SEC-" + UUID.randomUUID().toString().substring(0, 8));
         user.setFullName(role.name() + " User " + UUID.randomUUID().toString().substring(0, 8));
         user.setEnabled(true);
         return userRepository.save(user);

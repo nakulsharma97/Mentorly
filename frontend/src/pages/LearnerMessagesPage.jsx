@@ -15,6 +15,7 @@ export default function LearnerMessagesPage({ profile, notify }) {
   return (
     <div className="ms-page">
       <HeroSection
+        className="hero-section--compact"
         badge="Messages"
         title="Messages"
         subtitle="Chat with mentors and learners, manage session requests, and keep every conversation in one place."

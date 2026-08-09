@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
      * claiming the same username/email, or an admin tool creating a duplicate
      * handle). These are client errors — 409 Conflict — never 500s. The
      * message stays generic because the same exception can be raised by
-     * several columns (email, username, referral code, …).
+     * several columns (email, username, …).
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)

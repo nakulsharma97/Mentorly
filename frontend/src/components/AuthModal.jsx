@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+
 import client, {
   API_BASE_URL,
   clearAuthSessionState,
@@ -18,7 +18,6 @@ export default function AuthModal({
   initialError,
   notify,
 }) {
-  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     // Login credential — either an email address or a username.
     emailOrUsername: "",
@@ -108,7 +107,6 @@ export default function AuthModal({
             }
           : {
               ...currentForm,
-              referralCode: searchParams.get("ref")?.trim() || undefined,
             };
 
       // Clear any stale auth state (Authorization header, localStorage tokens,

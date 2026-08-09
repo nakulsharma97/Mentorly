@@ -60,7 +60,6 @@ class RefreshTokenRotationIntegrationTest {
                 "Rotation User",
                 "rot" + unique.substring(0, 8),
                 UserRole.LEARNER,
-                null,
                 null), "127.0.0.1");
     }
 

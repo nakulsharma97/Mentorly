@@ -130,7 +130,6 @@ export default function AnalyticsPage({ profile }) {
   });
   const [bookings, setBookings] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [roadmaps, setRoadmaps] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState("");
@@ -157,11 +156,10 @@ export default function AnalyticsPage({ profile }) {
       setLoading(true);
       setErrorText("");
 
-      const [bookingsResult, paymentsResult, roadmapsResult, reviewsResult] =
+      const [bookingsResult, paymentsResult, reviewsResult] =
         await Promise.allSettled([
           client.get("/api/v1/bookings"),
           client.get("/api/v1/payments"),
-          client.get("/api/v1/roadmaps"),
           isMentor
             ? client.get("/api/v1/reviews/mentor")
             : Promise.resolve({ data: { data: [] } }),
@@ -176,14 +174,9 @@ export default function AnalyticsPage({ profile }) {
 
       setBookings(readData(bookingsResult));
       setPayments(readData(paymentsResult));
-      setRoadmaps(readData(roadmapsResult));
       setReviews(readData(reviewsResult));
 
-      if (
-        bookingsResult.status === "rejected" &&
-        paymentsResult.status === "rejected" &&
-        roadmapsResult.status === "rejected"
-      ) {
+      if (bookingsResult.status === "rejected" && paymentsResult.status === "rejected") {
         setErrorText(getErrorFeedback("analyticsLoadFailed").message);
       }
 
@@ -272,16 +265,6 @@ export default function AnalyticsPage({ profile }) {
     const completionRate =
       relevantBookings.length > 0
         ? Math.round((completedCount / relevantBookings.length) * 100)
-        : 0;
-
-    const progressValues = roadmaps
-      .map((roadmap) => toNumber(roadmap?.progressPercent))
-      .filter((value) => value > 0);
-    const averageProgress =
-      progressValues.length > 0
-        ? Math.round(
-            progressValues.reduce((a, b) => a + b, 0) / progressValues.length,
-          )
         : 0;
 
     const amountPayments = isMentor ? releasedPayments : settledPayments;
@@ -382,7 +365,7 @@ export default function AnalyticsPage({ profile }) {
         : 0;
 
     const acquisitions = {
-      organic: Math.min(85, 40 + Math.round(averageProgress * 0.35)),
+      organic: Math.min(85, 40 + Math.round(completionRate * 0.3)),
       referral: 25,
       social: 100,
     };
@@ -439,7 +422,6 @@ export default function AnalyticsPage({ profile }) {
         mentors: mentorHistory,
       },
       completionRate,
-      averageProgress,
       topSessions,
       acquisitions,
       monthBuckets,
@@ -454,7 +436,7 @@ export default function AnalyticsPage({ profile }) {
             )
           : null,
     };
-  }, [filtered, isMentor, roadmaps, reviews]);
+  }, [filtered, isMentor, reviews]);
 
   const insightCards = useMemo(() => {
     const cards = [];
@@ -479,7 +461,7 @@ export default function AnalyticsPage({ profile }) {
 
       cards.push({
         title: "Learning momentum",
-        detail: `Average learner progress is ${analytics.averageProgress}%. Prioritize stuck learners this week.`,
+        detail: `${analytics.completionRate}% of requested sessions are completed. Reach out to learners who missed recent sessions.`,
         icon: "trending_up",
       });
     } else {
@@ -587,6 +569,7 @@ export default function AnalyticsPage({ profile }) {
     <div className="md-page">
       <div className="space-y-10">
             <HeroSection
+              className="hero-section--compact"
               badge="Performance Workspace"
               title="Performance Overview"
               subtitle={
@@ -1189,8 +1172,7 @@ export default function AnalyticsPage({ profile }) {
                       : "Learning Skill Impact"}
                   </h3>
                     <p className="text-on-surface-variant text-xs font-medium">
-                      Progress observed from roadmap milestones and session
-                      completion
+                      Progress observed from completed sessions
                     </p>
                   </div>
                   <div className="bg-primary/5 px-3 py-1.5 rounded-full flex items-center space-x-2">
@@ -1230,17 +1212,17 @@ export default function AnalyticsPage({ profile }) {
                   <div className="mt-6 rounded-xl bg-surface-container-lowest/90 border border-outline-variant/10 px-4 py-3 text-xs">
                     <div className="flex items-center justify-between">
                       <span className="text-on-surface-variant font-semibold">
-                        Average roadmap completion
+                        Session completion
                       </span>
                       <span className="font-black text-on-surface">
-                        {analytics.averageProgress}%
+                        {analytics.completionRate}%
                       </span>
                     </div>
                     <div className="mt-2 h-2 rounded-full bg-surface-container-high overflow-hidden">
                       <div
                         className="h-full rounded-full bg-primary"
                         style={{
-                          width: `${Math.min(100, Math.max(0, analytics.averageProgress))}%`,
+                          width: `${Math.min(100, Math.max(0, analytics.completionRate))}%`,
                         }}
                       />
                     </div>

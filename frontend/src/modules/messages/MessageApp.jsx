@@ -73,6 +73,12 @@ export default function MessageApp({
     [conversations, selectedId],
   );
   const convId = selConv?.convId;
+  // Stable identity for the open thread (kind + conversation id). The message
+  // loader keys on this, NOT the row object, so refetching the conversation
+  // list (e.g. right after sending) never blanks or reloads the open chat.
+  const selKey = selConv ? `${selConv.kind}:${selConv.convId}` : null;
+  const selConvRef = useRef(null);
+  selConvRef.current = selConv;
 
   const { sendTyping, typingConversationId, socket } = useChatSocket({
     conversationId: convId,
@@ -138,7 +144,8 @@ export default function MessageApp({
   }, [conversations, initialConversationId, selectedId]);
 
   useEffect(() => {
-    if (!selConv || !currentUserId) {
+    const conv = selConvRef.current;
+    if (!conv || !currentUserId) {
       setMessages([]);
       return;
     }
@@ -147,9 +154,9 @@ export default function MessageApp({
       setLoadingMessages(true);
       try {
         const endpoint =
-          selConv.kind === "booking"
-            ? `/api/v1/chat/booking/${selConv.convId}`
-            : `/api/v1/chat/direct/${selConv.convId}/messages`;
+          conv.kind === "booking"
+            ? `/api/v1/chat/booking/${conv.convId}`
+            : `/api/v1/chat/direct/${conv.convId}/messages`;
         const res = await client.get(endpoint);
         if (!cancelled) setMessages(unwrap(res.data) || []);
       } catch {
@@ -162,7 +169,22 @@ export default function MessageApp({
     return () => {
       cancelled = true;
     };
-  }, [selConv, currentUserId]);
+  }, [selKey, currentUserId]);
+
+  // A conversation row may represent several threads (one direct chat plus the
+  // booking chats for that person). Opening it marks the OPEN thread read via
+  // the socket READ frame; mark every other booking thread read too, so a
+  // session-chat message can never leave a permanent unread badge on the row.
+  useEffect(() => {
+    const conv = selConvRef.current;
+    if (!conv || !currentUserId || !Array.isArray(conv.threads)) return;
+    const opened = `${conv.kind}:${conv.convId}`;
+    for (const t of conv.threads) {
+      if (t?.kind !== "booking") continue;
+      if (`booking:${t.convId}` === opened) continue; // socket READ handles it
+      client.put(`/api/v1/chat/booking/${t.convId}/read`).catch(() => {});
+    }
+  }, [selKey, currentUserId]);
 
   const loadRequests = useCallback(async () => {
     if (!currentUserId) {
@@ -217,9 +239,9 @@ export default function MessageApp({
             ? { type: "READ", conversationId: Number(convId) }
             : { type: "READ", bookingId: Number(convId) },
         );
-        window.setTimeout(load, 800);
+        window.setTimeout(() => load({ silent: true }), 800);
       } else {
-        load();
+        load({ silent: true });
       }
     };
 
@@ -265,10 +287,11 @@ export default function MessageApp({
 
   // Refresh the list shortly after a conversation is opened (manual select or
   // first-load auto-select) so unread indicators clear once the backend has
-  // processed the socket READ frame.
+  // processed the socket READ frame. Silent: the sidebar must NOT flash or
+  // swap to the skeleton when the user merely switches conversations.
   useEffect(() => {
     if (!selectedId) return undefined;
-    const t = window.setTimeout(load, 800);
+    const t = window.setTimeout(() => load({ silent: true }), 800);
     return () => window.clearTimeout(t);
   }, [selectedId, load]);
 
@@ -329,7 +352,9 @@ export default function MessageApp({
     setSelKind("direct");
     setNewChatOpen(false);
     setChatInput("");
-    load();
+    // Row is already patched into the list optimistically — keep the follow-up
+    // sync silent so the sidebar never flashes.
+    load({ silent: true });
   };
 
   const handleSend = useCallback(
@@ -351,8 +376,12 @@ export default function MessageApp({
           );
         }
         setChatInput("");
-        load();
+        // Refresh previews/order in the sidebar silently — the thread loader
+        // is keyed on the conversation id, so this never blanks the open chat,
+        // and the list stays mounted (no skeleton flash).
+        load({ silent: true });
       } catch {
+        // Keep the typed text so the user can retry; never reload or navigate.
         notify?.({
           type: "error",
           title: "Message not sent",

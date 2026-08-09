@@ -134,7 +134,6 @@ class AuthServiceTest {
     void signupStoresDisplayCaseAndNormalizedLowercaseUsername() {
         when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(userRepository.existsByUsernameLower("nakul")).thenReturn(false);
-        when(userRepository.existsByReferralCodeIgnoreCase(any())).thenReturn(false);
         when(passwordEncoder.encode("Password123")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jwtService.generateToken(any(User.class), any(String.class))).thenReturn("access-token");
@@ -160,7 +159,6 @@ class AuthServiceTest {
     void signupSuccessForValidUniqueUsername() {
         when(userRepository.existsByEmail("new@example.com")).thenReturn(false);
         when(userRepository.existsByUsernameLower("nakul123")).thenReturn(false);
-        when(userRepository.existsByReferralCodeIgnoreCase(any())).thenReturn(false);
         when(passwordEncoder.encode("Password123")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(jwtService.generateToken(any(User.class), any(String.class))).thenReturn("access-token");
@@ -272,7 +270,6 @@ class AuthServiceTest {
                 "Nakul Sharma",
                 username,
                 UserRole.LEARNER,
-                null,
                 null);
     }
 

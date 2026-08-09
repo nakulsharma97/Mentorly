@@ -148,9 +148,12 @@ export default function WorkspaceSidebar({
             {secondaryLinks.map((item) => renderLink(item, true))}
           </>
         )}
+        {/* Logout reuses the exact link layout classes as Profile/Settings
+            (ws-sb__link ws-sb__link--sm) so icon + text align identically;
+            ws-sb__logout only layers on the red destructive styling. */}
         <button
           type="button"
-          className="ws-sb__logout"
+          className="ws-sb__link ws-sb__link--sm ws-sb__logout"
           onClick={onLogout}
           title={collapsed ? "Logout" : undefined}
           aria-label="Logout"

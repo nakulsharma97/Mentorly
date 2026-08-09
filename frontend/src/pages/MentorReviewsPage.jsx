@@ -6,9 +6,6 @@ import HeroSection from "../components/HeroSection";
 import Icon from "../modules/common/dashboard/Icon";
 import "../modules/mentor/mentor-pages.css";
 import "../modules/mentor/reviews-page.css";
-import ExcelJS from "exceljs";
-import jsPDF from "jspdf";
-import "jspdf-autotable";
 
 const INITIAL_FILTERS = {
   search: "",
@@ -35,21 +32,6 @@ const EXPORT_OPTIONS = [
   { value: "csv", label: "Export as CSV", icon: "table_chart" },
   { value: "xlsx", label: "Export as Excel", icon: "grid_on" },
   { value: "pdf", label: "Export as PDF", icon: "picture_as_pdf" },
-];
-
-const TOP_SKILLS = [
-  { name: "Communication", pct: 92, color: "teal" },
-  { name: "Knowledge", pct: 88, color: "blue" },
-  { name: "Problem Solving", pct: 85, color: "purple" },
-  { name: "Interview Guidance", pct: 80, color: "pink" },
-  { name: "Projects", pct: 78, color: "orange" },
-];
-
-const IMPROVEMENTS = [
-  "Provide more assignments",
-  "Increase session duration",
-  "Share notes after sessions",
-  "Improve microphone quality",
 ];
 
 function formatDate(value) {
@@ -190,10 +172,30 @@ export default function MentorReviewsPage({ notify }) {
   const searchTimeoutRef = useRef(null);
   const debounceLoadRef = useRef(null);
   const paginationLoadRef = useRef(null);
+  const closeButtonRef = useRef(null);
+  const drawerTriggerRef = useRef(null);
 
   useEffect(() => {
     document.title = "Reviews & Ratings | SkillSwap Mentor";
   }, []);
+
+  // Close the Review Details drawer with Escape (matches the AuthModal
+  // convention), focus the close button on open, and restore focus to the
+  // review card that opened the drawer when it closes — smooth keyboard UX.
+  useEffect(() => {
+    if (!selectedReview) return;
+    const onEscape = (event) => {
+      if (event.key === "Escape") {
+        setSelectedReview(null);
+      }
+    };
+    document.addEventListener("keydown", onEscape);
+    closeButtonRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", onEscape);
+      drawerTriggerRef.current?.focus?.();
+    };
+  }, [selectedReview]);
 
   const buildReviewQueryParams = useCallback(() => {
     const params = {
@@ -228,8 +230,10 @@ export default function MentorReviewsPage({ notify }) {
     return params;
   }, [reviewPage, reviewSize, filters, customRange]);
 
-  const loadReviews = useCallback(async ({ showToast = false } = {}) => {
-    setLoading(true);
+  const loadReviews = useCallback(async ({ showToast = false, silent = false } = {}) => {
+    // silent: true resyncs without the skeleton flash (used after optimistic
+    // reply saves so the page updates in place).
+    if (!silent) setLoading(true);
     setError(false);
     try {
       const response = await client.get("/api/v1/reviews/mentor", {
@@ -314,6 +318,7 @@ export default function MentorReviewsPage({ notify }) {
 
   const isReviewRecommended = (review) => {
     if (review?.recommended !== undefined) return Boolean(review.recommended);
+    if (review?.rating !== undefined) return Number(review.rating) >= 4;
     const recommendation = String(review?.recommendation || "").toLowerCase();
     return ["recommended", "yes", "true", "y"].includes(recommendation);
   };
@@ -411,6 +416,43 @@ export default function MentorReviewsPage({ notify }) {
     return Array.from(sessions).sort();
   }, [reviews]);
 
+  // Top skills reviewed — derived from the real review data (each review is
+  // attached to the session/skill it was written for). Falls back to an empty
+  // state when the data has no skill breakdown.
+  const topSkills = useMemo(() => {
+    const counts = new Map();
+    reviews.forEach((review) => {
+      const name = (review.skillName || "").trim();
+      if (!name) return;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    const total = reviews.length || 1;
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({
+        name,
+        count,
+        pct: Math.min(100, Math.round((count / total) * 100)),
+      }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 5);
+  }, [reviews]);
+
+  // Dynamic status captions for the hero stat cards (never hardcoded values).
+  const ratingStatus = useMemo(() => {
+    const avg = Number(summary.averageRating) || 0;
+    if (avg >= 4.5) return { label: "Excellent", tone: "excellent" };
+    if (avg >= 4) return { label: "Good", tone: "good" };
+    if (avg >= 3) return { label: "Fair", tone: "fair" };
+    return { label: "Needs work", tone: "needs" };
+  }, [summary.averageRating]);
+
+  const recommendationStatus = useMemo(() => {
+    const rate = Number(summary.recommendationRate) || 0;
+    if (rate >= 80) return { label: "Excellent", tone: "excellent" };
+    if (rate >= 60) return { label: "Good", tone: "good" };
+    return { label: "Needs work", tone: "needs" };
+  }, [summary.recommendationRate]);
+
   const ratingBreakdown = useMemo(() => {
     const list = [5, 4, 3, 2, 1];
     return list.map((star) => ({
@@ -435,6 +477,7 @@ export default function MentorReviewsPage({ notify }) {
   const animatedRecRate = useAnimatedCounter(summary.recommendationRate, 1000);
 
   const openReview = (review) => {
+    drawerTriggerRef.current = document.activeElement;
     setSelectedReview(review);
     setReplyDraft(review.replyText || "");
   };
@@ -467,12 +510,23 @@ export default function MentorReviewsPage({ notify }) {
         title: "Reply saved",
         message: "Your response is now visible to the learner.",
       });
-      // Background sync with backend (non-blocking)
-      loadReviews().catch(() => null);
+      // Silent background sync — keeps the list authoritative without the
+      // skeleton flash.
+      loadReviews({ silent: true }).catch(() => null);
     } catch (err) {
-      // Roll back optimistic update on failure
-      setReviews(previousReviews);
-      setSelectedReview(previousSelected);
+      // ── Surgical rollback: restore ONLY this review so a concurrent
+      // refresh isn't clobbered, and never re-open a closed drawer. ──
+      const originalReview = previousReviews.find(
+        (r) => r.id === selectedReview.id,
+      );
+      if (originalReview) {
+        setReviews((prev) =>
+          prev.map((r) => (r.id === selectedReview.id ? originalReview : r)),
+        );
+      }
+      setSelectedReview((prev) =>
+        prev && prev.id === selectedReview.id ? previousSelected : prev,
+      );
       notify?.({
         type: "error",
         title: "Reply failed",
@@ -516,6 +570,7 @@ export default function MentorReviewsPage({ notify }) {
   };
 
   const exportXlsx = async (items) => {
+    const ExcelJS = (await import("exceljs")).default;
     const rows = buildExportRows(items);
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "SkillSwap";
@@ -561,7 +616,9 @@ export default function MentorReviewsPage({ notify }) {
     URL.revokeObjectURL(link.href);
   };
 
-  const exportPdf = (items) => {
+  const exportPdf = async (items) => {
+    const { default: jsPDF } = await import("jspdf");
+    await import("jspdf-autotable");
     const rows = buildExportRows(items);
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
@@ -603,7 +660,7 @@ export default function MentorReviewsPage({ notify }) {
       }
       if (type === "csv") exportCsv(exportReviews);
       if (type === "xlsx") await exportXlsx(exportReviews);
-      if (type === "pdf") exportPdf(exportReviews);
+      if (type === "pdf") await exportPdf(exportReviews);
       notify?.({
         type: "success",
         title: "Export ready",
@@ -656,9 +713,10 @@ export default function MentorReviewsPage({ notify }) {
     <main className="md md-page rpx-root">
       <div className="rpx-container">
         {/* ═══════════════════════════════════════════════════════
-            PREMIUM HERO SECTION — Unified Design System
+            COMPACT HERO — badge, heading, actions, stat column
             ═══════════════════════════════════════════════════════ */}
         <HeroSection
+          className="hero-section--compact hero-section--reviews"
           badge={
             <>
               <Icon name="star" /> Reputation
@@ -705,32 +763,69 @@ export default function MentorReviewsPage({ notify }) {
             </div>
           }
           floatingCards={
-            <>
-              <div className="hero-section__glass hero-section__glass--stat">
-                <div className="hero-section__glass-num">{animatedAvgRating}</div>
-                <div className="hero-section__glass-label">Average Rating</div>
-              </div>
-              <div className="hero-section__glass hero-section__glass--main">
-                <div className="hero-section__glass-head">
-                  <span className="hero-section__glass-icon">
-                    <Icon name="forum" />
-                  </span>
-                  <div>
-                    <div className="hero-section__glass-title">{animatedTotalReviews}</div>
-                    <div className="hero-section__glass-sub">Total Reviews</div>
-                  </div>
+            <div className="rpx-hero-stats">
+              <div className="rpx-hero-stat">
+                <span className="rpx-hero-stat__icon">
+                  <Icon name="star" />
+                </span>
+                <div className="rpx-hero-stat__info">
+                  {loading ? (
+                    <span className="rpx-hero-stat__skeleton" aria-hidden="true" />
+                  ) : (
+                    <span className="rpx-hero-stat__value">{animatedAvgRating}</span>
+                  )}
+                  <span className="rpx-hero-stat__label">Average Rating</span>
+                  {!loading && (
+                    <span className={`rpx-hero-stat__status rpx-hero-stat__status--${ratingStatus.tone}`}>
+                      {ratingStatus.label}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="hero-section__glass hero-section__glass--chart">
-                <div className="hero-section__glass-num">{animatedRecRate}%</div>
-                <div className="hero-section__glass-label">Recommendation Rate</div>
+
+              <div className="rpx-hero-stat">
+                <span className="rpx-hero-stat__icon">
+                  <Icon name="forum" />
+                </span>
+                <div className="rpx-hero-stat__info">
+                  {loading ? (
+                    <span className="rpx-hero-stat__skeleton" aria-hidden="true" />
+                  ) : (
+                    <span className="rpx-hero-stat__value">{animatedTotalReviews}</span>
+                  )}
+                  <span className="rpx-hero-stat__label">Total Reviews</span>
+                  {!loading && (
+                    <span className="rpx-hero-stat__status rpx-hero-stat__status--muted">
+                      All Time
+                    </span>
+                  )}
+                </div>
               </div>
-            </>
+
+              <div className="rpx-hero-stat">
+                <span className="rpx-hero-stat__icon">
+                  <Icon name="workspace_premium" />
+                </span>
+                <div className="rpx-hero-stat__info">
+                  {loading ? (
+                    <span className="rpx-hero-stat__skeleton" aria-hidden="true" />
+                  ) : (
+                    <span className="rpx-hero-stat__value">{animatedRecRate}%</span>
+                  )}
+                  <span className="rpx-hero-stat__label">Recommendation Rate</span>
+                  {!loading && (
+                    <span className={`rpx-hero-stat__status rpx-hero-stat__status--${recommendationStatus.tone}`}>
+                      {recommendationStatus.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           }
         />
 
         {/* ═══════════════════════════════════════════════════════
-            FILTERS CARD
+            FILTER TOOLBAR
             ═══════════════════════════════════════════════════════ */}
         <div className="rpx-filters">
           <div className="rpx-filters__row">
@@ -738,7 +833,7 @@ export default function MentorReviewsPage({ notify }) {
               <Icon name="search" />
               <input
                 value={filters.search}
-                placeholder="Search reviews by learner, skill, or comment\u2026"
+                placeholder="Search reviews\u2026"
                 onChange={(event) =>
                   setFilters((prev) => ({ ...prev, search: event.target.value }))
                 }
@@ -752,7 +847,7 @@ export default function MentorReviewsPage({ notify }) {
               }
               aria-label="Filter by rating"
             >
-              <option value="all">All ratings</option>
+              <option value="all">All Ratings</option>
               <option value="5">5 stars</option>
               <option value="4">4 stars</option>
               <option value="3">3 stars</option>
@@ -761,6 +856,36 @@ export default function MentorReviewsPage({ notify }) {
             </select>
             <select
               className="rpx-select"
+              value={filters.skill}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, skill: event.target.value }))
+              }
+              aria-label="Filter by skill"
+            >
+              <option value="all">All Skills</option>
+              {skillOptions.map((skill) => (
+                <option key={skill} value={skill}>
+                  {skill}
+                </option>
+              ))}
+            </select>
+            <select
+              className="rpx-select rpx-select--sort"
+              value={filters.sort}
+              onChange={(event) =>
+                setFilters((prev) => ({ ...prev, sort: event.target.value }))
+              }
+              aria-label="Sort reviews"
+            >
+              <option value="newest">Most Recent</option>
+              <option value="oldest">Oldest</option>
+              <option value="highest">Highest Rating</option>
+              <option value="lowest">Lowest Rating</option>
+              <option value="mostHelpful">Most Helpful</option>
+              <option value="leastHelpful">Least Helpful</option>
+            </select>
+            <select
+              className="rpx-select rpx-select--wide"
               value={filters.recommendation}
               onChange={(event) =>
                 setFilters((prev) => ({
@@ -776,36 +901,19 @@ export default function MentorReviewsPage({ notify }) {
             </select>
             <select
               className="rpx-select"
-              value={filters.skill}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, skill: event.target.value }))
-              }
-              aria-label="Filter by skill"
-            >
-              <option value="all">All skills</option>
-              {skillOptions.map((skill) => (
-                <option key={skill} value={skill}>
-                  {skill}
-                </option>
-              ))}
-            </select>
-            <select
-              className="rpx-select"
               value={filters.session}
               onChange={(event) =>
                 setFilters((prev) => ({ ...prev, session: event.target.value }))
               }
               aria-label="Filter by session"
             >
-              <option value="all">All sessions</option>
+              <option value="all">All Sessions</option>
               {sessionOptions.map((session) => (
                 <option key={session} value={session}>
                   {session}
                 </option>
               ))}
             </select>
-          </div>
-          <div className="rpx-filters__row">
             <select
               className="rpx-select"
               value={filters.dateRange}
@@ -819,21 +927,6 @@ export default function MentorReviewsPage({ notify }) {
                   {range.label}
                 </option>
               ))}
-            </select>
-            <select
-              className="rpx-select"
-              value={filters.sort}
-              onChange={(event) =>
-                setFilters((prev) => ({ ...prev, sort: event.target.value }))
-              }
-              aria-label="Sort by"
-            >
-              <option value="newest">Newest</option>
-              <option value="oldest">Oldest</option>
-              <option value="highest">Highest rating</option>
-              <option value="lowest">Lowest rating</option>
-              <option value="mostHelpful">Most helpful</option>
-              <option value="leastHelpful">Least helpful</option>
             </select>
             <label className={`rpx-toggle ${filters.verifiedOnly ? "rpx-toggle--active" : ""}`}>
               <input
@@ -898,10 +991,10 @@ export default function MentorReviewsPage({ notify }) {
                   <Icon name="error" />
                 </div>
                 <p className="rpx-error__title">
-                  Reviews are temporarily unavailable
+                  Unable to load reviews
                 </p>
                 <p className="rpx-error__desc">
-                  Try refreshing to fetch the latest mentor feedback.
+                  Something went wrong while loading your reviews.
                 </p>
                 <button
                   type="button"
@@ -909,7 +1002,7 @@ export default function MentorReviewsPage({ notify }) {
                   style={{ marginTop: 4 }}
                   onClick={() => loadReviews()}
                 >
-                  <Icon name="refresh" /> Retry
+                  <Icon name="refresh" /> Try Again
                 </button>
               </div>
             ) : sortedReviews.length === 0 ? (
@@ -927,7 +1020,7 @@ export default function MentorReviewsPage({ notify }) {
                 </p>
                 <p className="rpx-empty__desc">
                   {reviews.length === 0
-                    ? "Once learners complete sessions, they can leave feedback about their experience. Create a session to get started."
+                    ? "Reviews from learners will appear here after completed sessions. Your reviews will help learners understand your mentoring experience."
                     : "Try adjusting your filters to find what you're looking for."}
                 </p>
                 {reviews.length === 0 ? (
@@ -963,6 +1056,7 @@ export default function MentorReviewsPage({ notify }) {
                   <article
                     key={review.id}
                     className="rpx-review-card"
+                    tabIndex={-1}
                     onClick={() => openReview(review)}
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
@@ -970,59 +1064,56 @@ export default function MentorReviewsPage({ notify }) {
                     <div className="rpx-review-card__head">
                       <div className="rpx-review-card__user">
                         <div className="rpx-review-card__avatar">
-                          {(review.learnerName || "L").charAt(0)}
+                          {review.learnerProfileImageUrl ? (
+                            <img
+                              src={review.learnerProfileImageUrl}
+                              alt=""
+                            />
+                          ) : (
+                            (review.learnerName || "L").charAt(0)
+                          )}
                         </div>
                         <div className="rpx-review-card__info">
                           <div className="rpx-review-card__name">
                             {review.learnerName || "Learner"}
-                            {review.learnerVerified && (
-                              <span className="rpx-badge-verified">
-                                <Icon name="verified" /> Verified
-                              </span>
-                            )}
                           </div>
                           <div className="rpx-review-card__meta">
                             <span>{formatDate(review.createdAt)}</span>
-                            <span aria-hidden="true">•</span>
-                            <span className={
-                              `rpx-badge-rec ${
-                                isReviewRecommended(review)
-                                  ? "rpx-badge-rec--yes"
-                                  : "rpx-badge-rec--no"
-                              }`
-                            }>
-                              <Icon name={
-                                isReviewRecommended(review)
-                                  ? "check_circle"
-                                  : "info"
-                              } />
-                              {reviewRecommendationLabel(review)}
-                            </span>
                           </div>
                         </div>
                       </div>
                       <StarRating rating={review.rating || 0} />
                     </div>
 
+                    {/* Recommendation status */}
+                    <div className="rpx-review-card__rec-row">
+                      <span className={
+                        `rpx-badge-rec ${
+                          isReviewRecommended(review)
+                            ? "rpx-badge-rec--yes"
+                            : "rpx-badge-rec--no"
+                        }`
+                      }>
+                        <Icon name={
+                          isReviewRecommended(review)
+                            ? "check_circle"
+                            : "info"
+                        } />
+                        {reviewRecommendationLabel(review)}
+                      </span>
+                      {review.skillName && (
+                        <span className="rpx-tag">
+                          <Icon name="tag" />
+                          {review.skillName}
+                        </span>
+                      )}
+                    </div>
+
                     {/* Card Body */}
                     <div className="rpx-review-card__body">
-                      <div className="rpx-review-card__tags">
-                        {review.skillName && (
-                          <span className="rpx-tag">
-                            <Icon name="local_police" />
-                            {review.skillName}
-                          </span>
-                        )}
-                        {review.sessionTitle && (
-                          <span className="rpx-tag">
-                            <Icon name="event_note" />
-                            {review.sessionTitle}
-                          </span>
-                        )}
+                      <div className="rpx-review-card__feedback-label">
+                        <Icon name="chat" /> Learner feedback
                       </div>
-                      <h3 className="rpx-review-card__title">
-                        {review.title || "Learner feedback"}
-                      </h3>
                       <p className="rpx-review-card__text">
                         {review.comment || "No written feedback provided."}
                       </p>
@@ -1127,86 +1218,103 @@ export default function MentorReviewsPage({ notify }) {
                   <Icon name="star_rate" /> Overall Rating
                 </h2>
               </div>
-              <div className="rpx-overall-rating">
-                <CircularChart
-                  value={Number(summary.averageRating).toFixed(1)}
-                  label="out of 5"
-                />
-              </div>
-              <div className="rpx-rating-dist">
-                {ratingBreakdown.map((item) => (
-                  <div key={item.star} className="rpx-rating-row">
-                    <span className="rpx-rating-row__label">
-                      {Array.from({ length: item.star }, (_, i) => (
-                        <Icon key={i} name="star_rate" />
-                      ))}
-                    </span>
-                    <div className="rpx-rating-row__track">
-                      <div
-                        className="rpx-rating-row__fill"
-                        style={{ width: `${item.width}%` }}
-                      />
-                    </div>
-                    <span className="rpx-rating-row__count">{item.count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Most Appreciated Skills */}
-            <div className="rpx-sidebar-card">
-              <div className="rpx-sidebar-card__head">
-                <h2 className="rpx-sidebar-card__title">
-                  <Icon name="workspace_premium" /> Top Skills
-                </h2>
-              </div>
-              <div className="rpx-skills-list">
-                {TOP_SKILLS.map((skill) => (
-                  <div key={skill.name} className="rpx-skill-item">
-                    <div className="rpx-skill-item__info">
-                      <span className="rpx-skill-item__name">{skill.name}</span>
-                      <div className="rpx-skill-item__bar">
-                        <div
-                          className="rpx-skill-item__fill"
-                          style={{ width: `${skill.pct}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className="rpx-skill-item__pct">{skill.pct}%</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="rpx-skill-pills">
-                  {TOP_SKILLS.map((skill) => (
-                    <span
-                      key={skill.name}
-                      className={`rpx-skill-pill rpx-skill-pill--${skill.color}`}
-                    >
-                      {skill.name}
-                    </span>
-                  ))}
+              {loading ? (
+                <div className="rpx-skeleton-sidebar" aria-hidden="true">
+                  <span className="rpx-skeleton-sidebar__ring" />
+                  <span className="rpx-skeleton-sidebar__line" />
+                  <span className="rpx-skeleton-sidebar__line" />
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="rpx-overall-rating">
+                    <CircularChart
+                      value={Number(summary.averageRating).toFixed(1)}
+                      label="out of 5"
+                    />
+                  </div>
+                  <div className="rpx-rating-dist">
+                    {ratingBreakdown.map((item) => {
+                      const pct = summary.totalReviews
+                        ? Math.round(
+                            ((Number(summary.distribution?.[item.star] || 0) /
+                              summary.totalReviews) *
+                              100),
+                          )
+                        : 0;
+                      return (
+                        <div key={item.star} className="rpx-rating-row">
+                          <span className="rpx-rating-row__label">
+                            {Array.from({ length: item.star }, (_, i) => (
+                              <Icon key={i} name="star_rate" />
+                            ))}
+                          </span>
+                          <div className="rpx-rating-row__track">
+                            <div
+                              className="rpx-rating-row__fill"
+                              style={{ width: `${item.width}%` }}
+                            />
+                          </div>
+                          <span className="rpx-rating-row__count">
+                            {item.count} ({pct}%)
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* Improvement Suggestions */}
+            {/* Top Skills Reviewed */}
             <div className="rpx-sidebar-card">
               <div className="rpx-sidebar-card__head">
                 <h2 className="rpx-sidebar-card__title">
-                  <Icon name="lightbulb" /> Improvement Suggestions
+                  <Icon name="workspace_premium" /> Top Skills Reviewed
                 </h2>
               </div>
-              <div className="rpx-suggestions">
-                {IMPROVEMENTS.map((suggestion, index) => (
-                  <div key={index} className="rpx-suggestion-item">
-                    <div className="rpx-suggestion-item__icon">
-                      <Icon name="lightbulb" />
-                    </div>
-                    <p className="rpx-suggestion-item__text">{suggestion}</p>
+              {loading ? (
+                <div className="rpx-skeleton-sidebar" aria-hidden="true">
+                  <span className="rpx-skeleton-sidebar__line" />
+                  <span className="rpx-skeleton-sidebar__line" />
+                  <span className="rpx-skeleton-sidebar__line" />
+                </div>
+              ) : topSkills.length === 0 ? (
+                <div className="rpx-skills-empty">
+                  <span className="rpx-skills-empty__icon">
+                    <Icon name="auto_awesome" />
+                  </span>
+                  <p className="rpx-skills-empty__title">No skill insights yet</p>
+                  <p className="rpx-skills-empty__desc">
+                    Skill breakdowns appear once learners review your sessions.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="rpx-skills-list">
+                    {topSkills.map((skill) => (
+                      <div key={skill.name} className="rpx-skill-item">
+                        <div className="rpx-skill-item__info">
+                          <span className="rpx-skill-item__name">{skill.name}</span>
+                          <div className="rpx-skill-item__bar">
+                            <div
+                              className="rpx-skill-item__fill"
+                              style={{ width: `${skill.pct}%` }}
+                            />
+                          </div>
+                        </div>
+                        <span className="rpx-skill-item__pct">{skill.pct}%</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                  <button
+                    type="button"
+                    className="rpx-skills-link"
+                    onClick={() => navigate("/mentor/professional-profile")}
+                  >
+                    View all skills <Icon name="chevron_right" />
+                  </button>
+                </>
+              )}
             </div>
           </aside>
         </div>
@@ -1233,10 +1341,12 @@ export default function MentorReviewsPage({ notify }) {
                 </p>
               </div>
               <button
+                ref={closeButtonRef}
                 className="rpx-drawer__close"
                 type="button"
                 onClick={() => setSelectedReview(null)}
                 title="Close"
+                aria-label="Close review details"
               >
                 <Icon name="close" />
               </button>

@@ -9,7 +9,6 @@ import com.skillswap.common.exception.BadRequestException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import com.skillswap.notification.NotificationService;
-import com.skillswap.referral.ReferralRewardRepository;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.session.SessionRepository;
 import jakarta.validation.Valid;
@@ -47,7 +46,6 @@ public class UserController {
     private final UserRepository userRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final SessionRepository sessionRepository;
-    private final ReferralRewardRepository referralRewardRepository;
     private final NotificationService notificationService;
     private final ProfileCompletionGuard profileCompletionGuard;
     private final ProfileCompletionService profileCompletionService;
@@ -191,14 +189,6 @@ public class UserController {
         user.setWalletAddress(req.walletAddress());
         userRepository.save(user);
         return new ApiResponse<>("Wallet updated", UserProfileResponse.from(user));
-    }
-
-    @GetMapping("/me/referral")
-    public ApiResponse<ReferralSummaryResponse> referralSummary(@AuthenticationPrincipal User currentUser) {
-        long totalReferrals = userRepository.countByReferredByUserId(currentUser.getId());
-        int totalCreditsEarned = Math.toIntExact(referralRewardRepository.countByReferrerId(currentUser.getId()) * 50L);
-        return new ApiResponse<>("Referral summary fetched",
-                new ReferralSummaryResponse(currentUser.getReferralCode(), (int) totalReferrals, totalCreditsEarned));
     }
 
     @PutMapping("/me/profile")
@@ -816,12 +806,4 @@ public class UserController {
         }
     }
 
-/**
- * Immutable data carrier for referral summary response.
- */
-    public record ReferralSummaryResponse(
-            String referralCode,
-            int totalReferrals,
-            int totalCreditsEarned) {
-    }
 }

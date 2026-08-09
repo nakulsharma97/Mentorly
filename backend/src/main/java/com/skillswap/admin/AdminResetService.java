@@ -33,10 +33,7 @@ public class AdminResetService {
             "login_attempts",
             "refresh_token_sessions",
 
-            // Step 2: Referral rewards (FK to users, bookings)
-            "referral_rewards",
-
-            // Step 3: Learning roadmaps (FK to bookings)
+            // Step 2: Learning roadmaps (FK to bookings)
             "learning_roadmaps",
 
             // Step 4: Skill verification submissions (FK to tasks, users)

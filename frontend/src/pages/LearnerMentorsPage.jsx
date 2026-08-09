@@ -547,6 +547,7 @@ export default function LearnerMentorsPage({ notify }) {
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ═══ PREMIUM HERO (unified design system) ═══ */}
       <MentorPageHero
+        compact
         eyebrow="MENTORS"
         icon="person_search"
         title="Find Your Perfect Mentor"

@@ -66,7 +66,13 @@ export default function ConversationCard({
                 : subtitle || role || "No messages yet"}
             </span>
           )}
-          
+
+          {Number(conversation.sessionCount || 0) > 1 && (
+            <span className="ms-conv__sessions">
+              {conversation.sessionCount} sessions
+            </span>
+          )}
+
           {unreadCount > 0 && (
             <span className="ms-conv-card-v2__badge">{unreadCount}</span>
           )}

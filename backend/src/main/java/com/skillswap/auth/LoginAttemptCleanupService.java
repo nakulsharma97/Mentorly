@@ -1,5 +1,6 @@
 package com.skillswap.auth;
 
+import com.skillswap.common.SchedulerLockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +22,7 @@ import java.time.OffsetDateTime;
 public class LoginAttemptCleanupService {
 
     private final LoginAttemptRepository loginAttemptRepository;
+    private final SchedulerLockService schedulerLockService;
 
     /**
      * Purge expired login attempts (based on expiresAt field) and
@@ -30,15 +32,18 @@ public class LoginAttemptCleanupService {
     @Scheduled(cron = "0 0 3 * * ?")
     @Transactional
     public void purgeOldAttempts() {
-        OffsetDateTime now = OffsetDateTime.now();
+        // Leader lock so only one instance (k8s replica) performs the purge.
+        schedulerLockService.runIfLeader("auth-login-attempt-cleanup", () -> {
+            OffsetDateTime now = OffsetDateTime.now();
 
-        // Purge by explicit expiry (new TTL-based records)
-        long expiredCount = loginAttemptRepository.deleteExpired(now);
+            // Purge by explicit expiry (new TTL-based records)
+            long expiredCount = loginAttemptRepository.deleteExpired(now);
 
-        // Legacy fallback: purge records older than 7 days (backward compat)
-        OffsetDateTime oldCutoff = now.minusDays(7);
-        loginAttemptRepository.deleteOlderThan(oldCutoff);
+            // Legacy fallback: purge records older than 7 days (backward compat)
+            OffsetDateTime oldCutoff = now.minusDays(7);
+            loginAttemptRepository.deleteOlderThan(oldCutoff);
 
-        log.info("Purged {} expired login attempts + old records before {}", expiredCount, oldCutoff);
+            log.info("Purged {} expired login attempts + old records before {}", expiredCount, oldCutoff);
+        });
     }
 }

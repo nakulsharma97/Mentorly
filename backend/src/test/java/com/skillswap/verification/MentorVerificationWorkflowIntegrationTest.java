@@ -466,7 +466,6 @@ class MentorVerificationWorkflowIntegrationTest {
         user.setRole(role);
         user.setEnabled(true);
         user.setPasswordHash(passwordEncoder.encode("TestPass123!"));
-        user.setReferralCode("REF-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10));
         return userRepository.save(user);
     }
 

@@ -7,7 +7,7 @@ import MentorNotes from "./MentorNotes";
 import ActionButtons from "./ActionButtons";
 import { initials, formatDateParts, formatTime } from "../../../common/dashboard/dashboardUtils";
 
-const TABS = ["Overview", "Roadmap", "Sessions", "Assignments", "Resources"];
+const TABS = ["Overview", "Sessions", "Assignments", "Resources"];
 
 function Stars({ value = 0 }) {
   return (
@@ -45,63 +45,13 @@ export default function StudentDetailsPanel({
   };
   const s = student;
   const rating = typeof s.rating === "number" ? s.rating : 0;
-  const milestones = s.milestones || [];
   const assignments = s.assignments || [];
   const upcoming = s.bookings?.filter((b) => b.isUpcoming) || [];
   const completed = s.bookings?.filter((b) => b.status === "COMPLETED") || [];
   const nextBooking = s.nextBooking || upcoming[0] || null;
-  const topicsDone = s.topicsCompleted ?? s.completed;
 
   const renderTab = () => {
     switch (activeTab) {
-      case "Roadmap":
-        return (
-          <div className="ss-panel__block">
-            <p className="ss-panel__label">Learning Progress</p>
-            <div className="ss-progress-card">
-              <ProgressRing value={s.progress} />
-              <div className="ss-progress-card__meta">
-                <div className="ss-progress-card__desc">
-                  <strong>{s.roadmapTitle || "Active roadmap"}</strong>
-                </div>
-                <p className="ss-progress-card__desc" style={{ marginTop: 6 }}>
-                  {topicsDone} topic{topicsDone === 1 ? "" : "s"} of{" "}
-                  {milestones.length || s.totalSessions} completed
-                </p>
-              </div>
-            </div>
-            {milestones.length > 0 ? (
-              <div className="ss-topic-list">
-                {milestones.map((m, i) => {
-                  const done = i < Math.round((s.progress / 100) * milestones.length);
-                  const current = !done && i === Math.round((s.progress / 100) * milestones.length);
-                  return (
-                    <div
-                      key={`${m}-${i}`}
-                      className={`ss-topic${done ? " is-done" : ""}${current ? " is-current" : ""}`}
-                    >
-                      <span className="ss-topic__check">
-                        {done && (
-                          <span className="material-symbols-outlined">check</span>
-                        )}
-                        {current && (
-                          <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
-                            radio_button_checked
-                          </span>
-                        )}
-                      </span>
-                      <span className="ss-topic__name">{m}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="ss-muted-note">
-                No roadmap topics defined yet for this learner.
-              </p>
-            )}
-          </div>
-        );
       case "Sessions":
         return (
           <div className="ss-panel__block">
@@ -170,8 +120,8 @@ export default function StudentDetailsPanel({
               </div>
             ) : (
               <p className="ss-muted-note">
-                No assignments shared yet. Assign practice work from the
-                learning path to get started.
+                No assignments shared yet. Practice work appears here once the
+                learner completes sessions.
               </p>
             )}
           </div>
@@ -180,14 +130,14 @@ export default function StudentDetailsPanel({
         return (
           <div className="ss-panel__block">
             <p className="ss-panel__label">Learning resources</p>
-            {milestones.length > 0 ? (
+            {completed.length > 0 ? (
               <div className="ss-topic-list">
-                {milestones.map((m, i) => (
-                  <div key={`${m}-${i}`} className="ss-topic">
+                {completed.map((b) => (
+                  <div key={b.id} className="ss-topic">
                     <span className="ss-topic__check">
                       <span className="material-symbols-outlined">menu_book</span>
                     </span>
-                    <span className="ss-topic__name">{m}</span>
+                    <span className="ss-topic__name">{b.title}</span>
                   </div>
                 ))}
               </div>
@@ -207,11 +157,10 @@ export default function StudentDetailsPanel({
               <ProgressRing value={s.progress} />
               <div className="ss-progress-card__meta">
                 <div className="ss-progress-card__desc">
-                  <strong>{s.roadmapTitle || "Active roadmap"}</strong>
+                  <strong>Session Progress</strong>
                 </div>
                 <p className="ss-progress-card__desc" style={{ marginTop: 6 }}>
-                  {topicsDone} topic{topicsDone === 1 ? "" : "s"} completed ·{" "}
-                  {s.completed} of {s.totalSessions} sessions done
+                  {s.completed} of {s.totalSessions} sessions completed
                 </p>
               </div>
             </div>

@@ -138,12 +138,6 @@ public class AuthService {
         user.setFullName(req.fullName());
         user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
         user.setWalletAddress(req.walletAddress());
-        user.setReferralCode(generateUniqueReferralCode());
-        String referralCode = normalizeReferralCode(req.referralCode());
-        if (referralCode != null) {
-            userRepository.findByReferralCodeIgnoreCase(referralCode)
-                    .ifPresent(referrer -> user.setReferredByUserId(referrer.getId()));
-        }
         user.setLastActiveAt(OffsetDateTime.now());
         try {
             userRepository.save(user);
@@ -329,7 +323,6 @@ public class AuthService {
             created.setFullName(extractDisplayName(attributes, email));
             created.setRole(UserRole.LEARNER);
             created.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
-            created.setReferralCode(generateUniqueReferralCode());
             created.setLastActiveAt(OffsetDateTime.now());
             return userRepository.save(created);
         });
@@ -531,23 +524,6 @@ public class AuthService {
         } catch (RuntimeException ignored) {
             LOG.debug("Failed to increment metric counter: {}", name, ignored);
         }
-    }
-
-    private String generateUniqueReferralCode() {
-        String referralCode;
-        do {
-            referralCode = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase(Locale.ROOT);
-        } while (userRepository.existsByReferralCodeIgnoreCase(referralCode));
-        return referralCode;
-    }
-
-    private String normalizeReferralCode(String referralCode) {
-        if (referralCode == null) {
-            return null;
-        }
-
-        String trimmed = referralCode.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private String extractAccessToken(String tokenValue) {

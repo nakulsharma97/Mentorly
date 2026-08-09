@@ -23,8 +23,6 @@ public final class AnalyticsDtos {
             double hoursLearned,
             LearnerHistoryDto learnerHistory,
             int completionRate,
-            int averageProgress,
-            int lowProgressRoadmaps,
             int cancelledCount,
             int upcomingSessionsCount,
             double averageSessionValue,

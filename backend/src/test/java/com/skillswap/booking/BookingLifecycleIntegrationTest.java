@@ -198,6 +198,50 @@ class BookingLifecycleIntegrationTest {
     }
 
     // ═══════════════════════════════════════════════════════════
+    //  Test 2b: Accept works for gateway payers with an empty wallet
+    //  Escrow was already held at the gateway — the wallet is never the
+    //  funding source, so acceptance must not require a wallet balance
+    //  (this was the root cause of the mentor's failing Accept flow).
+    // ═══════════════════════════════════════════════════════════
+
+    @Test
+    void givenLearnerWithGatewayEscrow_whenBookingAccepted_thenOkWithoutWallet() throws Exception {
+        // Learner never funded their wallet — they paid via the gateway.
+        Long bookingId = createBooking(futureSession.getId(), learner);
+
+        // Attach an already-escrowed gateway payment to the booking
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
+        Payment payment = Payment.builder()
+                .orderId("ORDER_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase())
+                .learnerId(learner.getId())
+                .mentorId(mentor.getId())
+                .sessionId(futureSession.getId())
+                .amount(new BigDecimal("100.00"))
+                .currency("INR")
+                .gateway("razorpay")
+                .status(PaymentStatus.ESCROWED)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        payment = paymentRepository.save(payment);
+        booking.setPayment(payment);
+        bookingRepository.save(booking);
+
+        mockMvc.perform(patch("/api/v1/bookings/{id}/status", bookingId)
+                        .with(csrf())
+                        .with(user(mentor))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"ACCEPTED\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bookingStatus").value("ACCEPTED"));
+
+        // Wallet untouched (still 0), gateway payment stays escrowed
+        BigDecimal learnerBalance = walletService.balance(reloadUser(learner.getId())).balance();
+        assertThat(learnerBalance).isEqualByComparingTo("0");
+        Payment after = bookingRepository.findById(bookingId).orElseThrow().getPayment();
+        assertThat(after.getStatus()).isEqualTo(PaymentStatus.ESCROWED);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     //  Test 3: Cancel pending booking (no wallet impact)
     // ═══════════════════════════════════════════════════════════
 
@@ -422,7 +466,6 @@ class BookingLifecycleIntegrationTest {
         user.setPasswordHash(passwordEncoder.encode("Password123!"));
         user.setRole(role);
         user.setUsername(email.substring(0, email.indexOf('@')).replaceAll("[^a-zA-Z0-9_]", "") + UUID.randomUUID().toString().substring(0, 4));
-        user.setReferralCode("TEST-" + UUID.randomUUID());
         user.setFullName(role.name() + " User " + UUID.randomUUID().toString().substring(0, 8));
         user.setEnabled(true);
         if (role == UserRole.MENTOR) {

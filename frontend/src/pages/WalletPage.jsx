@@ -429,6 +429,7 @@ export default function WalletPage({ profile, notify }) {
     <main className="ss-page wallet-page">
       {/* ═══════════════════ HERO — Unified Design System ═══════════════════ */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <SsIcon name="wallet" size={14} />

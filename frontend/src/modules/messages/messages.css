@@ -298,7 +298,13 @@
 
 /* ── Conversation Card ───────────────────────────────────────────────────── */
 
-.ms-conv-card-v2 {
+/* The global forms.css reset — button[type="button"] { border: none;
+   padding: 11px 22px; border-radius: 10px; font-weight: 700; … } — has
+   specificity (0,1,1) which beats the plain .ms-conv-card-v2 class (0,1,0),
+   silently wiping the card border and skewing padding/typography. Scope the
+   card rules with [type="button"] (same pattern as .ws-top__burger and
+   .ws-sb__logout) so the card's own styles win. */
+.ms-conv-card-v2[type="button"] {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -311,32 +317,57 @@
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
-.ms-conv-card-v2:hover {
+.ms-conv-card-v2[type="button"]:hover {
   background: var(--ms-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
-.ms-conv-card-v2:active {
+.ms-conv-card-v2[type="button"]:active {
   transform: scale(0.99);
-}
-
-.ms-conv-card-v2.is-selected {
-  background: var(--ms-selected-bg);
-  border-color: var(--ms-selected-border);
-  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.08);
 }
 
 /* Unread conversation: teal left border, soft highlight, bold name + preview.
    Indicators clear automatically once the conversation is opened (backend
    marks messages read and the list refetches with unreadCount = 0). */
-.ms-conv-card-v2.has-unread {
+.ms-conv-card-v2[type="button"].has-unread {
   background: rgba(20, 184, 166, 0.06);
   border-left: 3px solid var(--ms-primary);
+}
+
+/* Selected conversation — the active state follows selectedId dynamically.
+   Border width/style/color are set explicitly so they beat the global button
+   reset, and the left indicator makes the active card unmistakable. Kept
+   AFTER .has-unread (same specificity, later wins) so selecting a card with
+   unread messages shows the selected style, not the unread tint; the unread
+   count badge still appears. */
+.ms-conv-card-v2[type="button"].is-selected {
+  background: var(--ms-selected-bg);
+  border: 1px solid var(--ms-selected-border);
+  border-left: 3px solid var(--ms-primary);
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.1);
+}
+
+/* The global theme file forces every button to a generic card border/background
+   in dark mode ([data-theme="dark"] button { … !important }), which would
+   swallow the selected/unread card styles. Re-assert them with equal priority
+   and higher specificity so the active + unread indicators match both themes. */
+[data-theme="dark"] .ms-conv-card-v2[type="button"].is-selected {
+  background: var(--ms-selected-bg) !important;
+  border-color: var(--ms-selected-border) !important;
+  border-left-color: var(--ms-primary) !important;
+}
+
+[data-theme="dark"] .ms-conv-card-v2[type="button"].has-unread {
+  background: rgba(20, 184, 166, 0.06) !important;
+  border-left-color: var(--ms-primary) !important;
 }
 
 .ms-conv-card-v2.has-unread .ms-conv-card-v2__name {
@@ -414,6 +445,19 @@
   white-space: nowrap;
   max-width: 60%;
   flex-shrink: 0;
+}
+
+.ms-conv__sessions {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ms-primary-dark);
+  background: var(--ms-primary-soft, rgba(13, 148, 136, 0.1));
+  border: 1px solid rgba(13, 148, 136, 0.25);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
 }
 
 .ms-conv__typing {

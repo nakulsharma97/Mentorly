@@ -4,6 +4,7 @@ import client from "../api/client";
 import { getErrorFeedback, getInfoFeedback } from "../utils/comingSoon";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import ReportModal from "../components/ReportModal";
+import ShareModal from "../components/ShareModal";
 import { normalizeSkills } from "../utils/skills";
 import { formatPrice, isFree } from "../utils/price";
 import BookingFlowPage from "./BookingFlowPage";
@@ -159,6 +160,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [pendingCancelAction, setPendingCancelAction] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [bookingStep, setBookingStep] = useState("sessions"); // "sessions" | "calendar"
   const [selectedSessionForBooking, setSelectedSessionForBooking] = useState(null);
 
@@ -524,10 +526,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         <button type="button" className={`mpr-btn mpr-btn--ghost ${saved ? "is-saved" : ""}`} onClick={handleSaveToggle}>
           <Icon name={saved ? "bookmark" : "bookmark_add"} /> {saved ? "Saved" : "Save"}
         </button>
-        <button type="button" className="mpr-btn mpr-btn--ghost" onClick={() => {
-          if (navigator.share) navigator.share({ url: window.location.href });
-          else navigator.clipboard?.writeText(window.location.href);
-        }}>
+        <button type="button" className="mpr-btn mpr-btn--ghost" onClick={() => setShowShareModal(true)}>
           <Icon name="share" /> Share
         </button>
         <button type="button" className="mpr-btn mpr-btn--ghost mpr-btn--report" onClick={() => setShowReportModal(true)}>
@@ -1232,7 +1231,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 return (
                   <div className="mpr-availability-tags">
                     {String(raw)
-                      .replace(/[\[\]"]/g, "")
+                      .replace(/\[|\]|"/g, "")
                       .split(",")
                       .map((s) => s.trim())
                       .filter(Boolean)
@@ -1301,6 +1300,17 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
             notify={notify}
           />
         </div>
+      )}
+
+      {/* ═══ SHARE MODAL — non-monetary share of the mentor profile ═══ */}
+      {showShareModal && (
+        <ShareModal
+          title="Share this mentor"
+          subtitle="Help someone find the right mentor on SkillSwap."
+          url={window.location.href}
+          text={`Check out ${mentor?.fullName || "this mentor"} on SkillSwap.`}
+          onClose={() => setShowShareModal(false)}
+        />
       )}
 
       {/* ═══ BOOKING MODAL — Calendar + Slots + Duration + Payment ═══ */}

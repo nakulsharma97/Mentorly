@@ -37,23 +37,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
       boolean existsByUsernameLower(String usernameLower);
 
-      Optional<User> findByReferralCodeIgnoreCase(String referralCode);
-
       Optional<User> findByPasswordResetToken(String passwordResetToken);
 
       boolean existsByEmail(String email);
-
-      boolean existsByReferralCodeIgnoreCase(String referralCode);
-
-      long countByReferredByUserId(Long referredByUserId);
 
       long countByRole(UserRole role);
 
       long countByEnabledFalse();
 
       long countByMentorVerifiedTrue();
-
-      long countByReferralCodeIsNotNull();
 
       /**
        * Recent signups (newest first) — feeds the admin dashboard recent-activity
@@ -181,9 +173,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
       /**
        * Rich people search for messaging/new-conversation discovery.
-       * Matches by name, username, email, role, skills, about, company,
-       * headline, years of experience and the titles of roadmaps the user
-       * is learning (or teaching as a mentor).
+       * Matches by name, username, email, role, skills, about, company and
+       * headline.
        */
       @Query(value = """
                   SELECT DISTINCT u.* FROM users u
@@ -200,19 +191,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                           OR LOWER(COALESCE(u.headline, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
                                           OR LOWER(COALESCE(u.role, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
                                           OR CAST(COALESCE(u.years_of_experience, 0) AS CHAR) LIKE CONCAT('%', :keyword, '%')
-                                          OR EXISTS (
-                                                SELECT 1
-                                                FROM learning_roadmaps lr
-                                                JOIN bookings b ON b.id = lr.booking_id
-                                                WHERE LOWER(COALESCE(lr.title, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                                                  AND (
-                                                        b.learner_id = u.id
-                                                        OR EXISTS (
-                                                              SELECT 1 FROM sessions s
-                                                              WHERE s.id = b.session_id AND s.mentor_id = u.id
-                                                        )
-                                                  )
-                                          )
                         )
                   ORDER BY
                         CASE WHEN u.role = 'MENTOR' THEN 0 ELSE 1 END,

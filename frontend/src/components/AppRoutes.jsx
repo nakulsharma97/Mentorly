@@ -51,9 +51,8 @@ const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 const LearnerMentorsPage = lazy(() => import("../pages/LearnerMentorsPage"));
 const LearnerSkillsPage = lazy(() => import("../pages/LearnerSkillsPage"));
 const SkillDetailPage = lazy(() => import("../pages/SkillDetailPage"));
-const CareerDetailPage = lazy(() => import("../pages/CareerDetailPage"));
 const LearnerLearningPage = lazy(() => import("../pages/LearnerLearningPage"));
-const LearnerRoadmapsPage = lazy(() => import("../pages/LearnerRoadmapsPage"));
+const LearnerTasksPage = lazy(() => import("../pages/LearnerTasksPage"));
 const LearnerSessionsPage = lazy(() => import("../pages/LearnerSessionsPage"));
 const LearnerCertificatesPage = lazy(() => import("../pages/LearnerCertificatesPage"));
 const LearnerMessagesPage = lazy(() => import("../pages/LearnerMessagesPage"));
@@ -284,12 +283,12 @@ export default function AppRoutes({
         <Route path="mentors" element={rc("learner-mentors", <LearnerMentorsPage notify={notify} />)} />
         <Route path="skills" element={rc("learner-skills", <LearnerSkillsPage />)} />
         <Route path="skills/:skillId" element={rc("learner-skill-detail", <SkillDetailPage notify={notify} />)} />
-        <Route path="roadmaps" element={rc("learner-roadmaps", <LearnerRoadmapsPage />)} />
-        {/* Legacy static roadmap links (e.g. from Explore Skills) now land on
-            the database-driven My Learning page. */}
+        {/* The roadmap feature was removed. Legacy links land on My Learning. */}
+        <Route path="roadmaps" element={<Navigate to="/learner/learning" replace />} />
         <Route path="roadmaps/:roadmapId" element={<Navigate to="/learner/learning" replace />} />
-        <Route path="careers/:careerId" element={rc("learner-career-detail", <CareerDetailPage />)} />
+        <Route path="careers/:careerId" element={<Navigate to="/learner/learning" replace />} />
         <Route path="learning" element={rc("learner-learning", <LearnerLearningPage />)} />
+        <Route path="tasks" element={rc("learner-tasks", <LearnerTasksPage />)} />
         <Route path="sessions" element={rc("learner-sessions", <LearnerSessionsPage />)} />
         <Route path="requests" element={rc("learner-requests", <LearnerSessionRequestsPage />)} />
         <Route path="certificates" element={rc("learner-certificates", <LearnerCertificatesPage />)} />
@@ -323,7 +322,16 @@ export default function AppRoutes({
         }
       >
         <Route index element={<Navigate to="/mentor/dashboard" replace />} />
-        <Route path="dashboard" element={rc("mentor-dashboard", <MentorDashboard profile={profile} onLogout={handleLogout} />)} />
+        <Route
+          path="dashboard"
+          element={
+            <MentorDashboard
+              profile={profile}
+              notify={notify}
+              onLogout={handleLogout}
+            />
+          }
+        />
         <Route path="teach" element={rc("mentor-teach", <TeachingPage profile={profile} notify={notify} />)} />
         <Route path="students" element={rc("mentor-students", <MentorStudentsPage profile={profile} notify={notify} />)} />
         <Route path="calendar" element={rc("mentor-calendar", <MentorCalendarPage profile={profile} notify={notify} />)} />
@@ -399,7 +407,7 @@ export default function AppRoutes({
       <Route path="/wallet" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/wallet" : "/learner/wallet"} replace />} />
       <Route path="/analytics" element={<Navigate to="/mentor/analytics" replace />} />
       <Route path="/messages" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/messages" : "/learner/messages"} replace />} />
-      <Route path="/sessions/:roadmapId" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/teach" : "/learner/sessions"} replace />} />
+      <Route path="/sessions/:sessionId" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/teach" : "/learner/sessions"} replace />} />
       <Route path="/mentors/:mentorId" element={rc("mentor-profile", <MentorProfilePage isLoggedIn={true} notify={notify} />)} />
 
       {/* ── Admin Routes ── */}
