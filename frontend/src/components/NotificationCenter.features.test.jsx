@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -206,5 +206,165 @@ describe("NotificationCenter — admin routing, grouping, search", () => {
 
     const bell = screen.getByRole("button", { name: /notifications/i });
     expect(within(bell).getByText("99+")).toBeInTheDocument();
+  });
+
+  /* ─────────────────────────────────────────────────────────────
+     Admin bell dropdown mode — the bell must OPEN a dropdown, never
+     navigate. This mirrors the Learner/Mentor bell behavior.
+     ───────────────────────────────────────────────────────────── */
+
+  const ADMIN_NOTIFICATIONS = [
+    {
+      id: 1,
+      title: "New Mentor Verification",
+      message: "A mentor submitted verification documents.",
+      type: "MENTOR_VERIFICATION_REQUEST",
+      read: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 2,
+      title: "Withdrawal request",
+      message: "A mentor requested a payout.",
+      type: "WITHDRAWAL_REQUEST",
+      read: false,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
+  it("opens the admin notification dropdown on bell click without navigating", async () => {
+    const user = userEvent.setup();
+    mockFetch(ADMIN_NOTIFICATIONS);
+
+    render(
+      <NotificationCenter notificationsPath="/admin/notification-center" />,
+    );
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    expect(bell).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(bell);
+
+    // The dropdown must appear (not a navigation)
+    const dropdown = await screen.findByLabelText("Notifications panel");
+    expect(dropdown).toBeInTheDocument();
+    expect(bell).toHaveAttribute("aria-expanded", "true");
+
+    // Dropdown contents — same design as Learner/Mentor
+    expect(
+      within(dropdown).getByText("Notifications"),
+    ).toBeInTheDocument();
+    expect(
+      within(dropdown).getByLabelText("Search notifications"),
+    ).toBeInTheDocument();
+    expect(
+      within(dropdown).getByRole("button", { name: /Mark all read/i }),
+    ).toBeInTheDocument();
+    // Tabs live inside the filters bar — unread cards also carry
+    // aria-labels starting with "Unread:", so scope the query.
+    const filterBar = dropdown.querySelector('[class*="notif-panel__filters"]');
+    expect(filterBar).toBeTruthy();
+    expect(
+      within(filterBar).getByRole("button", { name: /^All/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(filterBar).getByRole("button", { name: /^Unread/ }),
+    ).toBeInTheDocument();
+
+    // Real admin notification data renders as cards
+    expect(
+      await within(dropdown).findByText("New Mentor Verification"),
+    ).toBeInTheDocument();
+    expect(
+      within(dropdown).getByText("Withdrawal request"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(dropdown).getByRole("button", { name: /View All Notifications/i }),
+    ).toBeInTheDocument();
+
+    // Clicking the bell must never navigate
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("toggles the admin dropdown closed when the bell is clicked again", async () => {
+    const user = userEvent.setup();
+    mockFetch(ADMIN_NOTIFICATIONS);
+
+    render(
+      <NotificationCenter notificationsPath="/admin/notification-center" />,
+    );
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    await user.click(bell);
+    await screen.findByLabelText("Notifications panel");
+    expect(bell).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(bell);
+    expect(bell).toHaveAttribute("aria-expanded", "false");
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("closes the admin dropdown when clicking outside", async () => {
+    const user = userEvent.setup();
+    mockFetch(ADMIN_NOTIFICATIONS);
+
+    render(
+      <NotificationCenter notificationsPath="/admin/notification-center" />,
+    );
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    await user.click(bell);
+    await screen.findByLabelText("Notifications panel");
+    expect(bell).toHaveAttribute("aria-expanded", "true");
+
+    // mousedown anywhere outside the wrapper closes the dropdown
+    fireEvent.mouseDown(document.body);
+    expect(bell).toHaveAttribute("aria-expanded", "false");
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it("navigates to the admin notification page via View All Notifications", async () => {
+    const user = userEvent.setup();
+    mockFetch(ADMIN_NOTIFICATIONS);
+
+    render(
+      <NotificationCenter notificationsPath="/admin/notification-center" />,
+    );
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    await user.click(bell);
+    const dropdown = await screen.findByLabelText("Notifications panel");
+
+    await user.click(
+      within(dropdown).getByRole("button", { name: /View All Notifications/i }),
+    );
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith("/admin/notification-center");
+    });
+  });
+
+  it("marks an individual admin notification as read via the dropdown and routes to its admin page", async () => {
+    const user = userEvent.setup();
+    mockFetch(ADMIN_NOTIFICATIONS);
+
+    render(
+      <NotificationCenter notificationsPath="/admin/notification-center" />,
+    );
+
+    const bell = screen.getByRole("button", { name: /notifications/i });
+    await user.click(bell);
+    const dropdown = await screen.findByLabelText("Notifications panel");
+
+    const card = (
+      await within(dropdown).findByText("New Mentor Verification")
+    ).closest('[role="button"]');
+    await user.click(card);
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith("/api/v1/notifications/1/read");
+      expect(mockNavigate).toHaveBeenCalledWith("/admin/verifications");
+    });
   });
 });

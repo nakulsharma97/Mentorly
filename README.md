@@ -1,54 +1,506 @@
-# SkillSwapper
+<p align="center">
+  <img src="docs/assets/skillswapper-logo.svg" alt="SkillSwapper" width="540" />
+</p>
 
-SkillSwapper is a full-stack skill-sharing platform with separate learner and mentor experiences. The repository contains a React/Vite frontend, a Spring Boot backend, and supporting Docker-based local development.
+<p align="center">
+  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/backend-ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/backend-ci.yml?branch=main&label=backend%20CI&logo=github" alt="Backend CI" />
+  </a>
+  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/frontend-ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/frontend-ci.yml?branch=main&label=frontend%20CI&logo=github" alt="Frontend CI" />
+  </a>
+  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/deploy.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/deploy.yml?branch=main&label=deploy&logo=github" alt="Deploy" />
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/github/license/nakulsharma97/SkillSwapper" alt="License" />
+  </a>
+  <a href="#testing">
+    <img src="https://img.shields.io/badge/backend%20coverage-JaCoCo%20gate%20%E2%89%A515%25%20line-brightgreen" alt="Backend coverage — JaCoCo gate ≥ 15% line" />
+  </a>
+  <a href="#testing">
+    <img src="https://img.shields.io/badge/frontend%20coverage-Vitest%20%C2%B7%20npm%20run%20test%3Acoverage-brightgreen" alt="Frontend coverage — Vitest coverage report" />
+  </a>
+</p>
 
-## Repository structure
+> The CI badges show the live status of the GitHub Actions workflows on `main`. The coverage badges reflect this repo's configured quality tooling — JaCoCo's **≥ 15% line-coverage gate** is enforced by `mvn verify`, and the frontend generates a Vitest coverage report via `npm run test:coverage`. They become auto-updating if a hosted coverage service (e.g. Codecov) is connected later.
 
-- `frontend/` - React 18 frontend app built with Vite.
-- `backend/` - Spring Boot backend service using Java 21 and Maven.
-- `contracts/` - Solidity smart contract and related Hardhat config.
-- `docs/` - project guides, API/contracts, workflows, and architecture documentation.
-- `docker-compose.yml` - local development stack for frontend, backend, and MySQL.
+SkillSwapper is a full-stack, role-based skill-sharing marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes payments, real-time chat, Google Meet integration, review moderation, wallet payouts, and a blockchain escrow demo.
+
+This repository contains:
+
+- `frontend/` — React + Vite SPA (learner / mentor / admin workspaces)
+- `backend/` — Spring Boot modular-monolith REST API (Java 21)
+- `contracts/` — Solidity smart contract (session escrow) + Hardhat config
+- `docs/` — architecture, API contracts, security, deployment, and workflow docs
+- `k8s/` — Kubernetes manifests for production deployment
+
+---
+
+## Table of contents
+
+1. [Features](#features)
+2. [Technology stack](#technology-stack)
+3. [Architecture overview](#architecture-overview)
+4. [Repository structure](#repository-structure)
+5. [Backend architecture](#backend-architecture)
+6. [Frontend architecture](#frontend-architecture)
+7. [Database schema & ER diagram](#database-schema--er-diagram)
+8. [Database migrations](#database-migrations)
+9. [Smart contracts](#smart-contracts)
+10. [Local development](#local-development)
+11. [Environment variables](#environment-variables)
+12. [Common commands](#common-commands)
+13. [Testing](#testing)
+14. [CI/CD & deployment](#cicd--deployment)
+15. [Documentation index](#documentation-index)
+16. [Contribution](#contribution)
+17. [License](#license)
+
+---
+
+## Features
+
+### Identity & roles
+- **Three roles** — `LEARNER`, `MENTOR`, `ADMIN` — with dedicated workspaces and role-based routing (`/learner/*`, `/mentor/*`, `/admin/*`).
+- JWT access tokens + refresh-token rotation sessions, OAuth2 login (Google), password reset, login-attempt rate limiting (brute-force guard).
+- Mandatory profile-completion onboarding flow before the platform unlocks.
+
+### Marketplace
+- Public-ish mentor discovery with full-text search, filters, and skill taxonomy (`/mentors`, `/skills/:skillId`).
+- Mentor **verification workflow** — submit evidence, admin review (approve / reject / suspend), verified badge, visible only to learners when `APPROVED`.
+- Saved mentors (favorites) and skill watchlists.
+- Mentor professional profile pages, projects, certifications, and availability slots.
+
+### Booking, payments & sessions
+- Session booking lifecycle (`PENDING → APPROVED → JOINED / CANCELLED`) with admin approval, payment gating, and idempotency keys.
+- Payments via pluggable adapters — **Razorpay, Stripe, PayPal** — with webhook verification and idempotent `POST /payments/intent`.
+- Automatic **Google Meet** link generation through the Google Calendar API.
+- Session requests (learner-initiated proposals with preferred date/time/budget), session waitlists, and live-session join flows.
+- Mentor **wallets** with ledger entries and payouts.
+
+### Communication & learning
+- Real-time chat (WebSocket) for booking-centric conversations and direct messaging, with message requests, read receipts, reactions, and privacy settings.
+- Notification center (in-app + email) with search, filters, priority badges, and admin broadcast campaigns.
+- Learner learning dashboard: daily tasks, todos, session notes, certificates, achievements, and learning-path views.
+
+### Platform operations (admin)
+- Admin dashboard, user/session/payment management, skill catalog management, mentor verifications.
+- Content moderation (flagged content, profanity/spam/scam/prompt-injection detectors), user reports, and user blocking.
+- Audit logs, platform health checks, system settings, notification broadcasting, analytics, and admin sub-roles.
+
+### Trust, safety & security
+- OWASP-aware security headers, rate limiting, idempotency keys, audit logging (`AuditLogAspect`), and Sentry error tracking.
+- Web3 escrow demo contract (`contracts/contracts/SessionEscrow.sol`).
+
+---
 
 ## Technology stack
 
-- Frontend: React 18, Vite, React Router v6, Axios, Vitest, Playwright
-- Backend: Spring Boot 3.5.0, Java 21, Spring Security, Spring Data JPA, Flyway, MySQL, JWT, WebSocket, Sentry
-- Dev containers: Docker Compose with MySQL, backend, frontend
-- Smart contracts: Hardhat + Solidity
+### Frontend
+| Area | Technology |
+|---|---|
+| Framework | React 19, Vite 8 |
+| Routing | React Router 8 (declarative, lazy-loaded routes) |
+| HTTP | Axios (centralized `api/client.js`) |
+| UI | Custom design system (`design-system.css`, `components/ui/Primitives.jsx`), Framer Motion, Lucide icons |
+| State | React Context (`useAuth`, `ThemeContext`, `useToasts`) |
+| Notifications | react-hot-toast + shared `NotificationCenter` component |
+| Testing | Vitest, Testing Library, MSW (mock service worker), Playwright + axe-core |
+| Monitoring | Sentry (`@sentry/react`) |
+| Docs/export | jspdf, jspdf-autotable, exceljs |
 
-## Key concepts
+### Backend
+| Area | Technology |
+|---|---|
+| Runtime | Java 21, Maven 3.9+ |
+| Framework | Spring Boot 3.5.0 |
+| Security | Spring Security, JWT (jjwt 0.12.6), OAuth2 client, Spring AOP, spring-retry |
+| Persistence | Spring Data JPA (Hibernate), MySQL 8, Flyway migrations |
+| Real-time | Spring WebSocket (booking chat, direct chat, notification streams) |
+| Payments | Razorpay / Stripe / PayPal adapter pattern |
+| Meeting | Google Calendar API (automatic Meet links) |
+| Email | Spring Mail (JavaMail) |
+| Web3 | web3j (escrow contract interaction) |
+| API docs | springdoc-openapi (Swagger UI, dev profile) |
+| Monitoring | Spring Actuator, Sentry |
+| Quality gates | JaCoCo coverage (≥15% line), OWASP dependency-check (fail ≥ CVSS 7) |
 
-- Role-based routing separates learner and mentor applications.
-- Auth flows are handled in the frontend and routed to `/learner/*` or `/mentor/*` after login.
-- Public unauthenticated pages include `/`, `/login`, `/signup`, `/test-checklist`, and public mentor profiles under `/mentors/:mentorId`.
-- The app uses lazy-loaded page components with route error boundaries.
+### Infrastructure
+- Docker Compose: MySQL 8.4, backend, nginx-served frontend, certbot (SSL profile)
+- Kubernetes manifests under `k8s/` (namespace, ingress, deployments, configmap)
+- GitHub Actions CI/CD (`.github/workflows/backend-ci.yml`, `frontend-ci.yml`, `deploy.yml`)
+- Hardhat + Solidity for the escrow contract demo
 
-## Local development prerequisites
+---
+
+## Architecture overview
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            BROWSER (React SPA)                          │
+│   Auth (useAuth) · Router (AppRoutes) · Workspace layouts · Shared UI   │
+│        Learner / Mentor / Admin workspaces + public pages               │
+└───────────────┬───────────────────────────────┬─────────────────────────┘
+                │ REST (Axios, /api/v1/*)        │ WebSocket (/ws/*)
+                ▼                                ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    NGINX (frontend container, :5174/:443)               │
+│              Serves static build · proxies /api,/oauth2,/ws → backend   │
+└───────────────────────────────┬──────────────────────────────────────────┘
+                                ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                   SPRING BOOT BACKEND (:8080)                          │
+│                                                                         │
+│   Security filter chain (JWT) → Controllers → Services → Repositories  │
+│   ┌────────────┐  ┌─────────────┐  ┌────────────┐  ┌─────────────────┐  │
+│   │ auth/user  │  │ booking/    │  │ skill/     │  │ notification/   │  │
+│   │ verification│ │ payment/    │  │ session/   │  │ chat/messaging/ │  │
+│   │ admin/     │  │ wallet/     │  │ search/    │  │ learning/       │  │
+│   │ moderation │  │ review/     │  │ availability│ │ safety/session- │  │
+│   └────────────┘  └─────────────┘  └────────────┘  │ request/…       │  │
+│        Cross-cutting: common/, config/, files/, stats/, analytics/      │
+└──────┬───────────────┬───────────────┬───────────────┬──────────────────┘
+       │               │               │               │
+       ▼               ▼               ▼               ▼
+┌────────────┐  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐
+│   MySQL    │  │ Google       │ │ Payment      │ │ External: Email,     │
+│  (JPA +    │  │ Calendar API │ │ gateways     │ │ Sentry, WebSocket    │
+│  Flyway)   │  │ (Meet links) │ │ (Razorpay,   │ │ clients, blockchain  │
+│            │  │              │ │  Stripe,     │ │ (web3j/escrow)       │
+│            │  │              │ │  PayPal)     │ │                      │
+└────────────┘  └──────────────┘ └──────────────┘ └──────────────────────┘
+```
+
+**Key architectural decisions**
+
+- **Modular monolith**: the backend is one deployable Spring Boot app organized into domain packages (`auth`, `booking`, `payment`, `session`, …). Each package follows a consistent `Controller → Service → Repository → Entity/DTO` pattern.
+- **Role-based experiences** (see [docs/adr/0001-role-based-experiences.md](docs/adr/0001-role-based-experiences.md)): authenticated users land in a role-specific workspace; the global navbar is hidden inside workspaces because each renders its own topbar (which owns the notification bell / dropdown).
+- **Separated concerns**: learner, mentor, and admin UIs are isolated route trees behind `RoleGuard`; admin APIs are protected by role + admin sub-role checks.
+- **Idempotency & retry**: booking and payment creation endpoints are idempotency-keyed and return `409 retryable=true` on transient conflicts.
+- **API envelope**: responses use a shared `ApiResponse` wrapper with consistent error handling and `traceId` support.
+
+---
+
+## Repository structure
+
+```
+SkillSwapper/
+├── backend/                          # Spring Boot modular monolith (Java 21)
+│   ├── src/main/java/com/skillswap/  #   domain packages (see below)
+│   ├── src/main/resources/
+│   │   ├── application*.yml          #   profile-based config (dev/prod/staging…)
+│   │   └── db/migration/             #   Flyway migrations (V1…V64)
+│   ├── src/test/                     #   Mockito + integration tests
+│   ├── pom.xml                       #   Maven build, JaCoCo, OWASP, checkstyle, PMD
+│   ├── Dockerfile
+│   ├── checkstyle.xml / pmd-ruleset.xml
+│   └── start-backend.ps1             #   dev startup helper
+├── frontend/                         # React 19 + Vite SPA
+│   ├── e2e/                          #   Playwright end-to-end specs
+│   ├── playwright.config.js
+│   ├── src/
+│   │   ├── api/                      #   axios client + API adapters
+│   │   ├── components/               #   shared UI (Navbar, NotificationCenter, modals…)
+│   │   ├── context/                  #   ThemeContext
+│   │   ├── hooks/                    #   useAuth, useToasts, useFavorites, …
+│   │   ├── modules/                  #   workspace modules:
+│   │   │   ├── learner/              #     LearnerLayout, learning path, requests
+│   │   │   ├── mentor/               #     MentorLayout, dashboard widgets, students
+│   │   │   ├── admin/                #     AdminLayout, admin UI kit, reports
+│   │   │   ├── messages/             #     chat UI, hooks, unread store
+│   │   │   └── common/               #     RoleGuard, WorkspaceLayout, route utils
+│   │   ├── pages/                    #   route-level pages (learner/mentor/admin)
+│   │   ├── styles/                   #   global styles (forms, typography, responsive)
+│   │   ├── test/                     #   MSW mocks + setup
+│   │   ├── utils/                    #   pure helpers (skills, price, i18n, apiErrors…)
+│   │   ├── App.jsx                   #   top-level composition + auth wiring
+│   │   ├── components/AppRoutes.jsx  #   full route tree (public/learner/mentor/admin)
+│   │   └── main.jsx                  #   bootstrap entrypoint
+│   ├── package.json                  #   scripts: dev/build/test/lint/test:e2e
+│   ├── Dockerfile / nginx.conf / docker-entrypoint.sh
+│   └── index.html
+├── contracts/                        # Solidity + Hardhat
+│   ├── contracts/SessionEscrow.sol   #   session escrow demo
+│   ├── contracts/mocks/MockERC20.sol
+│   ├── hardhat.config.js
+│   └── test/SessionEscrow.js
+├── docs/                             # project documentation (see index below)
+│   ├── adr/                          #   architecture decision records
+│   ├── API_CONTRACTS.md              #   API contract index
+│   ├── BACKEND_MODULES.md            #   backend module guide
+│   ├── FRONTEND_MODULES.md           #   frontend module guide
+│   ├── PROJECT_STRUCTURE.md          #   repo map + change-organization rules
+│   ├── DEPLOYMENT.md                 #   deployment guide
+│   └── …                             #   security, runbooks, checklists
+├── k8s/                              # Kubernetes manifests
+│   ├── namespace.yaml, ingress.yaml, configmap.yaml
+│   ├── backend-deployment.yaml, frontend-deployment.yaml
+│   └── README.md
+├── scripts/                          # ops helpers
+│   ├── deploy.sh, db-backup.sh, env-setup.sh, setup-ssl.sh, validate-deploy.sh
+├── .github/workflows/                # CI/CD: backend-ci, frontend-ci, deploy
+├── docker-compose.yml                # MySQL + backend + frontend (+ certbot profile)
+├── start-fullstack.ps1 / stop-fullstack.ps1 / smoke-check.ps1
+└── README.md
+```
+
+### Root scripts
+
+| Script | Purpose |
+|---|---|
+| `start-fullstack.ps1` | Start backend + frontend locally |
+| `stop-fullstack.ps1` | Stop locally running services |
+| `smoke-check.ps1` | Health-check backend & frontend |
+| `scripts/deploy.sh` | Production deployment |
+| `scripts/db-backup.sh` | Database backup |
+| `scripts/setup-ssl.sh` | SSL certificate bootstrap/renewal |
+| `scripts/validate-deploy.sh` | Post-deploy validation |
+
+---
+
+## Backend architecture
+
+Root package: `backend/src/main/java/com/skillswap` — each domain folder owns its business area and follows the pattern:
+
+```
+<Domain>Controller → <Domain>Service → <Domain>Repository → <Domain>Entity
+                                              ↘ DTOs
+```
+
+| Package | Responsibility |
+|---|---|
+| `auth` | Login/signup, JWT + refresh-token rotation, OAuth2, login-attempt tracking |
+| `user` | User entity, roles, profiles, projects, mentor verification status |
+| `skill` | Skill catalog, skill requests, admin skill management |
+| `availability` | Mentor availability slots |
+| `session` | Skill sessions, live sessions, auto-creation, meeting providers |
+| `sessionrequest` | Learner session requests & mentor replies |
+| `booking` | Booking lifecycle, status transitions, idempotency |
+| `payment` | Payments, gateways (Razorpay/Stripe/PayPal adapters), verification |
+| `wallet` | Mentor wallets + ledger entries |
+| `review` | Mentor/learner reviews, replies, moderation |
+| `chat` | Booking-centric chat (WebSocket) |
+| `messaging` | Direct messages, conversations, message requests, privacy |
+| `notification` | In-app/email notifications, preferences, broadcasts |
+| `learning` | Learner tasks, todos, session notes, learning dashboard |
+| `verification` | Mentor & skill verification workflows |
+| `mentorcertification` | Mentor certifications |
+| `certification` | Learner certifications |
+| `search` | Mentor discovery/search |
+| `roadmap` | Learning roadmaps (legacy/removed feature area) |
+| `watchlist` | Saved mentors, skill watchlists |
+| `waitlist` | Session waitlists |
+| `safety` | User reports, user blocking, priorities |
+| `moderation` | Flagged content + automated detectors (profanity, spam, scam, prompt-injection) |
+| `admin` | Admin dashboard, settings, scheduled reports, broadcasts |
+| `analytics` | Role-based analytics, trends, testimonials |
+| `stats` | Community stats, testimonials |
+| `files` | Stored file uploads |
+| `monitoring` | System health, request stats, log buffering |
+| `meeting` | Google Calendar / Meet provider |
+| `web3` | Blockchain verification (escrow contract) |
+| `common` | `ApiResponse`, exceptions, audit logging, idempotency helpers, health |
+| `config` | Security config, JWT filter, WebSocket, rate limiting, maintenance mode |
+
+### Request lifecycle
+
+```
+HTTP request
+  → EndpointRateLimitFilter / MaintenanceModeFilter / RequestTraceFilter
+  → JwtAuthenticationFilter (extract + validate Bearer token)
+  → Spring Security authorization (ROLE_* + method security)
+  → Controller (validates DTOs)
+  → Service (business rules, transaction boundaries)
+  → Repository (JPA/Hibernate) → MySQL
+  → ApiResponse envelope → client
+```
+
+### API conventions
+
+- Base path: `/api/v1/*`
+- Standard envelope: `{ "success": bool, "data": … }`
+- Errors: HTTP status + structured body incl. `code` and `traceId`; retryable conflicts return `409` with `retryable: true`
+- Idempotency: `POST /api/v1/bookings` and `POST /api/v1/payments/intent` require an `Idempotency-Key` header
+- Swagger UI available on dev profile at `/swagger-ui.html`
+
+---
+
+## Frontend architecture
+
+### Structure
+
+```
+frontend/src/
+├── api/client.js        # axios instance: base URL, auth header injection, interceptors
+├── App.jsx              # composition root: auth context, modals, navbar, toaster, routes
+├── components/AppRoutes.jsx  # full route tree — public, onboarding, learner, mentor, admin
+├── context/ThemeContext.jsx  # light/dark theming
+├── hooks/               # useAuth, useToasts, useFavorites, useMentorSearch, …
+├── modules/             # per-role layouts + feature modules
+└── pages/               # route-level pages (lazy-loaded)
+```
+
+### Routing model
+
+| Area | Routes |
+|---|---|
+| Public | `/`, `/login`, `/signup`, `/admin/login`, `/test-checklist`, `/resources`, `/teach` |
+| Onboarding gate | `/complete-profile` (mandatory while profile incomplete; all else redirects here) |
+| Learner workspace | `/learner/*` — dashboard, mentors, skills, learning, tasks, sessions, requests, certificates, messages, saved, path, achievements, notifications, profile, settings, wallet, resources |
+| Mentor workspace | `/mentor/*` — dashboard, teach, students, calendar, analytics, reviews, messages, wallet, professional-profile, notifications, settings |
+| Admin workspace | `/admin/*` — dashboard, users, sessions, analytics, notifications, notification-center, settings, audit-log, flagged-content, health, reports, verifications, payments, skills, conversations |
+| Shared | `/become-a-mentor`, `/role-guide`, `/mentors/:mentorId`, `/profile-setup` |
+
+### Key patterns
+
+- **Lazy loading**: every page is `React.lazy()`; wrapped in `Suspense` + `RouteErrorBoundary`.
+- **Role guards**: `RoleGuard` blocks cross-role access; redirect helpers (`roleRoot()`) send users to their own dashboard.
+- **Workspaces**: learner/mentor/admin layouts (sidebar + topbar) own the notification bell, which opens the shared `NotificationCenter` dropdown (never navigates). The global navbar is hidden inside workspaces to avoid clashing bells.
+- **API access**: all requests go through `api/client.js`; responses are normalized by `utils/apiErrors.js`.
+
+---
+
+## Database schema & ER diagram
+
+The database is **MySQL 8**, managed exclusively through **Flyway migrations** (`backend/src/main/resources/db/migration`, `V1__init.sql` → `V64__drop_referral_system.sql`). Core tables:
+
+```mermaid
+erDiagram
+    USERS ||--o{ SESSIONS : "mentor_id creates"
+    USERS ||--o{ BOOKINGS : "learner_id books"
+    USERS ||--o{ MENTOR_REVIEWS : "reviews as learner / mentor"
+    USERS ||--o{ SAVED_MENTORS : "saves (learner_id)"
+    USERS ||--o{ USER_AVAILABILITY_SLOTS : "has"
+    USERS ||--o{ SESSION_REQUESTS : "sends/receives"
+    USERS ||--o{ APP_NOTIFICATIONS : "receives"
+    USERS ||--o{ DIRECT_CONVERSATIONS : "participates"
+    USERS ||--o{ DIRECT_MESSAGES : "sends"
+    USERS ||--o{ MENTOR_WALLETS : "owns"
+    USERS ||--o{ LEARNER_TASKS : "owns"
+    USERS ||--o{ MENTOR_VERIFICATION_REQUESTS : "submits"
+
+    SESSIONS ||--o{ BOOKINGS : "has"
+    SESSIONS ||--o{ SESSION_WAITLIST : "has waiters"
+    BOOKINGS ||--|| PAYMENTS : "paid by (payment_id)"
+    BOOKINGS ||--o{ CHAT_MESSAGES : "has chat"
+    BOOKINGS ||--o| MENTOR_REVIEWS : "reviewed by (booking_id)"
+
+    MENTOR_WALLETS ||--o{ WALLET_LEDGER_ENTRIES : "records"
+
+    DIRECT_CONVERSATIONS ||--o{ DIRECT_MESSAGES : "contains"
+    MESSAGE_REQUESTS ||--o| DIRECT_CONVERSATIONS : "becomes"
+
+    USER_REPORTS ||--o{ USERS : "reported / reporter"
+    USER_BLOCKS ||--o{ USERS : "blocker / blocked"
+    FLAGGED_CONTENT ||--o{ USERS : "flagged_by"
+    MODERATION_EVENTS ||--o{ FLAGGED_CONTENT : "tracks"
+
+    APP_NOTIFICATIONS ||--o| NOTIFICATION_BROADCASTS : "delivered via (broadcast_id)"
+    USERS ||--o{ NOTIFICATION_PREFERENCES : "configures"
+    AUDIT_LOGS ||--o{ USERS : "performed_by"
+
+    USERS ||--o{ USER_PROJECTS : "has"
+    USERS ||--o{ USER_CERTIFICATIONS : "has"
+    USERS ||--o{ MENTOR_CERTIFICATIONS : "has"
+    USERS ||--o{ SKILL_VERIFICATION_SUBMISSIONS : "submits"
+    USERS ||--o{ LEARNER_REVIEWS : "gives"
+```
+
+> The diagram shows the primary entities and their cardinalities. Every relationship shown maps to a foreign key in the migration scripts. Full DDL lives in the migration files; H2 (test profile) mirrors the schema for integration tests.
+
+### Core tables reference
+
+| Table | Purpose | Key relationships |
+|---|---|---|
+| `users` | Accounts, roles, profiles, mentor verification state | FK to everything |
+| `sessions` | Mentor-offered skill sessions | `mentor_id → users`, `created_by → users` |
+| `bookings` | Learner bookings of sessions | `session_id → sessions`, `learner_id → users`, `payment_id → payments` |
+| `payments` | Payment records per gateway | `learner_id`, `mentor_id`, `session_id` |
+| `mentor_reviews` / `learner_reviews` | Ratings & comments | `booking_id → bookings` (unique), `mentor_id`, `learner_id` |
+| `chat_messages` | Booking-centric chat | `booking_id → bookings`, `sender_id → users` |
+| `direct_messages` / `direct_conversations` | 1:1 messaging | `conversation_id → direct_conversations`, `sender_id → users` |
+| `message_requests` | Opt-in messaging requests | learner/mentor FKs |
+| `mentor_wallets` + `wallet_ledger_entries` | Mentor balances & payout ledger | `mentor_id → users` (1:1) |
+| `session_requests` | Learner-initiated session proposals | `learner_id`, `mentor_id → users` |
+| `user_availability_slots` | Weekly availability | `user_id → users` |
+| `app_notifications` | In-app notifications | `user_id → users`, `broadcast_id → notification_broadcasts` |
+| `notification_broadcasts` | Admin broadcast campaigns | — |
+| `saved_mentors` / `skill_watchlist` | Bookmarks | `learner_id`, `mentor_id → users` |
+| `session_waitlist` | Waitlist entries | `session_id → sessions`, `user_id → users` |
+| `learner_tasks` / `learner_todos` | Personal task lists | `learner_id → users` |
+| `audit_logs` | Immutable audit trail | `performed_by → users` |
+| `login_attempts` | Brute-force guard | — |
+| `refresh_token_sessions` / `access_token_denylist` | Token lifecycle | — |
+| `booking_idempotency_keys` / `payment_idempotency_keys` | Idempotent creates | key hashes |
+| `flagged_content` / `moderation_events` | Content moderation | `flagged_by → users` |
+| `user_reports` / `user_blocks` | Trust & safety | reporter/reported FKs |
+| `mentor_verification_requests` | Mentor evidence submissions | `user_id → users` |
+| `skill_verification_submissions` / `skill_verification_tasks` | Skill proof | `user_id → users` |
+| `stored_files` | Uploaded documents (resumes, IDs) | — |
+| `admin_settings` / `admin_notif_preferences` | Platform settings | — |
+
+---
+
+## Database migrations
+
+- Location: `backend/src/main/resources/db/migration`
+- Naming: `V<number>__<short_description>.sql`
+- Migration count: **64** (`V1` initial schema → `V64` dropping the legacy referral system)
+- Notable migrations:
+  - `V1__init.sql` — core `users`, `skills`, `sessions`, `bookings`, `payments`
+  - `V8__Add_Google_Meet_Integration.sql` — Meet/calendar fields
+  - `V13__auth_sessions_and_payment_idempotency.sql` — refresh tokens + idempotency
+  - `V15__audit_logs.sql`, `V44__reports_moderation_workflow.sql`, `V46__notification_broadcast_center.sql`
+  - `V50__purge_seeded_demo_data.sql` — removes dev seed data in prod/staging
+  - `V55__profile_completion_flow.sql`, `V56__username_lowercase_unique.sql`, `V57__mentor_verification_status.sql`
+  - `V61–V63` — learning paths, learner dashboard, daily tasks
+
+**Rules**
+- Every schema change requires a new migration file.
+- Never edit migrations already applied in shared environments.
+- Dev seed data is inserted only by `DevDataSeeder` on `dev`/`local` profiles and purged in prod/staging by `V50`.
+
+---
+
+## Smart contracts
+
+The `contracts/` folder contains a Hardhat project:
+
+- `contracts/SessionEscrow.sol` — escrow contract for sessions (holds funds until a session completes).
+- `contracts/mocks/MockERC20.sol` — mock ERC20 for local testing.
+- `test/SessionEscrow.js` — Hardhat test suite.
+
+```powershell
+cd contracts
+npm install
+npx hardhat test
+```
+
+---
+
+## Local development
+
+### Prerequisites
 
 - Node.js 20+
 - Java 21
 - Maven 3.9+
-- Docker and Docker Compose (optional, for containerized local stack)
-- MySQL if running backend directly
+- Docker + Docker Compose (optional, for the full stack)
+- MySQL 8 (only when running the backend directly)
 
-## Running locally
-
-### Option 1: Run with Docker Compose
-
-From the repository root:
+### Option 1 — Docker Compose (full stack)
 
 ```powershell
 docker compose up --build
 ```
 
 This starts:
+- `mysql` on `3306`
+- `backend` on `8080`
+- `frontend` on `5174` (and `443` for HTTPS)
 
-- `mysql` on port `3306`
-- `backend` on port `8080`
-- `frontend` on port `5174`
-
-### Option 2: Run backend and frontend separately
+### Option 2 — Backend & frontend separately
 
 #### Backend
 
@@ -57,7 +509,7 @@ Set-Location backend
 ./start-backend.ps1
 ```
 
-The backend defaults to `SPRING_PROFILES_ACTIVE=dev` and listens on port `8080`.
+The backend defaults to `SPRING_PROFILES_ACTIVE=dev` and listens on port `8080`. `JWT_SECRET` is required from the environment (see [Environment variables](#environment-variables)).
 
 #### Frontend
 
@@ -67,91 +519,139 @@ npm install
 npm run dev
 ```
 
-The frontend uses Vite and expects the backend API at `VITE_API_BASE_URL`.
+Vite serves on `5174` and expects the backend at `VITE_API_BASE_URL`.
 
-#### Development seed data
+### Development seed data
 
-Demo accounts and sample data (test users, demo mentors/learners, sample
-bookings/reviews) are seeded **only** on `dev`/`local` profiles by
-`DevDataSeeder` — production/staging databases are purged of this data by
-the Flyway migration `V50__purge_seeded_demo_data.sql`.
+Demo accounts and sample data are seeded **only** on `dev`/`local` profiles by `DevDataSeeder`; production/staging databases are purged by `V50__purge_seeded_demo_data.sql`.
 
-- Login accounts (password `password`): `mentor@test.com`, `learner@test.com`,
-  plus demo mentors/learners under `*.example.com` (e.g. `priya.sharma@example.com`).
-- The seeder is idempotent: it skips when the demo accounts already exist and
-  never touches data you created on top of them.
+- Login accounts (password `password`): `mentor@test.com`, `learner@test.com`
+- Demo mentors/learners under `*.example.com` (e.g. `priya.sharma@example.com`)
+- Admin bootstrap: set `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD` / `APP_ADMIN_NAME`; `AdminDataInitializer` seeds a single admin on startup.
+
+---
 
 ## Environment variables
 
-The Docker Compose stack supports these defaults:
+| Variable | Default | Notes |
+|---|---|---|
+| `MYSQL_DATABASE` | `skill_swap` | DB name |
+| `MYSQL_ROOT_PASSWORD` | `rootpassword` | Root password |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | `skill_swap` | App DB user |
+| `SPRING_PROFILES_ACTIVE` | `prod` (compose) / `dev` (local) | Runtime profile |
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://mysql:3306/skill_swap?...` | JDBC URL |
+| `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | `skill_swap` | DB credentials |
+| `JWT_SECRET` | — | **Required**; used to sign tokens |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5174,http://127.0.0.1:5174` | Allowed CORS origins |
+| `VITE_API_BASE_URL` | `http://backend:8080` (compose) | Frontend API base URL |
+| `VITE_APP_ENV` | `production` (docker build) | Frontend env |
+| `APP_ADMIN_EMAIL` / `APP_ADMIN_PASSWORD` / `APP_ADMIN_NAME` | — | Bootstraps the first admin |
+| `OAUTH2_REDIRECT_URL` | `http://localhost:5174/oauth/callback` | OAuth2 callback |
+| `APP_RATE_LIMIT_AUTH_PER_MINUTE` | `20` | Auth rate limit |
+| `APP_RATE_LIMIT_PAYMENT_PER_MINUTE` | `30` | Payment rate limit |
+| `SSL_CERT_DIR` | `./certs` | SSL cert mount (compose) |
 
-- `MYSQL_DATABASE` - default: `skill_swap`
-- `MYSQL_ROOT_PASSWORD` - default: `rootpassword`
-- `MYSQL_USER` - default: `skill_swap`
-- `MYSQL_PASSWORD` - default: `skill_swap`
-- `SPRING_PROFILES_ACTIVE` - default: `prod` in Docker Compose, `dev` for local backend startup
-- `SPRING_DATASOURCE_URL` - default: `jdbc:mysql://mysql:3306/skill_swap?...`
-- `SPRING_DATASOURCE_USERNAME` - default: `skill_swap`
-- `SPRING_DATASOURCE_PASSWORD` - default: `skill_swap`
-- `JWT_SECRET` - default: `change-me-change-me-change-me-change-me`
-- `CORS_ALLOWED_ORIGINS` - default: `http://localhost:5174,http://127.0.0.1:5174`
-- `VITE_API_BASE_URL` - default: `http://backend:8080` when built with Docker Compose
-- `VITE_APP_ENV` - production by default in Docker build
+See [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) and [docs/ENVIRONMENT_PROFILES.md](docs/ENVIRONMENT_PROFILES.md) for the full reference.
 
-## Frontend commands
+---
 
-From `frontend/`:
+## Common commands
+
+### Frontend (`frontend/`)
 
 ```powershell
-npm install
-npm run dev
-npm run build
-npm run preview
-npm run lint
-npm run lint:fix
-npm run test
-npm run test:coverage
-npm run test:watch
-npm run test:e2e
+npm install          # install dependencies
+npm run dev          # dev server (Vite)
+npm run build        # production build
+npm run preview      # preview the production build
+npm run lint         # ESLint (max 10 warnings)
+npm run lint:fix     # auto-fix lint issues
+npm run test         # Vitest unit tests
+npm run test:coverage# coverage report
+npm run test:watch   # watch mode
+npm run test:e2e     # Playwright end-to-end tests
 ```
 
-## Backend commands
-
-From `backend/`:
+### Backend (`backend/`)
 
 ```powershell
 mvn clean test-compile
-mvn clean verify
-mvn spring-boot:run
+mvn clean verify     # tests + JaCoCo + OWASP dependency check
+mvn spring-boot:run  # run with dev profile
+./start-backend.ps1  # helper script
 ```
 
-Or use the helper script:
+### Full stack
 
 ```powershell
-./start-backend.ps1
+./start-fullstack.ps1   # start backend + frontend
+./stop-fullstack.ps1    # stop services
+./smoke-check.ps1       # health-check both services
+docker compose up --build  # containerized stack
 ```
+
+---
 
 ## Testing
 
-- Frontend unit tests use Vitest.
-- End-to-end tests use Playwright.
-- Backend tests are managed by Spring Boot and Maven.
-- The backend POM includes JaCoCo coverage and OWASP dependency checks.
+| Layer | Tooling | Coverage |
+|---|---|---|
+| Frontend unit | Vitest + Testing Library + MSW | Components, hooks, utils, routing (`App.role-routing.test.jsx`), notification center, modals |
+| End-to-end | Playwright (`frontend/e2e/*.spec.js`) | auth, booking, chat, reviews, notifications, accessibility, skill input, wishlist |
+| Backend unit | JUnit 5 + Mockito | Services, controllers, security |
+| Backend integration | Spring Boot Test + H2 | Booking lifecycle, payment, chat, auth/token rotation, security config |
+| Accessibility | `@axe-core/playwright` | `frontend/e2e/accessibility-audit.spec.js` |
 
-## Documentation and conventions
+Quality gates on `mvn verify`: JaCoCo line coverage ≥ 15%, OWASP dependency check fails the build on CVSS ≥ 7. Lint gate: ESLint with a max of 10 warnings.
 
-- `docs/` contains project standards, deployment checklists, security guidance, and API contract documentation.
-- `docs/DEVELOPMENT_WORKFLOW.md` includes the standard contributor workflow and daily commands.
-- `docs/PROJECT_STRUCTURE.md` and related docs describe module boundaries and frontend/backend structure.
+---
 
-## Notes
+## CI/CD & deployment
 
-- The frontend now routes authenticated users into explicit `/learner/*` and `/mentor/*` paths.
-- Legacy `/home` behavior is intentionally deprecated and replaced by role-specific dashboard redirects.
-- Public mentor profiles remain accessible at `/mentors/:mentorId`.
+### GitHub Actions (`.github/workflows/`)
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `backend-ci.yml` | PR / push | Backend build + tests + quality gates |
+| `frontend-ci.yml` | PR / push | Frontend build + lint + unit tests (+ e2e) |
+| `deploy.yml` | Release / manual | Build images, deploy to target environment |
+
+### Deployment targets
+
+- **Docker Compose** — local / staging stack (`docker-compose.yml`)
+- **Kubernetes** — production manifests in `k8s/` (namespace, ingress, deployments, configmap)
+- **HTTPS** — nginx + certbot (Let's Encrypt) via `scripts/setup-ssl.sh`; compose `ssl` profile for manual issuance/renewal
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md), [docs/STAGING_PROD_RUNBOOK.md](docs/STAGING_PROD_RUNBOOK.md), and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+
+---
+
+## Documentation index
+
+The `docs/` folder contains the full project knowledge base:
+
+- **Architecture**: [PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md), [BACKEND_MODULES.md](docs/BACKEND_MODULES.md), [FRONTEND_MODULES.md](docs/FRONTEND_MODULES.md), [adr/](docs/adr/)
+- **API contracts**: [API_CONTRACTS.md](docs/API_CONTRACTS.md), [BOOKING_API_CONTRACT.md](docs/BOOKING_API_CONTRACT.md), [PAYMENT_API_CONTRACT.md](docs/PAYMENT_API_CONTRACT.md)
+- **Security**: [SECURITY_HEADERS.md](docs/SECURITY_HEADERS.md), [OWASP_SECURITY_AUDIT.md](docs/OWASP_SECURITY_AUDIT.md), [GITHUB_SECRETS_SETUP.md](docs/GITHUB_SECRETS_SETUP.md), [GITHUB_ENVIRONMENT_PROTECTION.md](docs/GITHUB_ENVIRONMENT_PROTECTION.md)
+- **Operations**: [DEPLOYMENT.md](docs/DEPLOYMENT.md), [INCIDENT_RESPONSE_PLAYBOOK.md](docs/INCIDENT_RESPONSE_PLAYBOOK.md), [OBSERVABILITY_ALERTS.md](docs/OBSERVABILITY_ALERTS.md), [CANARY_RELEASE_PLAYBOOK.md](docs/CANARY_RELEASE_PLAYBOOK.md), [MIGRATION_ROLLBACK_PLAYBOOK.md](docs/MIGRATION_ROLLBACK_PLAYBOOK.md), [LOAD_TESTING_GUIDE.md](docs/LOAD_TESTING_GUIDE.md)
+- **Quality**: [LAUNCH_QUALITY_BAR.md](docs/LAUNCH_QUALITY_BAR.md), [FRONTEND_PRODUCTION_CHECKLIST.md](docs/FRONTEND_PRODUCTION_CHECKLIST.md), [ACCESSIBILITY_KEYBOARD_QA_CHECKLIST.md](docs/ACCESSIBILITY_KEYBOARD_QA_CHECKLIST.md), [UX_ENHANCEMENTS.md](docs/UX_ENHANCEMENTS.md)
+- **Guides**: [DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md), [ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md), [ENVIRONMENT_PROFILES.md](docs/ENVIRONMENT_PROFILES.md), [LEARNER_EXPERIENCE_GUIDELINES.md](docs/LEARNER_EXPERIENCE_GUIDELINES.md)
+
+---
 
 ## Contribution
 
-1. Review existing docs in `docs/` before changing architecture or workflow.
-2. Run frontend and backend tests for touched areas.
-3. Update documentation when adding or changing public routes, auth behavior, or deployment configuration.
+1. Review [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md), [docs/BACKEND_MODULES.md](docs/BACKEND_MODULES.md), and [docs/FRONTEND_MODULES.md](docs/FRONTEND_MODULES.md) before changing architecture.
+2. Read [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) for the standard contributor workflow and daily commands.
+3. Keep features scoped to one backend domain package; keep API contracts explicit with DTOs.
+4. Add or update tests with every behavior change.
+5. Add a Flyway migration for every schema change — never edit applied migrations.
+6. Run frontend and backend tests for touched areas (see [Testing](#testing)).
+7. Update this README and `docs/` when adding public routes, auth behavior, or deployment configuration.
+8. Record durable architecture decisions in `docs/adr/`.
+
+---
+
+## License
+
+SkillSwapper is open-sourced under the [MIT License](LICENSE).

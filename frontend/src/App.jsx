@@ -33,11 +33,16 @@ export default function App() {
   const routeFallback = <LazyLoadingFallback label="Loading page" />;
   // The onboarding page renders its own minimal top bar (brand + logout), so
   // the full global navbar (with dashboard links) is hidden while onboarding.
+  // Workspace pages (learner/mentor/admin) render their own topbar — the
+  // global navbar must not appear there, otherwise its notification bell
+  // (which navigates) would clash with the workspace bell (which opens the
+  // shared NotificationCenter dropdown).
   const shouldShowGlobalNavbar =
     pathname !== "/" &&
     !pathname.startsWith(PROFILE_ONBOARDING_PATH) &&
     !pathname.startsWith("/learner") &&
-    !pathname.startsWith("/mentor");
+    !pathname.startsWith("/mentor") &&
+    !pathname.startsWith("/admin");
 
   useEffect(() => {
     initGlobalMonitoring();
@@ -181,9 +186,11 @@ export default function App() {
             onOpenProfile={() => navigate(roleRoot(auth.profile?.role))}
             onOpenNotifications={() =>
               navigate(
-                auth.profile?.role === "MENTOR"
-                  ? "/mentor/messages"
-                  : "/learner/messages",
+                auth.profile?.role === "ADMIN"
+                  ? "/admin/notification-center"
+                  : auth.profile?.role === "MENTOR"
+                    ? "/mentor/messages"
+                    : "/learner/messages",
               )
             }
             onLogout={auth.handleLogout}

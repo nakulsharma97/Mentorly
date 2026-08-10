@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import App from "./App";
 import client from "./api/client";
@@ -63,7 +63,23 @@ vi.mock("./pages/MessagesPage", () => ({
 vi.mock("./pages/NotFoundPage", () => ({
   default: () => <div>Not Found</div>,
 }));
-vi.mock("./components/Navbar", () => ({ default: () => <div>Navbar</div> }));
+// Stub the global navbar but keep a clickable bell so tests can verify the
+// onOpenNotifications navigation wiring without pulling in real styles/layout.
+vi.mock("./components/Navbar", () => ({
+  default: ({ isLoggedIn, onOpenNotifications }) => (
+    <div>
+      Navbar
+      {isLoggedIn && (
+        <button type="button" onClick={onOpenNotifications}>
+          Notifications
+        </button>
+      )}
+    </div>
+  ),
+}));
+vi.mock("./pages/AdminNotificationsPage", () => ({
+  default: () => <div>Admin Notifications Page</div>,
+}));
 vi.mock("./modules/admin/layouts/AdminLayout", () => {
   const { Outlet } = require("react-router");
   return {
@@ -359,6 +375,68 @@ describe("App role routing", () => {
     });
 
     expect(screen.queryByText("Auth Page")).not.toBeInTheDocument();
+  });
+
+  it("never renders the global navbar on workspace pages (incl. admin)", async () => {
+    // Admin — the admin workspace topbar owns the notification bell, which
+    // opens the shared NotificationCenter dropdown instead of navigating.
+    mockProfileForRole("ADMIN");
+    const adminRender = render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/admin/dashboard"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Dashboard")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Navbar")).not.toBeInTheDocument();
+    adminRender.unmount();
+
+    // Learner
+    mockProfileForRole("LEARNER");
+    const learnerRender = render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/learner/dashboard"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText("Learner Dashboard")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Navbar")).not.toBeInTheDocument();
+    learnerRender.unmount();
+  });
+
+  it("routes the global navbar bell to the admin notification center for admins on non-workspace pages", async () => {
+    mockProfileForRole("ADMIN");
+
+    render(
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={["/role-guide"]}
+      >
+        <App />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Role Guide")).toBeInTheDocument();
+    });
+
+    // The global navbar bell must NOT drop admins into a learner-only page —
+    // it should route to their own notification-center.
+    fireEvent.click(screen.getByText("Notifications"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Admin Notifications Page")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Role Guide")).not.toBeInTheDocument();
   });
 
   it("keeps role boundaries on /home for both learner and mentor", async () => {

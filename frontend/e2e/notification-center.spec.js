@@ -6,8 +6,7 @@ const BACKEND_URL =
 /**
  * Fetch auth token via the backend API.
  */
-async function fetchAuthToken(request, email) {
-  const candidates = ["password", "test@123"];
+async function fetchAuthToken(request, email, candidates = ["password", "test@123"]) {
   for (const password of candidates) {
     const resp = await request.post(`${BACKEND_URL}/api/v1/auth/login`, {
       data: { email, password },
@@ -192,5 +191,81 @@ test.describe("Notification Center – UI", () => {
     await expect(
       dropdown.locator('[class*="notif-card"]').first(),
     ).toBeVisible({ timeout: 5000 });
+  });
+
+  test("admin dashboard opens the notification dropdown without navigating", async ({
+    page,
+    request,
+  }) => {
+    // Try the known admin password FIRST so the test never adds failed
+    // login attempts — the backend brute-force guard (5 failed attempts
+    // per IP per 15 min) would otherwise rate-limit the whole spec.
+    const token = await fetchAuthToken(request, "nakulsharma@gmail.com", [
+      "nakul97",
+      "password",
+      "test@123",
+    ]);
+    test.skip(!token, "Skipping – could not obtain auth token.");
+
+    // Mock the unread count so the badge is guaranteed to render
+    await page.route("**/api/v1/notifications/unread-count", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: 3 }),
+      });
+    });
+
+    await injectToken(page, token);
+
+    await page.goto("/admin/dashboard", { waitUntil: "load" });
+
+    // Wait for the SPA to authenticate (topbar = auth confirmed)
+    await expect(page.locator('[class*="ws-top"]').first()).toBeVisible({
+      timeout: 15000,
+    });
+
+    // The global navbar (whose bell navigates) must NOT render on admin pages
+    await expect(page.locator(".site-navbar")).toHaveCount(0);
+
+    // Only the workspace topbar bell (which opens the dropdown) is present
+    const bellButton = page.locator('button[class*="notif-bell"]');
+    await expect(bellButton).toHaveCount(1);
+    await expect(bellButton).toBeVisible({ timeout: 10000 });
+
+    const badge = bellButton.locator('[class*="notif-bell__badge"]');
+    await expect(badge).toBeVisible({ timeout: 5000 });
+    const badgeText = (await badge.textContent()) || "";
+    expect(Number(badgeText)).toBeGreaterThanOrEqual(0);
+
+    const urlBeforeClick = page.url();
+
+    await bellButton.click();
+    await page.waitForTimeout(1500);
+
+    // Clicking the bell opens the dropdown — it must NOT navigate
+    expect(page.url()).toBe(urlBeforeClick);
+
+    const dropdown = page.locator(".notif-dropdown");
+    await expect(dropdown).toBeVisible({ timeout: 5000 });
+
+    await expect(
+      dropdown.locator('input[type="search"]'),
+    ).toBeVisible({ timeout: 3000 });
+    await expect(
+      dropdown.locator('button[class*="notif-panel__mark-all"]'),
+    ).toBeVisible({ timeout: 3000 });
+    await expect(
+      dropdown.locator('button[class*="notif-panel__filter"]').nth(0),
+    ).toBeVisible({ timeout: 3000 });
+    await expect(
+      dropdown.locator('button[class*="notif-panel__filter"]').nth(1),
+    ).toBeVisible({ timeout: 3000 });
+
+    // View All → Admin Notifications page
+    await dropdown.locator('button[class*="notif-panel__view-all"]').click();
+    await expect(page).toHaveURL(/\/admin\/notification-center/, {
+      timeout: 8000,
+    });
   });
 });
