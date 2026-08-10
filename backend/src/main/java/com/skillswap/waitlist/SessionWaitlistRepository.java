@@ -1,5 +1,7 @@
 package com.skillswap.waitlist;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,6 +15,8 @@ public interface SessionWaitlistRepository extends JpaRepository<SessionWaitlist
             WaitlistStatus status);
 
     List<SessionWaitlist> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);
+
+    Page<SessionWaitlist> findByLearnerIdOrderByCreatedAtDesc(Long learnerId, Pageable pageable);
 
     Optional<SessionWaitlist> findFirstBySessionIdAndStatusOrderByCreatedAtAsc(Long sessionId, WaitlistStatus status);
 

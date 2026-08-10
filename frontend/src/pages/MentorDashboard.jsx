@@ -227,8 +227,9 @@ export default function MentorDashboard({ profile, notify }) {
             .catch(() => ({ data: { data: null } })),
         ]);
 
-      const allSessions = sessionsRes?.data?.data || EMPTY_ARRAY;
-      const allBookings = bookingsRes?.data?.data || EMPTY_ARRAY;
+      // Paginated responses — unwrap .content from the Page objects.
+      const allSessions = sessionsRes?.data?.data?.content || EMPTY_ARRAY;
+      const allBookings = bookingsRes?.data?.data?.content || EMPTY_ARRAY;
 
       // GET /api/v1/reviews/mentor returns a summary object, NOT an array:
       //   { averageRating, totalReviews, reviews: [...] }

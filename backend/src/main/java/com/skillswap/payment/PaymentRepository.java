@@ -20,6 +20,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     List<Payment> findByLearnerIdOrMentorId(Long learnerId, Long mentorId);
 
+    Page<Payment> findByLearnerIdOrMentorId(Long learnerId, Long mentorId, Pageable pageable);
+
     List<Payment> findByMentorIdAndCreatedAtGreaterThanEqual(Long mentorId, OffsetDateTime createdAt);
 
     List<Payment> findByLearnerIdAndCreatedAtGreaterThanEqual(Long learnerId, OffsetDateTime createdAt);

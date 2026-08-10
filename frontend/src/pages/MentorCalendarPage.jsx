@@ -121,9 +121,10 @@ export default function MentorCalendarPage({ profile, notify }) {
           .get("/api/v1/availability/my-slots")
           .catch(() => ({ data: { data: [] } })),
       ]);
-      const bookings = bookingsRes?.data?.data || [];
-      const sessions = sessionsRes?.data?.data || [];
-      const slotItems = slotsRes?.data?.data || [];
+      // Paginated responses — unwrap .content from the Page objects.
+      const bookings = bookingsRes?.data?.data?.content || [];
+      const sessions = sessionsRes?.data?.data?.content || [];
+      const slotItems = slotsRes?.data?.data?.content || [];
       const mapped = [...bookings, ...sessions]
         .map((item) => {
           const session = item?.session || item;

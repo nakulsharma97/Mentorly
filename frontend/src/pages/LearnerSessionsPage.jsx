@@ -810,9 +810,12 @@ export default function LearnerSessionsPage() {
   const [paymentSuccess, setPaymentSuccess] = useState("");
 
   const { loading, data, error } = useResource(() => apiGet("/api/v1/bookings"), [refreshKey]);
-  // Never trust the API shape — if the payload is not an array, treat it as
-  // empty instead of crashing on .forEach/.filter downstream.
-  const allBookings = Array.isArray(data) ? data : EMPTY_ARRAY;
+  // Never trust the API shape — the endpoint is now paginated, so unwrap
+  // .content from the Page object (falling back to a bare array). Treat
+  // anything else as empty instead of crashing on .forEach/.filter downstream.
+  const allBookings = Array.isArray(data)
+    ? data
+    : (Array.isArray(data?.content) ? data.content : EMPTY_ARRAY);
 
   // Auto-refresh when the tab regains focus (e.g. the learner switches back to
   // this tab after the mentor confirmed a session elsewhere) so the list and

@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
@@ -334,12 +337,21 @@ public class PaymentService {
     }
 
     /**
-     * Get payment history for a user.
+     * Get payment history for a user (paginated).
+     */
+    public Page<Payment> getPaymentHistory(User currentUser, Pageable pageable) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return paymentRepository.findByFilters(null, null, null, pageable);
+        }
+        return paymentRepository.findByLearnerIdOrMentorId(currentUser.getId(), currentUser.getId(), pageable);
+    }
+
+    /**
+     * Get payment history for a user (unbounded list — kept for internal callers).
      */
     public List<Payment> getPaymentHistory(User currentUser) {
         if (currentUser.getRole() == UserRole.ADMIN) {
-            return paymentRepository.findByFilters(null, null, null,
-                    org.springframework.data.domain.PageRequest.of(0, 1000)).getContent();
+            return paymentRepository.findByFilters(null, null, null, PageRequest.of(0, 1000)).getContent();
         }
         return paymentRepository.findByLearnerIdOrMentorId(currentUser.getId(), currentUser.getId());
     }

@@ -20,6 +20,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
         List<Booking> findBySessionMentorId(Long mentorId);
 
+        /**
+         * Paginated bookings for one mentor. The List overload above is kept
+         * for internal aggregate callers (analytics, chat, live sessions); the
+         * HTTP layer uses this Page variant.
+         */
+        Page<Booking> findBySessionMentorId(Long mentorId, Pageable pageable);
+
         long countBySessionMentorIdAndBookingStatus(Long mentorId, BookingStatus status);
 
         List<Booking> findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(
@@ -48,6 +55,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                         OffsetDateTime startTime);
 
         List<Booking> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);
+
+        /**
+         * Paginated bookings for one learner. The List overload above is kept
+         * for internal aggregate callers (dashboard, tasks, analytics); the
+         * HTTP layer uses this Page variant.
+         */
+        Page<Booking> findByLearnerIdOrderByCreatedAtDesc(Long learnerId, Pageable pageable);
 
         long countByLearnerIdAndBookingStatus(Long learnerId, BookingStatus status);
 

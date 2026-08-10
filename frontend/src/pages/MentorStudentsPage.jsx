@@ -63,7 +63,8 @@ export default function MentorStudentsPage({ profile, notify }) {
             }),
       ]);
 
-      const bookings = bookingsRes?.data?.data || [];
+      // Paginated response — unwrap .content from the Page object.
+      const bookings = bookingsRes?.data?.data?.content || [];
       const reviewSummary = reviewsRes?.data?.data || {};
       const reviews = reviewSummary.reviews || [];
 

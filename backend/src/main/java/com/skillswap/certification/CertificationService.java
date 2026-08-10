@@ -7,6 +7,8 @@ import com.skillswap.notification.NotificationService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -27,6 +29,10 @@ public class CertificationService {
 
     public List<UserCertification> listForUser(Long userId) {
         return certificationRepository.findByUserIdOrderByIssuedAtDesc(userId);
+    }
+
+    public Page<UserCertification> listForUser(Long userId, Pageable pageable) {
+        return certificationRepository.findByUserIdOrderByIssuedAtDesc(userId, pageable);
     }
 
     public List<UserCertification> evaluateAndAward(User user) {

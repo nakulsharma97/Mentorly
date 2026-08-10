@@ -413,11 +413,12 @@ class BookingLifecycleIntegrationTest {
                         .with(csrf())
                         .with(user(learner)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].id").value(bookingId))
-                .andExpect(jsonPath("$.data[0].bookingStatus").value("ACCEPTED"))
-                .andExpect(jsonPath("$.data[0].payment.status").value("ESCROWED"))
-                .andExpect(jsonPath("$.data[0].session.id").isNumber())
-                .andExpect(jsonPath("$.data[0].session.mentor.id").value(mentor.getId()));
+                // Paginated response: the first booking lives in data.content.
+                .andExpect(jsonPath("$.data.content[0].id").value(bookingId))
+                .andExpect(jsonPath("$.data.content[0].bookingStatus").value("ACCEPTED"))
+                .andExpect(jsonPath("$.data.content[0].payment.status").value("ESCROWED"))
+                .andExpect(jsonPath("$.data.content[0].session.id").isNumber())
+                .andExpect(jsonPath("$.data.content[0].session.mentor.id").value(mentor.getId()));
     }
 
     // ═══════════════════════════════════════════════════════════

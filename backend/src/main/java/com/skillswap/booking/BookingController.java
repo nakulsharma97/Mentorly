@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -48,19 +52,21 @@ public class BookingController {
         private final ProfileCompletionGuard profileCompletionGuard;
 
         @GetMapping
-        public ApiResponse<List<Booking>> list(@AuthenticationPrincipal User currentUser) {
+        public ApiResponse<Page<Booking>> list(
+                        @AuthenticationPrincipal User currentUser,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size) {
+                Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)));
                 if (currentUser.getRole() == UserRole.ADMIN) {
                         return new ApiResponse<>("Bookings fetched",
-                                        bookingRepository.findAll(
-                                                org.springframework.data.domain.PageRequest.of(0, 1000))
-                                                .getContent());
+                                        bookingRepository.findAll(pageable));
                 }
                 if (currentUser.getRole() == UserRole.MENTOR) {
                         return new ApiResponse<>("Bookings fetched",
-                                        bookingRepository.findBySessionMentorId(currentUser.getId()));
+                                        bookingRepository.findBySessionMentorId(currentUser.getId(), pageable));
                 }
-                return new ApiResponse<>("Bookings fetched", bookingRepository.findByLearnerIdOrderByCreatedAtDesc(
-                                currentUser.getId()));
+                return new ApiResponse<>("Bookings fetched",
+                                bookingRepository.findByLearnerIdOrderByCreatedAtDesc(currentUser.getId(), pageable));
         }
 
         @PostMapping

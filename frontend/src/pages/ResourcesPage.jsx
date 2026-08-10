@@ -40,7 +40,9 @@ export default function ResourcesPage() {
       const getData = (index, fallback) => {
         const result = responses[index];
         if (result.status === 'fulfilled') {
-          return result.value?.data?.data ?? fallback;
+          const value = result.value?.data?.data ?? fallback;
+          // Paginated endpoint — unwrap .content from the Page object.
+          return Array.isArray(value) ? value : (value?.content ?? fallback);
         }
         return fallback;
       };

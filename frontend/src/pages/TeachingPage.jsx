@@ -650,9 +650,10 @@ export default function TeachingPage({ profile: profileProp, notify }) {
         ]);
 
       setProfile(profileRes?.data?.data || null);
-      setSessions(sessionsRes?.data?.data || []);
-      setBookings(bookingsRes?.data?.data || []);
-      setAvailabilitySlots(availabilityRes?.data?.data || []);
+      // Paginated responses — unwrap .content from the Page objects.
+      setSessions(sessionsRes?.data?.data?.content || []);
+      setBookings(bookingsRes?.data?.data?.content || []);
+      setAvailabilitySlots(availabilityRes?.data?.data?.content || []);
     } catch (error) {
       setLoadError("Could not load your sessions. Please refresh the page.");
     } finally {

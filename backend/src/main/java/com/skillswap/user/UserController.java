@@ -6,7 +6,12 @@ import com.skillswap.common.ProfileCompletionGuard;
 import com.skillswap.common.ProfileCompletionService;
 import com.skillswap.common.UsernameRules;
 import com.skillswap.common.exception.BadRequestException;
+import com.skillswap.user.MentorVerificationStatus;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.review.MentorReviewRepository;
@@ -83,36 +88,47 @@ public class UserController {
     }
 
     @GetMapping("/mentors")
-    public ApiResponse<List<LiveMentorResponse>> mentors(
-            @RequestParam(required = false) String skill) {
+    public ApiResponse<Page<LiveMentorResponse>> mentors(
+            @RequestParam(required = false) String skill,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         OffsetDateTime now = OffsetDateTime.now();
         String normalizedSkill = skill == null ? "" : skill.trim();
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100));
 
-        List<User> mentorUsers = normalizedSkill.isEmpty()
-                ? userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole.MENTOR)
-                : userRepository.findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
-                        UserRole.MENTOR,
-                        normalizedSkill);
+        Page<User> mentorPage;
+        if (normalizedSkill.isEmpty()) {
+            // SQL-filtered paginated query — only APPROVED + profile-completed mentors
+            mentorPage = userRepository
+                    .findByRoleAndEnabledTrueAndProfileCompletedTrueAndVerificationStatusOrderByLastActiveAtDesc(
+                            UserRole.MENTOR, MentorVerificationStatus.APPROVED, pageable);
+        } else {
+            // Skill-filter: fetch filtered list, apply isApprovedMentor in memory, manual pagination
+            List<User> allMentors = userRepository
+                    .findByRoleAndEnabledTrueAndSkillsContainingIgnoreCaseOrderByLastActiveAtDesc(
+                            UserRole.MENTOR, normalizedSkill)
+                    .stream()
+                    .filter(User::isApprovedMentor)
+                    .toList();
+            int start = pageable.getPageNumber() * pageable.getPageSize();
+            int end = Math.min(start + pageable.getPageSize(), allMentors.size());
+            List<User> pageContent = start >= allMentors.size() ? List.of() : allMentors.subList(start, end);
+            mentorPage = new PageImpl<>(pageContent, pageable, allMentors.size());
+        }
 
-        List<LiveMentorResponse> mentors = mentorUsers
-                .stream()
-                // Only admin-APPROVED mentors with a completed profile may
-                // appear in Explore / recommendations / featured lists.
-                .filter(User::isApprovedMentor)
-                .map(mentor -> {
-                    double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
-                    long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
-                    boolean liveNow = mentor.getLastActiveAt() != null
-                            && mentor.getLastActiveAt().isAfter(now.minusMinutes(5));
-                    return LiveMentorResponse.from(
-                            mentor,
-                            Math.round(averageRating * 10.0) / 10.0,
-                            totalReviews,
-                            liveNow);
-                })
-                .toList();
+        Page<LiveMentorResponse> result = mentorPage.map(mentor -> {
+            double averageRating = mentorReviewRepository.averageRatingByMentorId(mentor.getId()).orElse(0.0);
+            long totalReviews = mentorReviewRepository.countByMentorId(mentor.getId());
+            boolean liveNow = mentor.getLastActiveAt() != null
+                    && mentor.getLastActiveAt().isAfter(now.minusMinutes(5));
+            return LiveMentorResponse.from(
+                    mentor,
+                    Math.round(averageRating * 10.0) / 10.0,
+                    totalReviews,
+                    liveNow);
+        });
 
-        return new ApiResponse<>("Mentors fetched", mentors);
+        return new ApiResponse<>("Mentors fetched", result);
     }
 
     @GetMapping("/mentors/skills")

@@ -1,5 +1,7 @@
 package com.skillswap.review;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -17,6 +19,8 @@ public interface MentorReviewRepository extends JpaRepository<MentorReview, Long
     long countByMentorId(Long mentorId);
 
     List<MentorReview> findByMentorIdOrderByCreatedAtDesc(Long mentorId);
+
+    Page<MentorReview> findByMentorIdOrderByCreatedAtDesc(Long mentorId, Pageable pageable);
 
     @Query("select coalesce(avg(r.rating), 0) from MentorReview r where r.mentor.id = :mentorId")
     Optional<Double> averageRatingByMentorId(Long mentorId);

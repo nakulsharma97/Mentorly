@@ -169,8 +169,15 @@ export default function AnalyticsPage({ profile }) {
         return;
       }
 
-      const readData = (result) =>
-        result?.status === "fulfilled" ? result?.value?.data?.data || EMPTY_ARRAY : EMPTY_ARRAY;
+      // Paginated endpoints return ApiResponse<Page<...>> — unwrap .content
+      // from the Page object (falls back to the raw value for non-paginated
+      // endpoints like /reviews/mentor, which returns a summary object).
+      const readData = (result) => {
+        if (result?.status !== "fulfilled") return EMPTY_ARRAY;
+        const value = result?.value?.data?.data;
+        if (Array.isArray(value)) return value;
+        return value?.content || value || EMPTY_ARRAY;
+      };
 
       setBookings(readData(bookingsResult));
       setPayments(readData(paymentsResult));

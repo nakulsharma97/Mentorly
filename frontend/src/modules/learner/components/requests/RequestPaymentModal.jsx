@@ -22,7 +22,8 @@ export default function RequestPaymentModal({ request, onClose, onPaid }) {
     try {
       // 1. Find the booking for this session
       const bookingsRes = await client.get("/api/v1/bookings");
-      const allBookings = bookingsRes?.data?.data || [];
+      // Paginated response — unwrap .content from the Page object.
+      const allBookings = bookingsRes?.data?.data?.content || [];
       const booking = allBookings.find(
         (b) =>
           String(b.session?.id) === String(request.sessionId) ||

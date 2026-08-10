@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
+import { pageContent } from "../utils/pagination";
 import ReportModal from "../components/ReportModal";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
@@ -229,7 +230,8 @@ export default function SkillDetailPage({ notify }) {
     apiGet("/api/v1/users/mentors", { params: { skill: skill.name } })
       .then((data) => {
         if (!active) return;
-        const list = Array.isArray(data) ? data : [];
+        // Paginated response — unwrap .content from the Page object.
+        const list = pageContent(data);
         setMentors(list.map((m) => ({
           id: m.id ?? m.mentorId,
           fullName: m.fullName || m.mentorName || "Mentor",

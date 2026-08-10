@@ -7,11 +7,14 @@ import com.skillswap.notification.NotificationService;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -67,8 +70,11 @@ public class WaitlistController {
     }
 
     @GetMapping("/my")
-    public ApiResponse<List<SessionWaitlist>> myWaitlist(@AuthenticationPrincipal User learner) {
+    public ApiResponse<Page<SessionWaitlist>> myWaitlist(
+            @AuthenticationPrincipal User learner,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         return new ApiResponse<>("Waitlist items fetched",
-                waitlistRepository.findByLearnerIdOrderByCreatedAtDesc(learner.getId()));
+                waitlistRepository.findByLearnerIdOrderByCreatedAtDesc(learner.getId(), PageRequest.of(page, Math.min(size, 50))));
     }
 }

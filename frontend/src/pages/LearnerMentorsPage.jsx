@@ -437,7 +437,8 @@ export default function LearnerMentorsPage({ notify }) {
         size: 40,
       },
     });
-    return mentorResults || [];
+    // Paginated response — unwrap .content from the Page object.
+    return mentorResults?.content || [];
   }, [debouncedQuery, sort, minRating, refreshKey]);
 
   const rawMentors = useMemo(() => data || [], [data]);

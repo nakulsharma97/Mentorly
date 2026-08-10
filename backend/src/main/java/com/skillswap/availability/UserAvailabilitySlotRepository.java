@@ -1,5 +1,7 @@
 package com.skillswap.availability;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -9,6 +11,8 @@ import java.util.List;
  */
 public interface UserAvailabilitySlotRepository extends JpaRepository<UserAvailabilitySlot, Long> {
     List<UserAvailabilitySlot> findByUserIdAndActiveTrue(Long userId);
+
+    Page<UserAvailabilitySlot> findByUserIdAndActiveTrue(Long userId, Pageable pageable);
 
     List<UserAvailabilitySlot> findByUserIdAndDayOfWeekAndActiveTrue(Long userId, Integer dayOfWeek);
 

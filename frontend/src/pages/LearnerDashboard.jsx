@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
+import { pageContent } from "../utils/pagination";
 import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import ShareModal from "../components/ShareModal";
@@ -204,8 +205,9 @@ export default function LearnerDashboard({ profile }) {
           client.get("/api/v1/users/mentors").catch(() => ({ data: { data: [] } })),
         ]);
 
-      const allBookings = bookingsRes.data.data || [];
-      const watchlist = watchlistRes.data.data || [];
+      // Paginated response — unwrap .content from the Page object.
+      const allBookings = pageContent(bookingsRes.data.data);
+      const watchlist = pageContent(watchlistRes.data.data);
 
       const sortedUpcoming = allBookings
         .filter((b) => {
@@ -251,14 +253,15 @@ export default function LearnerDashboard({ profile }) {
       });
       hours.forEach((m) => { m.value = Number(m.value.toFixed(1)); });
 
-      // Recommended mentors
-      const mentors = mentorsRes.data.data || [];
+      // Recommended mentors (paginated response — unwrap .content)
+      const mentors = pageContent(mentorsRes.data.data);
       const ranked = [...mentors]
         .sort((a, b) => Number(b.averageRating || b.rating || 0) - Number(a.averageRating || a.rating || 0))
         .slice(0, 6);
 
       setUpcomingSessions(sortedUpcoming);
-      setCertifications(certificationsRes.data.data || []);
+      // Certifications (paginated response — unwrap .content)
+      setCertifications(pageContent(certificationsRes.data.data));
       setRecommendedMentors(ranked);
       setStreak(computeStreak(activeDays));
       setSeries({ weekly, monthly, hours });

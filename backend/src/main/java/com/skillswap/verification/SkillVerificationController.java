@@ -4,6 +4,9 @@ import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -30,10 +33,14 @@ public class SkillVerificationController {
     private final UserRepository userRepository;
 
     @GetMapping("/tasks")
-    public ApiResponse<List<SkillVerificationTask>> listTasks(@RequestParam(required = false) Long mentorId) {
-        List<SkillVerificationTask> tasks = mentorId == null
-                ? taskRepository.findByActiveTrue()
-                : taskRepository.findByMentorId(mentorId);
+    public ApiResponse<Page<SkillVerificationTask>> listTasks(
+            @RequestParam(required = false) Long mentorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+        Page<SkillVerificationTask> tasks = mentorId == null
+                ? taskRepository.findByActiveTrue(pageable)
+                : taskRepository.findByMentorId(mentorId, pageable);
         return new ApiResponse<>("Verification tasks fetched", tasks);
     }
 

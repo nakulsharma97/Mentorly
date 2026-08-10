@@ -9,6 +9,9 @@ import com.skillswap.user.UserRole;
 import com.skillswap.watchlist.SavedMentorRepository;
 import com.skillswap.watchlist.SkillWatchlistRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -41,21 +45,25 @@ public class SessionController {
     private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping
-    public ApiResponse<List<SkillSession>> list(@AuthenticationPrincipal User currentUser) {
+    public ApiResponse<Page<SkillSession>> list(
+            @AuthenticationPrincipal User currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         if (currentUser == null) {
             throw new IllegalArgumentException("Authentication required");
         }
+        Pageable pageable = PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 100)));
         if (currentUser.getRole() == UserRole.ADMIN) {
             return new ApiResponse<>("Sessions fetched",
-                    sessionRepository.findByFilters(null, null,
-                            org.springframework.data.domain.PageRequest.of(0, 1000)).getContent());
+                    sessionRepository.findByFilters(null, null, pageable));
         }
         if (currentUser.getRole() == UserRole.MENTOR) {
-            return new ApiResponse<>("Sessions fetched", sessionRepository.findByMentorId(currentUser.getId()));
+            return new ApiResponse<>("Sessions fetched",
+                    sessionRepository.findByMentorId(currentUser.getId(), pageable));
         }
         if (currentUser.getRole() == UserRole.LEARNER) {
             return new ApiResponse<>("Sessions fetched",
-                    sessionRepository.findByLearnerIdOrderByBookingCreatedAtDesc(currentUser.getId()));
+                    sessionRepository.findByLearnerIdOrderByBookingCreatedAtDesc(currentUser.getId(), pageable));
         }
         throw new IllegalArgumentException("User role not permitted to view sessions");
     }

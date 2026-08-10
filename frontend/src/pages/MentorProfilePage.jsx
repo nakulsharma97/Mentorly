@@ -287,7 +287,8 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
     setRelatedLoading(true);
     try {
       const res = await client.get("/api/v1/search/mentors", { params: { q: skillChips[0], size: 10 } });
-      const list = res.data?.data || [];
+      // Paginated response — unwrap .content from the Page object.
+      const list = res.data?.data?.content || [];
       setRelatedMentors(list.filter(m => String(m.id) !== String(mentorId)).slice(0, 8));
     } catch { setRelatedMentors([]); }
     finally { setRelatedLoading(false); }

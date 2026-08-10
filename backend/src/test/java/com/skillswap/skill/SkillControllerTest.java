@@ -24,6 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -270,14 +273,14 @@ class SkillControllerTest {
         pending.setStatus(SkillRequestStatus.PENDING);
         pending.setRequestedBy(learnerUser);
 
-        when(skillRequestRepository.findByRequestedByIdOrderByCreatedAtDesc(10L))
-                .thenReturn(List.of(pending));
+        when(skillRequestRepository.findByRequestedByIdOrderByCreatedAtDesc(10L, PageRequest.of(0, 20)))
+                .thenReturn(new PageImpl<>(List.of(pending)));
 
         mockMvc.perform(get("/api/v1/skills/my-requests")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Skill requests fetched"))
-                .andExpect(jsonPath("$.data[0].name").value("Kubernetes"))
-                .andExpect(jsonPath("$.data[0].status").value("PENDING"));
+                .andExpect(jsonPath("$.data.content[0].name").value("Kubernetes"))
+                .andExpect(jsonPath("$.data.content[0].status").value("PENDING"));
     }
 }

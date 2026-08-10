@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { normalizeSkills } from "../utils/skills";
+import { pageContent } from "../utils/pagination";
 import client from "../api/client";
 import OptimizedImage from "../components/OptimizedImage";
 import PremiumFooter from "../components/PremiumFooter";
@@ -99,10 +100,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         if (!isMounted) {
           return;
         }
-        const list = Array.isArray(response?.data?.data)
-          ? response.data.data
-          : [];
-        setMentors(list);
+        // Paginated response — unwrap .content from the Page object.
+        setMentors(pageContent(response?.data?.data));
       })
       .catch(() => {
         if (isMounted) {

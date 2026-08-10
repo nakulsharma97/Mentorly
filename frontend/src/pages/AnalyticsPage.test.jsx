@@ -48,10 +48,16 @@ describe('AnalyticsPage learner behavior', () => {
 
     client.get.mockImplementation((url) => {
       if (url === '/api/v1/bookings') {
-        return Promise.resolve({ data: { data: bookings } });
+        // Paginated shape — component unwraps .content.
+        return Promise.resolve({
+          data: { data: { content: bookings, totalElements: bookings.length, totalPages: 1 } },
+        });
       }
       if (url === '/api/v1/payments') {
-        return Promise.resolve({ data: { data: payments } });
+        // Paginated shape — component unwraps .content.
+        return Promise.resolve({
+          data: { data: { content: payments, totalElements: payments.length, totalPages: 1 } },
+        });
       }
       if (url === '/api/v1/roadmaps') {
         return Promise.resolve({ data: { data: roadmaps } });

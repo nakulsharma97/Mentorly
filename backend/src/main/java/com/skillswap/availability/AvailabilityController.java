@@ -9,6 +9,8 @@ import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -51,9 +53,13 @@ public class AvailabilityController {
     private final ProfileCompletionGuard profileCompletionGuard;
 
     @GetMapping("/my-slots")
-    public ApiResponse<List<SlotResponse>> mySlots(@AuthenticationPrincipal User user) {
-        List<SlotResponse> slots = slotRepository.findByUserIdAndActiveTrue(user.getId())
-                .stream().map(SlotResponse::fromEntity).toList();
+    public ApiResponse<Page<SlotResponse>> mySlots(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<SlotResponse> slots = slotRepository
+                .findByUserIdAndActiveTrue(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(SlotResponse::fromEntity);
         return new ApiResponse<>("Availability slots fetched", slots);
     }
 

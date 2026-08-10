@@ -27,8 +27,17 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
 
     List<SkillSession> findByMentorId(Long mentorId);
 
+    /**
+     * Paginated sessions for one mentor. The List overload above is kept for
+     * any internal callers; the HTTP layer uses this Page variant.
+     */
+    Page<SkillSession> findByMentorId(Long mentorId, Pageable pageable);
+
     @Query("select b.session from Booking b where b.learner.id = :learnerId order by b.createdAt desc")
     List<SkillSession> findByLearnerIdOrderByBookingCreatedAtDesc(Long learnerId);
+
+    @Query("select b.session from Booking b where b.learner.id = :learnerId order by b.createdAt desc")
+    Page<SkillSession> findByLearnerIdOrderByBookingCreatedAtDesc(Long learnerId, Pageable pageable);
 
     @Query("select min(s.priceAmount) from SkillSession s where s.mentor.id = :mentorId")
     BigDecimal findMinPriceByMentorId(Long mentorId);

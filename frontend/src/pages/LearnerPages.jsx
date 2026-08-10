@@ -9,6 +9,7 @@ import StatsCard from "../modules/common/dashboard/StatsCard";
 import HeroSection from "../components/HeroSection";
 import UsernameSettingsCard from "../components/UsernameSettingsCard";
 import { normalizeSkills } from "../utils/skills";
+import { pageContent } from "../utils/pagination";
 import "./LearnerPages.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
@@ -185,12 +186,13 @@ function useLearnerLearningData(refreshKey = 0) {
         apiGet("/api/v1/users/me"),
       ]);
 
+    // Paginated endpoints return Page objects — unwrap .content uniformly.
     return {
-      bookings: bookings || EMPTY_ARRAY,
-      certifications: certifications || EMPTY_ARRAY,
-      mentors,
-      savedMentors: savedMentors || EMPTY_ARRAY,
-      savedSkills: savedSkills || EMPTY_ARRAY,
+      bookings: pageContent(bookings, EMPTY_ARRAY),
+      certifications: pageContent(certifications, EMPTY_ARRAY),
+      mentors: pageContent(mentors, EMPTY_ARRAY),
+      savedMentors: pageContent(savedMentors, EMPTY_ARRAY),
+      savedSkills: pageContent(savedSkills, EMPTY_ARRAY),
       profile,
     };
   }, [refreshKey]);
@@ -562,7 +564,11 @@ export function LearnerMentorsPage() {
       }),
       apiGet('/api/v1/watchlist/mentors').catch(() => []),
     ]);
-    return { mentors: mentorResults || EMPTY_ARRAY, savedMentors: savedMentors || EMPTY_ARRAY };
+    // Paginated response — unwrap .content from the Page object.
+    return {
+      mentors: mentorResults?.content || EMPTY_ARRAY,
+      savedMentors: savedMentors || EMPTY_ARRAY,
+    };
   }, [debouncedQuery, sort, minRating, refreshKey]);
 
   const rawMentors = data?.mentors || EMPTY_ARRAY;
@@ -844,7 +850,12 @@ export function LearnerSkillsPage() {
       apiGet('/api/v1/users/mentors').catch(() => []),
       apiGet('/api/v1/watchlist/skills').catch(() => []),
     ]);
-    return { skills: skills || EMPTY_ARRAY, mentors: mentors || EMPTY_ARRAY, savedSkills: savedSkills || EMPTY_ARRAY };
+    // Paginated endpoints return Page objects — unwrap .content uniformly.
+    return {
+      skills: pageContent(skills, EMPTY_ARRAY),
+      mentors: pageContent(mentors, EMPTY_ARRAY),
+      savedSkills: pageContent(savedSkills, EMPTY_ARRAY),
+    };
   }, [debouncedQuery, refreshKey]);
 
   const skills = data?.skills || EMPTY_ARRAY;
@@ -1529,7 +1540,8 @@ export function LearnerSessionsPage() {
     () => apiGet('/api/v1/bookings'),
     [refreshKey],
   );
-  const bookings = data || EMPTY_ARRAY;
+  // Paginated response — unwrap .content from the Page object.
+  const bookings = pageContent(data, EMPTY_ARRAY);
 
   // ── grouping
   const grouped = useMemo(() => {
@@ -1738,7 +1750,8 @@ export function LearnerCertificatesPage() {
     () => apiGet("/api/v1/certifications/me"),
     [refreshKey],
   );
-  const certificates = data || [];
+  // Paginated response — unwrap .content from the Page object.
+  const certificates = pageContent(data);
 
   async function refreshCertificates() {
     try {

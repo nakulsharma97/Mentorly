@@ -63,7 +63,9 @@ export function useMentorSearch() {
             params,
           });
 
-          const nextResults = response?.data?.data || [];
+          // Paginated response: ApiResponse<Page<MentorSearchResult>>. Unwrap
+          // the ApiResponse envelope, then take .content off the Page object.
+          const nextResults = response?.data?.data?.content || [];
           resultsCacheRef.current.set(cacheKey, nextResults);
           setMentorSearchResults(nextResults);
 

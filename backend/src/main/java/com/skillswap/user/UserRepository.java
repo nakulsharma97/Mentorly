@@ -76,6 +76,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
       List<User> findByRoleAndEnabledTrueOrderByLastActiveAtDesc(UserRole role);
 
       /**
+       * Paginated mentor-directory query for the search endpoint's no-criteria
+       * branch. Filters enabled + profile-completed + APPROVED mentors entirely
+       * in SQL (mirrors {@code User::isApprovedMentor}) so the previous
+       * in-memory scan of ALL mentors is gone. The count comes for free with
+       * the derived Page.
+       */
+      Page<User> findByRoleAndEnabledTrueAndProfileCompletedTrueAndVerificationStatusOrderByLastActiveAtDesc(
+                  UserRole role,
+                  com.skillswap.user.MentorVerificationStatus status,
+                  Pageable pageable);
+
+      /**
        * Verified mentors (role MENTOR + mentorVerified) — broadcast audience scope.
        */
       List<User> findByRoleAndMentorVerifiedTrueAndEnabledTrue(UserRole role);
@@ -320,4 +332,80 @@ public interface UserRepository extends JpaRepository<User, Long> {
                   @Param("sort") String sort,
                   @Param("pageSize") int pageSize,
                   @Param("offset") int offset);
+
+      /**
+       * Total mentor count for the SAME WHERE clause as
+       * {@link #searchMentorsAdvanced} (native COUNT over the identical
+       * filters). Lets the search endpoint build a real {@code Page} with
+       * accurate totalElements/totalPages instead of returning a bare list.
+       */
+      @Query(value = """
+                  SELECT COUNT(DISTINCT u.id) FROM users u
+                  WHERE u.role = 'MENTOR'
+                    AND u.enabled = true
+                    AND u.profile_completed = true
+                    AND u.verification_status = 'APPROVED'
+                    AND (
+                          :keyword IS NULL OR :keyword = ''
+                          OR MATCH(u.full_name, u.about_me, u.skills, u.company, u.headline)
+                               AGAINST (:keyword IN BOOLEAN MODE)
+                          OR LOWER(u.full_name) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.email) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.skills) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.about_me) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.company) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                          OR LOWER(u.headline) LIKE LOWER(CONCAT('%', :likeKeyword, '%'))
+                    )
+                    AND (
+                          :minPrice IS NULL
+                          OR EXISTS (
+                                  SELECT 1 FROM sessions s
+                                  WHERE s.mentor_id = u.id
+                                    AND s.price_amount >= :minPrice
+                                    AND s.status IN ('PENDING', 'ACCEPTED')
+                          )
+                    )
+                    AND (
+                          :maxPrice IS NULL
+                          OR EXISTS (
+                                  SELECT 1 FROM sessions s
+                                  WHERE s.mentor_id = u.id
+                                    AND s.price_amount <= :maxPrice
+                                    AND s.status IN ('PENDING', 'ACCEPTED')
+                          )
+                    )
+                    AND (
+                          :minRating IS NULL OR :minRating = 0
+                          OR (
+                                  SELECT COALESCE(AVG(r.rating), 0)
+                                  FROM mentor_reviews r
+                                  WHERE r.mentor_id = u.id
+                          ) >= :minRating
+                    )
+                    AND (
+                          :minExperience IS NULL OR :minExperience = 0
+                          OR COALESCE(u.years_of_experience, 0) >= :minExperience
+                    )
+                    AND (
+                          :onlineCutoff IS NULL
+                          OR u.last_active_at >= :onlineCutoff
+                    )
+                    AND (
+                          :savedLearnerId IS NULL
+                          OR EXISTS (
+                                  SELECT 1 FROM saved_mentors sm
+                                  WHERE sm.mentor_id = u.id
+                                    AND sm.learner_id = :savedLearnerId
+                          )
+                    )
+                  """, nativeQuery = true)
+      long countMentorsAdvanced(
+                  @Param("keyword") String keyword,
+                  @Param("likeKeyword") String likeKeyword,
+                  @Param("minPrice") BigDecimal minPrice,
+                  @Param("maxPrice") BigDecimal maxPrice,
+                  @Param("minRating") Double minRating,
+                  @Param("minExperience") Integer minExperience,
+                  @Param("onlineCutoff") OffsetDateTime onlineCutoff,
+                  @Param("savedLearnerId") Long savedLearnerId);
 }

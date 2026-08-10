@@ -3,6 +3,8 @@ package com.skillswap.watchlist;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -58,9 +61,12 @@ public final class WatchlistController {
 
     /** Returns all skills tracked by the authenticated learner. */
     @GetMapping("/skills")
-    public ApiResponse<List<SkillWatchlist>> listSkills(@AuthenticationPrincipal final User learner) {
+    public ApiResponse<Page<SkillWatchlist>> listSkills(
+            @AuthenticationPrincipal final User learner,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         return new ApiResponse<>("Skill watchlist fetched",
-                skillWatchlistRepository.findByLearnerId(learner.getId()));
+                skillWatchlistRepository.findByLearnerId(learner.getId(), PageRequest.of(page, Math.min(size, 50))));
     }
 
     /** Adds a skill to the authenticated learner's watchlist. */

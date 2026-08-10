@@ -10,12 +10,17 @@ import com.skillswap.payment.PaymentStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
@@ -41,20 +46,28 @@ public class ReviewController {
     @GetMapping({ "/mentor", "/mentor/{mentorId}" })
     public ApiResponse<ReviewSummaryResponse> listMentorReviews(
             @AuthenticationPrincipal User mentor,
-            @PathVariable(required = false) Long mentorId) {
+            @PathVariable(required = false) Long mentorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
         long resolvedMentorId = mentorId != null ? mentorId : mentor.getId();
-        List<MentorReview> reviews = mentorReviewRepository.findByMentorIdOrderByCreatedAtDesc(resolvedMentorId);
-        List<ReviewItemResponse> reviewItems = reviews.stream()
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        // Full list for aggregate stats (distribution/recommendation need all reviews)
+        List<MentorReview> allReviews = mentorReviewRepository.findByMentorIdOrderByCreatedAtDesc(resolvedMentorId);
+        // Paginated subset for the response payload
+        Page<MentorReview> pageResult = mentorReviewRepository.findByMentorIdOrderByCreatedAtDesc(resolvedMentorId, pageable);
+        List<ReviewItemResponse> reviewItems = pageResult.getContent().stream()
                 .map(ReviewItemResponse::from)
                 .toList();
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(resolvedMentorId).orElse(0.0);
         long totalReviews = mentorReviewRepository.countByMentorId(resolvedMentorId);
-        long recommended = reviews.stream().filter(review -> review.getRating() >= 4).count();
+        long recommended = allReviews.stream().filter(review -> review.getRating() >= 4).count();
+        long fiveStarReviews = allReviews.stream().filter(review -> review.getRating() == 5).count();
         Map<Integer, Long> distribution = new LinkedHashMap<>();
         for (int star = 5; star >= 1; star--) {
             final int currentStar = star;
-            long count = reviews.stream().filter(review -> review.getRating() == currentStar).count();
+            long count = allReviews.stream().filter(review -> review.getRating() == currentStar).count();
             distribution.put(star, count);
         }
 
@@ -65,9 +78,11 @@ public class ReviewController {
                         Math.round(averageRating * 10.0) / 10.0,
                         totalReviews,
                         recommendationRate,
-                        reviews.stream().filter(review -> review.getRating() == 5).count(),
+                        fiveStarReviews,
                         distribution,
-                        reviewItems));
+                        reviewItems,
+                        pageResult.getTotalPages(),
+                        pageResult.getNumber()));
     }
 
     @PostMapping("/{reviewId}/reply")
@@ -140,7 +155,9 @@ public class ReviewController {
                         totalReviews == 0 ? 0 : 100,
                         totalReviews,
                         Map.of(),
-                        reviews));
+                        reviews,
+                        reviews.isEmpty() ? 0 : 1,
+                        0));
     }
 
     @GetMapping("/eligible/learner/{learnerId}")
@@ -325,7 +342,9 @@ public class ReviewController {
             Integer recommendationRate,
             Long fiveStarReviews,
             Map<Integer, Long> distribution,
-            List<ReviewItemResponse> reviews) {
+            List<ReviewItemResponse> reviews,
+            int totalPages,
+            int currentPage) {
     }
 
 /**

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
+import { pageContent } from "../utils/pagination";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
@@ -333,11 +334,12 @@ export default function LearnerSkillsPage() {
           apiGet("/api/v1/users/mentors").catch(() => []),
         ]);
         if (!active) return;
+        // Paginated endpoints return Page objects — unwrap .content uniformly.
         setState({
           loading: false,
           data: {
-            skills: skills || EMPTY_ARRAY,
-            mentors: mentors || EMPTY_ARRAY,
+            skills: pageContent(skills, EMPTY_ARRAY),
+            mentors: pageContent(mentors, EMPTY_ARRAY),
           },
           error: null,
         });

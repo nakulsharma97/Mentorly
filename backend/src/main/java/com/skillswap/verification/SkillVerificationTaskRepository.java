@@ -1,5 +1,7 @@
 package com.skillswap.verification;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,7 +15,11 @@ import java.util.List;
 public interface SkillVerificationTaskRepository extends JpaRepository<SkillVerificationTask, Long> {
     List<SkillVerificationTask> findByActiveTrue();
 
+    Page<SkillVerificationTask> findByActiveTrue(Pageable pageable);
+
     List<SkillVerificationTask> findByMentorId(Long mentorId);
+
+    Page<SkillVerificationTask> findByMentorId(Long mentorId, Pageable pageable);
 
     /**
      * Re-points verification tasks from one skill name to another

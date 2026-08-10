@@ -121,14 +121,38 @@ export const handlers = [
     // Connection accepted — no server frames are needed in unit tests.
   }),
 
+  // GET /api/v1/bookings is paginated: ApiResponse<Page<Booking>>. MSW must
+  // mirror the Page shape ({ content, totalElements, totalPages, ... }) so
+  // components that unwrap .content keep working in tests.
   http.get("*/api/v1/bookings", () => {
-    return HttpResponse.json({ data: mockBookings });
+    return HttpResponse.json({
+      data: {
+        content: mockBookings,
+        totalElements: mockBookings.length,
+        totalPages: 1,
+        number: 0,
+        size: mockBookings.length,
+        first: true,
+        last: true,
+      },
+    });
   }),
   http.get("*/api/v1/roadmaps", () => {
     return HttpResponse.json({ data: mockRoadmaps });
   }),
+  // GET /api/v1/watchlist/skills is paginated: ApiResponse<Page<SkillWatchlist>>.
   http.get("*/api/v1/watchlist/skills", () => {
-    return HttpResponse.json({ data: [] });
+    return HttpResponse.json({
+      data: {
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: 20,
+        first: true,
+        last: true,
+      },
+    });
   }),
   http.get("*/api/v1/watchlist/mentors", () => {
     return HttpResponse.json({ data: [] });
@@ -145,14 +169,47 @@ export const handlers = [
   http.delete("*/api/v1/favorites/*", () => {
     return HttpResponse.json({ data: true });
   }),
+  // GET /api/v1/users/mentors is paginated: ApiResponse<Page<LiveMentorResponse>>.
   http.get("*/api/v1/users/mentors", () => {
-    return HttpResponse.json({ data: [] });
+    return HttpResponse.json({
+      data: {
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: 20,
+        first: true,
+        last: true,
+      },
+    });
   }),
+  // GET /api/v1/certifications/me is paginated: ApiResponse<Page<CertificationItem>>.
   http.get("*/api/v1/certifications/me", () => {
-    return HttpResponse.json({ data: [] });
+    return HttpResponse.json({
+      data: {
+        content: [],
+        totalElements: 0,
+        totalPages: 0,
+        number: 0,
+        size: 20,
+        first: true,
+        last: true,
+      },
+    });
   }),
+  // Paginated shape — components unwrap .content.
   http.get("*/api/v1/sessions", () => {
-    return HttpResponse.json({ data: mockSessions });
+    return HttpResponse.json({
+      data: {
+        content: mockSessions,
+        totalElements: mockSessions.length,
+        totalPages: 1,
+        number: 0,
+        size: mockSessions.length,
+        first: true,
+        last: true,
+      },
+    });
   }),
   http.get("*/api/v1/reviews/mentor", () => {
     return HttpResponse.json({ data: mockReviews });

@@ -3,10 +3,13 @@ package com.skillswap.certification;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.OffsetDateTime;
@@ -23,10 +26,13 @@ public class CertificationController {
     private final CertificationService certificationService;
 
     @GetMapping("/me")
-    public ApiResponse<List<CertificationItem>> myCertifications(@AuthenticationPrincipal User user) {
-        List<CertificationItem> items = certificationService.listForUser(user.getId()).stream()
-                .map(CertificationItem::from)
-                .toList();
+    public ApiResponse<Page<CertificationItem>> myCertifications(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Page<CertificationItem> items = certificationService
+                .listForUser(user.getId(), PageRequest.of(page, Math.min(size, 50)))
+                .map(CertificationItem::from);
         return new ApiResponse<>("Certifications fetched", items);
     }
 

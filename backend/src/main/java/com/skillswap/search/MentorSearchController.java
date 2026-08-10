@@ -7,10 +7,15 @@ import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.review.MentorReviewRepository;
 import com.skillswap.safety.UserBlockRepository;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.user.MentorVerificationStatus;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import com.skillswap.user.UserRole;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -173,7 +178,7 @@ public class MentorSearchController {
         }
 
         @GetMapping("/mentors")
-        public ApiResponse<List<MentorSearchResult>> searchMentors(
+        public ApiResponse<Page<MentorSearchResult>> searchMentors(
                         @RequestParam(required = false) String q,
                         @RequestParam(required = false) BigDecimal minPrice,
                         @RequestParam(required = false) BigDecimal maxPrice,
@@ -187,45 +192,58 @@ public class MentorSearchController {
                 double safeMinRating = minRating == null ? 0.0 : minRating;
                 int safePage = Math.max(0, page);
                 int safeSize = Math.max(1, Math.min(size, 50));
-                int offset = safePage * safeSize;
+                Pageable pageable = PageRequest.of(safePage, safeSize);
 
                 boolean hasSearchCriteria = !normalizedQuery.isBlank()
                                 || safeMinPrice != null
                                 || safeMaxPrice != null
                                 || safeMinRating > 0.0;
 
-                List<User> mentors = hasSearchCriteria
-                                ? userRepository.searchMentorsAdvanced(
-                                                normalizedQuery,
-                                                escapeLike(normalizedQuery),
-                                                safeMinPrice,
-                                                safeMaxPrice,
-                                                safeMinRating,
-                                                null, // minExperience - not filtered by default
-                                                null, // onlineCutoff - not filtered by default
-                                                null, // savedLearnerId - not filtered by default
-                                                "recent", // default sort
-                                                safeSize,
-                                                offset)
-                                : userRepository.findByRole(UserRole.MENTOR).stream()
-                                                .filter(User::isEnabled)
-                                                // Unapproved mentors never surface in Explore / Search.
-                                                .filter(User::isApprovedMentor)
-                                                .sorted(Comparator.comparing(User::getLastActiveAt,
-                                                                Comparator.nullsLast(Comparator.reverseOrder())))
-                                                .skip(offset)
-                                                .limit(safeSize)
-                                                .toList();
+                Page<User> mentorPage = hasSearchCriteria
+                                ? new PageImpl<>(
+                                                userRepository.searchMentorsAdvanced(
+                                                                normalizedQuery,
+                                                                escapeLike(normalizedQuery),
+                                                                safeMinPrice,
+                                                                safeMaxPrice,
+                                                                safeMinRating,
+                                                                null, // minExperience - not filtered by default
+                                                                null, // onlineCutoff - not filtered by default
+                                                                null, // savedLearnerId - not filtered by default
+                                                                "recent", // default sort
+                                                                safeSize,
+                                                                safePage * safeSize),
+                                                pageable,
+                                                userRepository.countMentorsAdvanced(
+                                                                normalizedQuery,
+                                                                escapeLike(normalizedQuery),
+                                                                safeMinPrice,
+                                                                safeMaxPrice,
+                                                                safeMinRating,
+                                                                null,
+                                                                null,
+                                                                null))
+                                // No-criteria branch: fully SQL-filtered, paginated
+                                // mentor-directory query — no in-memory scan of the
+                                // whole mentor table (the previous worst case).
+                                : userRepository
+                                                .findByRoleAndEnabledTrueAndProfileCompletedTrueAndVerificationStatusOrderByLastActiveAtDesc(
+                                                                UserRole.MENTOR,
+                                                                MentorVerificationStatus.APPROVED,
+                                                                pageable);
 
-                // Defense-in-depth: the advanced SQL path already filters
-                // APPROVED mentors; the non-query branch is filtered above.
-                mentors = mentors.stream().filter(User::isApprovedMentor).toList();
+                // Defense-in-depth: both branches filter APPROVED mentors in SQL;
+                // this extra pass guards against any future filter drift.
+                List<User> mentors = mentorPage.getContent().stream()
+                                .filter(User::isApprovedMentor)
+                                .toList();
 
                 List<MentorSearchResult> results = mentors.stream()
                                 .map(this::scoreMentor)
                                 .toList();
 
-                return new ApiResponse<>("Mentor search results fetched", results);
+                return new ApiResponse<>("Mentor search results fetched",
+                                new PageImpl<>(results, pageable, mentorPage.getTotalElements()));
         }
 
         /**
