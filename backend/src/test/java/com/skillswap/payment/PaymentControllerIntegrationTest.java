@@ -32,6 +32,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -292,6 +294,12 @@ class PaymentControllerIntegrationTest {
                         """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.error").value("Invalid webhook signature"));
+
+        // Rejection must happen at the signature gate — the payload must never
+        // reach payment processing. Stripe retries a failed webhook, so a
+        // forged event must not accidentally mark a payment captured.
+        verify(paymentVerificationService, never())
+                .processWebhookEvent(anyString(), anyString(), anyString(), any());
     }
 
     @Test

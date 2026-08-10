@@ -173,8 +173,11 @@ public class StripeAdapter implements PaymentGateway {
 
     @Override
     public boolean verifyWebhookSignature(String rawPayload, String signatureHeader) {
-        if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
-            LOG.warn("Stripe webhook signature header missing or empty");
+        // Early short-circuit: no payload or no signature header means there is
+        // nothing to verify — never touch the Stripe SDK with garbage input.
+        if (rawPayload == null || rawPayload.isBlank()
+                || signatureHeader == null || signatureHeader.isBlank()) {
+            LOG.warn("Stripe webhook payload or signature header missing or empty");
             return false;
         }
         try {

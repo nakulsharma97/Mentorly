@@ -1,17 +1,26 @@
 package com.skillswap.payment;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import com.google.gson.JsonSyntaxException;
+import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
 import com.stripe.net.Webhook;
 import com.stripe.param.PaymentIntentCreateParams;
 import com.stripe.param.RefundCreateParams;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
+import org.slf4j.LoggerFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -182,5 +192,91 @@ class StripeAdapterTest {
         String payload = "{\"id\":\"evt_1\",\"type\":\"payment_intent.succeeded\"}";
         assertFalse(adapter.verifyWebhookSignature(payload, ""));
         assertFalse(adapter.verifyWebhookSignature(payload, null));
+    }
+
+    // ── Webhook signature verification: fail-closed edge cases ──
+
+    private ListAppender<ILoggingEvent> logAppender;
+
+    /**
+     * Attaches a ListAppender to the StripeAdapter logger so tests can assert
+     * the specific log statements emitted on the failure paths (a return value
+     * alone doesn't prove the failure was actually logged).
+     */
+    private void attachLogCapture() {
+        Logger logger = (Logger) LoggerFactory.getLogger(StripeAdapter.class);
+        logAppender = new ListAppender<>();
+        logAppender.start();
+        logger.addAppender(logAppender);
+    }
+
+    @AfterEach
+    void detachLogCapture() {
+        if (logAppender != null) {
+            ((Logger) LoggerFactory.getLogger(StripeAdapter.class)).detachAppender(logAppender);
+            logAppender = null;
+        }
+    }
+
+    private void assertErrorLogged(String messagePart) {
+        List<ILoggingEvent> errorEvents = logAppender.list.stream()
+                .filter(e -> e.getLevel() == Level.ERROR)
+                .filter(e -> e.getFormattedMessage().contains(messagePart))
+                .toList();
+        assertFalse(errorEvents.isEmpty(),
+                "Expected an ERROR log containing: " + messagePart
+                        + " but none found. Logged events: " + logAppender.list);
+    }
+
+    @Test
+    void verifyWebhookSignatureShortCircuitsOnNullOrBlankInputWithoutCallingSdk() {
+        // A genuine short-circuit: with null/blank input the Stripe SDK must
+        // never be touched. Open a static mock purely as an interaction
+        // observer, then prove zero interactions happened.
+        try (MockedStatic<Webhook> mocked = mockStatic(Webhook.class)) {
+            assertFalse(adapter.verifyWebhookSignature(null, "t=1,v1=sig"));
+            assertFalse(adapter.verifyWebhookSignature("", "t=1,v1=sig"));
+            assertFalse(adapter.verifyWebhookSignature("   ", "t=1,v1=sig"));
+            assertFalse(adapter.verifyWebhookSignature("{\"id\":\"evt_1\"}", null));
+            assertFalse(adapter.verifyWebhookSignature("{\"id\":\"evt_1\"}", ""));
+
+            mocked.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void verifyWebhookSignatureLogsErrorOnForgedSignature() {
+        attachLogCapture();
+        String payload = "{\"id\":\"evt_1\",\"type\":\"payment_intent.succeeded\"}";
+
+        try (MockedStatic<Webhook> mocked = mockStatic(Webhook.class)) {
+            // The SDK rejects the forged signature before returning an Event.
+            mocked.when(() -> Webhook.constructEvent(anyString(), anyString(), anyString()))
+                    .thenThrow(new SignatureVerificationException(
+                            "No signatures found matching the expected signature",
+                            "t=1700000000,v1=forged"));
+
+            assertFalse(adapter.verifyWebhookSignature(payload, "t=1700000000,v1=forged"));
+        }
+
+        // The failure must be visible in the logs — not silently swallowed.
+        assertErrorLogged("FAILED");
+    }
+
+    @Test
+    void verifyWebhookSignatureLogsErrorOnMalformedJsonPayload() {
+        attachLogCapture();
+
+        try (MockedStatic<Webhook> mocked = mockStatic(Webhook.class)) {
+            // stripe-java parses JSON before checking the signature, so a
+            // non-JSON body surfaces as JsonSyntaxException — the adapter must
+            // fail closed (return false) and log it.
+            mocked.when(() -> Webhook.constructEvent(anyString(), anyString(), anyString()))
+                    .thenThrow(new JsonSyntaxException("Malformed JSON at line 1"));
+
+            assertFalse(adapter.verifyWebhookSignature("not-json-at-all", "t=1,v1=sig"));
+        }
+
+        assertErrorLogged("not valid JSON");
     }
 }
