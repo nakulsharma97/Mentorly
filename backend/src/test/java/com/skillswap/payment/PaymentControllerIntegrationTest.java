@@ -30,6 +30,8 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -244,6 +246,52 @@ class PaymentControllerIntegrationTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    @Test
+    void stripeWebhookWithValidSignatureProcessesEvent() throws Exception {
+        PaymentGateway gateway = mock(PaymentGateway.class);
+        when(gateway.verifyWebhookSignature(anyString(), anyString())).thenReturn(true);
+        when(paymentService.resolveGateway("stripe")).thenReturn(gateway);
+
+        Payment payment = new Payment();
+        payment.setId(900L);
+        payment.setStatus(PaymentStatus.ESCROWED);
+        when(paymentVerificationService.processWebhookEvent(
+                eq("stripe"), eq("payment_intent.succeeded"), eq("pi_123"), any()))
+                .thenReturn(payment);
+
+        mockMvc.perform(post("/api/v1/payments/webhook/stripe")
+                .header("Stripe-Signature", "t=1700000000,v1=signature")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "type": "payment_intent.succeeded",
+                          "data": { "object": { "id": "pi_123" } }
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Webhook processed"))
+                .andExpect(jsonPath("$.data.status").value("ESCROWED"));
+    }
+
+    @Test
+    void stripeWebhookWithInvalidSignatureRejectedWith400() throws Exception {
+        PaymentGateway gateway = mock(PaymentGateway.class);
+        when(gateway.verifyWebhookSignature(anyString(), anyString())).thenReturn(false);
+        when(paymentService.resolveGateway("stripe")).thenReturn(gateway);
+
+        mockMvc.perform(post("/api/v1/payments/webhook/stripe")
+                .header("Stripe-Signature", "t=1700000000,v1=forged")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                          "type": "payment_intent.succeeded",
+                          "data": { "object": { "id": "pi_123" } }
+                        }
+                        """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error").value("Invalid webhook signature"));
     }
 
     @Test

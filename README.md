@@ -16,22 +16,21 @@
     <img src="https://img.shields.io/github/license/nakulsharma97/SkillSwapper" alt="License" />
   </a>
   <a href="#testing">
-    <img src="https://img.shields.io/badge/backend%20coverage-JaCoCo%20gate%20%E2%89%A515%25%20line-brightgreen" alt="Backend coverage — JaCoCo gate ≥ 15% line" />
+    <img src="https://img.shields.io/badge/backend%20coverage-47.6%25%20line%20%C2%B7%20gate%20%E2%89%A540%25-yellow" alt="Backend coverage — 47.6% line (JaCoCo), gate ≥ 40%" />
   </a>
   <a href="#testing">
-    <img src="https://img.shields.io/badge/frontend%20coverage-Vitest%20%C2%B7%20npm%20run%20test%3Acoverage-brightgreen" alt="Frontend coverage — Vitest coverage report" />
+    <img src="https://img.shields.io/badge/frontend%20coverage-52.9%25%20lines%20%C2%B7%20Vitest-yellowgreen" alt="Frontend coverage — 52.9% lines (Vitest)" />
   </a>
 </p>
 
-> The CI badges show the live status of the GitHub Actions workflows on `main`. The coverage badges reflect this repo's configured quality tooling — JaCoCo's **≥ 15% line-coverage gate** is enforced by `mvn verify`, and the frontend generates a Vitest coverage report via `npm run test:coverage`. They become auto-updating if a hosted coverage service (e.g. Codecov) is connected later.
+> The CI badges show the live status of the GitHub Actions workflows on `main`. The coverage badges show the **real measured values** from the latest local runs: backend **47.6% line coverage** (JaCoCo — `cd backend && mvn clean verify`, report at `backend/target/site/jacoco/index.html`) and frontend **52.9% line coverage** (Vitest — `cd frontend && npm run test:coverage`, report at `frontend/coverage/index.html`). These are static badges: regenerate them by re-running the commands above and updating the numbers, or replace them with auto-updating badges once a hosted coverage service (e.g. Codecov) is connected to CI.
 
-SkillSwapper is a full-stack, role-based skill-sharing marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes payments, real-time chat, Google Meet integration, review moderation, wallet payouts, and a blockchain escrow demo.
+SkillSwapper is a full-stack, role-based skill-sharing marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes a simulated payment-gateway layer, real-time chat, Google Meet integration, review moderation, and wallet payouts.
 
 This repository contains:
 
 - `frontend/` — React + Vite SPA (learner / mentor / admin workspaces)
 - `backend/` — Spring Boot modular-monolith REST API (Java 21)
-- `contracts/` — Solidity smart contract (session escrow) + Hardhat config
 - `docs/` — architecture, API contracts, security, deployment, and workflow docs
 - `k8s/` — Kubernetes manifests for production deployment
 
@@ -47,15 +46,14 @@ This repository contains:
 6. [Frontend architecture](#frontend-architecture)
 7. [Database schema & ER diagram](#database-schema--er-diagram)
 8. [Database migrations](#database-migrations)
-9. [Smart contracts](#smart-contracts)
-10. [Local development](#local-development)
-11. [Environment variables](#environment-variables)
-12. [Common commands](#common-commands)
-13. [Testing](#testing)
-14. [CI/CD & deployment](#cicd--deployment)
-15. [Documentation index](#documentation-index)
-16. [Contribution](#contribution)
-17. [License](#license)
+9. [Local development](#local-development)
+10. [Environment variables](#environment-variables)
+11. [Common commands](#common-commands)
+12. [Testing](#testing)
+13. [CI/CD & deployment](#cicd--deployment)
+14. [Documentation index](#documentation-index)
+15. [Contribution](#contribution)
+16. [License](#license)
 
 ---
 
@@ -74,10 +72,12 @@ This repository contains:
 
 ### Booking, payments & sessions
 - Session booking lifecycle (`PENDING → APPROVED → JOINED / CANCELLED`) with admin approval, payment gating, and idempotency keys.
-- Payments via pluggable adapters — **Razorpay, Stripe, PayPal** — with webhook verification and idempotent `POST /payments/intent`.
+- Payments via a **pluggable payment-gateway abstraction using the Strategy pattern** (`PaymentGateway` interface) with three adapters — the **Stripe adapter performs real test-mode Stripe API calls** (PaymentIntent creation, refunds, status retrieval) and **real webhook signature verification** via `Webhook.constructEvent`; **PayPal and Razorpay remain simulated reference implementations** of the same interface. All flows are idempotency-keyed (`POST /payments/intent`).
 - Automatic **Google Meet** link generation through the Google Calendar API.
 - Session requests (learner-initiated proposals with preferred date/time/budget), session waitlists, and live-session join flows.
 - Mentor **wallets** with ledger entries and payouts.
+
+> **Current limitations — payments.** Only the **Stripe** adapter performs real (**test-mode**) Stripe API calls. **PayPal and Razorpay adapters are still simulated** reference implementations (locally-generated responses, local HMAC checks) and are not connected to live accounts — no real money moves through those two gateways. To run Stripe end-to-end you must supply test-mode keys — see [Stripe payments (local test mode)](#stripe-payments-local-test-mode). The **idempotency-key layer is fully implemented** (DB-backed unique keys per user + endpoint, replay-safe, request-hash mismatch → `400`) and functions regardless of gateway mode.
 
 ### Communication & learning
 - Real-time chat (WebSocket) for booking-centric conversations and direct messaging, with message requests, read receipts, reactions, and privacy settings.
@@ -91,7 +91,6 @@ This repository contains:
 
 ### Trust, safety & security
 - OWASP-aware security headers, rate limiting, idempotency keys, audit logging (`AuditLogAspect`), and Sentry error tracking.
-- Web3 escrow demo contract (`contracts/contracts/SessionEscrow.sol`).
 
 ---
 
@@ -118,19 +117,17 @@ This repository contains:
 | Security | Spring Security, JWT (jjwt 0.12.6), OAuth2 client, Spring AOP, spring-retry |
 | Persistence | Spring Data JPA (Hibernate), MySQL 8, Flyway migrations |
 | Real-time | Spring WebSocket (booking chat, direct chat, notification streams) |
-| Payments | Razorpay / Stripe / PayPal adapter pattern |
+| Payments | `PaymentGateway` **Strategy pattern** — **Stripe (live test-mode, Stripe Java SDK)** / PayPal + Razorpay (simulated) |
 | Meeting | Google Calendar API (automatic Meet links) |
 | Email | Spring Mail (JavaMail) |
-| Web3 | web3j (escrow contract interaction) |
 | API docs | springdoc-openapi (Swagger UI, dev profile) |
 | Monitoring | Spring Actuator, Sentry |
-| Quality gates | JaCoCo coverage (≥15% line), OWASP dependency-check (fail ≥ CVSS 7) |
+| Quality gates | JaCoCo coverage (≥40% line), OWASP dependency-check (fail ≥ CVSS 7) |
 
 ### Infrastructure
 - Docker Compose: MySQL 8.4, backend, nginx-served frontend, certbot (SSL profile)
 - Kubernetes manifests under `k8s/` (namespace, ingress, deployments, configmap)
 - GitHub Actions CI/CD (`.github/workflows/backend-ci.yml`, `frontend-ci.yml`, `deploy.yml`)
-- Hardhat + Solidity for the escrow contract demo
 
 ---
 
@@ -166,9 +163,10 @@ This repository contains:
 ┌────────────┐  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐
 │   MySQL    │  │ Google       │ │ Payment      │ │ External: Email,     │
 │  (JPA +    │  │ Calendar API │ │ gateways     │ │ Sentry, WebSocket    │
-│  Flyway)   │  │ (Meet links) │ │ (Razorpay,   │ │ clients, blockchain  │
-│            │  │              │ │  Stripe,     │ │ (web3j/escrow)       │
-│            │  │              │ │  PayPal)     │ │                      │
+│  Flyway)   │  │ (Meet links) │ │ Stripe live │ │ clients, monitoring  │
+│            │  │              │ │  PayPal +   │ │ (Stripe: live SDK)   │
+│            │  │              │ │  Razorpay   │ │                      │
+│            │  │              │ │  simulated) │ │                      │
 └────────────┘  └──────────────┘ └──────────────┘ └──────────────────────┘
 ```
 
@@ -220,11 +218,6 @@ SkillSwapper/
 │   ├── package.json                  #   scripts: dev/build/test/lint/test:e2e
 │   ├── Dockerfile / nginx.conf / docker-entrypoint.sh
 │   └── index.html
-├── contracts/                        # Solidity + Hardhat
-│   ├── contracts/SessionEscrow.sol   #   session escrow demo
-│   ├── contracts/mocks/MockERC20.sol
-│   ├── hardhat.config.js
-│   └── test/SessionEscrow.js
 ├── docs/                             # project documentation (see index below)
 │   ├── adr/                          #   architecture decision records
 │   ├── API_CONTRACTS.md              #   API contract index
@@ -256,6 +249,7 @@ SkillSwapper/
 | `scripts/db-backup.sh` | Database backup |
 | `scripts/setup-ssl.sh` | SSL certificate bootstrap/renewal |
 | `scripts/validate-deploy.sh` | Post-deploy validation |
+| `scripts/cleanup-runtime.sh` | Remove stray root `node_modules` / log dumps / Windows env-path folders (`--dry-run` supported) |
 
 ---
 
@@ -277,7 +271,7 @@ Root package: `backend/src/main/java/com/skillswap` — each domain folder owns 
 | `session` | Skill sessions, live sessions, auto-creation, meeting providers |
 | `sessionrequest` | Learner session requests & mentor replies |
 | `booking` | Booking lifecycle, status transitions, idempotency |
-| `payment` | Payments, gateways (Razorpay/Stripe/PayPal adapters), verification |
+| `payment` | Payments, gateway **Strategy pattern** (Stripe — live test-mode; Razorpay/PayPal — simulated), verification, idempotency keys |
 | `wallet` | Mentor wallets + ledger entries |
 | `review` | Mentor/learner reviews, replies, moderation |
 | `chat` | Booking-centric chat (WebSocket) |
@@ -299,7 +293,6 @@ Root package: `backend/src/main/java/com/skillswap` — each domain folder owns 
 | `files` | Stored file uploads |
 | `monitoring` | System health, request stats, log buffering |
 | `meeting` | Google Calendar / Meet provider |
-| `web3` | Blockchain verification (escrow contract) |
 | `common` | `ApiResponse`, exceptions, audit logging, idempotency helpers, health |
 | `config` | Security config, JWT filter, WebSocket, rate limiting, maintenance mode |
 
@@ -463,22 +456,6 @@ erDiagram
 
 ---
 
-## Smart contracts
-
-The `contracts/` folder contains a Hardhat project:
-
-- `contracts/SessionEscrow.sol` — escrow contract for sessions (holds funds until a session completes).
-- `contracts/mocks/MockERC20.sol` — mock ERC20 for local testing.
-- `test/SessionEscrow.js` — Hardhat test suite.
-
-```powershell
-cd contracts
-npm install
-npx hardhat test
-```
-
----
-
 ## Local development
 
 ### Prerequisites
@@ -520,6 +497,28 @@ npm run dev
 ```
 
 Vite serves on `5174` and expects the backend at `VITE_API_BASE_URL`.
+
+### Stripe payments (local test mode)
+
+The Stripe adapter makes **real API calls**, so a genuine end-to-end test needs real **test-mode** keys (never live keys):
+
+1. **Get test keys**: dashboard.stripe.com → toggle **Test mode** (top-right) → *Developers → API keys* → copy the secret key (`sk_test_...`). For webhooks, copy the signing secret from *Developers → Webhooks* (`whsec_...`).
+2. **Set them in your `.env`** (never commit):
+
+   ```
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   ```
+3. **Forward webhooks locally** with the [Stripe CLI](https://docs.stripe.com/stripe-cli):
+
+   ```powershell
+   stripe listen --forward-to localhost:8080/api/v1/payments/webhook/stripe
+   ```
+
+   The `whsec_...` secret printed by `stripe listen` is the value to put in `.env`.
+4. **Trigger a payment**: create a booking and pay with Stripe's test card **`4242 4242 4242 4242`** (any future expiry, any CVC, any ZIP). Stripe charges the test PaymentIntent and sends `payment_intent.succeeded` to the webhook endpoint, which flips the payment to `ESCROWED`.
+
+Watch the backend log for `Stripe PaymentIntent created` and `Stripe webhook signature verification: PASSED`.
 
 ### Development seed data
 
@@ -602,7 +601,7 @@ docker compose up --build  # containerized stack
 | Backend integration | Spring Boot Test + H2 | Booking lifecycle, payment, chat, auth/token rotation, security config |
 | Accessibility | `@axe-core/playwright` | `frontend/e2e/accessibility-audit.spec.js` |
 
-Quality gates on `mvn verify`: JaCoCo line coverage ≥ 15%, OWASP dependency check fails the build on CVSS ≥ 7. Lint gate: ESLint with a max of 10 warnings.
+Quality gates on `mvn verify`: **JaCoCo line coverage ≥ 40%** (enforced by `jacoco:check`; latest measured: 47.6% overall), OWASP dependency check fails the build on CVSS ≥ 7. Lint gate: ESLint with a max of 10 warnings. Frontend: Vitest coverage report via `npm run test:coverage` (latest measured: 52.9% lines).
 
 ---
 

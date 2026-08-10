@@ -14,8 +14,8 @@ This guide explains how to configure GitHub Secrets for CI/CD pipelines to secur
 | `JWT_SECRET`            | JWT signing key                           | `your-256-bit-base64-encoded-secret-key-here`            |
 | `GMAIL_USERNAME`        | Gmail account for emails                  | `noreply@example.com`                                    |
 | `GMAIL_APP_PASSWORD`    | Gmail app password (not regular password) | `xxxx xxxx xxxx xxxx`                                    |
-| `STRIPE_SECRET_KEY`     | Stripe secret API key                     | `sk_live_xxx...`                                         |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing key                | `whsec_xxx...`                                           |
+| `STRIPE_SECRET_KEY`     | Stripe secret API key (reserved)          | `sk_live_xxx...`                                         |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing key (reserved)     | `whsec_xxx...`                                           |
 | `GOOGLE_CLIENT_ID`      | Google OAuth2 client ID                   | `xxx.apps.googleusercontent.com`                         |
 | `GOOGLE_CLIENT_SECRET`  | Google OAuth2 client secret               | `GOCSPX-xxx...`                                          |
 | `CORS_ALLOWED_ORIGINS`  | Allowed CORS origins (comma-separated)    | `https://app.example.com,https://www.example.com`        |
@@ -108,6 +108,8 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 5. Use this password (not your Gmail password) in the secret
 
 ### Stripe API Keys
+
+> **Note:** the **Stripe adapter now makes real (test-mode) Stripe API calls** — store a test secret key (`sk_test_...`) and webhook signing secret (`whsec_...`) in GitHub Secrets for CI/deployments that run against Stripe test mode. **PayPal and Razorpay adapters remain simulated**; their keys are reserved for future live wiring. Never store live (`sk_live_...`) keys.
 
 1. Sign in to Stripe Dashboard → Developers → API Keys
 2. Copy the Secret Key (starts with `sk_test_` or `sk_live_`)

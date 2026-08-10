@@ -63,9 +63,16 @@ backend/scripts/*-tmp.sql
 
 # OS files
 .DS_Store
+Thumbs.db
+Desktop.ini
 
 # System and user-specific
+# Windows env-var paths (e.g. %AppData%/) can leak into the repo if a global
+# npm install (`npm install -g`) is ever run from this directory — the entire
+# global npm folder (node_modules, .cmd shims, binaries) gets committed. Never
+# track these; if a stray %AppData%/ (or similar) folder reappears, delete it.
 %AppData%/
+%LOCALAPPDATA%/
 Downloads/
 
 # Dependencies

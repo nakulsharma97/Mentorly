@@ -20,7 +20,6 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <web3j.version>4.12.3</web3j.version>
         <lombok.version>1.18.38</lombok.version>
     </properties>
 
@@ -88,11 +87,6 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
-            <groupId>org.web3j</groupId>
-            <artifactId>core</artifactId>
-            <version>${web3j.version}</version>
-        </dependency>
-        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
@@ -133,6 +127,15 @@
             <groupId>io.sentry</groupId>
             <artifactId>sentry-spring-boot-starter-jakarta</artifactId>
             <version>7.6.0</version>
+        </dependency>
+        <!-- Stripe Java SDK — real PaymentIntent creation + webhook signature
+             verification (com.stripe.net.Webhook.constructEvent). Jackson is
+             managed by Spring Boot's BOM, so no version clash with the SDK's
+             transitive jackson-databind. -->
+        <dependency>
+            <groupId>com.stripe</groupId>
+            <artifactId>stripe-java</artifactId>
+            <version>33.2.0</version>
         </dependency>
         <!-- Google Calendar API for automatic Google Meet link generation -->
         <dependency>
@@ -275,7 +278,9 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.15</minimum>
+                                            <!-- Raised 2026-08: real measured line coverage is ~47.6% (mvn clean verify).
+                                                 0.40 keeps CI teeth while leaving headroom for normal test churn. -->
+                                            <minimum>0.40</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

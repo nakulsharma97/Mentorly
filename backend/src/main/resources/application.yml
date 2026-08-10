@@ -116,8 +116,14 @@ app:
       max-per-minute: ${APP_RATE_LIMIT_SEARCH_PER_MINUTE:60}
   oauth2:
     redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5174/oauth/callback}
-  polygon:
-    rpc-url: ${POLYGON_RPC_URL:https://polygon-amoy.g.alchemy.com/v2/demo}
+  payment:
+    stripe:
+      # REAL Stripe integration (test mode). Keys come from the Stripe dashboard
+      # (toggle "Test mode" → Developers > API keys) or `stripe listen`.
+      # The placeholders trigger a startup warning (validateKeys) and any real
+      # API call fails with a clear Stripe error — nothing is fabricated.
+      secret-key: ${STRIPE_SECRET_KEY:sk_test_xxxxxxxxxxxx}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_secret}
   admin:
     email: ${APP_ADMIN_EMAIL:}
     password: ${APP_ADMIN_PASSWORD:}

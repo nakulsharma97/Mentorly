@@ -12,7 +12,7 @@
 
 - ✅ Authentication (JWT + OAuth2)
 - ✅ Booking lifecycle with idempotency
-- ✅ Payment processing (idempotent)
+- ✅ Payment flow with simulated gateway adapters + real idempotency keys
 - ✅ Session management
 - ✅ User roles (Learner/Mentor/Admin)
 - ✅ Rate limiting per endpoint

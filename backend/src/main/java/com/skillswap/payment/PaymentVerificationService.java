@@ -74,6 +74,7 @@ public class PaymentVerificationService {
         switch (eventType) {
             case "payment.captured":
             case "charge.captured":
+            case "payment_intent.succeeded": // Stripe
             case "CHECKOUT.ORDER.APPROVED":
                 if (payment.getStatus() == PaymentStatus.INITIATED) {
                     payment.setStatus(PaymentStatus.ESCROWED);
@@ -86,7 +87,18 @@ public class PaymentVerificationService {
 
             case "payment.failed":
             case "charge.failed":
+            case "payment_intent.payment_failed": // Stripe
             case "CHECKOUT.ORDER.DECLINED":
+                // Guard against out-of-order / retried webhooks: never regress a
+                // payment that already reached a terminal success state (Stripe
+                // retries events and delivery order is not guaranteed).
+                if (payment.getStatus() == PaymentStatus.ESCROWED
+                        || payment.getStatus() == PaymentStatus.COMPLETED
+                        || payment.getStatus() == PaymentStatus.REFUNDED) {
+                    LOG.warn("Ignoring failure webhook for terminal payment: paymentId={}, status={}",
+                            payment.getId(), payment.getStatus());
+                    return payment;
+                }
                 payment.setStatus(PaymentStatus.FAILED);
                 Payment saved = paymentRepository.save(payment);
                 LOG.warn("Webhook payment failed: paymentId={}", saved.getId());

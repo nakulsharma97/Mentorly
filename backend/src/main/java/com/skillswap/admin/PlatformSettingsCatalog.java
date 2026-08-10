@@ -137,8 +137,6 @@ public final class PlatformSettingsCatalog {
                     "Maximum wallet balance (₹) a wallet can hold (0 = unlimited).", "0"),
             bool(CAT_PAYMENTS, "enable_wallet", "Enable Wallet",
                     "Allow users to hold and spend their wallet balance in ₹.", "true"),
-            bool(CAT_PAYMENTS, "enable_polygon_payments", "Enable Polygon Payments",
-                    "Accept cryptocurrency payments via Polygon network.", "false"),
             bool(CAT_PAYMENTS, "auto_refund_enabled", "Auto Refund",
                     "Automatically refund cancelled sessions within the policy window.", "true"),
             def(CAT_PAYMENTS, "refund_policy", "text", "Refund Policy",

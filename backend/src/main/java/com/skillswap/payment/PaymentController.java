@@ -116,7 +116,8 @@ public class PaymentController {
         if (payment.getStatus() == PaymentStatus.INITIATED && payment.getPaymentId() != null) {
             try {
                 String gatewayStatus = paymentVerificationService.fetchFromGateway(payment);
-                if ("captured".equalsIgnoreCase(gatewayStatus) || "completed".equalsIgnoreCase(gatewayStatus)) {
+                if ("captured".equalsIgnoreCase(gatewayStatus) || "completed".equalsIgnoreCase(gatewayStatus)
+                        || "succeeded".equalsIgnoreCase(gatewayStatus)) {
                     // Complete the verification (ownership already checked above)
                     payment = paymentVerificationService.verifyPayment(
                             payment.getId(), payment.getPaymentId(), payment.getSignature(), Map.of(),
@@ -156,14 +157,23 @@ public class PaymentController {
     public ApiResponse<Payment> handleWebhook(
             @PathVariable @NotBlank String gateway,
             @RequestHeader(value = "X-Webhook-Signature", required = false, defaultValue = "") String signatureHeader,
+            @RequestHeader(value = "Stripe-Signature", required = false, defaultValue = "") String stripeSignatureHeader,
             @RequestBody String rawBody) {
+
+        // Stripe sends its signature in the Stripe-Signature header and the raw
+        // body must be verified byte-for-byte with Webhook.constructEvent (real
+        // HMAC + timestamp-tolerance check inside StripeAdapter). The other
+        // gateways use X-Webhook-Signature with their own adapter scheme.
+        boolean isStripe = "stripe".equalsIgnoreCase(gateway);
+        String effectiveSignature = isStripe ? stripeSignatureHeader : signatureHeader;
 
         // Resolve the gateway adapter for this webhook
         PaymentGateway gatewayAdapter = paymentService.resolveGateway(gateway);
 
-        // Verify webhook signature — reject forged events before any processing
-        if (!gatewayAdapter.verifyWebhookSignature(rawBody, signatureHeader)) {
-            LOG.warn("Webhook signature verification FAILED for gateway={}", gateway);
+        // Verify webhook signature — reject forged events before any processing.
+        // Failure surfaces as 400 (see GlobalExceptionHandler) and is logged.
+        if (!gatewayAdapter.verifyWebhookSignature(rawBody, effectiveSignature)) {
+            LOG.warn("Webhook signature verification FAILED for gateway={} — rejecting event", gateway);
             throw new IllegalArgumentException("Invalid webhook signature");
         }
         LOG.info("Webhook signature verified for gateway={}", gateway);
@@ -178,8 +188,11 @@ public class PaymentController {
             throw new IllegalArgumentException("Invalid webhook payload format");
         }
 
-        // Extract common webhook fields with type-safe access
-        String eventType = safeStringCast(webhookPayload.get("event"), "unknown");
+        // Stripe events carry the type at top level ("payment_intent.succeeded");
+        // Razorpay/PayPal send it under "event".
+        String eventType = isStripe
+                ? safeStringCast(webhookPayload.get("type"), "unknown")
+                : safeStringCast(webhookPayload.get("event"), "unknown");
         String gatewayPaymentId = extractGatewayPaymentId(webhookPayload);
 
         LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}",

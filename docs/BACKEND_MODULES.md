@@ -77,6 +77,7 @@ For each module:
 - Responsibility: payment records, status updates, and payment queries.
 - Main entry points: `PaymentController`, `Payment`, `PaymentRepository`, `PaymentStatus`.
 - Typical changes: payment state transitions, audit fields, repository filters.
+- **Note:** gateways are a `PaymentGateway` Strategy pattern; the **Stripe adapter makes real test-mode API calls** (PaymentIntent + `Webhook.constructEvent` signature verification), while the PayPal/Razorpay adapters **simulate** gateway calls (see README → Current limitations). Idempotency handling is fully real.
 - API contract notes:
   - `POST /api/v1/payments/intent` and `PATCH /api/v1/payments/{id}/status` require `Idempotency-Key`.
   - Payment idempotency validation uses the same shared rules as booking.
@@ -147,12 +148,6 @@ For each module:
 - Responsibility: saved mentors and watched skills.
 - Main entry points: `WatchlistController`, `SavedMentor`, `SkillWatchlist`, repositories.
 - Typical changes: save/unsave actions, deduping rules, list projections.
-
-### web3
-
-- Responsibility: blockchain transaction verification/interaction endpoints.
-- Main entry points: `BlockchainController`, `BlockchainService`.
-- Typical changes: chain provider integration, tx validation rules, response normalization.
 
 ### root application class
 

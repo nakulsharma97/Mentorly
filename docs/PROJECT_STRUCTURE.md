@@ -13,7 +13,6 @@ Related deep dives:
 
 - `backend/`: Spring Boot API (modular monolith)
 - `frontend/`: React + Vite application
-- `contracts/`: Solidity smart contracts and Hardhat config
 - `docs/`: Human-readable project documentation
 - `start-fullstack.ps1`, `stop-fullstack.ps1`: Windows automation scripts
 - `smoke-check.ps1`: Local health checks for backend/frontend
@@ -48,7 +47,6 @@ Current domain packages include:
 - `verification`
 - `waitlist`
 - `watchlist`
-- `web3`
 
 Cross-cutting packages:
 
