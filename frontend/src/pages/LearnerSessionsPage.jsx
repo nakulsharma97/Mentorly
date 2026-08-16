@@ -4,6 +4,7 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills, skillsMatchQuery } from "../utils/skills";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
+import BookingFlowPage from "./BookingFlowPage";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
 
@@ -630,6 +631,8 @@ function SessionsEmptyState({ activeTab, query }) {
     upcoming: "event_busy",
     completed: "task_alt",
     cancelled: "cancel",
+    explore: "explore",
+    foryou: "mark_email_unread",
   };
   const descMap = {
     upcoming:
@@ -638,6 +641,10 @@ function SessionsEmptyState({ activeTab, query }) {
       "Completed sessions will appear here once you finish them with your mentors.",
     cancelled:
       "Cancelled sessions will appear here if any bookings are cancelled.",
+    explore:
+      "Available public 1:1 sessions from verified mentors will appear here as they are published.",
+    foryou:
+      "Private sessions a mentor creates specifically for you will appear here.",
   };
 
   return (
@@ -789,6 +796,96 @@ function RightSidebar({ stats, allBookings }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Discoverable Session Card (public / private 1:1 sessions)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+function DiscoverableSessionCard({ session, isPrivate, onBook }) {
+  const mentor = session?.mentor || {};
+  const price =
+    Number(session?.priceAmount || 0) > 0
+      ? formatPrice(session?.priceAmount)
+      : "FREE";
+  const skills = normalizeSkills(session?.sessionSkills ?? mentor?.skills);
+
+  return (
+    <article className="ls-session-card ls-session-card--available md-animate">
+      <div className="ls-session-card__inner">
+        <div className="ls-session-card__avatar-wrap">
+          {mentor?.profileImageUrl ? (
+            <img className="ls-session-card__avatar" src={mentor.profileImageUrl} alt={mentor.fullName || "Mentor"} />
+          ) : (
+            <div className="ls-session-card__avatar ls-session-card__avatar--fallback">
+              {initials(mentor.fullName || "M")}
+            </div>
+          )}
+        </div>
+
+        <div className="ls-session-card__body">
+          <div className="ls-session-card__top">
+            <div className="ls-session-card__info">
+              <div className="ls-session-card__name-row">
+                <h3 className="ls-session-card__mentor">{mentor.fullName || "Mentor"}</h3>
+                {mentor?.mentorVerified && (
+                  <span className="ls-session-card__verified">
+                    <Icon name="verified" /> Verified
+                  </span>
+                )}
+              </div>
+              <p className="ls-session-card__title">{session?.title || "Untitled session"}</p>
+            </div>
+            <span className="ls-session-card__badge ls-badge--scheduled">
+              <Icon name={isPrivate ? "lock" : "public"} />
+              {isPrivate ? "Private" : "Available"}
+            </span>
+          </div>
+
+          <div className="ls-session-card__meta">
+            <span className="ls-session-card__meta-item">
+              <Icon name="calendar_today" />
+              <span>{formatDate(session?.startTime)}</span>
+            </span>
+            <span className="ls-session-card__meta-item">
+              <Icon name="schedule" />
+              <span>{formatTime(session?.startTime)}</span>
+            </span>
+            <span className="ls-session-card__meta-item">
+              <Icon name="timelapse" />
+              <span>{formatDuration(session?.startTime, session?.endTime)}</span>
+            </span>
+            <span className="ls-session-card__meta-item">
+              <Icon name="person" />
+              <span>1:1</span>
+            </span>
+          </div>
+
+          {skills.length > 0 ? (
+            <div className="ls-session-card__skills">
+              {skills.slice(0, 4).map((skill, i) => (
+                <span key={`${skill}-${i}`} className="ls-session-card__skill-chip">{skill}</span>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="ls-session-card__footer">
+            <div className="ls-session-card__price-wrap">
+              <span className="ls-session-card__price-label">Price</span>
+              <strong className="ls-session-card__price">{price}</strong>
+            </div>
+            <button
+              type="button"
+              className="ls-btn ls-btn--primary"
+              onClick={() => onBook?.(session)}
+            >
+              <Icon name="event" /> {isPrivate ? "View & Book" : "Book Session"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    MAIN PAGE — LearnerSessionsPage (redesigned)
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -802,6 +899,12 @@ export default function LearnerSessionsPage() {
   const [statusFilter, ] = useState("");
   const [viewMode, setViewMode] = useState("list"); // "list" | "grid"
   const [refreshKey, setRefreshKey] = useState(0);
+
+  /* ── Public / private 1:1 session discovery ── */
+  const [publicSessions, setPublicSessions] = useState([]);
+  const [privateSessions, setPrivateSessions] = useState([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [bookingSessionId, setBookingSessionId] = useState(null);
 
   /* ── Payment modal state ── */
   const [payingBooking, setPayingBooking] = useState(null);
@@ -832,6 +935,31 @@ export default function LearnerSessionsPage() {
       window.removeEventListener("visibilitychange", refreshOnVisible);
     };
   }, []);
+
+  // Load discoverable PUBLIC sessions (Explore) and PRIVATE sessions assigned
+  // to this learner (For You). Only the backend decides what is visible — the
+  // frontend merely renders what the APIs return.
+  useEffect(() => {
+    let active = true;
+    setDiscoverLoading(true);
+    Promise.allSettled([
+      client.get("/api/v1/sessions/private"),
+      client.get("/api/v1/sessions/public", { params: { size: 50 } }),
+    ])
+      .then(([privateRes, publicRes]) => {
+        if (!active) return;
+        const unwrapList = (res) => {
+          const d = res?.value?.data?.data;
+          return Array.isArray(d) ? d : Array.isArray(d?.content) ? d.content : EMPTY_ARRAY;
+        };
+        setPrivateSessions(unwrapList(privateRes));
+        setPublicSessions(unwrapList(publicRes));
+      })
+      .finally(() => {
+        if (active) setDiscoverLoading(false);
+      });
+    return () => { active = false; };
+  }, [refreshKey]);
 
   const grouped = useMemo(() => {
     const upcoming = [];
@@ -1070,8 +1198,10 @@ export default function LearnerSessionsPage() {
       completed: grouped.completed.length,
       cancelled: grouped.cancelled.length,
       pending: grouped.pendingPayment.length,
+      explore: publicSessions.length,
+      foryou: privateSessions.length,
     }),
-    [allBookings, grouped],
+    [allBookings, grouped, publicSessions, privateSessions],
   );
 
   const tabs = [
@@ -1080,7 +1210,12 @@ export default function LearnerSessionsPage() {
     { key: "completed", label: "Completed", icon: "task_alt" },
     { key: "cancelled", label: "Cancelled", icon: "cancel" },
     { key: "pending", label: "Pending Payment", icon: "payments" },
+    { key: "explore", label: "Explore Sessions", icon: "explore" },
+    { key: "foryou", label: "For You", icon: "mark_email_unread" },
   ];
+
+  const isDiscoverTab = activeTab === "explore" || activeTab === "foryou";
+  const discoverList = activeTab === "explore" ? publicSessions : privateSessions;
 
   /* ── Render ── */
 
@@ -1267,7 +1402,9 @@ export default function LearnerSessionsPage() {
           <div className="ls-toolbar md-animate">
             <div className="ls-toolbar__left">
               <span className="ls-toolbar__results">
-                {sorted.length} session{sorted.length !== 1 ? "s" : ""}
+                {isDiscoverTab
+                  ? `${discoverList.length} session${discoverList.length !== 1 ? "s" : ""}`
+                  : `${sorted.length} session${sorted.length !== 1 ? "s" : ""}`}
               </span>
             </div>
             <div className="ls-toolbar__right">
@@ -1349,7 +1486,28 @@ export default function LearnerSessionsPage() {
           )}
 
           {/* Session List */}
-          {loading ? (
+          {isDiscoverTab ? (
+            discoverLoading ? (
+              <div className={viewMode === "grid" ? "ls-grid" : "ls-list"}>
+                {[1, 2, 3].map((k) => (
+                  <SessionSkeletonCard key={k} />
+                ))}
+              </div>
+            ) : discoverList.length > 0 ? (
+              <div className={viewMode === "grid" ? "ls-grid" : "ls-list"}>
+                {discoverList.map((session) => (
+                  <DiscoverableSessionCard
+                    key={session.id}
+                    session={session}
+                    isPrivate={activeTab === "foryou"}
+                    onBook={(s) => setBookingSessionId(s.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <SessionsEmptyState activeTab={activeTab} query="" />
+            )
+          ) : loading ? (
             <div className={viewMode === "grid" ? "ls-grid" : "ls-list"}>
               {[1, 2, 3].map((k) => (
                 <SessionSkeletonCard key={k} />
@@ -1490,6 +1648,54 @@ export default function LearnerSessionsPage() {
                   <><Icon name="lock" /> Pay Now — Secure Payment</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Booking Flow Overlay (public / private session booking) ── */}
+      {bookingSessionId && (
+        <div
+          className="mp-overlay mp-overlay--center"
+          onClick={(e) => { if (e.target === e.currentTarget) setBookingSessionId(null); }}
+          role="presentation"
+        >
+          <div
+            className="mp-drawer"
+            style={{
+              width: "min(760px, 100%)",
+              height: "auto",
+              maxHeight: "92vh",
+              borderRadius: "var(--mp-radius-xl)",
+              borderLeft: "none",
+              overflowY: "auto",
+            }}
+          >
+            <div className="mp-drawer__head">
+              <div className="mp-drawer__head-main">
+                <p className="mp-head__sub" style={{ margin: 0, fontSize: "0.72rem" }}>
+                  Book Session
+                </p>
+                <h3 className="mp-drawer__title">Confirm your booking</h3>
+              </div>
+              <button
+                type="button"
+                className="mp-icon-btn"
+                onClick={() => setBookingSessionId(null)}
+                aria-label="Close"
+              >
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="mp-drawer__body" style={{ padding: "8px 20px 20px" }}>
+              <BookingFlowPage
+                sessionId={bookingSessionId}
+                onBookingComplete={() => {
+                  setBookingSessionId(null);
+                  setRefreshKey((v) => v + 1);
+                }}
+                onCancel={() => setBookingSessionId(null)}
+              />
             </div>
           </div>
         </div>

@@ -48,8 +48,37 @@ public class SkillSession {
 
     private String description;
 
+    /**
+     * Visibility class of this 1:1 session: {@link SessionType#PUBLIC} is
+     * discoverable by any eligible learner while available; {@link
+     * SessionType#PRIVATE} is visible only to {@link #targetLearner}.
+     */
+    @Enumerated(EnumType.STRING)
     @Column(name = "session_type", nullable = false)
-    private String sessionType;
+    private SessionType sessionType = SessionType.PUBLIC;
+
+    /**
+     * For PRIVATE sessions: the single learner this session was created for.
+     * Always {@code null} for PUBLIC sessions.
+     */
+    @ManyToOne
+    @JoinColumn(name = "target_learner_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "projectsList"})
+    private User targetLearner;
+
+    // ── Transient, mentor-facing booking snapshot ─────────────────────────
+    // Populated by the session service for mentor session-management views
+    // so the UI can render "Booked by Rahul" / "Available" without issuing a
+    // separate per-session booking query.
+    @Transient
+    private String bookedByLearnerName;
+
+    @Transient
+    private Long bookedByLearnerId;
+
+    /** Active booking state for this session (PENDING/ACCEPTED/CONFIRMED/IN_PROGRESS) or null when free. */
+    @Transient
+    private String bookingState;
 
     @Column(name = "start_time", nullable = false)
     private OffsetDateTime startTime;

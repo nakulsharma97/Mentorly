@@ -139,11 +139,14 @@ export default function MentorCalendarPage({ profile, notify }) {
               item?.learner?.name ||
               session?.learner?.fullName ||
               "Learner",
+            sessionType: session?.sessionType || item?.sessionType || null,
             skill:
-              session?.sessionType ||
               session?.skill?.name ||
-              item?.sessionType ||
-              "General",
+              (String(session?.sessionType || "").toUpperCase() === "PRIVATE"
+                ? "Private 1:1"
+                : String(session?.sessionType || "").toUpperCase() === "PUBLIC"
+                  ? "Public 1:1"
+                  : item?.sessionType || "General"),
             start,
             end,
             status,

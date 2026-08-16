@@ -8,6 +8,7 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentStatus;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.MentorVerificationStatus;
 import com.skillswap.user.User;
@@ -483,7 +484,7 @@ class BookingLifecycleIntegrationTest {
         session.setMentor(sessionMentor);
         session.setTitle("Integration Session " + UUID.randomUUID().toString().substring(0, 8));
         session.setDescription("Session description");
-        session.setSessionType("ONLINE");
+        session.setSessionType(SessionType.PUBLIC);
         session.setStartTime(start);
         session.setEndTime(end);
         session.setPriceAmount(price);

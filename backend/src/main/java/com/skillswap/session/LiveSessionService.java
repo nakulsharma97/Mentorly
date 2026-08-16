@@ -59,7 +59,8 @@ public class LiveSessionService {
         session.setMentor(mentor);
         session.setTitle(request.getTitle());
         session.setDescription(request.getDescription());
-        session.setSessionType(request.getSessionType() != null ? request.getSessionType() : "LIVE_SESSION");
+        // Live sessions are bookable 1:1 sessions → PUBLIC visibility class.
+        session.setSessionType(SessionType.PUBLIC);
         session.setStartTime(request.getStartTime());
         session.setEndTime(request.getEndTime());
         session.setPriceAmount(request.getPriceAmount());
@@ -314,7 +315,7 @@ public class LiveSessionService {
                 .mentorName(session.getMentor().getFullName())
                 .title(session.getTitle())
                 .description(session.getDescription())
-                .sessionType(session.getSessionType())
+                .sessionType(session.getSessionType() != null ? session.getSessionType().name() : null)
                 .startTime(session.getStartTime())
                 .endTime(session.getEndTime())
                 .priceAmount(session.getPriceAmount())

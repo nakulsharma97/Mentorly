@@ -3,6 +3,7 @@ package com.skillswap.payment;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -216,7 +217,7 @@ class RefundWorkflowIntegrationTest {
         SkillSession session = new SkillSession();
         session.setMentor(mentor);
         session.setTitle("Refund IT Session " + UUID.randomUUID().toString().substring(0, 8));
-        session.setSessionType("ONLINE");
+        session.setSessionType(SessionType.PUBLIC);
         session.setStartTime(OffsetDateTime.now().minusDays(1));
         session.setEndTime(OffsetDateTime.now().plusHours(1));
         session.setPriceAmount(new BigDecimal("100.00"));

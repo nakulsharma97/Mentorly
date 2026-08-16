@@ -1,6 +1,7 @@
 package com.skillswap.session;
 
 import com.skillswap.common.ApiResponse;
+import com.skillswap.common.exception.ResourceNotFoundException;
 import com.skillswap.common.exception.UnauthorizedException;
 import com.skillswap.meeting.provider.MeetingProviderException;
 import com.skillswap.session.dto.CreateLiveSessionRequest;
@@ -30,6 +31,7 @@ import java.util.List;
 public class LiveSessionController {
 
     private final LiveSessionService liveSessionService;
+    private final SessionRepository sessionRepository;
 
     @PostMapping("/admin/live-sessions")
     public ApiResponse<LiveSessionResponse> createLiveSession(
@@ -101,8 +103,32 @@ public class LiveSessionController {
     }
 
     @GetMapping("/live-sessions/{sessionId}")
-    public ApiResponse<LiveSessionResponse> getPublicLiveSession(@PathVariable Long sessionId) {
+    public ApiResponse<LiveSessionResponse> getPublicLiveSession(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long sessionId) {
+        if (currentUser == null) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        // PRIVATE 1:1 sessions are never exposed through the live-session API
+        // to anyone other than the mentor, the target learner, or an admin.
+        SkillSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session not found"));
+        if (session.getSessionType() == SessionType.PRIVATE
+                && !canViewPrivateSession(currentUser, session)) {
+            throw new ResourceNotFoundException("Session not found");
+        }
         return new ApiResponse<>("Live session fetched", liveSessionService.getSession(sessionId));
+    }
+
+    private static boolean canViewPrivateSession(User currentUser, SkillSession session) {
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            return true;
+        }
+        if (session.getMentor() != null && session.getMentor().getId().equals(currentUser.getId())) {
+            return true;
+        }
+        return session.getTargetLearner() != null
+                && session.getTargetLearner().getId().equals(currentUser.getId());
     }
 
     @GetMapping("/live-sessions/{sessionId}/join")

@@ -1,5 +1,6 @@
 package com.skillswap.user;
 
+import com.skillswap.booking.BookingStatus;
 import com.skillswap.common.ApiClientException;
 import com.skillswap.common.ApiResponse;
 import com.skillswap.common.ProfileCompletionGuard;
@@ -183,9 +184,14 @@ public class UserController {
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
         long totalReviews = mentorReviewRepository.countByMentorId(mentorId);
-        int upcomingSessions = sessionRepository
-                .findByMentorIdAndStartTimeAfterOrderByStartTimeAsc(mentorId, OffsetDateTime.now())
-                .size();
+        // Only genuinely available PUBLIC sessions count towards the profile's
+        // "upcoming sessions" figure — private and already-booked slots never.
+        int upcomingSessions = sessionRepository.findAvailablePublicSessionsByMentorId(
+                mentorId,
+                OffsetDateTime.now(),
+                java.util.List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.ACCEPTED,
+                        BookingStatus.IN_PROGRESS, BookingStatus.RESCHEDULE_REQUESTED,
+                        BookingStatus.COMPLETED)).size();
 
         return new ApiResponse<>(
                 "Mentor profile fetched",

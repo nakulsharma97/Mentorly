@@ -2,6 +2,7 @@ package com.skillswap.session;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.skillswap.booking.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -11,6 +12,7 @@ import jakarta.persistence.LockModeType;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,4 +69,79 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
     Page<SkillSession> findByFilters(@Param("status") SessionStatus status,
                                      @Param("q") String q,
                                      Pageable pageable);
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Public / Private 1:1 session discovery
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Currently discoverable PUBLIC sessions: public, not cancelled/completed,
+     * starting in the future, and not already claimed by a learner (no active
+     * booking in the {@code activeStatuses} set — including COMPLETED so a
+     * finished session can never be re-booked).
+     */
+    @Query("""
+            SELECT s FROM SkillSession s
+            WHERE s.sessionType = com.skillswap.session.SessionType.PUBLIC
+              AND s.status NOT IN (com.skillswap.session.SessionStatus.CANCELLED,
+                                   com.skillswap.session.SessionStatus.COMPLETED)
+              AND s.startTime > :now
+              AND NOT EXISTS (
+                  SELECT b FROM Booking b
+                  WHERE b.session = s
+                    AND b.bookingStatus IN :activeStatuses
+              )
+            """)
+    Page<SkillSession> findAvailablePublicSessions(@Param("now") OffsetDateTime now,
+            @Param("activeStatuses") Collection<BookingStatus> activeStatuses,
+            Pageable pageable);
+
+    /**
+     * Available PUBLIC sessions for one mentor's public profile. Excludes
+     * PRIVATE sessions, booked/completed/cancelled sessions, and past slots.
+     */
+    @Query("""
+            SELECT s FROM SkillSession s
+            WHERE s.mentor.id = :mentorId
+              AND s.sessionType = com.skillswap.session.SessionType.PUBLIC
+              AND s.status NOT IN (com.skillswap.session.SessionStatus.CANCELLED,
+                                   com.skillswap.session.SessionStatus.COMPLETED)
+              AND s.startTime > :now
+              AND NOT EXISTS (
+                  SELECT b FROM Booking b
+                  WHERE b.session = s
+                    AND b.bookingStatus IN :activeStatuses
+              )
+            """)
+    List<SkillSession> findAvailablePublicSessionsByMentorId(@Param("mentorId") Long mentorId,
+            @Param("now") OffsetDateTime now,
+            @Param("activeStatuses") Collection<BookingStatus> activeStatuses);
+
+    /**
+     * Available PRIVATE sessions assigned to one learner (their “For You”
+     * list): private, targeted at this learner, not cancelled/completed, in
+     * the future, and not already booked by the learner.
+     */
+    @Query("""
+            SELECT s FROM SkillSession s
+            WHERE s.sessionType = com.skillswap.session.SessionType.PRIVATE
+              AND s.targetLearner.id = :learnerId
+              AND s.status NOT IN (com.skillswap.session.SessionStatus.CANCELLED,
+                                   com.skillswap.session.SessionStatus.COMPLETED)
+              AND s.startTime > :now
+              AND NOT EXISTS (
+                  SELECT b FROM Booking b
+                  WHERE b.session = s
+                    AND b.bookingStatus IN :activeStatuses
+              )
+            """)
+    List<SkillSession> findAvailablePrivateSessionsForLearner(@Param("learnerId") Long learnerId,
+            @Param("now") OffsetDateTime now,
+            @Param("activeStatuses") Collection<BookingStatus> activeStatuses);
+
+    /** All PRIVATE sessions created by one mentor (any state — for the mentor's own management view). */
+    List<SkillSession> findByMentorIdAndSessionType(Long mentorId, SessionType sessionType);
+
+    /** Paginated sessions of one visibility class (admin views). */
+    Page<SkillSession> findBySessionType(SessionType sessionType, Pageable pageable);
 }

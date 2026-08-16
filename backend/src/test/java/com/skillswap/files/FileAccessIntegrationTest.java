@@ -8,6 +8,7 @@ import com.skillswap.messaging.DirectConversation;
 import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -402,7 +403,7 @@ class FileAccessIntegrationTest {
         SkillSession s = new SkillSession();
         s.setMentor(sessionMentor);
         s.setTitle("File IT Session " + UUID.randomUUID().toString().substring(0, 8));
-        s.setSessionType("ONLINE");
+        s.setSessionType(SessionType.PUBLIC);
         s.setStartTime(OffsetDateTime.now().plusDays(1));
         s.setEndTime(OffsetDateTime.now().plusDays(1).plusHours(1));
         s.setPriceAmount(new BigDecimal("50.00"));

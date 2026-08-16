@@ -430,7 +430,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
               )}
               <div>
                 <div style={{ fontWeight: 700 }}>{session?.mentor?.fullName || 'Mentor'}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{session.sessionType || '1:1 Mentoring'}</div>
+                <div style={{ color: 'var(--muted)', fontSize: 13 }}>{String(session.sessionType || '').toUpperCase() === 'PRIVATE' ? 'Private 1:1 Session' : 'Public 1:1 Session'}</div>
               </div>
             </div>
 

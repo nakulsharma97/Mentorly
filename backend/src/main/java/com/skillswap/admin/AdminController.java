@@ -997,7 +997,8 @@ public class AdminController {
                     s.getMentor() != null ? s.getMentor().getId() : null,
                     s.getMentor() != null ? s.getMentor().getFullName() : "Unknown",
                     s.getMentor() != null ? s.getMentor().getDisplayUsername() : null,
-                    s.getPriceAmount(), s.getStatus().name(), s.getSessionType(),
+                    s.getPriceAmount(), s.getStatus().name(),
+                    s.getSessionType() != null ? s.getSessionType().name() : null,
                     s.getStartTime(), s.getEndTime(), s.getMaxParticipants(),
                     (int) participantCount, (int) bookingCount, s.getCreatedAt());
         });

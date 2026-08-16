@@ -21,8 +21,8 @@ const SORT_OPTIONS = [
 
 const STATUS_TABS = [
   { key: "all", label: "All" },
-  { key: "Published", label: "Published" },
-  { key: "Draft", label: "Draft" },
+  { key: "Available", label: "Available" },
+  { key: "Booked", label: "Booked" },
   { key: "Completed", label: "Completed" },
   { key: "Cancelled", label: "Cancelled" },
 ];
@@ -47,6 +47,15 @@ const formatDateTime = (value) => {
     minute: "2-digit",
   }).format(date);
 };
+
+function useDebouncedValue(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 /* ═══════════════════ Session Requests Section ═══════════════════ */
 
@@ -558,25 +567,27 @@ const formatDateOnly = (value) => {
 };
 
 const getStatusLabel = (session) => {
-  const raw = String(
-    session?.status || session?.sessionStatus || "",
-  ).toUpperCase();
-  if (raw === "DRAFT") return "Draft";
+  const raw = String(session?.status || session?.sessionStatus || "").toUpperCase();
   if (raw === "CANCELLED") return "Cancelled";
   if (raw === "COMPLETED") return "Completed";
   if (raw === "ARCHIVED") return "Completed";
-  if (raw === "PENDING") return "Draft";
-  if (!session?.startTime) return "Draft";
+  // The booking state (from the backend booking snapshot) wins over the static
+  // session status for the 1:1 lifecycle: BOOKED → UPCOMING → IN_PROGRESS → COMPLETED.
+  const bs = String(session?.bookingState || "").toUpperCase();
+  if (["PENDING", "ACCEPTED", "CONFIRMED", "IN_PROGRESS", "RESCHEDULE_REQUESTED"].includes(bs)) {
+    return "Booked";
+  }
+  if (!session?.startTime) return "Available";
   if (new Date(session.startTime).getTime() < Date.now()) return "Completed";
-  return "Published";
+  return "Available";
 };
 
 const statusPillClass = (status) => {
   switch (status) {
-    case "Published":
+    case "Available":
       return "mp-pill mp-pill--active";
-    case "Draft":
-      return "mp-pill mp-pill--inactive";
+    case "Booked":
+      return "mp-pill mp-pill--pending";
     case "Completed":
       return "mp-pill mp-pill--completed";
     case "Cancelled":
@@ -584,6 +595,15 @@ const statusPillClass = (status) => {
     default:
       return "mp-pill mp-pill--inactive";
   }
+};
+
+const sessionTypeBadge = (session) => {
+  const type = String(session?.sessionType || "").toUpperCase();
+  if (type === "PRIVATE") {
+    const name = session?.targetLearner?.fullName || "";
+    return { label: "PRIVATE", detail: name ? `For: ${name}` : "Private", cls: "mp-pill mp-pill--inactive" };
+  }
+  return { label: "PUBLIC", detail: "Available to eligible learners", cls: "mp-pill mp-pill--active" };
 };
 
 export default function TeachingPage({ profile: profileProp, notify }) {
@@ -615,7 +635,9 @@ export default function TeachingPage({ profile: profileProp, notify }) {
   const [editingSession, setEditingSession] = useState(null);
   const [sessionForm, setSessionForm] = useState({
     title: "",
-    sessionType: "1:1 Mentoring",
+    sessionType: "PUBLIC", // PUBLIC | PRIVATE
+    targetLearnerId: null,
+    targetLearnerName: "",
     description: "",
     startTime: "",
     endTime: "",
@@ -624,9 +646,15 @@ export default function TeachingPage({ profile: profileProp, notify }) {
     maxParticipants: 1,
     cancellationWindowHours: 24,
     rescheduleWindowHours: 12,
+    confirmMakePublic: false,
   });
   const [sessionErrors, setSessionErrors] = useState({});
   const [sessionMessage, setSessionMessage] = useState("");
+  /* ── Private-session learner search ── */
+  const [learnerQuery, setLearnerQuery] = useState("");
+  const [learnerResults, setLearnerResults] = useState([]);
+  const [learnerSearching, setLearnerSearching] = useState(false);
+  const [learnerSearchOpen, setLearnerSearchOpen] = useState(false);
   const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
   const [editingAvailability, setEditingAvailability] = useState(null);
   const [availabilityForm, setAvailabilityForm] = useState({
@@ -636,6 +664,46 @@ export default function TeachingPage({ profile: profileProp, notify }) {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   });
   const [availabilityMessage, setAvailabilityMessage] = useState("");
+
+  /* Debounced learner search for the private-session form (name / username / email). */
+  const debouncedLearnerQuery = useDebouncedValue(learnerQuery, 350);
+  useEffect(() => {
+    let active = true;
+    if (!debouncedLearnerQuery || String(debouncedLearnerQuery).trim().length < 2) {
+      setLearnerResults([]);
+      return;
+    }
+    setLearnerSearching(true);
+    client
+      .get("/api/v1/sessions/learners", { params: { q: debouncedLearnerQuery.trim(), size: 8 } })
+      .then((res) => {
+        if (!active) return;
+        const page = res?.data?.data;
+        setLearnerResults(Array.isArray(page) ? page : Array.isArray(page?.content) ? page.content : []);
+      })
+      .catch(() => {
+        if (active) setLearnerResults([]);
+      })
+      .finally(() => {
+        if (active) setLearnerSearching(false);
+      });
+    return () => { active = false; };
+  }, [debouncedLearnerQuery]);
+
+  const selectLearner = (learner) => {
+    setSessionForm((prev) => ({
+      ...prev,
+      targetLearnerId: learner?.id ?? null,
+      targetLearnerName: learner?.fullName || "",
+    }));
+    setLearnerQuery("");
+    setLearnerResults([]);
+    setLearnerSearchOpen(false);
+  };
+
+  const clearSelectedLearner = () => {
+    setSessionForm((prev) => ({ ...prev, targetLearnerId: null, targetLearnerName: "" }));
+  };
 
   const loadWorkspaceData = async () => {
     setLoading(true);
@@ -687,7 +755,7 @@ export default function TeachingPage({ profile: profileProp, notify }) {
 
   const stats = useMemo(() => {
     const active = mentorSessions.filter(
-      (session) => getStatusLabel(session) === "Published",
+      (session) => getStatusLabel(session) === "Available",
     ).length;
     const thisWeek = mentorSessions.filter((session) => {
       const start = session?.startTime
@@ -777,20 +845,25 @@ export default function TeachingPage({ profile: profileProp, notify }) {
       if (session) {
         setSessionForm({
           title: session.title || "",
-          sessionType: session.sessionType || "1:1 Mentoring",
+          sessionType: String(session.sessionType || "PUBLIC").toUpperCase() === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+          targetLearnerId: session.targetLearner?.id ?? null,
+          targetLearnerName: session.targetLearner?.fullName || "",
           description: session.description || "",
           startTime: session.startTime ? session.startTime.slice(0, 16) : "",
           endTime: session.endTime ? session.endTime.slice(0, 16) : "",
           priceAmount: session.priceAmount != null ? session.priceAmount : "",
           meetingLink: session.meetingLink || "",
-          maxParticipants: session.maxParticipants || 1,
+          maxParticipants: 1,
           cancellationWindowHours: session.cancellationWindowHours ?? 24,
           rescheduleWindowHours: session.rescheduleWindowHours ?? 12,
+          confirmMakePublic: false,
         });
       } else {
         setSessionForm({
           title: "",
-          sessionType: "1:1 Mentoring",
+          sessionType: "PUBLIC",
+          targetLearnerId: null,
+          targetLearnerName: "",
           description: "",
           startTime: "",
           endTime: "",
@@ -799,8 +872,11 @@ export default function TeachingPage({ profile: profileProp, notify }) {
           maxParticipants: 1,
           cancellationWindowHours: 24,
           rescheduleWindowHours: 12,
+          confirmMakePublic: false,
         });
       }
+      setLearnerQuery("");
+      setLearnerResults([]);
       setSessionErrors({});
       setSessionMessage("");
       setIsSessionModalOpen(true);
@@ -811,8 +887,8 @@ export default function TeachingPage({ profile: profileProp, notify }) {
     const errors = {};
     if (!String(form.title || "").trim())
       errors.title = "Please enter a session title.";
-    if (!String(form.sessionType || "").trim())
-      errors.sessionType = "Please enter a session type.";
+    if (String(form.sessionType || "").toUpperCase() === "PRIVATE" && !form.targetLearnerId)
+      errors.targetLearner = "Please select the learner this private session is for.";
     if (!String(form.description || "").trim())
       errors.description = "Please add a short session description.";
     if (!form.startTime) errors.startTime = "Please choose a start time.";
@@ -829,12 +905,6 @@ export default function TeachingPage({ profile: profileProp, notify }) {
       Number(form.priceAmount) < 0
     ) {
       errors.priceAmount = "Price must be 0 or greater.";
-    }
-    if (
-      !Number.isFinite(Number(form.maxParticipants)) ||
-      Number(form.maxParticipants) < 1
-    ) {
-      errors.maxParticipants = "At least one seat is required.";
     }
     return errors;
   };
@@ -858,15 +928,18 @@ export default function TeachingPage({ profile: profileProp, notify }) {
       return;
     }
 
+    const isPrivate = String(sessionForm.sessionType || "PUBLIC").toUpperCase() === "PRIVATE";
     const payload = {
       title: sessionForm.title.trim(),
       description: sessionForm.description.trim(),
-      sessionType: sessionForm.sessionType.trim(),
+      sessionType: isPrivate ? "PRIVATE" : "PUBLIC",
+      targetLearnerId: isPrivate ? sessionForm.targetLearnerId : null,
+      confirmMakePublic: Boolean(sessionForm.confirmMakePublic),
       startTime: new Date(sessionForm.startTime).toISOString(),
       endTime: new Date(sessionForm.endTime).toISOString(),
       priceAmount: Number(sessionForm.priceAmount || 0),
       meetingLink: sessionForm.meetingLink.trim(),
-      maxParticipants: Number(sessionForm.maxParticipants || 1),
+      maxParticipants: 1,
       cancellationWindowHours: Number(
         sessionForm.cancellationWindowHours || 24,
       ),
@@ -913,15 +986,18 @@ export default function TeachingPage({ profile: profileProp, notify }) {
   };
 
   const duplicateSession = async (session) => {
+    const isPrivate = String(session.sessionType || "PUBLIC").toUpperCase() === "PRIVATE";
     const payload = {
       title: `${session.title || "Session"} (Copy)`,
       description: session.description || "",
-      sessionType: session.sessionType || "1:1 Mentoring",
+      sessionType: isPrivate ? "PRIVATE" : "PUBLIC",
+      targetLearnerId: isPrivate ? session.targetLearner?.id ?? null : null,
+      confirmMakePublic: false,
       startTime: session.startTime || new Date().toISOString(),
       endTime: session.endTime || new Date().toISOString(),
       priceAmount: Number(session.priceAmount || session.pricePerHour || 0),
       meetingLink: session.meetingLink || "",
-      maxParticipants: Number(session.maxParticipants || session.capacity || 1),
+      maxParticipants: 1,
       cancellationWindowHours: Number(session.cancellationWindowHours || 24),
       rescheduleWindowHours: Number(session.rescheduleWindowHours || 12),
     };
@@ -939,6 +1015,28 @@ export default function TeachingPage({ profile: profileProp, notify }) {
         type: "error",
         title: "Duplicate failed",
         message: getApiErrorMessage(error, "Could not duplicate session."),
+      });
+    }
+  };
+
+  const cancelSession = async (sessionId) => {
+    if (!window.confirm("Cancel this session? Learners with active bookings will be notified and refunded.")) return;
+    try {
+      const response = await client.post(`/api/v1/sessions/${sessionId}/cancel`);
+      const updated = response?.data?.data;
+      setSessions((prev) =>
+        prev.map((session) => (session.id === updated.id ? updated : session)),
+      );
+      notify?.({
+        type: "success",
+        title: "Session cancelled",
+        message: "The session was cancelled and learners were notified.",
+      });
+    } catch (error) {
+      notify?.({
+        type: "error",
+        title: "Cancel failed",
+        message: getApiErrorMessage(error, "Could not cancel session."),
       });
     }
   };
@@ -1296,7 +1394,7 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                 <div className="md-empty__icon">
                   <Icon name="calendar_month" />
                 </div>
-                <p className="md-empty__title">No Sessions Published Yet</p>
+                <p className="md-empty__title">No Sessions Available Yet</p>
                 <p className="md-empty__desc">
                   Set your weekly availability and sessions will be created
                   automatically for the next two weeks. Or create a one-off
@@ -1362,7 +1460,16 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                               </div>
                             </div>
                           </td>
-                          <td>{session.sessionType || "Mentoring"}</td>
+                          <td>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                              <span className={sessionTypeBadge(session).cls}>
+                                {sessionTypeBadge(session).label}
+                              </span>
+                              <span style={{ fontSize: "0.72rem", color: "var(--mp-text-muted)" }}>
+                                {sessionTypeBadge(session).detail}
+                              </span>
+                            </div>
+                          </td>
                           <td>
                             <span style={{ fontSize: "0.84rem" }}>
                               {formatDateTime(session.startTime)}
@@ -1376,12 +1483,24 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                             {formatCurrency(
                               session.priceAmount || session.pricePerHour || 0,
                             )}
+                            {Number(session.priceAmount || 0) <= 0 && (
+                              <span style={{ display: "block", fontSize: "0.68rem", color: "var(--mp-success, #16a34a)" }}>
+                                FREE
+                              </span>
+                            )}
                           </td>
-                          <td>{session.maxParticipants || session.capacity || 1}</td>
+                          <td style={{ fontSize: "0.84rem", color: "var(--mp-text-muted)" }}>1:1</td>
                           <td>
-                            <span className={statusPillClass(status)}>
-                              {status}
-                            </span>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-start" }}>
+                              <span className={statusPillClass(status)}>
+                                {status}
+                              </span>
+                              {session.bookedByLearnerName && (
+                                <span style={{ fontSize: "0.7rem", color: "var(--mp-text-secondary, #475569)" }}>
+                                  Booked by {session.bookedByLearnerName}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td>
                             <div className="mp-row-actions">
@@ -1407,6 +1526,40 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                               >
                                 <Icon name="content_copy" />
                               </button>
+                              {status !== "Cancelled" && status !== "Completed" && (
+                                <button
+                                  type="button"
+                                  className="mp-icon-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelSession(session.id);
+                                  }}
+                                  title="Cancel session"
+                                >
+                                  <Icon name="cancel" />
+                                </button>
+                              )}
+                              {String(session.sessionType || "").toUpperCase() === "PRIVATE" && (
+                                <button
+                                  type="button"
+                                  className="mp-icon-btn"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const targetId = session.targetLearner?.id;
+                                    if (targetId == null) return;
+                                    try {
+                                      const res = await client.post(`/api/v1/chat/direct/${targetId}`);
+                                      const convId = res?.data?.data?.conversationId;
+                                      navigate(convId ? `/mentor/messages/${convId}` : "/mentor/messages");
+                                    } catch {
+                                      navigate("/mentor/messages");
+                                    }
+                                  }}
+                                  title="Message learner"
+                                >
+                                  <Icon name="chat" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="mp-icon-btn"
@@ -1703,25 +1856,158 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                   )}
                 </div>
 
+                <div className="mp-field">
+                  <label className="mp-label">Session Type</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSessionChange("sessionType", "PUBLIC")}
+                      className={`mp-type-card${String(sessionForm.sessionType).toUpperCase() !== "PRIVATE" ? " is-selected" : ""}`}
+                      style={{
+                        flex: "1", minWidth: 180, cursor: "pointer", padding: "12px 14px", textAlign: "left",
+                        border: `1px solid ${String(sessionForm.sessionType).toUpperCase() !== "PRIVATE" ? "var(--mp-primary, #0f766e)" : "var(--mp-border, #e2e8f0)"}`,
+                        background: String(sessionForm.sessionType).toUpperCase() !== "PRIVATE" ? "rgba(15,118,110,0.06)" : "transparent",
+                        borderRadius: 12, fontSize: "0.84rem", color: "inherit",
+                      }}
+                    >
+                      <strong>○ Public Session</strong>
+                      <span style={{ display: "block", fontSize: "0.72rem", color: "var(--mp-text-muted, #64748b)", marginTop: 3 }}>
+                        Available to all eligible learners
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSessionChange("sessionType", "PRIVATE")}
+                      className={`mp-type-card${String(sessionForm.sessionType).toUpperCase() === "PRIVATE" ? " is-selected" : ""}`}
+                      style={{
+                        flex: "1", minWidth: 180, cursor: "pointer", padding: "12px 14px", textAlign: "left",
+                        border: `1px solid ${String(sessionForm.sessionType).toUpperCase() === "PRIVATE" ? "var(--mp-primary, #0f766e)" : "var(--mp-border, #e2e8f0)"}`,
+                        background: String(sessionForm.sessionType).toUpperCase() === "PRIVATE" ? "rgba(15,118,110,0.06)" : "transparent",
+                        borderRadius: 12, fontSize: "0.84rem", color: "inherit",
+                      }}
+                    >
+                      <strong>○ Private / Custom</strong>
+                      <span style={{ display: "block", fontSize: "0.72rem", color: "var(--mp-text-muted, #64748b)", marginTop: 3 }}>
+                        Only for one specific learner
+                      </span>
+                    </button>
+                  </div>
+                  {sessionErrors.targetLearner && (
+                    <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
+                      {sessionErrors.targetLearner}
+                    </span>
+                  )}
+                </div>
+
+                {String(sessionForm.sessionType).toUpperCase() === "PRIVATE" && (
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-learner">Select Learner</label>
+                    {sessionForm.targetLearnerId ? (
+                      <div
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                          padding: "10px 12px", borderRadius: 10, background: "rgba(15,118,110,0.06)",
+                          border: "1px solid rgba(15,118,110,0.25)",
+                        }}
+                      >
+                        <div>
+                          <strong style={{ fontSize: "0.86rem" }}>{sessionForm.targetLearnerName}</strong>
+                          <span style={{ display: "block", fontSize: "0.72rem", color: "var(--mp-text-muted, #64748b)" }}>
+                            Selected learner
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="md-btn md-btn--outline md-btn--sm"
+                          onClick={clearSelectedLearner}
+                        >
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          id="teach-learner"
+                          type="search"
+                          className="mp-input"
+                          value={learnerQuery}
+                          onChange={(e) => { setLearnerQuery(e.target.value); setLearnerSearchOpen(true); }}
+                          onFocus={() => setLearnerSearchOpen(true)}
+                          placeholder="Search learner by name, username, or email…"
+                          autoComplete="off"
+                        />
+                        {learnerSearchOpen && learnerResults.length > 0 && (
+                          <div
+                            style={{
+                              marginTop: 6, border: "1px solid var(--mp-border, #e2e8f0)", borderRadius: 10,
+                              overflow: "hidden", background: "var(--mp-card-bg, #fff)", maxHeight: 220, overflowY: "auto",
+                            }}
+                          >
+                            {learnerResults.map((learner) => (
+                              <button
+                                key={learner.id}
+                                type="button"
+                                onClick={() => selectLearner(learner)}
+                                style={{
+                                  display: "block", width: "100%", textAlign: "left", padding: "10px 12px",
+                                  border: "none", borderBottom: "1px solid var(--mp-border, #f1f5f9)",
+                                  background: "transparent", cursor: "pointer", fontSize: "0.84rem", color: "inherit",
+                                }}
+                              >
+                                <strong>{learner.fullName}</strong>
+                                <span style={{ display: "block", fontSize: "0.72rem", color: "var(--mp-text-muted, #64748b)" }}>
+                                  @{learner.username || "—"} · {learner.email}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {learnerSearching && (
+                          <span style={{ fontSize: "0.74rem", color: "var(--mp-text-muted, #64748b)" }}>
+                            Searching…
+                          </span>
+                        )}
+                        {!learnerSearching && learnerSearchOpen && learnerQuery.length >= 2 && learnerResults.length === 0 && (
+                          <span style={{ fontSize: "0.74rem", color: "var(--mp-text-muted, #64748b)" }}>
+                            No learners found. Try a different name, username, or email.
+                          </span>
+                        )}
+                      </>
+                    )}
+                    <span style={{ fontSize: "0.72rem", color: "var(--mp-text-muted, #64748b)", marginTop: 4, display: "block" }}>
+                      Only ONE learner can be selected. Other learners will never see this session.
+                    </span>
+                  </div>
+                )}
+
+                {editingSession &&
+                  String(editingSession.sessionType || "PUBLIC").toUpperCase() === "PRIVATE" &&
+                  String(sessionForm.sessionType).toUpperCase() === "PUBLIC" &&
+                  !sessionForm.confirmMakePublic && (
+                    <div
+                      style={{
+                        padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(217,119,6,0.4)",
+                        background: "rgba(217,119,6,0.07)", display: "flex", flexDirection: "column", gap: 8,
+                      }}
+                    >
+                      <strong style={{ fontSize: "0.84rem" }}>Make this session public?</strong>
+                      <span style={{ fontSize: "0.78rem", color: "var(--mp-text-secondary, #475569)" }}>
+                        It will become visible to other learners and can be booked by anyone.
+                      </span>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button type="button" className="md-btn md-btn--outline md-btn--sm" onClick={() => handleSessionChange("sessionType", "PRIVATE")}>
+                          Cancel
+                        </button>
+                        <button type="button" className="md-btn md-btn--brand md-btn--sm" onClick={() => handleSessionChange("confirmMakePublic", true)}>
+                          Make Public
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                 <div className="mp-field--row">
                   <div className="mp-field">
-                    <label className="mp-label" htmlFor="teach-type">Type</label>
-                    <input
-                      id="teach-type"
-                      type="text"
-                      className={`mp-input ${sessionErrors.sessionType ? "mp-input--error" : ""}`}
-                      value={sessionForm.sessionType}
-                      onChange={(event) => handleSessionChange("sessionType", event.target.value)}
-                      placeholder="e.g. 1:1 Mentoring"
-                    />
-                    {sessionErrors.sessionType && (
-                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
-                        {sessionErrors.sessionType}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mp-field">
-                    <label className="mp-label" htmlFor="teach-price">Price ($)</label>
+                    <label className="mp-label" htmlFor="teach-price">Price (₹)</label>
                     <input
                       id="teach-price"
                       type="number"
@@ -1730,7 +2016,7 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                       className={`mp-input ${sessionErrors.priceAmount ? "mp-input--error" : ""}`}
                       value={sessionForm.priceAmount}
                       onChange={(event) => handleSessionChange("priceAmount", event.target.value)}
-                      placeholder="0"
+                      placeholder="0 — free session"
                     />
                     {sessionErrors.priceAmount && (
                       <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
@@ -1738,7 +2024,22 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                       </span>
                     )}
                   </div>
+                  <div className="mp-field">
+                    <label className="mp-label" htmlFor="teach-link">Meeting link</label>
+                    <input
+                      id="teach-link"
+                      type="url"
+                      className="mp-input"
+                      value={sessionForm.meetingLink}
+                      onChange={(event) => handleSessionChange("meetingLink", event.target.value)}
+                      placeholder="https://meet.google.com/..."
+                    />
+                  </div>
                 </div>
+
+                <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--mp-text-muted, #94a3b8)" }}>
+                  1:1 session — one session instance belongs to one learner. Once booked or completed, a session can never be booked again.
+                </p>
 
                 <div className="mp-field">
                   <label className="mp-label" htmlFor="teach-desc">Description</label>
@@ -1787,36 +2088,6 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                         {sessionErrors.endTime}
                       </span>
                     )}
-                  </div>
-                </div>
-
-                <div className="mp-field--row">
-                  <div className="mp-field">
-                    <label className="mp-label" htmlFor="teach-seats">Seats</label>
-                    <input
-                      id="teach-seats"
-                      type="number"
-                      min="1"
-                      className={`mp-input ${sessionErrors.maxParticipants ? "mp-input--error" : ""}`}
-                      value={sessionForm.maxParticipants}
-                      onChange={(event) => handleSessionChange("maxParticipants", event.target.value)}
-                    />
-                    {sessionErrors.maxParticipants && (
-                      <span className="mp-mini-row__m" style={{ color: "var(--mp-danger)" }}>
-                        {sessionErrors.maxParticipants}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mp-field">
-                    <label className="mp-label" htmlFor="teach-link">Meeting link</label>
-                    <input
-                      id="teach-link"
-                      type="url"
-                      className="mp-input"
-                      value={sessionForm.meetingLink}
-                      onChange={(event) => handleSessionChange("meetingLink", event.target.value)}
-                      placeholder="https://meet.example.com/..."
-                    />
                   </div>
                 </div>
 

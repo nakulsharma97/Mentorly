@@ -943,7 +943,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 <div className="mpr-sessions-grid">
                   {displaySessions.map(session => (
                     <div key={session.id} className="mpr-session-card">
-                      <div className="mpr-session-card__badge">{session.sessionType || "1:1"}</div>
+                      <div className="mpr-session-card__badge">{String(session.sessionType || "").toUpperCase() === "PRIVATE" ? "Private 1:1" : "Public 1:1"}</div>
                       <h3 className="mpr-session-card__title">{session.title || "Session"}</h3>
                       <p className="mpr-session-card__desc">{session.description || "Personalized mentoring session tailored to your goals."}</p>
                       <div className="mpr-session-card__info">
@@ -1122,7 +1122,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     <div className="mpr-session-info-card__icon"><Icon name={["record_voice_over","explore","description","psychology","code","school","group","star"][i % 8]} /></div>
                     <div className="mpr-session-info-card__info">
                       <span className="mpr-session-info-card__type">{s.title || `Session ${i + 1}`}</span>
-                      <span className="mpr-session-info-card__detail">{s.duration || "60 min"} • {formatPrice(s.priceAmount)} • {s.sessionType || "1:1"}</span>
+                      <span className="mpr-session-info-card__detail">{s.duration || "60 min"} • {formatPrice(s.priceAmount)} • {String(s.sessionType || "").toUpperCase() === "PRIVATE" ? "Private 1:1" : "Public 1:1"}</span>
                     </div>
                   </div>
                 ))}
@@ -1340,7 +1340,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                         setSelectedSlot(null);
                         setSelectedDate("");
                       }}>
-                        <div className="mpr-session-card__badge">{session.sessionType || "1:1"}</div>
+                        <div className="mpr-session-card__badge">{String(session.sessionType || "").toUpperCase() === "PRIVATE" ? "Private 1:1" : "Public 1:1"}</div>
                         <h3 className="mpr-session-card__title">{session.title || "Session"}</h3>
                         <p className="mpr-session-card__desc">{session.description ? truncate(session.description, 100) : "Personalized mentoring session tailored to your goals."}</p>
                         <div className="mpr-session-card__info">

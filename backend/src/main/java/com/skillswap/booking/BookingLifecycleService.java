@@ -9,6 +9,8 @@ import com.skillswap.payment.Payment;
 import com.skillswap.payment.PaymentRepository;
 import com.skillswap.payment.PaymentService;
 import com.skillswap.payment.PaymentStatus;
+import com.skillswap.session.SessionStatus;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.user.User;
@@ -105,6 +107,19 @@ public class BookingLifecycleService {
         Booking saved = bookingRepository.save(booking);
         certificationService.evaluateAndAward(saved.getLearner());
         certificationService.evaluateAndAward(saved.getSession().getMentor());
+        notificationService.notifyUser(
+                saved.getLearner().getId(),
+                "BOOKING_COMPLETED",
+                "Session completed",
+                "Your session \"" + sessionTitle(saved) + "\" has been completed. You can now leave a review.",
+                saved.getId());
+        notificationService.notifyUser(
+                saved.getSession().getMentor().getId(),
+                "BOOKING_COMPLETED",
+                "Session completed",
+                "Your session \"" + sessionTitle(saved) + "\" with "
+                        + saved.getLearner().getFullName() + " has been completed.",
+                saved.getId());
         sendEmail(saved, "Booking completed",
                 "Your booking for %s has been marked completed. You can now leave a review."
                         .formatted(sessionTitle(saved)));
@@ -203,6 +218,21 @@ public class BookingLifecycleService {
             throw new IllegalArgumentException("This mentor is currently unavailable.");
         }
 
+        // A cancelled or completed session instance is permanently finished —
+        // it can never be booked again (by anyone, ever).
+        if (session.getStatus() == SessionStatus.CANCELLED
+                || session.getStatus() == SessionStatus.COMPLETED) {
+            throw new IllegalArgumentException("This session is no longer available.");
+        }
+
+        // PRIVATE sessions may only be booked by the single learner they were
+        // created for. Never trust the frontend — the target is enforced here.
+        if (session.getSessionType() == SessionType.PRIVATE
+                && (session.getTargetLearner() == null
+                        || !session.getTargetLearner().getId().equals(learner.getId()))) {
+            throw new IllegalArgumentException("This session is no longer available.");
+        }
+
         boolean alreadyBooked = bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(
                 session.getId(),
                 learner.getId(),
@@ -218,11 +248,18 @@ public class BookingLifecycleService {
                 session.getId(),
                 List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS,
                         BookingStatus.ACCEPTED,
-                        BookingStatus.RESCHEDULE_REQUESTED));
+                        BookingStatus.RESCHEDULE_REQUESTED,
+                        BookingStatus.COMPLETED));
         int maxParticipants = session.getMaxParticipants() == null || session.getMaxParticipants() < 1
                 ? 1
                 : session.getMaxParticipants();
         if (activeBookingCount >= maxParticipants) {
+            // 1:1 sessions — once ANY learner holds the slot, it's gone for
+            // everyone else. The second racer gets the standard marketplace
+            // message instead of an internal "session full" detail.
+            if (maxParticipants <= 1) {
+                throw new IllegalArgumentException("This session is no longer available.");
+            }
             throw new IllegalArgumentException("Session is full. Join waitlist.");
         }
 
@@ -421,7 +458,15 @@ public class BookingLifecycleService {
         }
 
         booking.setBookingStatus(BookingStatus.ACCEPTED);
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+        notificationService.notifyUser(
+                booking.getLearner().getId(),
+                "BOOKING_ACCEPTED",
+                "Booking accepted",
+                session.getMentor().getFullName() + " accepted your booking for \""
+                        + session.getTitle() + "\".",
+                saved.getId());
+        return saved;
     }
 
     public void holdEscrowForAcceptedBooking(Booking booking) {
@@ -429,7 +474,10 @@ public class BookingLifecycleService {
         SkillSession session = booking.getSession();
         BigDecimal priceAmount = session.getPriceAmount();
         if (priceAmount == null || priceAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Session price must be greater than zero");
+            // Free (₹0) sessions have nothing to escrow — the booking is
+            // accepted as-is and completed through the normal lifecycle.
+            LOG.info("Skipping wallet escrow for free session booking={} (price=0)", booking.getId());
+            return;
         }
 
         // A payment already exists for this booking — either a gateway intent in

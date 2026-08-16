@@ -6,6 +6,7 @@ import com.skillswap.booking.BookingStatus;
 import com.skillswap.notification.NotificationService;
 import com.skillswap.session.SessionRepository;
 import com.skillswap.session.SessionStatus;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
@@ -190,12 +191,14 @@ public class SessionRequestService {
             throw new IllegalArgumentException("Session title is required");
         }
 
-        // Create the session
+        // Create the session — a session materialized from a learner request is
+        // a PRIVATE 1:1 session for exactly that learner.
         SkillSession session = new SkillSession();
         session.setMentor(mentor);
         session.setTitle(title.trim());
         session.setDescription(description != null ? description.trim() : "");
-        session.setSessionType("ONLINE");
+        session.setSessionType(SessionType.PRIVATE);
+        session.setTargetLearner(request.getLearner());
         session.setStartTime(startTime);
         session.setEndTime(endTime);
         session.setPriceAmount(priceAmount != null ? priceAmount : BigDecimal.ZERO);

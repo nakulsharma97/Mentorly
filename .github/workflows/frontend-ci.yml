@@ -53,18 +53,33 @@ jobs:
           retention-days: 3
 
       # ── Playwright E2E tests (conditional: need a running backend) ──
+      # The secrets context is not allowed in `if:` expressions, so resolve the
+      # optional PLAYWRIGHT_BACKEND_URL secret through a probe step and gate the
+      # E2E steps on its output instead.
+      - name: Check Playwright backend URL configuration
+        id: playwright
+        env:
+          PLAYWRIGHT_BACKEND_URL: ${{ secrets.PLAYWRIGHT_BACKEND_URL }}
+        run: |
+          if [ -n "$PLAYWRIGHT_BACKEND_URL" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "PLAYWRIGHT_BACKEND_URL is not configured; skipping backend-dependent Playwright tests."
+          fi
+
       - name: Install Playwright browsers
-        if: ${{ secrets.PLAYWRIGHT_BACKEND_URL != '' }}
+        if: steps.playwright.outputs.configured == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        if: ${{ secrets.PLAYWRIGHT_BACKEND_URL != '' }}
+        if: steps.playwright.outputs.configured == 'true'
         run: npm run test:e2e
         env:
           PLAYWRIGHT_BACKEND_URL: ${{ secrets.PLAYWRIGHT_BACKEND_URL }}
 
       - name: Upload Playwright report
-        if: ${{ always() && secrets.PLAYWRIGHT_BACKEND_URL != '' }}
+        if: always() && steps.playwright.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report

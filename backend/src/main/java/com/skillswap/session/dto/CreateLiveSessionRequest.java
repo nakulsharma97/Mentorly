@@ -30,7 +30,8 @@ public class CreateLiveSessionRequest {
 
     private String description;
 
-    @NotBlank(message = "Session type is required")
+    // Kept optional: live sessions are always PUBLIC 1:1 sessions (see
+    // LiveSessionService) — the field is ignored for visibility purposes.
     private String sessionType;
 
     @NotNull(message = "Start time is required")

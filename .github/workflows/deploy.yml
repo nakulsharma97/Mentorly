@@ -180,6 +180,30 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # The secrets context is not allowed in `if:` expressions, so resolve the
+      # optional notification secrets through a probe step and gate the Slack
+      # and email steps on its outputs instead. Missing secrets only skip the
+      # optional notification — the deployment outcome is unaffected.
+      - name: Check notification configuration
+        id: notify-config
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "slack=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "slack=false" >> "$GITHUB_OUTPUT"
+            echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+          fi
+          if [ -n "$MAIL_SERVER" ] && [ -n "$MAIL_TO" ]; then
+            echo "mail=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "mail=false" >> "$GITHUB_OUTPUT"
+            echo "MAIL_SERVER/MAIL_TO are not configured; skipping email notification."
+          fi
+
       - name: Determine status
         id: status
         run: |
@@ -202,7 +226,7 @@ jobs:
 
       # ── Slack notification ───────────────────────────────
       - name: Send Slack notification
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        if: steps.notify-config.outputs.slack == 'true'
         uses: slackapi/slack-github-action@v2
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -226,7 +250,7 @@ jobs:
 
       # ── Email notification ───────────────────────────────
       - name: Send email notification
-        if: ${{ secrets.MAIL_SERVER != '' && secrets.MAIL_TO != '' }}
+        if: steps.notify-config.outputs.mail == 'true'
         uses: dawidd6/action-send-mail@v4
         with:
           server_address: ${{ secrets.MAIL_SERVER }}

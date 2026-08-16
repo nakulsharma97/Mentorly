@@ -8,6 +8,7 @@ import com.skillswap.messaging.DirectConversationRepository;
 import com.skillswap.messaging.DirectMessage;
 import com.skillswap.messaging.DirectMessageRepository;
 import com.skillswap.session.SessionRepository;
+import com.skillswap.session.SessionType;
 import com.skillswap.session.SkillSession;
 import com.skillswap.notification.EmailNotificationService;
 import com.skillswap.user.User;
@@ -290,7 +291,7 @@ class ChatEnhancementsIntegrationTest {
         session.setStartTime(OffsetDateTime.now().plusDays(1));
         session.setEndTime(OffsetDateTime.now().plusDays(1).plusHours(1));
         session.setPriceAmount(new BigDecimal("499"));
-        session.setSessionType("ONLINE");
+        session.setSessionType(SessionType.PUBLIC);
         return sessionRepository.save(session);
     }
 

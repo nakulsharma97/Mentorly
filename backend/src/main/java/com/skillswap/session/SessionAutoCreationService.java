@@ -87,7 +87,8 @@ public class SessionAutoCreationService {
             session.setMentor(mentor);
             session.setTitle(buildDefaultTitle(mentor));
             session.setDescription("");
-            session.setSessionType("ONLINE");
+            // Availability slots publish discoverable 1:1 sessions → PUBLIC.
+            session.setSessionType(SessionType.PUBLIC);
             session.setStartTime(startTime);
             session.setEndTime(endTime);
             session.setPriceAmount(buildDefaultPrice(mentor));
