@@ -140,6 +140,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
+      # Set up a Buildx builder with the docker-container driver. Without this,
+      # build-push-action falls back to the default `docker` driver, which does
+      # not support the GitHub Actions cache backend and fails with
+      # "Cache export is not supported for the docker driver."
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@v6
