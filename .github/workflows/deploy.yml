@@ -73,23 +73,75 @@ jobs:
           echo "Deploying tag: ${{ steps.tag.outputs.tag }}"
 
       # ── Determine target host from environment ───────────
+      # Secrets are read through environment variables (never echoed into the
+      # script), and only written to step outputs once the environment resolves.
       - name: Set deployment target
         id: target
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_PATH: ${{ secrets.STAGING_PATH }}
         run: |
-          ENV="${{ inputs.environment || 'production' }}"
-          echo "env_name=${ENV}" >> "$GITHUB_OUTPUT"
-          case "$ENV" in
+          # workflow_dispatch inputs are not populated on workflow_run events,
+          # so fall back to production unless an environment was explicitly given.
+          ENV_NAME="${{ inputs.environment }}"
+          if [ -z "$ENV_NAME" ]; then
+            ENV_NAME="production"
+          fi
+          echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          case "$ENV_NAME" in
             staging)
-              echo "host=${{ secrets.STAGING_HOST }}" >> "$GITHUB_OUTPUT"
-              echo "user=${{ secrets.STAGING_USER }}" >> "$GITHUB_OUTPUT"
-              echo "path=${{ secrets.STAGING_PATH }}" >> "$GITHUB_OUTPUT"
+              echo "host=${STAGING_HOST}" >> "$GITHUB_OUTPUT"
+              echo "user=${STAGING_USER}" >> "$GITHUB_OUTPUT"
+              echo "path=${STAGING_PATH}" >> "$GITHUB_OUTPUT"
               ;;
             production)
-              echo "host=${{ secrets.DEPLOY_HOST }}" >> "$GITHUB_OUTPUT"
-              echo "user=${{ secrets.DEPLOY_USER }}" >> "$GITHUB_OUTPUT"
-              echo "path=${{ secrets.DEPLOY_PATH }}" >> "$GITHUB_OUTPUT"
+              echo "host=${DEPLOY_HOST}" >> "$GITHUB_OUTPUT"
+              echo "user=${DEPLOY_USER}" >> "$GITHUB_OUTPUT"
+              echo "path=${DEPLOY_PATH}" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "❌ Unknown deployment environment '${ENV_NAME}'. Supported: staging, production." >&2
+              exit 1
               ;;
           esac
+
+      # ── Validate deployment configuration before SSH ─────
+      # Fail early with a clear message instead of letting the SSH action fail
+      # with "missing server host". Only presence is checked — values are never
+      # printed.
+      - name: Validate deployment configuration
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          ENV_NAME="${{ steps.target.outputs.env_name }}"
+          TARGET_HOST="${{ steps.target.outputs.host }}"
+          TARGET_USER="${{ steps.target.outputs.user }}"
+          TARGET_PATH="${{ steps.target.outputs.path }}"
+
+          case "$ENV_NAME" in
+            staging)    HOST_SECRET="STAGING_HOST"; USER_SECRET="STAGING_USER"; PATH_SECRET="STAGING_PATH";;
+            production) HOST_SECRET="DEPLOY_HOST";  USER_SECRET="DEPLOY_USER";  PATH_SECRET="DEPLOY_PATH";;
+            *)          echo "❌ Unknown deployment environment '${ENV_NAME}'." >&2; exit 1;;
+          esac
+
+          FAILED=0
+          [ -n "$TARGET_HOST" ]     || { echo "❌ Deployment host is missing. Configure ${HOST_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
+          [ -n "$TARGET_USER" ]     || { echo "❌ Deployment user is missing. Configure ${USER_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
+          [ -n "$TARGET_PATH" ]     || { echo "❌ Deployment path is missing. Configure ${PATH_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
+          [ -n "$DEPLOY_SSH_KEY" ]  || { echo "❌ DEPLOY_SSH_KEY is missing. Configure it in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "Deployment configuration is incomplete — add the missing secrets, then re-run the workflow."
+            exit 1
+          fi
+
+          echo "✅ Deployment target configured: yes (${ENV_NAME})"
+          echo "   Host: set | User: set | Path: set | SSH key: set"
 
       # ── Deploy via SSH ───────────────────────────────────
       - name: Deploy via SSH
