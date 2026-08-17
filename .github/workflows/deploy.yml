@@ -43,6 +43,10 @@ jobs:
     # Only deploy if the triggering CI workflow succeeded
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # CRITICAL: this is what makes the environment secrets available to the
+    # job. The name must EXACTLY match the GitHub Environment the secrets are
+    # stored in (case-sensitive). workflow_dispatch inputs are not populated on
+    # workflow_run events, so that path falls back to 'production'.
     environment: ${{ inputs.environment || 'production' }}
     concurrency: deploy-${{ inputs.environment || 'production' }}
     outputs:
@@ -56,34 +60,45 @@ jobs:
       # ── Determine image tag ──────────────────────────────
       - name: Determine image tag
         id: tag
+        env:
+          IMAGE_TAG_INPUT: ${{ inputs.image_tag }}
         run: |
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            echo "tag=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$IMAGE_TAG_INPUT" ]; then
+            TAG="$IMAGE_TAG_INPUT"
             echo "source=manual input"
           elif [ "${{ github.event_name }}" = "workflow_run" ]; then
             # Get SHA from the triggering workflow's commit
             SHA="${{ github.event.workflow_run.head_sha }}"
-            SHORT_SHA="${SHA:0:7}"
-            echo "tag=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-            echo "source=commit SHA (${SHORT_SHA})"
+            TAG="${SHA:0:7}"
+            echo "source=commit SHA (${TAG})"
           else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            TAG="latest"
             echo "source=default (latest)"
           fi
-          echo "Deploying tag: ${{ steps.tag.outputs.tag }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: ${TAG}"
 
-      # ── Determine target host from environment ───────────
+      # ── Determine target from environment ────────────────
       # Secrets are read through environment variables (never echoed into the
-      # script), and only written to step outputs once the environment resolves.
+      # script) and only written to step outputs once the environment resolves.
+      # Only presence is reported in the log — never values. The SSH key is
+      # written via the multiline $GITHUB_OUTPUT delimiter syntax so it survives
+      # intact and is selected per environment (no silent cross-env fallback).
       - name: Set deployment target
         id: target
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
+          DEPLOY_PROTOCOL: ${{ secrets.DEPLOY_PROTOCOL }}
           STAGING_HOST: ${{ secrets.STAGING_HOST }}
           STAGING_USER: ${{ secrets.STAGING_USER }}
           STAGING_PATH: ${{ secrets.STAGING_PATH }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
+          STAGING_PROTOCOL: ${{ secrets.STAGING_PROTOCOL }}
         run: |
           # workflow_dispatch inputs are not populated on workflow_run events,
           # so fall back to production unless an environment was explicitly given.
@@ -92,16 +107,18 @@ jobs:
             ENV_NAME="production"
           fi
           echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Resolved environment: ${ENV_NAME} (event: ${{ github.event_name }})"
+
           case "$ENV_NAME" in
             staging)
-              echo "host=${STAGING_HOST}" >> "$GITHUB_OUTPUT"
-              echo "user=${STAGING_USER}" >> "$GITHUB_OUTPUT"
-              echo "path=${STAGING_PATH}" >> "$GITHUB_OUTPUT"
+              HOST="$STAGING_HOST"; USER="$STAGING_USER"; PATH_DIR="$STAGING_PATH"
+              SSH_KEY="$STAGING_SSH_KEY"
+              PORT="${STAGING_SSH_PORT:-22}"; PROTOCOL="${STAGING_PROTOCOL:-https}"
               ;;
             production)
-              echo "host=${DEPLOY_HOST}" >> "$GITHUB_OUTPUT"
-              echo "user=${DEPLOY_USER}" >> "$GITHUB_OUTPUT"
-              echo "path=${DEPLOY_PATH}" >> "$GITHUB_OUTPUT"
+              HOST="$DEPLOY_HOST"; USER="$DEPLOY_USER"; PATH_DIR="$DEPLOY_PATH"
+              SSH_KEY="$DEPLOY_SSH_KEY"
+              PORT="${DEPLOY_SSH_PORT:-22}"; PROTOCOL="${DEPLOY_PROTOCOL:-https}"
               ;;
             *)
               echo "❌ Unknown deployment environment '${ENV_NAME}'. Supported: staging, production." >&2
@@ -109,30 +126,60 @@ jobs:
               ;;
           esac
 
+          echo "host=${HOST}" >> "$GITHUB_OUTPUT"
+          echo "user=${USER}" >> "$GITHUB_OUTPUT"
+          echo "path=${PATH_DIR}" >> "$GITHUB_OUTPUT"
+          echo "port=${PORT}" >> "$GITHUB_OUTPUT"
+          echo "protocol=${PROTOCOL}" >> "$GITHUB_OUTPUT"
+
+          # Multiline-safe key output (SSH private keys contain newlines).
+          if [ -n "$SSH_KEY" ]; then
+            {
+              echo "key<<SSH_KEY_EOF"
+              echo "$SSH_KEY"
+              echo "SSH_KEY_EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "key=" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Safe presence diagnostics — booleans only, never values.
+          echo "Deployment target configured for: ${ENV_NAME}"
+          echo "  Host configured:     $([ -n "$HOST" ] && echo true || echo false)"
+          echo "  User configured:     $([ -n "$USER" ] && echo true || echo false)"
+          echo "  Path configured:     $([ -n "$PATH_DIR" ] && echo true || echo false)"
+          echo "  SSH key configured:  $([ -n "$SSH_KEY" ] && echo true || echo false)"
+          echo "  SSH port:            ${PORT}"
+          echo "  Protocol:            ${PROTOCOL}"
+
       # ── Validate deployment configuration before SSH ─────
-      # Fail early with a clear message instead of letting the SSH action fail
-      # with "missing server host". Only presence is checked — values are never
-      # printed.
+      # Fail early with a clear, secret-free message instead of letting the SSH
+      # action fail with "missing server host". Only presence is checked.
       - name: Validate deployment configuration
-        env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           ENV_NAME="${{ steps.target.outputs.env_name }}"
           TARGET_HOST="${{ steps.target.outputs.host }}"
           TARGET_USER="${{ steps.target.outputs.user }}"
           TARGET_PATH="${{ steps.target.outputs.path }}"
+          TARGET_KEY="${{ steps.target.outputs.key }}"
+          TARGET_PORT="${{ steps.target.outputs.port }}"
 
           case "$ENV_NAME" in
-            staging)    HOST_SECRET="STAGING_HOST"; USER_SECRET="STAGING_USER"; PATH_SECRET="STAGING_PATH";;
-            production) HOST_SECRET="DEPLOY_HOST";  USER_SECRET="DEPLOY_USER";  PATH_SECRET="DEPLOY_PATH";;
+            staging)    HOST_SECRET="STAGING_HOST";  USER_SECRET="STAGING_USER";  PATH_SECRET="STAGING_PATH";  KEY_SECRET="STAGING_SSH_KEY";;
+            production) HOST_SECRET="DEPLOY_HOST";   USER_SECRET="DEPLOY_USER";   PATH_SECRET="DEPLOY_PATH";   KEY_SECRET="DEPLOY_SSH_KEY";;
             *)          echo "❌ Unknown deployment environment '${ENV_NAME}'." >&2; exit 1;;
           esac
 
+          WHERE="the '${ENV_NAME}' GitHub Environment (Settings → Environments → ${ENV_NAME} → Environment secrets) or at the repository level"
+
           FAILED=0
-          [ -n "$TARGET_HOST" ]     || { echo "❌ Deployment host is missing. Configure ${HOST_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
-          [ -n "$TARGET_USER" ]     || { echo "❌ Deployment user is missing. Configure ${USER_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
-          [ -n "$TARGET_PATH" ]     || { echo "❌ Deployment path is missing. Configure ${PATH_SECRET} in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
-          [ -n "$DEPLOY_SSH_KEY" ]  || { echo "❌ DEPLOY_SSH_KEY is missing. Configure it in the '${ENV_NAME}' GitHub Environment."; FAILED=1; }
+          [ -n "$TARGET_HOST" ] || { echo "❌ Deployment host is missing. Configure ${HOST_SECRET} in ${WHERE}."; FAILED=1; }
+          [ -n "$TARGET_USER" ] || { echo "❌ Deployment username is missing. Configure ${USER_SECRET} in ${WHERE}."; FAILED=1; }
+          [ -n "$TARGET_PATH" ] || { echo "❌ Deployment path (COMPOSE_DIR) is missing. Configure ${PATH_SECRET} in ${WHERE}."; FAILED=1; }
+          [ -n "$TARGET_KEY" ]  || { echo "❌ Deployment SSH key is missing. Configure ${KEY_SECRET} in ${WHERE}."; FAILED=1; }
+          case "$TARGET_PORT" in
+            ''|*[!0-9]*) echo "❌ Deployment SSH port is invalid: '${TARGET_PORT}'. Configure DEPLOY_SSH_PORT/STAGING_SSH_PORT as a number (e.g. 22)."; FAILED=1;;
+          esac
 
           if [ "$FAILED" -ne 0 ]; then
             echo ""
@@ -141,7 +188,7 @@ jobs:
           fi
 
           echo "✅ Deployment target configured: yes (${ENV_NAME})"
-          echo "   Host: set | User: set | Path: set | SSH key: set"
+          echo "   Host: set | User: set | Path: set | SSH key: set | Port: ${TARGET_PORT}"
 
       # ── Deploy via SSH ───────────────────────────────────
       - name: Deploy via SSH
@@ -154,8 +201,8 @@ jobs:
         with:
           host: ${{ steps.target.outputs.host }}
           username: ${{ steps.target.outputs.user }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          key: ${{ steps.target.outputs.key }}
+          port: ${{ steps.target.outputs.port }}
           script: |
             set -e
             echo "=== Deploying ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} ==="
@@ -171,7 +218,7 @@ jobs:
       - name: Smoke test — Health endpoint
         if: ${{ !inputs.skip_health_check }}
         env:
-          PROTOCOL: ${{ secrets.DEPLOY_PROTOCOL || 'https' }}
+          PROTOCOL: ${{ steps.target.outputs.protocol }}
         run: |
           echo "Waiting for backend to be reachable..."
           sleep 10
@@ -191,7 +238,7 @@ jobs:
 
       - name: Smoke test — Signup page loads
         env:
-          PROTOCOL: ${{ secrets.DEPLOY_PROTOCOL || 'https' }}
+          PROTOCOL: ${{ steps.target.outputs.protocol }}
         run: |
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             "$PROTOCOL://${{ steps.target.outputs.host }}/api/v1/auth/signup" \
@@ -208,7 +255,7 @@ jobs:
       - name: Log deployment summary
         id: summary
         run: |
-          ENV_NAME="${{ inputs.environment || 'production' }}"
+          ENV_NAME="${{ steps.target.outputs.env_name }}"
           IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
           HOST="${{ steps.target.outputs.host }}"
           echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
