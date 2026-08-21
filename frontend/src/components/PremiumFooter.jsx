@@ -4,7 +4,6 @@ import "./PremiumFooter.css";
 
 export default function PremiumFooter({ onScrollToSection }) {
   const [language, setLanguage] = useState("en");
-  const [theme, setTheme] = useState("light");
 
   const scrollToSection = (sectionId) => (event) => {
     event.preventDefault();
@@ -15,10 +14,6 @@ export default function PremiumFooter({ onScrollToSection }) {
 
   const handleLanguageChange = (e) => {
     setLanguage(e.target.value);
-  };
-
-  const handleThemeToggle = () => {
-    setTheme(theme === "light" ? "dark" : "light");
   };
 
   return (
@@ -184,18 +179,6 @@ export default function PremiumFooter({ onScrollToSection }) {
                 <option value="de">Deutsch</option>
               </select>
 
-              <button
-                className="footer-theme-toggle"
-                onClick={handleThemeToggle}
-                aria-label="Toggle theme"
-                title="Toggle light/dark theme"
-              >
-                {theme === "light" ? "🌙" : "☀️"}
-              </button>
-
-              <Link to="/admin/login" className="footer-admin-link">
-                Admin Login
-              </Link>
               <span className="footer-version">v1.0</span>
             </div>
           </div>

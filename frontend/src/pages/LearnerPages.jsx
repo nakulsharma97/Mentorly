@@ -1627,6 +1627,7 @@ export function LearnerSessionsPage() {
 
       {/* ── Hero ── */}
       <HeroSection
+        className="hero-section--compact"
         badge={<><Icon name="calendar_month" /> Session Manager</>}
         title="Your Booked Sessions"
         subtitle="Manage upcoming, completed and cancelled sessions in one place. Join, reschedule or review any session."
@@ -1764,7 +1765,7 @@ export function LearnerCertificatesPage() {
 
   if (loading) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="mp-settings-loading">
           <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
           <p className="mp-settings-loading__text">Loading certificates…</p>
@@ -1775,7 +1776,7 @@ export function LearnerCertificatesPage() {
 
   if (error) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">error_outline</span>
@@ -1792,9 +1793,10 @@ export function LearnerCertificatesPage() {
   }
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero ===== */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>verified</span>
@@ -2369,7 +2371,7 @@ export function LearnerSettingsPage({ profile, notify, onProfileUpdated }) {
 
   if (loading) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="mp-settings-loading">
           <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
           <p className="mp-settings-loading__text">Loading settings…</p>
@@ -2380,7 +2382,7 @@ export function LearnerSettingsPage({ profile, notify, onProfileUpdated }) {
 
   if (error) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">error_outline</span>
@@ -2418,9 +2420,10 @@ export function LearnerSettingsPage({ profile, notify, onProfileUpdated }) {
   };
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero ===== */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>tune</span>
@@ -2580,7 +2583,7 @@ export function LearnerAchievementsPage() {
 
   if (loading) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="mp-settings-loading">
           <div className="mp-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
           <p className="mp-settings-loading__text">Loading achievements…</p>
@@ -2591,7 +2594,7 @@ export function LearnerAchievementsPage() {
 
   if (error) {
     return (
-      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div className="md-empty" style={{ margin: "48px auto", maxWidth: 420 }}>
           <div className="md-empty__icon">
             <span className="material-symbols-outlined">error_outline</span>
@@ -2653,9 +2656,10 @@ export function LearnerAchievementsPage() {
   ];
 
   return (
-    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px 48px" }}>
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Premium Hero ===== */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <span className="material-symbols-outlined" style={{ fontSize: 16 }}>military_tech</span>

@@ -1,3 +1,1 @@
-import "../modules/mentor/mentor-pages.css";
-
-export { LearnerAchievementsPage as default } from "./LearnerPages";
+export { default } from "./LearnerAchievementsPage.extracted";

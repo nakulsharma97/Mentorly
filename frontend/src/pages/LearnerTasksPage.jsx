@@ -797,7 +797,7 @@ export default function LearnerTasksPage() {
   const progress = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
 
   return (
-    <div className="ml-shell">
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       <header className="dt-hero">
         <div className="dt-hero-decor" aria-hidden="true">
           <span className="dt-hero-orb dt-hero-orb--1" />
@@ -821,17 +821,22 @@ export default function LearnerTasksPage() {
             </div>
           </div>
           <div className="dt-hero-actions">
-            <button type="button" className="ml-btn ml-btn--hero-primary" onClick={openAdd}>
+            <button type="button" className="dt-hero-btn dt-hero-btn--outline" onClick={openAdd}>
               <Icon name="add" /> Add Task
             </button>
             <button
               type="button"
-              className={`ml-btn ml-btn--glass ${view === "calendar" ? "is-active" : ""}`}
+              className={`dt-hero-btn dt-hero-btn--outline ${view === "calendar" ? "is-active" : ""}`}
               onClick={() => setView(view === "calendar" ? "list" : "calendar")}
             >
               <Icon name={view === "calendar" ? "view_list" : "calendar_month"} />
               {view === "calendar" ? "List View" : "Calendar View"}
             </button>
+          </div>
+        </div>
+        <div className="dt-hero-visual" aria-hidden="true">
+          <div className="dt-hero-visual-icon">
+            <span className="material-symbols-outlined">assignment_turned_in</span>
           </div>
         </div>
       </header>

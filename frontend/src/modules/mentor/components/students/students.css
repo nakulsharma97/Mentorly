@@ -40,6 +40,12 @@
   min-height: 100%;
 }
 
+/* Inside workspace shell, ws-main-content already provides side/top/bottom
+   padding — zero out the shell padding so we don't get double spacing. */
+.ws-main-content > .ss-crm {
+  padding: 0;
+}
+
 .ss-crm *,
 .ss-crm *::before,
 .ss-crm *::after {

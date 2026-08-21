@@ -1,1 +1,1 @@
-export { LearnerProfilePage as default } from "./LearnerPages";
+export { default } from "./LearnerProfilePage.extracted";

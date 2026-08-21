@@ -1,3 +1,1 @@
-import "../modules/mentor/mentor-pages.css";
-
-export { LearnerSettingsPage as default } from "./LearnerPages";
+export { default } from "./LearnerSettingsPage.extracted";

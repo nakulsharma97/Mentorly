@@ -4930,6 +4930,7 @@
   transition: all 0.15s ease;
   white-space: nowrap;
   line-height: 1;
+  border: 1px solid transparent;
 }
 
 .lf-btn--primary {
@@ -4960,6 +4961,16 @@
   background: color-mix(in srgb, var(--brand) 8%, var(--panel));
   border-color: var(--brand);
   color: var(--brand);
+}
+
+.lf-btn--outline {
+  background: transparent;
+  border: 1.5px solid var(--brand);
+  color: var(--brand);
+}
+
+.lf-btn--outline:hover {
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .lf-btn--ghost {

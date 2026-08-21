@@ -1,102 +1,238 @@
 /* ═══════════════════════════════════════════════════════════════════════
    Daily Tasks — learner task management
-   Uses the shared --ml-* design tokens from my-learning.css.
    ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero ── */
 
 .dt-hero {
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  border-radius: var(--ml-radius, 24px);
-  padding: 28px 32px;
-  margin-bottom: 24px;
-  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 300px;
+  padding: 32px 36px;
+  border-radius: var(--hero-radius, 32px);
   background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
-  box-shadow: var(--ml-shadow, 0 12px 32px rgba(15, 23, 42, 0.14));
+  color: #fff;
+  box-shadow: var(--hero-shadow, 0 8px 32px rgba(15, 23, 42, 0.22)), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: visible;
+  isolation: isolate;
+  margin-bottom: 8px !important;
 }
+
+/* ── Decorative background orbs ── */
 
 .dt-hero-decor {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 .dt-hero-orb {
   position: absolute;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
+  filter: blur(48px);
 }
 
 .dt-hero-orb--1 {
-  width: 260px;
-  height: 260px;
-  top: -120px;
+  width: 300px;
+  height: 300px;
+  top: -100px;
   right: -60px;
 }
 
 .dt-hero-orb--2 {
-  width: 180px;
-  height: 180px;
-  bottom: -90px;
-  left: 30%;
+  width: 220px;
+  height: 220px;
+  bottom: -100px;
+  left: 25%;
 }
+
+/* ── Left content ── */
 
 .dt-hero-main {
   position: relative;
-  z-index: 1;
-  max-width: 640px;
+  z-index: 2;
+  flex: 1 1 60%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .dt-hero-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
+  gap: 6px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.92;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dt-hero-eyebrow .material-symbols-outlined,
+.dt-hero-eyebrow svg {
+  font-size: 15px;
 }
 
 .dt-hero-main h1 {
-  margin: 12px 0 4px;
-  font-size: 1.5rem;
-  line-height: 1.35;
-  font-weight: 800;
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(15, 23, 42, 0.18);
+  max-width: 520px;
 }
 
 .dt-hero-date {
-  margin: 0 0 14px;
-  font-size: 0.9rem;
-  opacity: 0.85;
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .dt-hero-progress {
-  max-width: 460px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.dt-hero-progress .ml-progress-bar {
+  height: 8px;
 }
 
 .dt-hero-progress-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: 13px;
   margin-bottom: 8px;
 }
 
-.dt-hero-progress-head b {
-  font-size: 0.95rem;
+.dt-hero-progress-head span {
+  white-space: nowrap;
 }
+
+.dt-hero-progress-head b {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: 12px;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ── */
 
 .dt-hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 16px;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.dt-hero-actions .ml-btn--glass.is-active {
-  background: rgba(255, 255, 255, 0.28);
+.dt-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.dt-hero-btn .material-symbols-outlined,
+.dt-hero-btn svg {
+  font-size: 18px;
+}
+
+.dt-hero-btn--outline {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.dt-hero-btn--outline:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.75);
+  transform: translateY(-1px);
+}
+
+.dt-hero-btn--outline.is-active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Right-side decorative visual ── */
+
+.dt-hero-visual {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dt-hero-visual-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 18px 44px rgba(9, 40, 84, 0.28);
+}
+
+.dt-hero-visual-icon .material-symbols-outlined {
+  font-size: 56px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Dark mode ── */
+
+[data-theme="dark"] .dt-hero {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .dt-hero-visual-icon {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: rgba(20, 184, 166, 0.38);
+}
+
+[data-theme="dark"] .dt-hero-visual-icon .material-symbols-outlined {
+  color: var(--brand-300, #5eead4);
+}
+
+/* ── Fix double outline on search input ── */
+
+.dt-search input:focus,
+.dt-search input:focus-visible {
+  outline: none;
 }
 
 /* ── Layout ── */
@@ -257,8 +393,6 @@
   font-size: 0.8rem;
 }
 
-/* Labelled context lines: Mentor / Session / Due. Shown only when the
-   backend actually provides the value — missing fields are simply absent. */
 .dt-task-context {
   display: flex;
   flex-wrap: wrap;
@@ -349,37 +483,10 @@
   background: rgba(100, 116, 139, 0.08);
 }
 
-.dt-priority--urgent {
-  background: rgba(220, 38, 38, 0.1);
-}
-
-.dt-priority--high {
-  background: rgba(234, 88, 12, 0.1);
-}
-
-.dt-priority--medium {
-  background: rgba(180, 83, 9, 0.1);
-}
-
-.dt-priority--low {
-  background: rgba(22, 163, 74, 0.1);
-}
-
-.dt-priority--urgent {
-  color: var(--ml-danger, #dc2626);
-}
-
-.dt-priority--high {
-  color: #ea580c;
-}
-
-.dt-priority--medium {
-  color: var(--ml-warning, #b45309);
-}
-
-.dt-priority--low {
-  color: var(--ml-success, #16a34a);
-}
+.dt-priority--urgent { background: rgba(220, 38, 38, 0.1); color: var(--ml-danger, #dc2626); }
+.dt-priority--high { background: rgba(234, 88, 12, 0.1); color: #ea580c; }
+.dt-priority--medium { background: rgba(180, 83, 9, 0.1); color: var(--ml-warning, #b45309); }
+.dt-priority--low { background: rgba(22, 163, 74, 0.1); color: var(--ml-success, #16a34a); }
 
 .dt-status {
   display: inline-flex;
@@ -392,30 +499,11 @@
 }
 
 .dt-status--todo,
-.dt-status--muted {
-  background: rgba(100, 116, 139, 0.12);
-  color: var(--ml-muted, #64748b);
-}
-
-.dt-status--in_progress {
-  background: var(--ml-info-soft, rgba(59, 130, 246, 0.12));
-  color: var(--ml-info, #2563eb);
-}
-
-.dt-status--completed {
-  background: var(--ml-success-soft, rgba(22, 163, 74, 0.12));
-  color: var(--ml-success, #16a34a);
-}
-
-.dt-status--overdue {
-  background: var(--ml-danger-soft, rgba(220, 38, 38, 0.12));
-  color: var(--ml-danger, #dc2626);
-}
-
-.dt-status--cancelled {
-  background: rgba(100, 116, 139, 0.12);
-  color: var(--ml-muted, #64748b);
-}
+.dt-status--muted { background: rgba(100, 116, 139, 0.12); color: var(--ml-muted, #64748b); }
+.dt-status--in_progress { background: var(--ml-info-soft, rgba(59, 130, 246, 0.12)); color: var(--ml-info, #2563eb); }
+.dt-status--completed { background: var(--ml-success-soft, rgba(22, 163, 74, 0.12)); color: var(--ml-success, #16a34a); }
+.dt-status--overdue { background: var(--ml-danger-soft, rgba(220, 38, 38, 0.12)); color: var(--ml-danger, #dc2626); }
+.dt-status--cancelled { background: rgba(100, 116, 139, 0.12); color: var(--ml-muted, #64748b); }
 
 /* ── Empty row ── */
 
@@ -435,8 +523,11 @@
   flex-wrap: wrap;
   gap: 12px;
   justify-content: center;
-  margin-top: 4px;
+  margin-top: 8px;
 }
+
+/* Empty-state buttons use shared .ml-btn--primary / .ml-btn--outline
+   which already handle light + dark mode through --ml-primary. */
 
 /* ── Sidebar ── */
 
@@ -691,15 +782,39 @@
   .dt-side {
     position: static;
   }
+
+  .dt-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 16px;
+    min-height: auto;
+    padding: 22px 20px;
+  }
+
+  .dt-hero-visual {
+    display: none;
+  }
+
+  .dt-hero-orb { display: none; }
 }
 
 @media (max-width: 640px) {
   .dt-hero {
-    padding: 26px 20px;
+    padding: 22px 20px;
   }
 
   .dt-hero-main h1 {
-    font-size: 1.25rem;
+    font-size: 22px;
+  }
+
+  .dt-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dt-hero-btn {
+    width: 100%;
   }
 
   .dt-task {

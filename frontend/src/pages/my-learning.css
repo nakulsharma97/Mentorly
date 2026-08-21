@@ -10,9 +10,9 @@
   --ml-border: #e6eaf0;
   --ml-text: #0f172a;
   --ml-muted: #64748b;
-  --ml-primary: #4f46e5;
-  --ml-primary-strong: #4338ca;
-  --ml-primary-soft: #eef2ff;
+  --ml-primary: #0f9d8a;
+  --ml-primary-strong: #0b7e70;
+  --ml-primary-soft: rgba(15, 157, 138, 0.1);
   --ml-success: #059669;
   --ml-success-soft: #ecfdf5;
   --ml-danger: #dc2626;
@@ -38,6 +38,68 @@
   min-height: 100%;
 }
 
+/* Inside workspace shell, ws-main-content already provides side/top/bottom
+   padding — zero out the shell padding so we don't get double spacing. */
+.ws-main-content > .ml-shell {
+  padding: 0;
+  gap: 20px;
+}
+
+/* ── Shared --ml-* design tokens ──────────────────────────────────────
+   The modal, form, toast and button classes (ml-overlay, ml-modal,
+   ml-input, ml-btn, …) consume these tokens. They were originally
+   scoped to .ml-shell, but pages that use .md-page (Tasks, Mentors,
+   Skills, …) also render these shared components, so the tokens must
+   be available on .md-page as well. ─────────────────────────────────── */
+.md-page,
+.md-shell {
+  --ml-bg: #f8fafc;
+  --ml-card: #ffffff;
+  --ml-card-soft: #f1f5f9;
+  --ml-border: #e6eaf0;
+  --ml-text: #0f172a;
+  --ml-muted: #64748b;
+  --ml-primary: #0f9d8a;
+  --ml-primary-strong: #0b7e70;
+  --ml-primary-soft: rgba(15, 157, 138, 0.1);
+  --ml-success: #059669;
+  --ml-success-soft: #ecfdf5;
+  --ml-danger: #dc2626;
+  --ml-danger-soft: #fef2f2;
+  --ml-warning: #b45309;
+  --ml-warning-soft: #fffbeb;
+  --ml-info: #0284c7;
+  --ml-info-soft: #f0f9ff;
+  --ml-radius: 16px;
+  --ml-radius-sm: 12px;
+  --ml-radius-xs: 8px;
+  --ml-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px rgba(15, 23, 42, 0.06);
+  --ml-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="dark"] .md-page,
+[data-theme="dark"] .md-shell {
+  --ml-bg: #0b1220;
+  --ml-card: #111a2c;
+  --ml-card-soft: #1b2740;
+  --ml-border: #243049;
+  --ml-text: #eef2f8;
+  --ml-muted: #93a3bd;
+  --ml-primary: #34d399;
+  --ml-primary-strong: #6ee7b7;
+  --ml-primary-soft: rgba(52, 211, 153, 0.12);
+  --ml-success: #34d399;
+  --ml-success-soft: rgba(52, 211, 153, 0.12);
+  --ml-danger: #f87171;
+  --ml-danger-soft: rgba(248, 113, 113, 0.12);
+  --ml-warning: #fbbf24;
+  --ml-warning-soft: rgba(251, 191, 36, 0.12);
+  --ml-info: #38bdf8;
+  --ml-info-soft: rgba(56, 189, 248, 0.12);
+  --ml-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 10px 28px rgba(0, 0, 0, 0.25);
+  --ml-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
 [data-theme="dark"] .ml-shell {
   --ml-bg: #0b1220;
   --ml-card: #111a2c;
@@ -45,9 +107,9 @@
   --ml-border: #243049;
   --ml-text: #eef2f8;
   --ml-muted: #93a3bd;
-  --ml-primary: #818cf8;
-  --ml-primary-strong: #a5b4fc;
-  --ml-primary-soft: rgba(129, 140, 248, 0.14);
+  --ml-primary: #34d399;
+  --ml-primary-strong: #6ee7b7;
+  --ml-primary-soft: rgba(52, 211, 153, 0.12);
   --ml-success: #34d399;
   --ml-success-soft: rgba(52, 211, 153, 0.12);
   --ml-danger: #f87171;
@@ -137,7 +199,7 @@
 
 .ml-btn--outline {
   background: transparent;
-  border-color: var(--ml-primary);
+  border: 1.5px solid var(--ml-primary);
   color: var(--ml-primary);
 }
 
@@ -961,7 +1023,6 @@
   justify-content: space-between;
   gap: 24px;
   min-height: 300px;
-  max-height: 340px;
   padding: 32px 36px;
   border-radius: var(--hero-radius, 32px);
   background: var(--hero-gradient, linear-gradient(135deg, #143a52 0%, #0f766e 45%, #14532d 100%));
@@ -969,7 +1030,12 @@
   box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
   overflow: hidden;
   isolation: isolate;
+  /* Match HeroSection compact margin-bottom: 28px total */
+  margin-bottom: 4px;
 }
+
+/* Inside flex-gap containers, subtract gap so hero-to-content = 28px */
+.ml-shell > .ml-hero { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px */
 
 [data-theme="dark"] .ml-hero {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);

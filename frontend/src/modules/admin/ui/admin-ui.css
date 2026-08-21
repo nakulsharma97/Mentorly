@@ -1326,6 +1326,14 @@
   color: var(--au-text);
 }
 
+/* Inside workspace shell, ws-main-content already provides side/top/bottom
+   padding — zero out the negative margins and page padding so we don't
+   get double spacing or fragile margin hacks. */
+.ws-main-content > .admin-page {
+  margin: 0;
+  padding: 0;
+}
+
 @media (max-width: 768px) {
   .admin-page { margin: -16px -16px -20px; padding: 24px 20px 48px; }
 }

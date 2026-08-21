@@ -745,6 +745,14 @@
   gap: 12px;
   width: 100%;
   margin-top: 22px;
+  box-sizing: border-box;
+}
+
+.cpp-success-actions .cpp-btn[type="button"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 .cpp-success-actions .cpp-btn {
