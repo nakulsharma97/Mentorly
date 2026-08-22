@@ -139,6 +139,7 @@ export default function SessionManagementPage({ notify }) {
     <div className="au au-page">
       <div className="au-inner">
         <HeroSection
+      className="hero-section--compact"
           badge="SESSIONS"
           title="Session Management"
           subtitle="View, search, filter, and manage all sessions. Cancel sessions to remove the meeting link, or permanently delete inappropriate sessions (only allowed when they have no bookings)."

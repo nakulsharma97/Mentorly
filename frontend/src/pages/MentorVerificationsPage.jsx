@@ -717,6 +717,7 @@ export default function MentorVerificationsPage({ notify }) {
   return (
     <main className="admin-page">
       <HeroSection
+      className="hero-section--compact"
         badge="Moderation"
         title="Mentor verifications"
         subtitle="Review pending mentors — check their certificates, resume, and experience — then approve or reject their verification request."

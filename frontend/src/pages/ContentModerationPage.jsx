@@ -866,6 +866,7 @@ export default function ContentModerationPage({ notify }) {
   return (
     <section className="admin-page">
       <HeroSection
+      className="hero-section--compact"
         badge="Moderation"
         title="Content Moderation Center"
         subtitle="Review content flagged by reports and automated detection. Approve, remove, warn, or escalate — every action is tracked and notified."

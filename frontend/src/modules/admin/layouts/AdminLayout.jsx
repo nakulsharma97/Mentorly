@@ -29,7 +29,6 @@ const GROUPS = [
       { to: "/admin/health", label: "Health", icon: "monitor_heart" },
       { to: "/admin/notifications", label: "Broadcast", icon: "campaign" },
       { to: "/admin/audit-log", label: "Timeline", icon: "history" },
-      { to: "/admin/settings", label: "Settings", icon: "settings" },
     ],
   },
 ];

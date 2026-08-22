@@ -14,6 +14,7 @@ export default function AdminNotificationsPage({ notify }) {
     <div className="admin-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* ===== Hero (unified design system) ===== */}
       <HeroSection
+      className="hero-section--compact"
         badge="NOTIFICATIONS"
         title="Notification Center"
         subtitle="Verification requests, new users, bookings, payments, reports and platform alerts — delivered in real time."

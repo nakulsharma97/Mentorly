@@ -631,6 +631,7 @@ export default function AdminOperationsPage({ notify }) {
       <div className="au au-page">
         <div className="au-inner">
           <HeroSection
+      className="hero-section--compact"
             badge="CONVERSATIONS"
             title="Conversations"
             subtitle="Loading conversation data..."
@@ -650,6 +651,7 @@ export default function AdminOperationsPage({ notify }) {
     <div className="au au-page">
       <div className="au-inner">
         <HeroSection
+      className="hero-section--compact"
           badge="CONVERSATIONS"
           title="Conversations"
           subtitle="Monitor learner and mentor conversations, review flagged messages, and manage communication across the platform."

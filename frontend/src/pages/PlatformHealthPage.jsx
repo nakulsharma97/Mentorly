@@ -185,20 +185,29 @@ export default function PlatformHealthPage({ notify }) {
     const requestId = ++requestRef.current;
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000); // 12s timeout
     try {
-      const res = await client.get("/api/v1/admin/health");
+      const res = await client.get("/api/v1/admin/health", { signal: controller.signal });
+      clearTimeout(timeout);
       if (requestId !== requestRef.current) return; // stale
       setHealth(res?.data?.data || null);
     } catch (err) {
+      clearTimeout(timeout);
       if (requestId !== requestRef.current) return;
-      const msg = errorMessage(err, "Could not load health data.");
-      setError(msg);
-      // Only ONE toast per distinct failure — never spam identical errors.
-      if (lastErrorRef.current !== msg) {
-        lastErrorRef.current = msg;
-        notify?.({ type: "error", title: "Health unavailable", message: msg });
+      if (err?.name === "AbortError" || err?.code === "ERR_CANCELED") {
+        setError("Request timed out. The server may be slow or unavailable.");
+      } else {
+        const msg = errorMessage(err, "Could not load health data.");
+        setError(msg);
+        // Only ONE toast per distinct failure — never spam identical errors.
+        if (lastErrorRef.current !== msg) {
+          lastErrorRef.current = msg;
+          notify?.({ type: "error", title: "Health unavailable", message: msg });
+        }
       }
     } finally {
+      clearTimeout(timeout);
       if (requestId === requestRef.current) setLoading(false);
     }
   }, [notify]);
@@ -445,6 +454,7 @@ export default function PlatformHealthPage({ notify }) {
     return (
       <section className="admin-page">
         <HeroSection
+        className="hero-section--compact"
           badge="Monitoring"
           title="Platform Health"
           subtitle="Loading live monitoring data…"
@@ -467,6 +477,7 @@ export default function PlatformHealthPage({ notify }) {
     return (
       <section className="admin-page">
         <HeroSection
+        className="hero-section--compact"
           badge="Monitoring"
           title="Platform Health"
           subtitle="Could not load monitoring data. Start the backend and ensure you are signed in as an admin."
@@ -521,6 +532,7 @@ export default function PlatformHealthPage({ notify }) {
     <section className="admin-page">
       {/* ── Hero + global status ── */}
       <HeroSection
+        className="hero-section--compact"
         badge="Monitoring"
         title="Platform Health"
         subtitle="Real-time system, database, API, queue, security, and error monitoring. All metrics are live backend data."
@@ -560,7 +572,7 @@ export default function PlatformHealthPage({ notify }) {
       <div className="ph-kpi-grid">
         <AnimatedStat label="Users Online" value={act.usersOnline} icon="person" tone="teal" />
         <AnimatedStat label="Mentors Online" value={act.mentorsOnline} icon="verified" tone="blue" />
-        <AnimatedStat label="Learners Online" value={act.learnersOnline} icon="school" tone="violet" />
+        <AnimatedStat label="Learners Online" value={act.learnersOnline} icon="school" tone="teal" />
         <AnimatedStat label="Active Sessions" value={act.activeSessions} icon="video_library" tone="amber" />
         <AnimatedStat label="Registrations Today" value={act.registrationsToday} icon="person_add" tone="green" />
         <AnimatedStat label="Bookings Today" value={act.bookingsToday} icon="calendar_month" tone="cyan" />

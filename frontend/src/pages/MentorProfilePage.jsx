@@ -420,7 +420,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
 
       {/* ══ HERO ══ */}
       <HeroSection
-        className="mpr-hero-compact"
+        className="hero-section--compact"
         badge={
           <>
             <Icon name="verified" /> {mentor?.mentorVerified ? "Verified Mentor" : "Mentor Profile"}

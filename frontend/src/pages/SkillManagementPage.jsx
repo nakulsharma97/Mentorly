@@ -206,6 +206,7 @@ export default function SkillManagementPage({ notify }) {
     <div className="au au-page">
       <div className="au-inner">
         <HeroSection
+      className="hero-section--compact"
           badge="SKILLS"
           title="Skill Management"
           subtitle="Manage the skill catalog: edit or delete skills, merge duplicates into a single canonical entry, and approve new skill categories proposed by users."

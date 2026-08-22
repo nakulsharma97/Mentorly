@@ -358,6 +358,7 @@ export default function BecomeMentorPage({ profile, notify }) {
     <main className="ss-page bcm-page">
       {/* ── Hero — Unified Design System ── */}
       <HeroSection
+        className="hero-section--compact"
         badge={
           <>
             <SsIcon name="verified" size={14} />

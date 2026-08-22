@@ -454,6 +454,7 @@ export default function AdminAnalyticsPage({ notify }) {
     return (
       <section className="admin-page">
         <HeroSection
+        className="hero-section--compact"
           badge="Analytics"
           title="Platform Analytics"
           subtitle="Loading dashboard data…"
@@ -476,6 +477,7 @@ export default function AdminAnalyticsPage({ notify }) {
     return (
       <section className="admin-page">
         <HeroSection
+        className="hero-section--compact"
           badge="Analytics"
           title="Platform Analytics"
           subtitle="Could not load dashboard data. Start the backend and ensure you are signed in as an admin."
@@ -532,6 +534,7 @@ export default function AdminAnalyticsPage({ notify }) {
     <section className="admin-page">
       {/* ── Hero ── */}
       <HeroSection
+        className="hero-section--compact"
         badge="Analytics"
         title="Platform Analytics"
         subtitle="Real-time platform metrics, trends, and business intelligence. All values are real database counts."

@@ -654,6 +654,7 @@ export default function NotificationBroadcastPage({ notify }) {
     <section className="admin-page">
       {/* ── Hero ── */}
       <HeroSection
+      className="hero-section--compact"
         badge="Engagement"
         title="Notification & Broadcast Center"
         subtitle="Compose, schedule, and track platform-wide notifications. All stats come from real database records."

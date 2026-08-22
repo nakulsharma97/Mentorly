@@ -13,6 +13,7 @@ import "../modules/admin/ui/admin-ui.css";
 function AdminDashboardHero({ subtitle, onRefresh, refreshing }) {
   return (
     <HeroSection
+      className="hero-section--compact"
       badge="Overview"
       title="Admin dashboard"
       subtitle={subtitle}

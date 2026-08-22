@@ -11,6 +11,7 @@ import HeroSection from "../../../../components/HeroSection";
 export default function ReportsHero({ openCount = 0, onReview }) {
   return (
     <HeroSection
+      className="hero-section--compact"
       badge={
         <>
           <ShieldCheck size={15} aria-hidden="true" />

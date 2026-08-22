@@ -800,6 +800,7 @@ export default function AdminPaymentsPage({ notify }) {
     <div className="au au-page">
       <div className="au-inner">
         <HeroSection
+      className="hero-section--compact"
           badge="PAYMENTS"
           title="Payment Management"
           subtitle="Monitor, refund, and release payments across the platform. Search payments, process bulk refunds, download receipts, and manage mentor payouts."

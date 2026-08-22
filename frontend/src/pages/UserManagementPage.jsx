@@ -211,6 +211,7 @@ export default function UserManagementPage({ notify }) {
     <div className="au au-page">
       <div className="au-inner">
         <HeroSection
+          className="hero-section--compact"
           badge="USERS"
           title="User Management"
           subtitle="View, search, enable/disable users and manage roles across the platform."

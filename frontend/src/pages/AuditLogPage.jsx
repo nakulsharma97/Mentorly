@@ -651,6 +651,7 @@ export default function AuditLogPage({ notify }) {
     <section className="admin-page">
       {/* ── Hero ── */}
       <HeroSection
+      className="hero-section--compact"
         badge="Monitoring · Security"
         title="Activity Timeline & Security Audit"
         subtitle="Enterprise-grade audit trail — who did what, when, and from where. Entries are immutable and read-only."

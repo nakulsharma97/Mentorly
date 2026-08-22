@@ -45,26 +45,7 @@
 }
 
 /* ── Compact hero (mentor profile) ─────────────────── */
-.mpr-hero-compact {
-  --hero-min-height: 380px;
-  --hero-radius: 24px;
-  --hero-padding: 36px 40px;
-  --hero-margin-bottom: 24px;
-}
-.mpr-hero-compact .hero-section__title {
-  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
-  line-height: 1.1;
-}
-.mpr-hero-compact .hero-section__subtitle {
-  max-width: 560px;
-  font-size: 0.95rem;
-}
-.mpr-hero-compact .hero-section__art {
-  align-self: center;
-}
-.mpr-hero-compact .hero-section__actions {
-  flex-wrap: wrap;
-}
+/* Mentor profile hero now uses standard hero-section--compact */
 .mpr-hero-compact .hero-section__actions .mpr-btn {
   height: 52px;
   padding: 0 22px;

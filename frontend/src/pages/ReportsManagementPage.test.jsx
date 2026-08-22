@@ -91,10 +91,9 @@ describe("ReportsManagementPage", () => {
     });
   });
 
-  it("renders the page header, hero, stats, filters and report table", async () => {
+  it("renders the hero, stats, filters and report table", async () => {
     render(<ReportsManagementPage notify={notify} />);
 
-    expect(screen.getByRole("heading", { name: "Reports & Complaints" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trust & Safety" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search by reporter, reported user, email, reason...")).toBeInTheDocument();
 

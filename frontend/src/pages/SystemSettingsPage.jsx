@@ -291,7 +291,8 @@ export default function SystemSettingsPage({ notify }) {
     return (
       <section className="admin-page">
         <HeroSection
-          badge="Configuration"
+        className="hero-section--compact"
+          badge="SUPER ADMIN"
           title="Platform Configuration Center"
           subtitle="Loading configuration…"
           illustration={
@@ -312,7 +313,8 @@ export default function SystemSettingsPage({ notify }) {
   return (
     <section className="admin-page">
       <HeroSection
-        badge="Super Admin"
+        className="hero-section--compact"
+        badge="SUPER ADMIN"
         title="Platform Configuration Center"
         subtitle={`${totalSettings} settings across ${catalog.length} categories. Changes are audited and apply immediately.`}
         illustration={
