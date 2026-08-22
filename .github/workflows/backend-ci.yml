@@ -253,7 +253,7 @@ jobs:
                   {"title": "Event", "value": "${{ github.event_name }}", "short": true},
                   {"title": "Details", "value": "${{ steps.status.outputs.detail }}", "short": false}
                 ],
-                "footer": "SkillSwap CI",
+                "footer": "Mentorly CI",
                 "ts": $(date +%s)
               }]
             }
@@ -267,9 +267,9 @@ jobs:
           server_port: ${{ secrets.MAIL_PORT || 587 }}
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "${{ steps.status.outputs.emoji }} SkillSwap CI: ${{ steps.status.outputs.title }}"
+          subject: "${{ steps.status.outputs.emoji }} Mentorly CI: ${{ steps.status.outputs.title }}"
           to: ${{ secrets.MAIL_TO }}
-          from: ${{ secrets.MAIL_FROM || 'SkillSwap CI <ci@skillswap.app>' }}
+          from: ${{ secrets.MAIL_FROM || 'Mentorly CI <ci@mentorly.app>' }}
           body: |
             Branch:    ${{ github.ref_name }}
             Event:     ${{ github.event_name }}
@@ -278,4 +278,4 @@ jobs:
             Workflow:  ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             --
-            SkillSwap CI Bot
+            Mentorly CI Bot

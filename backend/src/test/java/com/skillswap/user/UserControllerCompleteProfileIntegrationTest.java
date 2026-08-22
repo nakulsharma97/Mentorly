@@ -93,7 +93,7 @@ class UserControllerCompleteProfileIntegrationTest {
     private User createUser(Long id, UserRole role, boolean profileCompleted) {
         User user = new User();
         user.setId(id);
-        user.setEmail("user" + id + "@skillswap.test");
+        user.setEmail("user" + id + "@mentorly.test");
         user.setUsername("user" + id);
         user.setFullName("Test User");
         user.setRole(role);

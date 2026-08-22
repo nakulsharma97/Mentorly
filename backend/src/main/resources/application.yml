@@ -130,7 +130,7 @@ app:
     name: ${APP_ADMIN_NAME:Platform Admin}
   email:
     enabled: ${APP_EMAIL_ENABLED:false}
-    from: ${APP_EMAIL_FROM:no-reply@skillswap.app}
+    from: ${APP_EMAIL_FROM:no-reply@mentorly.app}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5174,http://127.0.0.1:5174}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}

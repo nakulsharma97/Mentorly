@@ -194,7 +194,7 @@ Or via environment variables:
 GOOGLE_CLIENT_ID=xxx
 GOOGLE_CLIENT_SECRET=xxx
 GOOGLE_REDIRECT_URI=http://localhost:8080/oauth/callback
-GOOGLE_ADMIN_EMAIL=admin@skillswap.com
+GOOGLE_ADMIN_EMAIL=admin@mentorly.com
 ```
 
 ## Database Migration Applied

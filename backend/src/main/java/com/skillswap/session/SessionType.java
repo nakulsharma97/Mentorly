@@ -3,7 +3,7 @@ package com.skillswap.session;
 /**
  * Visibility class of a 1:1 session instance.
  *
- * <p>SkillSwap is a 1:1 mentoring marketplace: ONE session instance belongs
+ * <p>Mentorly is a 1:1 mentoring marketplace: ONE session instance belongs
  * to AT MOST ONE learner, regardless of its visibility class.
  *
  * <ul>

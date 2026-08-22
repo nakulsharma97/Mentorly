@@ -184,7 +184,7 @@ class AdminServiceTest {
         verify(userRepository).save(argThat(u -> {
             assertEquals("[Deleted User]", u.getFullName());
             assertTrue(u.getEmail().startsWith("deleted-"));
-            assertTrue(u.getEmail().endsWith("@skillswap.local"));
+            assertTrue(u.getEmail().endsWith("@mentorly.local"));
             assertEquals("[DELETED]", u.getPasswordHash());
             assertNull(u.getAboutMe());
             assertNull(u.getSkills());

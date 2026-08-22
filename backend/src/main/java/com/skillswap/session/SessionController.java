@@ -40,7 +40,7 @@ import java.util.Set;
 /**
  * REST controller exposing session endpoints.
  *
- * <p>SkillSwap is a 1:1 mentoring marketplace. Each session instance may be
+ * <p>Mentorly is a 1:1 mentoring marketplace. Each session instance may be
  * booked by AT MOST ONE learner. PUBLIC sessions are discoverable while
  * available; PRIVATE sessions are visible only to their target learner. All
  * access and booking rules are enforced here and in

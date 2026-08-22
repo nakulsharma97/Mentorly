@@ -339,10 +339,9 @@ jobs:
                 "fields": [
                   {"title": "Environment", "value": "${{ needs.deploy.outputs.env_name || 'production' }}", "short": true},
                   {"title": "Image", "value": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.deploy.outputs.tag || 'latest' }}", "short": true},
-                  {"title": "Host", "value": "${{ secrets.DEPLOY_HOST || 'N/A' }}", "short": true},
                   {"title": "Trigger", "value": "${{ github.event_name }}", "short": true}
                 ],
-                "footer": "SkillSwap Deploy",
+                "footer": "Mentorly Deploy",
                 "ts": $(date +%s)
               }]
             }
@@ -356,17 +355,16 @@ jobs:
           server_port: ${{ secrets.MAIL_PORT || 587 }}
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "${{ steps.status.outputs.emoji }} SkillSwap Deploy: ${{ steps.status.outputs.title }} to ${{ needs.deploy.outputs.env_name || 'production' }}"
+          subject: "${{ steps.status.outputs.emoji }} Mentorly Deploy: ${{ steps.status.outputs.title }} to ${{ needs.deploy.outputs.env_name || 'production' }}"
           to: ${{ secrets.MAIL_TO }}
-          from: ${{ secrets.MAIL_FROM || 'SkillSwap Deploy <deploy@skillswap.app>' }}
+          from: ${{ secrets.MAIL_FROM || 'Mentorly Deploy <deploy@mentorly.app>' }}
           body: |
             Environment:  ${{ needs.deploy.outputs.env_name || 'production' }}
             Image:        ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.deploy.outputs.tag || 'latest' }}
             Status:       ${{ steps.status.outputs.title }}
             Details:      ${{ steps.status.outputs.detail }}
-            Host:         ${{ secrets.DEPLOY_HOST || 'N/A' }}
             Trigger:      ${{ github.event_name }}
             Workflow:     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             --
-            SkillSwap Deployment Bot
+            Mentorly Deployment Bot

@@ -39,10 +39,10 @@ public class JwtService {
      * on parse. Prevents tokens minted by another service (or for a different
      * audience) from being accepted.
      */
-    @Value("${app.jwt.issuer:skillswap}")
+    @Value("${app.jwt.issuer:mentorly}")
     private String issuer;
 
-    @Value("${app.jwt.audience:skillswap-app}")
+    @Value("${app.jwt.audience:mentorly-app}")
     private String audience;
 
     /**

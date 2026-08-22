@@ -36,7 +36,7 @@ vi.mock("./WorkspaceTopbar", () => ({
 }));
 
 const BASE_PROPS = {
-  profile: { role: "GUEST", email: "guest@skillswap.test", fullName: "Guest" },
+  profile: { role: "GUEST", email: "guest@mentorly.test", fullName: "Guest" },
   onLogout: vi.fn(),
   unreadNotifications: 0,
   onUnreadCountChange: vi.fn(),

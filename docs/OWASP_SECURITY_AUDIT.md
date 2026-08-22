@@ -1,4 +1,4 @@
-# OWASP Security Audit — SkillSwapper
+# OWASP Security Audit — Mentorly
 
 **Audit date:** 2026-08-03
 **Scope:** Full stack — Spring Boot 3.5 (Java 21) backend, React 18 (Vite) frontend, nginx proxy, WebSockets, JWT auth, OAuth2 (Google/GitHub), payments (Razorpay/Stripe/PayPal), wallet, bookings, uploads, admin panel.
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-SkillSwapper has a **solid security core**: JWT authentication with strong secret enforcement, refresh-token rotation with reuse rejection, httpOnly refresh cookies, per-IP rate limiting with brute-force backoff, role-based route rules, consistent ownership checks (no IDOR found), SQL-injection-safe JPA queries, and strong security headers at both nginx and Spring levels.
+Mentorly has a **solid security core**: JWT authentication with strong secret enforcement, refresh-token rotation with reuse rejection, httpOnly refresh cookies, per-IP rate limiting with brute-force backoff, role-based route rules, consistent ownership checks (no IDOR found), SQL-injection-safe JPA queries, and strong security headers at both nginx and Spring levels.
 
 However, the audit found **2 High**, **7 Medium**, and **8 Low** issues. A **remediation pass (2026-08-03) fixed all but a small set of deliberate/infrastructure-dependent items** — most notably the webhook auth blocker, the escrow payout bug, server-side URL validation, CSRF cookie mitigations, the password policy, and JWT issuer/audience validation. The remaining items are documented in §5.
 

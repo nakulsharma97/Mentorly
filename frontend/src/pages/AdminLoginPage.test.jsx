@@ -33,7 +33,7 @@ describe("AdminLoginPage", () => {
 
   const fillAndSubmit = () => {
     fireEvent.change(screen.getByLabelText(/email/i), {
-      target: { value: "admin@skillswap.dev" },
+      target: { value: "admin@mentorly.dev" },
     });
     fireEvent.change(screen.getByLabelText(/password/i), {
       target: { value: "password123" },
@@ -66,7 +66,7 @@ describe("AdminLoginPage", () => {
         data: {
           token: "admin-token",
           role: "ADMIN",
-          email: "admin@skillswap.dev",
+          email: "admin@mentorly.dev",
         },
       },
     });
@@ -93,7 +93,7 @@ describe("AdminLoginPage", () => {
         data: {
           token: "learner-token",
           role: "LEARNER",
-          email: "learner@skillswap.dev",
+          email: "learner@mentorly.dev",
         },
       },
     });

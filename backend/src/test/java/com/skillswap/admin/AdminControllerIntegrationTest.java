@@ -190,7 +190,7 @@ class AdminControllerIntegrationTest {
     void setUp() {
         adminUser = new User();
         adminUser.setId(1L);
-        adminUser.setEmail("admin@skillswap.com");
+        adminUser.setEmail("admin@mentorly.com");
         adminUser.setFullName("Admin User");
         adminUser.setRole(UserRole.ADMIN);
         adminUser.setAdminSubRole(AdminSubRole.SUPER_ADMIN);
@@ -1430,7 +1430,7 @@ class AdminControllerIntegrationTest {
         AuditLog log = new AuditLog();
         log.setId(1L);
         log.setAdminId(1L);
-        log.setAdminEmail("admin@skillswap.com");
+        log.setAdminEmail("admin@mentorly.com");
         log.setAction("UPDATE_SETTINGS");
         log.setEntityType("Settings");
         log.setDetails("Updated platform fee to 15%");
@@ -1445,7 +1445,7 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Audit log fetched"))
                 .andExpect(jsonPath("$.data.content[0].action").value("UPDATE_SETTINGS"))
-                .andExpect(jsonPath("$.data.content[0].adminEmail").value("admin@skillswap.com"))
+                .andExpect(jsonPath("$.data.content[0].adminEmail").value("admin@mentorly.com"))
                 .andExpect(jsonPath("$.data.content[0].ipAddress").value("127.0.0.1"));
     }
 
@@ -1456,7 +1456,7 @@ class AdminControllerIntegrationTest {
         AuditLog log = new AuditLog();
         log.setId(2L);
         log.setAdminId(1L);
-        log.setAdminEmail("admin@skillswap.com");
+        log.setAdminEmail("admin@mentorly.com");
         log.setAction("BULK_ENABLE_USERS");
         log.setEntityType("User");
         log.setDetails("Enabled 5 users");
@@ -1855,7 +1855,7 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .header().string("Content-Disposition",
-                                org.hamcrest.Matchers.containsString("skillswap-settings.csv")))
+                                org.hamcrest.Matchers.containsString("mentorly-settings.csv")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
                         .content().string(org.hamcrest.Matchers.containsString("category,key,type,label,value")))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers

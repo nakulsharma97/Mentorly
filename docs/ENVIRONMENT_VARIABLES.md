@@ -47,7 +47,7 @@ SMTP configured still report a green health endpoint. If you enable email,
 | `MAIL_PORT`         | SMTP port (implicit TLS)                            | `465`                     | `465`                      |
 | `MAIL_USERNAME`     | SMTP username                                       | `resend`                  | `resend`                   |
 | `MAIL_PASSWORD`     | SMTP password (required when email enabled)         | None (required)           | `re_xxx...`                |
-| `APP_EMAIL_FROM`    | From address for emails                             | `no-reply@skillswap.app`  | `no-reply@skillswap.app`   |
+| `APP_EMAIL_FROM`    | From address for emails                             | `no-reply@mentorly.app`  | `no-reply@mentorly.app`   |
 
 ### Payment Processing
 
@@ -221,7 +221,7 @@ Get-ChildItem Env: | Where-Object {$_.Name -match "JWT|DB|STRIPE"}
 The backend logs which environment is loaded:
 
 ```
-Starting SkillSwappingPlatformApplication...
+Starting SkillSwapApplication...
 The following profiles are active: prod
 ```
 

@@ -3,7 +3,7 @@ import './SearchFilters.css';
 import { trackAnalyticsEvent } from '../utils/analyticsEvents';
 
 export default function SearchFilters({ value = '', onSearch, onFilterChange }) {
-  const PRESET_STORAGE_KEY = 'skillswap.search.filterPresets';
+  const PRESET_STORAGE_KEY = 'mentorly.search.filterPresets';
   const initialFilters = {
     level: [],
     priceMin: 0,

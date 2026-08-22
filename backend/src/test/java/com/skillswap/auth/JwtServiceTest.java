@@ -27,7 +27,7 @@ class JwtServiceTest {
     private User userWithRole(UserRole role) {
         User user = new User();
         user.setId(1L);
-        user.setEmail("user@skillswap.com");
+        user.setEmail("user@mentorly.com");
         user.setFullName("Test User");
         user.setRole(role);
         user.setUsername("testuser");
@@ -73,7 +73,7 @@ class JwtServiceTest {
         String legacyToken = jwtService.generateToken(Map.of("tokenType", "access"), userWithRole(UserRole.ADMIN));
 
         assertThat(jwtService.extractRole(legacyToken)).isNull();
-        assertThat(jwtService.extractUsername(legacyToken)).isEqualTo("user@skillswap.com");
+        assertThat(jwtService.extractUsername(legacyToken)).isEqualTo("user@mentorly.com");
     }
 
     // ── Startup hardening: weak / default signing keys must never be accepted ──

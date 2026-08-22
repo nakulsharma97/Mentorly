@@ -91,14 +91,14 @@ const USER_B = {
 
 const USER_C = {
   id: 99,
-  email: "admin@skillswap.com",
+  email: "admin@mentorly.com",
   role: "ADMIN",
   token: createTestJwt({
     jti: "user-c-jti",
     tokenType: "access",
     tokenId: "tok-c",
     userId: 99,
-    sub: "admin@skillswap.com",
+    sub: "admin@mentorly.com",
     iat: Math.floor(Date.now() / 1000) - 60,
     exp: Math.floor(Date.now() / 1000) + 3600,
   }),
@@ -107,7 +107,7 @@ const USER_C = {
     tokenType: "refresh",
     tokenId: "tok-c",
     userId: 99,
-    sub: "admin@skillswap.com",
+    sub: "admin@mentorly.com",
     iat: Math.floor(Date.now() / 1000) - 60,
     exp: Math.floor(Date.now() / 1000) + 86400,
   }),

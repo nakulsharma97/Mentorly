@@ -73,7 +73,7 @@ class SkillControllerTest {
     void setUp() {
         adminUser = new User();
         adminUser.setId(1L);
-        adminUser.setEmail("admin@skillswap.com");
+        adminUser.setEmail("admin@mentorly.com");
         adminUser.setFullName("Admin User");
         adminUser.setRole(UserRole.ADMIN);
         adminUser.setAdminSubRole(AdminSubRole.SUPER_ADMIN);

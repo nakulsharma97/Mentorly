@@ -37,7 +37,7 @@ public final class UsernameRules {
     /** Reserved handles that can never be claimed by a regular account. */
     public static final Set<String> RESERVED_USERNAMES = Set.of(
             "admin", "support", "login", "register", "signup", "mentor", "learner",
-            "settings", "profile", "api", "root", "system", "skillswap", "skillswapper",
+            "settings", "profile", "api", "root", "system", "mentorly", "skillswap", "skillswapper",
             "moderator", "help", "info", "mail", "noreply", "test", "null", "undefined");
 
     private UsernameRules() {
