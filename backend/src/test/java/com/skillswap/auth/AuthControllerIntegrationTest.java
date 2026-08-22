@@ -69,6 +69,9 @@ class AuthControllerIntegrationTest {
   @MockitoBean
   private ClientRegistrationRepository clientRegistrationRepository;
 
+  @MockitoBean
+  private OtpService otpService;
+
   @Test
   void signupReturnsSuccessResponse() throws Exception {
     when(authService.signup(any(), any())).thenReturn(
