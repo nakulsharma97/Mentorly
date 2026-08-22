@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Download, Search, Trash2, UserCog, Users as UsersIcon } from "lucide-react";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import {
   AuAvatar,
   AuBadge,
   AuButton,
   AuEmpty,
-  AuPageHeader,
   AuPagination,
   AuSkeleton,
   AuStat,
@@ -210,14 +210,25 @@ export default function UserManagementPage({ notify }) {
   return (
     <div className="au au-page">
       <div className="au-inner">
-        <AuPageHeader
-          crumb={["Admin", "Users"]}
+        <HeroSection
+          badge="USERS"
           title="User Management"
           subtitle="View, search, enable/disable users and manage roles across the platform."
-          actions={
-            <AuButton variant="outline" icon={Download} onClick={handleExportCsv} disabled={exportingCsv}>
+          primaryButton={
+            <button
+              type="button"
+              className="hero-section__btn hero-section__btn--primary"
+              onClick={handleExportCsv}
+              disabled={exportingCsv}
+            >
+              <span className="material-symbols-outlined">download</span>
               {exportingCsv ? "Exporting..." : "Export CSV"}
-            </AuButton>
+            </button>
+          }
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">group</span>
+            </div>
           }
         />
 

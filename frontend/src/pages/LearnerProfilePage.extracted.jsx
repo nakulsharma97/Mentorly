@@ -1,6 +1,7 @@
 import { useState } from "react";
 import SectionCard, { EmptyState } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
+import HeroSection from "../components/HeroSection";
 import { normalizeSkills } from "../utils/skills";
 import { useDocumentTitle, useLearnerLearningData, formatDate } from "./learner-utils";
 import "../modules/mentor/mentor-pages.css";
@@ -16,16 +17,6 @@ function DetailCard({ title, icon, children }) {
         </div>
       </div>
       {children}
-    </div>
-  );
-}
-
-/* Page header */
-function PageHeader({ title, subtitle }) {
-  return (
-    <div className="lp-header">
-      <h1 className="lp-title">{title}</h1>
-      {subtitle && <p className="lp-subtitle">{subtitle}</p>}
     </div>
   );
 }
@@ -93,9 +84,21 @@ export default function LearnerProfilePage() {
 
   return (
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <PageHeader
+      <HeroSection
+        className="hero-section--compact"
+        badge={
+          <>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>person</span>
+            Profile
+          </>
+        }
         title="Profile"
         subtitle="Your live learner profile and saved backend records."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">badge</span>
+          </div>
+        }
       />
       <div className="ld-stats md-animate">
         <StatsCard icon="person" label="Completion" value={`${profile?.profileCompletionPercent || 0}%`} description="From backend profile data" />

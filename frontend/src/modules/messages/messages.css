@@ -1391,15 +1391,18 @@
 /* Single focus ring only — kill the global input:focus-visible outline. */
 .ms-new__search input:focus,
 .ms-new__search input:focus-visible {
-  outline: none;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .ms-new__search input {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: transparent;
-  outline: none;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
   font-family: inherit;
   font-size: 0.9rem;
   color: var(--ms-text);

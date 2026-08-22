@@ -4,8 +4,7 @@ export { default as AuButton } from "./AuButton";
 export { default as AuBadge } from "./AuBadge";
 export { default as AuAvatar } from "./AuAvatar";
 export { default as AuStat } from "./AuStat";
-export { default as AuPageHeader } from "./AuPageHeader";
-export { default as AuHero } from "./AuHero";
+
 export { default as AuToolbar } from "./AuToolbar";
 export { default as AuTable } from "./AuTable";
 export { default as AuEmpty } from "./AuEmpty";

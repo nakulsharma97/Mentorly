@@ -374,67 +374,105 @@ export default function ContentModerationPage({ notify }) {
   };
 
   const renderFilters = () => (
-    <div className="cmc-filters">
-      <div className="admin-search cmc-filters__search">
-        <Icon name="search" />
-        <input
-          type="text"
-          placeholder="Search by user, email, content, skill, session, message, certificate, review, or ID…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Search flagged content"
-        />
+    <div className="cmc-filters-card">
+      <h3 className="cmc-filters-card__title">Filters</h3>
+
+      {/* Row 1: Search, Status, Content type, Priority */}
+      <div className="cmc-filters-row cmc-filters-row--1">
+        <div className="cmc-filter-field cmc-filter-field--search">
+          <label>Search</label>
+          <span className="cmc-filter-search-icon material-symbols-outlined">search</span>
+          <input
+            type="text"
+            placeholder="Search by user, email, content, skill, session..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search flagged content"
+          />
+        </div>
+
+        <div className="cmc-filter-field">
+          <label>Status</label>
+          <select value={status} onChange={(e) => applyFilterChange(setStatus, e.target.value)} aria-label="Filter by status">
+            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="cmc-filter-field">
+          <label>Content type</label>
+          <select value={contentType} onChange={(e) => applyFilterChange(setContentType, e.target.value)} aria-label="Filter by content type">
+            {CONTENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="cmc-filter-field">
+          <label>Priority</label>
+          <select value={priority} onChange={(e) => applyFilterChange(setPriority, e.target.value)} aria-label="Filter by priority">
+            {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
       </div>
 
-      <select value={status} onChange={(e) => applyFilterChange(setStatus, e.target.value)} aria-label="Filter by status">
-        {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+      {/* Row 2: Source, Reporter ID, Owner ID, Date range */}
+      <div className="cmc-filters-row cmc-filters-row--2">
+        <div className="cmc-filter-field">
+          <label>Source</label>
+          <select value={detectionSource} onChange={(e) => applyFilterChange(setDetectionSource, e.target.value)} aria-label="Filter by detection source">
+            {DETECTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
 
-      <select value={contentType} onChange={(e) => applyFilterChange(setContentType, e.target.value)} aria-label="Filter by content type">
-        {CONTENT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+        <div className="cmc-filter-field">
+          <label>Reporter ID</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="Enter reporter ID"
+            value={reporterId}
+            onChange={(e) => applyFilterChange(setReporterId, e.target.value)}
+            aria-label="Filter by reporter ID"
+          />
+        </div>
 
-      <select value={priority} onChange={(e) => applyFilterChange(setPriority, e.target.value)} aria-label="Filter by priority">
-        {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
+        <div className="cmc-filter-field">
+          <label>Owner ID</label>
+          <input
+            type="number"
+            min="1"
+            placeholder="Enter owner ID"
+            value={ownerId}
+            onChange={(e) => applyFilterChange(setOwnerId, e.target.value)}
+            aria-label="Filter by owner ID"
+          />
+        </div>
 
-      <select value={detectionSource} onChange={(e) => applyFilterChange(setDetectionSource, e.target.value)} aria-label="Filter by detection source">
-        {DETECTION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-
-      <input
-        className="cmc-filters__id"
-        type="number"
-        min="1"
-        placeholder="Reporter ID"
-        value={reporterId}
-        onChange={(e) => applyFilterChange(setReporterId, e.target.value)}
-        aria-label="Filter by reporter ID"
-      />
-
-      <input
-        className="cmc-filters__id"
-        type="number"
-        min="1"
-        placeholder="Owner ID"
-        value={ownerId}
-        onChange={(e) => applyFilterChange(setOwnerId, e.target.value)}
-        aria-label="Filter by owner ID"
-      />
-
-      <label className="cmc-filters__date">
-        <span>From</span>
-        <input type="date" value={fromDate} onChange={(e) => applyFilterChange(setFromDate, e.target.value)} />
-      </label>
-
-      <label className="cmc-filters__date">
-        <span>To</span>
-        <input type="date" value={toDate} onChange={(e) => applyFilterChange(setToDate, e.target.value)} />
-      </label>
-
-      <button type="button" className="admin-refresh-btn cmc-filters__reset" onClick={resetFilters} disabled={!hasActiveFilters}>
-        <Icon name="restart_alt" /> Reset
-      </button>
+        <div className="cmc-filter-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div>
+            <label>From date</label>
+            <input type="date" value={fromDate} onChange={(e) => applyFilterChange(setFromDate, e.target.value)} />
+          </div>
+          <div>
+            <label>To date</label>
+            <input type="date" value={toDate} onChange={(e) => applyFilterChange(setToDate, e.target.value)} />
+          </div>
+        </div>
+      </div>
+n      {/* Actions row */}
+      <div className="cmc-filters-actions">
+        <div className="cmc-filters-actions__left">
+          <button type="button" className="cmc-btn-more">
+            <Icon name="tune" /> More filters
+          </button>
+        </div>
+        <div className="cmc-filters-actions__right">
+          <button type="button" className="cmc-btn-reset" onClick={resetFilters} disabled={!hasActiveFilters}>
+            <Icon name="restart_alt" /> Reset
+          </button>
+          <button type="button" className="cmc-btn-apply" onClick={() => setPage(0)}>
+            Apply filters
+          </button>
+        </div>
+      </div>
     </div>
   );
 
@@ -847,7 +885,7 @@ export default function ContentModerationPage({ notify }) {
       />
 
       {renderStats()}
-      <div style={{ margin: "18px 0" }}>{renderFilters()}</div>
+      {renderFilters()}
 
       {loading && items.length === 0 ? (
         renderSkeletons()

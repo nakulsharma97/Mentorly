@@ -1006,6 +1006,21 @@ public class AdminController {
         return new ApiResponse<>("Sessions fetched", dtoPage);
     }
 
+    /** Platform-wide session stats — feeds the admin stat cards row. */
+    public record AdminSessionStats(long total, long upcoming, long ongoing, long cancelled) {}
+
+    @GetMapping("/sessions/stats")
+    public ApiResponse<AdminSessionStats> sessionStats(
+            @AuthenticationPrincipal User currentUser) {
+        ensureAdmin(currentUser);
+        long total = sessionRepository.count();
+        long upcoming = sessionRepository.countUpcoming();
+        long ongoing = sessionRepository.countOngoing();
+        long cancelled = sessionRepository.countByStatus(SessionStatus.CANCELLED);
+        return new ApiResponse<>("Session stats fetched",
+                new AdminSessionStats(total, upcoming, ongoing, cancelled));
+    }
+
     @PatchMapping("/sessions/{id}/status")
     public ApiResponse<SkillSession> updateSessionStatus(
             @AuthenticationPrincipal User currentUser,
@@ -2093,10 +2108,9 @@ public class AdminController {
     public ApiResponse<MonitoringDtos.AdminHealthDto> getPlatformHealth(
             @AuthenticationPrincipal User currentUser) {
         ensureAdmin(currentUser);
+        // Health sampling now runs on a @Scheduled background task, so the
+        // GET endpoint only reads the cached snapshot — no writes per request.
         MonitoringDtos.AdminHealthDto health = systemHealthService.getPlatformHealth();
-        // Append a sampled snapshot so the live charts accumulate real history
-        // as the auto-refreshing dashboard polls this endpoint.
-        systemHealthService.recordHealthSample(health);
         return new ApiResponse<>("Health data fetched", health);
     }
 

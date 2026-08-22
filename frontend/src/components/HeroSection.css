@@ -12,9 +12,9 @@
 .hero-section {
   position: relative;
   /* Fixed shell: never less than 320px, identical on desktop + laptop. */
-  min-height: var(--hero-min-height, 320px);
+  min-height: var(--hero-min-height, 260px);
   border-radius: var(--hero-radius, 32px);
-  padding: var(--hero-padding, 40px);
+  padding: var(--hero-padding, 32px);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -25,19 +25,19 @@
   box-shadow: var(--hero-shadow, 0 20px 60px rgba(15, 23, 42, 0.18));
   /* !important: beats Tailwind's space-y-* sibling utility which resets
      margin-bottom to 0px when the hero sits inside a spaced container. */
-  margin-bottom: var(--hero-margin-bottom, 36px) !important;
+  margin-bottom: var(--hero-margin-bottom, 28px) !important;
   isolation: isolate;
 }
 
 /* In flex-gap page containers (.ss-page gap:24px / .md-page gap:20px) the
    gap stacks on top of the hero margin → subtract it so the hero-to-cards
-   distance is EXACTLY 36px everywhere. */
+   distance is EXACTLY 28px everywhere. */
 .md-page > .hero-section {
-  margin-bottom: 16px !important; /* 16 + 20px gap = 36px */
+  margin-bottom: 8px !important; /* 8 + 20px gap = 28px */
 }
 
 .ss-page > .hero-section {
-  margin-bottom: calc(var(--hero-margin-bottom, 36px) - var(--ss-section-gap, 24px)) !important; /* 24 + 12 = 36px */
+  margin-bottom: calc(var(--hero-margin-bottom, 28px) - var(--ss-section-gap, 24px)) !important; /* 24 + 4 = 28px */
 }
 
 /* ── Decorative background (behind content, z-index 0, opacity ≤10%) ── */
@@ -94,7 +94,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 20px; /* Badge → Heading: 20px */
+  margin: 0 0 16px; /* Badge → Heading: 16px */
   background: var(--hero-badge-bg, rgba(255, 255, 255, 0.12));
   border: 1px solid var(--hero-badge-border, rgba(255, 255, 255, 0.18));
   padding: 10px 18px;
@@ -109,9 +109,9 @@
 }
 
 .hero-section__title {
-  margin: 0 0 18px; /* Heading → Subtitle: 18px */
+  margin: 0 0 14px; /* Heading → Subtitle: 14px */
   font-family: var(--type-font, 'Inter', sans-serif);
-  font-size: 48px;
+  font-size: 40px;
   font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.02em;
@@ -456,46 +456,6 @@
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Admin AuHero art compatibility */
-.hero-section__art .au-hero__art--shared {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 240px;
-  height: 200px;
-}
-
-.hero-section__art .au-hero__icon--shared {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  height: 120px;
-  border-radius: 32px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  box-shadow: 0 18px 44px rgba(9, 40, 84, 0.28);
-  color: #fff;
-}
-
-.hero-section__art .au-hero__particle {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5);
-  filter: blur(1px);
-}
-
-.hero-section__art .au-hero__particle:nth-of-type(1) { top: 14%; right: 12%; }
-.hero-section__art .au-hero__particle:nth-of-type(2) { bottom: 18%; left: 8%; }
-.hero-section__art .au-hero__particle:nth-of-type(3) { top: 22%; left: 22%; }
-
 /* ─────────────────────────────────────────────────────────────────────
    COMPACT VARIANT — application-header heroes (Learner Workspace)
    ~300px tall, tighter type, smaller art. Adds a premium SaaS header
@@ -503,33 +463,33 @@
    ───────────────────────────────────────────────────────────────────── */
 
 .hero-section--compact {
-  --hero-margin-bottom: 28px;
-  min-height: 300px;
-  padding: 32px 36px;
-  gap: 24px;
+  --hero-margin-bottom: 20px;
+  min-height: 220px;
+  padding: 24px 32px;
+  gap: 20px;
 }
 
 .hero-section--compact .hero-section__badge {
-  margin: 0 0 14px;
-  padding: 8px 14px;
-  font-size: 12px;
+  margin: 0 0 10px;
+  padding: 7px 12px;
+  font-size: 11px;
 }
 
 .hero-section--compact .hero-section__title {
-  margin: 0 0 12px;
-  font-size: 36px;
-  line-height: 1.15;
+  margin: 0 0 8px;
+  font-size: 28px;
+  line-height: 1.2;
 }
 
 .hero-section--compact .hero-section__subtitle {
-  font-size: 15.5px;
+  font-size: 14px;
   line-height: 1.5;
-  max-width: 560px;
+  max-width: 520px;
 }
 
 .hero-section--compact .hero-section__actions {
-  gap: 12px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .hero-section--compact .hero-section__btn {
@@ -539,20 +499,34 @@
   font-size: 15px;
 }
 
-/* Right-side visual — scaled to ~185px so it supports, not dominates. */
+/* Right-side visual — scaled to ~150px so it supports, not dominates. */
 .hero-section--compact .hero-section__art-inner {
-  transform: scale(0.72);
+  transform: scale(0.58);
   transform-origin: center;
 }
 
-/* Section spacing after the hero: 28px (24–32 target) inside flex-gap
+/* Scale watermark icon box for shorter compact hero (220px vs 300px). */
+.hero-section--compact .hero-section__watermark {
+  width: 140px;
+  height: 140px;
+  border-radius: 24px;
+}
+
+.hero-section--compact .hero-section__watermark .material-symbols-outlined,
+.hero-section--compact .hero-section__watermark svg {
+  width: 68px;
+  height: 68px;
+  font-size: 68px;
+}
+
+/* Section spacing after the hero: 20px (16–24 target) inside flex-gap
    containers — subtract each container's gap like the default hero does. */
-.md-page > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px */
-.ss-page > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px */
-.ms-page > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px */
-.rpx-container > .hero-section--compact { margin-bottom: 8px !important; }  /* 8 + 20px gap = 28px (Mentor Reviews) */
-.pp-shell > .hero-section--compact { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px (Professional Profile) */
-.ss-crm__inner > .hero-section--compact { margin-bottom: 4px !important; }  /* 4 + 24px gap = 28px (My Students) */
+.md-page > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 20px gap = 20px */
+.ss-page > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 20px gap = 20px */
+.ms-page > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 20px gap = 20px */
+.rpx-container > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 20px gap = 20px (Mentor Reviews) */
+.pp-shell > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 24px gap = 24px (Professional Profile) */
+.ss-crm__inner > .hero-section--compact { margin-bottom: 0px !important; }  /* 0 + 24px gap = 24px (My Students) */
 
 /* ── Responsive ──────────────────────────────────────────────────────
    Desktop 320px → Laptop 320px → Tablet 420px → Mobile auto (stacked). */
@@ -562,13 +536,13 @@
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
-    gap: 24px;
-    min-height: 420px;
+    gap: 20px;
+    min-height: auto;
   }
 
   .hero-section--compact {
     min-height: auto; /* compact stays compact when it stacks */
-    gap: 16px;
+    gap: 14px;
   }
 
   .hero-section__content {
@@ -591,16 +565,16 @@
 @media (max-width: 640px) {
   .hero-section {
     min-height: auto; /* stacked layout, grows with content */
-    padding: 28px 24px;
+    padding: 24px 20px;
   }
 
   .hero-section--compact {
-    padding: 22px 20px;
+    padding: 18px 16px;
   }
 
-  .hero-section__title { font-size: 32px; }
-  .hero-section--compact .hero-section__title { font-size: 30px; }
-  .hero-section__subtitle { font-size: 16px; }
+  .hero-section__title { font-size: 28px; }
+  .hero-section--compact .hero-section__title { font-size: 22px; }
+  .hero-section__subtitle { font-size: 14px; }
   .hero-section__actions { flex-direction: column; align-items: stretch; }
   .hero-section__btn { width: 100%; }
 }

@@ -1235,7 +1235,7 @@ export default function LearnerSessionsPage() {
             className="ls-hero__search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by mentor, title, date, or status…"
+            placeholder="Search by mentor, title, or status…"
             aria-label="Search sessions"
             style={{ color: "#fff" }}
           />

@@ -3,12 +3,12 @@ import { Banknote, Download, RefreshCw, Wallet as WalletIcon, X } from 'lucide-r
 import client from '../api/client';
 import SectionCard from '../modules/common/dashboard/SectionCard';
 import TrendChart from '../modules/common/dashboard/TrendChart';
+import HeroSection from '../components/HeroSection';
 import {
   AuAvatar,
   AuBadge,
   AuButton,
   AuEmpty,
-  AuPageHeader,
   AuPagination,
   AuStat,
   AuTable,
@@ -799,14 +799,25 @@ export default function AdminPaymentsPage({ notify }) {
   return (
     <div className="au au-page">
       <div className="au-inner">
-        <AuPageHeader
-          crumb={["Admin", "Payments"]}
+        <HeroSection
+          badge="PAYMENTS"
           title="Payment Management"
           subtitle="Monitor, refund, and release payments across the platform. Search payments, process bulk refunds, download receipts, and manage mentor payouts."
-          actions={
-            <AuButton variant="outline" icon={RefreshCw} onClick={() => loadPayments()} disabled={loading}>
+          primaryButton={
+            <button
+              type="button"
+              className="hero-section__btn hero-section__btn--primary"
+              onClick={() => loadPayments()}
+              disabled={loading}
+            >
+              <span className="material-symbols-outlined">refresh</span>
               {loading ? "Loading..." : "Refresh"}
-            </AuButton>
+            </button>
+          }
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">payments</span>
+            </div>
           }
         />
 

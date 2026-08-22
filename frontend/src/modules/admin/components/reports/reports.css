@@ -93,55 +93,6 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   PAGE HEADER — breadcrumb / title / subtitle
-   ========================================================================== */
-.rpt-header__crumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--rpt-text-2);
-  margin: 0 0 12px;
-}
-
-.rpt-header__crumb svg {
-  color: var(--rpt-text-3);
-}
-
-.rpt-header__crumb-current {
-  color: var(--rpt-primary-dark);
-  font-weight: 700;
-}
-
-[data-theme="dark"] .rpt-header__crumb-current {
-  color: var(--rpt-primary);
-}
-
-.rpt-header h1 {
-  margin: 0;
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
-  color: var(--rpt-text);
-}
-
-.rpt-header__sub {
-  margin: 12px 0 0;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--rpt-text-2);
-  max-width: 640px;
-}
-
-@media (max-width: 640px) {
-  .rpt-header h1 {
-    font-size: 28px;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
    HERO BANNER — Trust & Safety
    ========================================================================== */
 .rpt-hero {

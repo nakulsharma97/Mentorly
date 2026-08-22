@@ -207,11 +207,36 @@ export default function PlatformHealthPage({ notify }) {
     loadHealth();
   }, [loadHealth]);
 
-  // ── Auto-refresh every 15s (deduped toasts) ──────────────────
+  // ── Auto-refresh every 30s — pauses when tab is not visible ──
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(loadHealth, 15000);
-    return () => clearInterval(interval);
+
+    let interval;
+    const start = () => {
+      stop();
+      interval = setInterval(loadHealth, 30000);
+    };
+    const stop = () => {
+      if (interval) clearInterval(interval);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        loadHealth(); // immediate refresh when tab becomes visible
+        start();
+      } else {
+        stop(); // stop polling when tab is hidden
+      }
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    // Start polling only if tab is currently visible
+    if (document.visibilityState === "visible") start();
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [autoRefresh, loadHealth]);
 
   // ── Log viewer fetch (debounced search) ──────────────────────

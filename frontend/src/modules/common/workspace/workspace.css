@@ -975,8 +975,8 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  /* Unified page padding: top 24px (navbar → hero) · sides 32px · bottom 40px */
-  padding: 24px 32px 40px;
+  /* Unified page padding: top 16px (navbar → hero) · sides 32px · bottom 40px */
+  padding: 16px 32px 40px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -990,7 +990,7 @@
    The scrim is rendered by Framer Motion (opacity animated). ── */
 
 @media (max-width: 1279px) {
-  .ws-main-content { padding: 16px 16px 20px; }
+  .ws-main-content { padding: 12px 16px 20px; }
   .ws-top { padding: 12px 16px; }
 
   /* Header persists ABOVE the drawer + scrim so the burger (morphs to X)
@@ -1024,7 +1024,7 @@
   .ws-top__search { display: none; }
   .ws-top__profile-copy { display: none; }
   .ws-top__title { font-size: var(--type-card-title, 19px); }
-  .ws-main-content { padding: 12px 12px 16px; }
+  .ws-main-content { padding: 8px 12px 16px; }
   .ws-top__burger { width: 40px; height: 40px; }
 
   /* Near-full-width mobile drawer. */

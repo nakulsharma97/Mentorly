@@ -2,18 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  ArrowLeft,
   Check,
   CheckCircle2,
-  ChevronRight,
   Hourglass,
   Inbox,
-  Search,
   SlidersHorizontal,
-  X,
   XCircle,
 } from "lucide-react";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import { normalizeSkills } from "../utils/skills";
 import {
   RequestCard,
@@ -42,14 +39,6 @@ const matchesSearch = (request, query) => {
     .join(" ")
     .toLowerCase();
   return haystack.includes(q);
-};
-
-const goBack = () => {
-  if (window.history.length > 1) {
-    window.history.back();
-  } else {
-    window.location.href = "/learner/dashboard";
-  }
 };
 
 export default function LearnerSessionRequestsPage() {
@@ -173,118 +162,135 @@ export default function LearnerSessionRequestsPage() {
   };
 
   return (
-    <div className="lqr-page">
-      <motion.div
-        className="lqr-inner"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+    <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* ─── Hero ─── */}
+      <HeroSection
+        className="hero-section--compact"
+        badge={
+          <>
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>mail</span>
+            Requests
+          </>
+        }
+        title="My Requests"
+        subtitle="Track and manage all your mentor requests in one place."
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
+            <span className="material-symbols-outlined">inbox</span>
+          </div>
+        }
       >
-        {/* ─── Top header ─── */}
-        <header className="lqr-header">
-          <div className="lqr-header__left">
-            <div className="lqr-header__crumbs">
+        {/* Search + filter inside hero actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", maxWidth: 520 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "rgba(255,255,255,0.7)" }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>search</span>
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search mentor, skill, request..."
+              aria-label="Search requests"
+              autoComplete="off"
+              style={{
+                width: "100%", height: 40, padding: "0 36px 0 42px",
+                border: "1px solid rgba(255,255,255,0.3)", borderRadius: 12,
+                background: "rgba(255,255,255,0.12)", color: "#fff",
+                fontSize: 14, fontWeight: 500, fontFamily: "inherit",
+                backdropFilter: "blur(8px)", outline: "none",
+              }}
+            />
+            {query && (
               <button
                 type="button"
-                className="lqr-back"
-                onClick={goBack}
-                aria-label="Go back"
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                style={{
+                  position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", color: "rgba(255,255,255,0.7)",
+                  cursor: "pointer", display: "inline-flex", padding: 4, borderRadius: 8,
+                }}
               >
-                <ArrowLeft size={19} />
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
               </button>
-              <nav className="lqr-breadcrumb" aria-label="Breadcrumb">
-                <span>Learner</span>
-                <span className="lqr-breadcrumb__sep"><ChevronRight size={14} /></span>
-                <span className="lqr-breadcrumb__current">My Requests</span>
-              </nav>
-            </div>
-            <div className="lqr-header__titles">
-              <h1>My Requests</h1>
-              <p>Track and manage all your mentor requests in one place.</p>
-            </div>
+            )}
           </div>
 
-          <div className="lqr-tools">
-            <div className="lqr-search">
-              <span className="lqr-search__icon" aria-hidden="true">
-                <Search size={19} />
-              </span>
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search mentor, skill, request..."
-                aria-label="Search requests"
-                autoComplete="off"
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="lqr-search__clear"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                >
-                  <X size={16} />
-                </button>
+          <div style={{ position: "relative" }} ref={filterRef}>
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              aria-label="Filter by status"
+              aria-haspopup="listbox"
+              aria-expanded={filterOpen}
+              style={{
+                height: 40, padding: "0 14px", borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.12)",
+                color: "#fff", cursor: "pointer", display: "inline-flex",
+                alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600,
+                backdropFilter: "blur(8px)", position: "relative",
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>filter_list</span>
+              {activeFilter && (
+                <span style={{
+                  width: 18, height: 18, borderRadius: 999, fontSize: 11, fontWeight: 700,
+                  background: "#fff", color: "var(--hero-btn-text, #0f766e)",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                }}>1</span>
               )}
-            </div>
+            </button>
 
-            <div className="lqr-filter-wrap" ref={filterRef}>
-              <button
-                type="button"
-                className="lqr-filter-btn"
-                onClick={() => setFilterOpen((v) => !v)}
-                aria-label="Filter by status"
-                aria-haspopup="listbox"
-                aria-expanded={filterOpen}
-              >
-                <SlidersHorizontal size={20} />
-                {activeFilter && <span className="lqr-filter-badge">1</span>}
-              </button>
-
-              <AnimatePresence>
-                {filterOpen && (
-                  <motion.div
-                    className="lqr-filter-menu"
-                    role="listbox"
-                    aria-label="Filter by status"
-                    initial={{ opacity: 0, scale: 0.96, y: -6 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.97, y: -4 }}
-                    transition={{ duration: 0.16 }}
-                  >
-                    <p className="lqr-filter-menu__label">Status</p>
-                    {STATUS_FILTERS.map((option) => {
-                      const selected = statusFilter === option.value;
-                      const count = option.value === "ALL" ? requests.length : statusCounts[option.value] || 0;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          role="option"
-                          aria-selected={selected}
-                          className="lqr-filter-option"
-                          onClick={() => {
-                            setStatusFilter(option.value);
-                            setFilterOpen(false);
-                          }}
-                        >
-                          <span>{option.label}</span>
-                          <span className="lqr-filter-option__count">{count}</span>
-                          {selected && (
-                            <span className="lqr-filter-option__check" aria-hidden="true">
-                              <Check size={16} />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <AnimatePresence>
+              {filterOpen && (
+                <motion.div
+                  role="listbox"
+                  aria-label="Filter by status"
+                  initial={{ opacity: 0, scale: 0.96, y: -6 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, y: -4 }}
+                  transition={{ duration: 0.16 }}
+                  style={{
+                    position: "absolute", top: "100%", right: 0, marginTop: 8,
+                    minWidth: 200, padding: 8, borderRadius: 14,
+                    background: "var(--lqr-card, #fff)", border: "1px solid var(--lqr-border, #e5e7eb)",
+                    boxShadow: "var(--lqr-shadow-lg, 0 20px 40px rgba(0,0,0,0.08))",
+                    zIndex: 50,
+                  }}
+                >
+                  <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "var(--lqr-text-muted, #94a3b8)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</p>
+                  {STATUS_FILTERS.map((option) => {
+                    const selected = statusFilter === option.value;
+                    const count = option.value === "ALL" ? requests.length : statusCounts[option.value] || 0;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => {
+                          setStatusFilter(option.value);
+                          setFilterOpen(false);
+                        }}
+                        style={{
+                          display: "flex", alignItems: "center", justifyContent: "space-between",
+                          width: "100%", padding: "8px 12px", borderRadius: 10, border: "none",
+                          background: selected ? "var(--lqr-primary-tint, rgba(20,184,166,0.1))" : "transparent",
+                          color: "var(--lqr-text, #0f172a)", cursor: "pointer", fontSize: 14, fontWeight: 500,
+                        }}
+                      >
+                        <span>{option.label}</span>
+                        <span style={{ fontSize: 12, color: "var(--lqr-text-muted, #94a3b8)", fontWeight: 600 }}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </header>
+        </div>
+      </HeroSection>
 
         {/* ─── Summary cards ─── */}
         <section className="lqr-stats" aria-label="Request summary">
@@ -423,7 +429,6 @@ export default function LearnerSessionRequestsPage() {
             />
           )}
         </AnimatePresence>
-      </motion.div>
     </div>
   );
 }

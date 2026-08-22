@@ -86,9 +86,18 @@ export default function LearnerSettingsPage({ profile, notify, onProfileUpdated 
             <span className="material-symbols-outlined">settings</span>
           </div>
         }
-      />
+      >
+        <a href="#username" className="hero-section__btn hero-section__btn--secondary" style={{ textDecoration: "none" }}>
+          <span className="material-symbols-outlined">person</span>
+          Account
+        </a>
+        <a href="#notifications" className="hero-section__btn hero-section__btn--secondary" style={{ textDecoration: "none" }}>
+          <span className="material-symbols-outlined">notifications</span>
+          Notifications
+        </a>
+      </HeroSection>
 
-      <div style={{ marginTop: 20 }}>
+      <div id="username" style={{ marginTop: 20, scrollMarginTop: 80 }}>
         <UsernameSettingsCard
           profile={profile}
           notify={notify}
@@ -96,7 +105,7 @@ export default function LearnerSettingsPage({ profile, notify, onProfileUpdated 
         />
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <div id="notifications" style={{ marginTop: 20, scrollMarginTop: 80 }}>
         {localPrefs ? (
           <div className="mp-card">
             <div className="mp-section__head">

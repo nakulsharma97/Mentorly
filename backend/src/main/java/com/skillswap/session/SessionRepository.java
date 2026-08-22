@@ -54,6 +54,18 @@ public interface SessionRepository extends JpaRepository<SkillSession, Long> {
     long countByStatus(SessionStatus status);
 
     /**
+     * Upcoming sessions: ACCEPTED sessions whose startTime is in the future.
+     */
+    @Query("SELECT COUNT(s) FROM SkillSession s WHERE s.status = 'ACCEPTED' AND s.startTime > CURRENT_TIMESTAMP")
+    long countUpcoming();
+
+    /**
+     * Ongoing sessions: ACCEPTED sessions where now is between startTime and endTime.
+     */
+    @Query("SELECT COUNT(s) FROM SkillSession s WHERE s.status = 'ACCEPTED' AND s.startTime <= CURRENT_TIMESTAMP AND s.endTime >= CURRENT_TIMESTAMP")
+    long countOngoing();
+
+    /**
      * Session status distribution (PENDING / ACCEPTED / COMPLETED / CANCELLED) —
      * feeds the admin dashboard distribution chart.
      */

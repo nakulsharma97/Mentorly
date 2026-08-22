@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
+import HeroSection from "../components/HeroSection";
 import "./my-learning.css";
 import "./tasks.css";
 
@@ -798,48 +799,46 @@ export default function LearnerTasksPage() {
 
   return (
     <div className="md-page" style={{ maxWidth: 1200, margin: "0 auto" }}>
-      <header className="dt-hero">
-        <div className="dt-hero-decor" aria-hidden="true">
-          <span className="dt-hero-orb dt-hero-orb--1" />
-          <span className="dt-hero-orb dt-hero-orb--2" />
-        </div>
-        <div className="dt-hero-main">
-          <span className="dt-hero-eyebrow">
+      <HeroSection
+        className="hero-section--compact"
+        badge={
+          <>
             <Icon name="task_alt" /> Daily Tasks
-          </span>
-          <h1>Stay consistent, complete your learning tasks, and make progress every day.</h1>
-          <p className="dt-hero-date">{formatLongDate(new Date())}</p>
-          <div className="dt-hero-progress">
-            <div className="dt-hero-progress-head">
-              <span>
-                {todayCompleted} of {todayTotal} tasks completed
-              </span>
-              <b>{progress}%</b>
-            </div>
-            <div className="ml-progress-bar">
-              <span style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-          <div className="dt-hero-actions">
-            <button type="button" className="dt-hero-btn dt-hero-btn--outline" onClick={openAdd}>
-              <Icon name="add" /> Add Task
-            </button>
-            <button
-              type="button"
-              className={`dt-hero-btn dt-hero-btn--outline ${view === "calendar" ? "is-active" : ""}`}
-              onClick={() => setView(view === "calendar" ? "list" : "calendar")}
-            >
-              <Icon name={view === "calendar" ? "view_list" : "calendar_month"} />
-              {view === "calendar" ? "List View" : "Calendar View"}
-            </button>
-          </div>
-        </div>
-        <div className="dt-hero-visual" aria-hidden="true">
-          <div className="dt-hero-visual-icon">
+          </>
+        }
+        title="Stay consistent, complete your learning tasks, and make progress every day."
+        subtitle={formatLongDate(new Date())}
+        illustration={
+          <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">assignment_turned_in</span>
           </div>
+        }
+      >
+        <div className="dt-hero-progress">
+          <div className="dt-hero-progress-head">
+            <span>
+              {todayCompleted} of {todayTotal} tasks completed
+            </span>
+            <b>{progress}%</b>
+          </div>
+          <div className="ml-progress-bar">
+            <span style={{ width: `${progress}%` }} />
+          </div>
         </div>
-      </header>
+        <div className="hero-section__actions" style={{ marginTop: 14 }}>
+          <button type="button" className="hero-section__btn hero-section__btn--secondary" onClick={openAdd}>
+            <Icon name="add" /> Add Task
+          </button>
+          <button
+            type="button"
+            className={`hero-section__btn hero-section__btn--secondary ${view === "calendar" ? "is-active" : ""}`}
+            onClick={() => setView(view === "calendar" ? "list" : "calendar")}
+          >
+            <Icon name={view === "calendar" ? "view_list" : "calendar_month"} />
+            {view === "calendar" ? "List View" : "Calendar View"}
+          </button>
+        </div>
+      </HeroSection>
 
       {state.loading ? (
         <div className="ml-skeleton" aria-label="Loading tasks...">

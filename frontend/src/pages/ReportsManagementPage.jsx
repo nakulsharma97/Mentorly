@@ -3,7 +3,6 @@ import useModalA11y from "../modules/admin/components/reports/useModalA11y";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckCircle2,
-  ChevronRight,
   CircleDot,
   Flag,
   Search,
@@ -342,19 +341,6 @@ export default function ReportsManagementPage({ notify }) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* ── Page header ── */}
-        <header>
-          <nav className="rpt-header__crumb" aria-label="Breadcrumb">
-            <span>Admin</span>
-            <ChevronRight size={15} aria-hidden="true" />
-            <span className="rpt-header__crumb-current">Reports &amp; Complaints</span>
-          </nav>
-          <h1>Reports &amp; Complaints</h1>
-          <p className="rpt-header__sub">
-            Review, investigate and take action on reports from the platform.
-          </p>
-        </header>
-
         {/* ── Hero banner ── */}
         <ReportsHero
           openCount={stats?.open ?? 0}

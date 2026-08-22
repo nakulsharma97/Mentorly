@@ -6,9 +6,8 @@ import {
 } from 'lucide-react';
 import client from '../api/client';
 import Icon from '../modules/common/dashboard/Icon';
+import HeroSection from '../components/HeroSection';
 import {
-  AuHero,
-  AuPageHeader,
   AuSkeleton,
   AuStat,
 } from '../modules/admin/ui';
@@ -631,8 +630,17 @@ export default function AdminOperationsPage({ notify }) {
     return (
       <div className="au au-page">
         <div className="au-inner">
-          <AuPageHeader crumb={["Admin", "Dashboard"]} title="Admin Control Center" subtitle="Loading moderation queue..." />
-          <AuSkeleton rows={5} label="Loading dashboard" />
+          <HeroSection
+            badge="CONVERSATIONS"
+            title="Conversations"
+            subtitle="Loading conversation data..."
+            illustration={
+              <div className="hero-section__watermark" aria-hidden="true">
+                <span className="material-symbols-outlined">forum</span>
+              </div>
+            }
+          />
+          <AuSkeleton rows={5} label="Loading conversations" />
         </div>
       </div>
     );
@@ -641,23 +649,20 @@ export default function AdminOperationsPage({ notify }) {
   return (
     <div className="au au-page">
       <div className="au-inner">
-        <AuPageHeader
-          crumb={["Admin", "Dashboard"]}
-          title="Admin Control Center"
-          subtitle="Review reports, track mentor verification, monitor conversations, and manage payments."
-        />
-
-        <AuHero
-          variant="dashboard"
-          label="Operations Overview"
-          title="Platform command center"
-          description="Everything your moderation and finance team needs to keep SkillSwap safe, verified and running smoothly — all in one place."
-          icon={BarChart3}
-          cta={
-            <button type="button" className="au-hero__cta" onClick={() => setActiveTab('reports')}>
+        <HeroSection
+          badge="CONVERSATIONS"
+          title="Conversations"
+          subtitle="Monitor learner and mentor conversations, review flagged messages, and manage communication across the platform."
+          primaryButton={
+            <button type="button" className="hero-section__btn hero-section__btn--primary" onClick={() => setActiveTab('reports')}>
+              <span className="material-symbols-outlined">flag</span>
               Review reports queue
-              <ArrowRight size={16} aria-hidden="true" />
             </button>
+          }
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">forum</span>
+            </div>
           }
         />
 

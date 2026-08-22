@@ -49,7 +49,7 @@ const PAGE_META = {
   "flagged-content": { title: "Flagged Content", search: "Search..." },
   verifications: { title: "Mentor Verifications", search: "Search..." },
   analytics: { title: "Analytics", search: "Search..." },
-  notifications: { title: "Broadcast Notification", search: "" },
+  notifications: { title: "Broadcast Notification", search: "Search broadcasts..." },
   "notification-center": { title: "Notifications", search: "" },
   "audit-log": { title: "Activity Timeline", search: "Search logs..." },
   health: { title: "Platform Health", search: "" },

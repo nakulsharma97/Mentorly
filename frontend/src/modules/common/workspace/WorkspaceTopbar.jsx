@@ -207,6 +207,7 @@ export default function WorkspaceTopbar({
         </div>
       </div>
 
+      {meta.search && (
       <div className="ws-top__search-wrap" ref={searchDropdownRef}>
         <label className="ws-top__search" htmlFor="ws-search">
           <SsIcon name="search" size={20} />
@@ -270,6 +271,7 @@ export default function WorkspaceTopbar({
           </div>
         )}
       </div>
+      )}
 
       <div className="ws-top__right">
         <NotificationCenter

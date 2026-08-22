@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
@@ -34,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Computes the full platform-health payload for the admin monitoring dashboard.
@@ -48,9 +51,6 @@ import java.util.TimeZone;
  * Nothing is hardcoded or seeded; when a probe fails (e.g. MySQL status vars are
  * unavailable) the metric degrades to a safe neutral value rather than throwing.
  */
-/**
- * Service implementing system health business logic.
- */
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -58,6 +58,10 @@ public class SystemHealthService {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("MMM d");
+
+    /** Cache TTL in milliseconds — 10 seconds. Frontend polls every 30s, so
+     * 10s keeps data fresh while eliminating redundant heavy computation. */
+    private static final long CACHE_TTL_MS = 10_000;
 
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
@@ -75,6 +79,15 @@ public class SystemHealthService {
 
     private String appVersion = "dev";
 
+    /** Simple time-based cache for the health payload. */
+    private final AtomicReference<CachedHealth> cache = new AtomicReference<>();
+
+    private record CachedHealth(MonitoringDtos.AdminHealthDto health, long timestamp) {
+        boolean isFresh() {
+            return System.currentTimeMillis() - timestamp < CACHE_TTL_MS;
+        }
+    }
+
     @PostConstruct
     void init() {
         String impl = MonitoringDtos.class.getPackage().getImplementationVersion();
@@ -83,32 +96,81 @@ public class SystemHealthService {
         }
     }
 
-    /** Builds the complete monitoring payload. */
+    /**
+     * Returns the cached health payload if fresh, otherwise recomputes.
+     * This avoids redundant heavy DB scans on every 30s poll.
+     */
     public MonitoringDtos.AdminHealthDto getPlatformHealth() {
+        CachedHealth cached = cache.get();
+        if (cached != null && cached.isFresh()) {
+            return cached.health();
+        }
+        MonitoringDtos.AdminHealthDto health = computeHealth();
+        cache.set(new CachedHealth(health, System.currentTimeMillis()));
+        return health;
+    }
+
+    /**
+     * Samples the latest health snapshot into the live chart history.
+     * Runs on a fixed schedule (every 15s) independent of HTTP requests.
+     */
+    @Scheduled(fixedRate = 15_000, initialDelay = 15_000)
+    public void recordHealthSampleOnSchedule() {
+        try {
+            MonitoringDtos.AdminHealthDto health = getPlatformHealth();
+            recordHealthSample(health);
+        } catch (Exception ex) {
+            log.debug("Health sample recording failed: {}", ex.getMessage());
+        }
+    }
+
+    /** Records one sampled snapshot into the stats history for live charts. */
+    public void recordHealthSample(MonitoringDtos.AdminHealthDto health) {
+        double cpu = health.system() != null ? health.system().cpuPercent() : 0;
+        double heap = health.system() != null ? health.system().heapPercent() : 0;
+        double db = health.database() != null ? Math.max(0, health.database().responseTimeMs()) : 0;
+        double api = health.api() != null ? health.api().avgResponseTimeMs() : 0;
+        double load = health.system() != null ? health.system().systemLoadAverage() : 0;
+        requestStatsService.recordSample(new RequestStatsService.SystemSample(
+                System.currentTimeMillis(), cpu, heap, db, api, load));
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  Core computation — runs only when cache is stale
+    // ══════════════════════════════════════════════════════════════════
+
+    private MonitoringDtos.AdminHealthDto computeHealth() {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime todayStart = now.withHour(0).withMinute(0).withSecond(0).withNano(0);
         OffsetDateTime dayAgo = now.minusDays(1);
         OffsetDateTime onlineCutoff = now.minusMinutes(15);
 
-        // ── System (JVM) ──
-        MonitoringDtos.SystemMetricsDto system = collectSystemMetrics(now);
+        // ── Independent probes — run concurrently ──
+        CompletableFuture<MonitoringDtos.SystemMetricsDto> systemFuture =
+                CompletableFuture.supplyAsync(() -> collectSystemMetrics(now));
+        CompletableFuture<MonitoringDtos.DatabaseHealthDto> databaseFuture =
+                CompletableFuture.supplyAsync(this::collectDatabaseMetrics);
+        CompletableFuture<MonitoringDtos.ApiMonitoringDto> apiFuture =
+                CompletableFuture.supplyAsync(this::collectApiMetrics);
+        CompletableFuture<List<MonitoringDtos.MicroserviceHealthDto>> servicesFuture =
+                CompletableFuture.supplyAsync(this::collectServiceMetrics);
+        CompletableFuture<MonitoringDtos.ErrorMetricsDto> errorsFuture =
+                CompletableFuture.supplyAsync(() -> collectErrorMetrics(todayStart, dayAgo));
 
-        // ── Database ──
-        MonitoringDtos.DatabaseHealthDto database = collectDatabaseMetrics();
+        // Wait for all concurrent probes
+        MonitoringDtos.SystemMetricsDto system = joinQuietly(systemFuture, "system");
+        MonitoringDtos.DatabaseHealthDto database = joinQuietly(databaseFuture, "database");
+        MonitoringDtos.ApiMonitoringDto api = joinQuietly(apiFuture, "api");
+        List<MonitoringDtos.MicroserviceHealthDto> services = joinQuietly(servicesFuture, "services");
+        MonitoringDtos.ErrorMetricsDto errors = joinQuietly(errorsFuture, "errors");
 
-        // ── API monitoring (real request stats) ──
-        MonitoringDtos.ApiMonitoringDto api = collectApiMetrics();
-
-        // ── Microservices (logical modules with real latency) ──
-        List<MonitoringDtos.MicroserviceHealthDto> services = collectServiceMetrics();
-
-        // ── Queues ──
+        // ── Queues (lightweight counts) ──
         MonitoringDtos.QueueHealthDto queues = new MonitoringDtos.QueueHealthDto(
                 appNotificationRepository.countByReadFalse(),
-                auditLogRepository.countByActionContainingIgnoreCaseAndCreatedAtAfter("EMAIL", dayAgo),
-                bookingRepository.countByBookingStatus(BookingStatus.PENDING),     // lifecycle scheduler backlog
-                loginAttemptRepository.countByBlockedUntilAfter(now),              // locked out accounts
-                auditLogRepository.countByActionContainingIgnoreCaseAndCreatedAtAfter("FAILED", dayAgo),
+                auditLogRepository.countBySeverityAndCreatedAtAfter("ERROR", dayAgo),
+                bookingRepository.countByBookingStatus(BookingStatus.PENDING),
+                loginAttemptRepository.countByBlockedUntilAfter(now),
+                auditLogRepository.countBySeverityAndCreatedAtAfter("CRITICAL", dayAgo),
                 bookingRepository.countByBookingStatus(BookingStatus.PENDING));
 
         // ── Security ──
@@ -122,9 +184,6 @@ public class SystemHealthService {
                 failedLogins24h, blockedUsers, suspicious24h, jwtErrors24h, unauthorized24h,
                 failedLogins24h + unauthorized24h + suspicious24h);
 
-        // ── Errors ──
-        MonitoringDtos.ErrorMetricsDto errors = collectErrorMetrics(todayStart, dayAgo);
-
         // ── Activity ──
         MonitoringDtos.ActivityMetricsDto activity = new MonitoringDtos.ActivityMetricsDto(
                 userRepository.countByLastActiveAtAfter(onlineCutoff),
@@ -135,13 +194,13 @@ public class SystemHealthService {
                 userRepository.countByCreatedAtAfter(todayStart),
                 bookingRepository.countByCreatedAtAfter(todayStart));
 
-        // ── Alerts (threshold derived from real metrics) ──
+        // ── Alerts ──
         List<MonitoringDtos.AlertDto> alerts = collectAlerts(system, database, api, errors, queues, services);
 
-        // ── Charts (real sampled history + real DB aggregates) ──
+        // ── Charts ──
         List<MonitoringDtos.NamedChartDto> charts = collectCharts(now);
 
-        // ── Logs (real captured application logs) ──
+        // ── Logs ──
         List<LogBufferService.LogEntry> logs = logBufferService.recent(null, null, 50);
 
         // ── Overall status ──
@@ -168,6 +227,16 @@ public class SystemHealthService {
                 alerts, charts, logs, logBufferService.size());
     }
 
+    /** Joins a CompletableFuture, returning a safe fallback on failure. */
+    private <T> T joinQuietly(CompletableFuture<T> future, String probe) {
+        try {
+            return future.get();
+        } catch (Exception ex) {
+            log.warn("Health probe '{}' failed: {}", probe, ex.getMessage());
+            return null;
+        }
+    }
+
     // ── System (JVM) ──────────────────────────────────────────────
 
     private MonitoringDtos.SystemMetricsDto collectSystemMetrics(OffsetDateTime now) {
@@ -192,7 +261,6 @@ public class SystemHealthService {
             cpuPercent = load >= 0 ? Math.round(load * 1000) / 10.0 : 0;
             loadAvg = osBean.getSystemLoadAverage() < 0 ? 0 : osBean.getSystemLoadAverage();
         } catch (Exception ex) {
-            // Older JDKs / restricted environments — keep neutral values.
             log.debug("Could not read OS metrics: {}", ex.getMessage());
         }
 
@@ -272,7 +340,6 @@ public class SystemHealthService {
                 poolPercent, poolMax, slowQueries, connectionErrors, dbSizeMb, driver);
     }
 
-    /** Reads a MySQL global status counter (best-effort, MySQL only). */
     private long mysqlStatusValue(String variableName) {
         try {
             List<Map<String, Object>> rows = jdbcTemplate.queryForList("SHOW GLOBAL STATUS LIKE ?", variableName);
@@ -281,11 +348,10 @@ public class SystemHealthService {
             }
             return Long.parseLong(String.valueOf(rows.get(0).get("Value")));
         } catch (Exception ex) {
-            return 0; // Not MySQL, or restricted privileges — neutral value.
+            return 0;
         }
     }
 
-    /** MySQL information_schema database size in MB (best-effort). */
     private double mysqlDbSizeMb() {
         try {
             String schema = jdbcTemplate.queryForObject("SELECT DATABASE()", String.class);
@@ -376,27 +442,27 @@ public class SystemHealthService {
 
     private MonitoringDtos.ErrorMetricsDto collectErrorMetrics(OffsetDateTime todayStart,
             OffsetDateTime dayAgo) {
+        // Use severity column (indexed) instead of LIKE '%action%' scans.
         long errorsToday = auditLogRepository
-                .countByActionContainingIgnoreCaseAndCreatedAtAfter("ERROR", todayStart);
+                .countBySeverityAndCreatedAtAfter("ERROR", todayStart);
         long critical24h = auditLogRepository
-                .countByActionContainingIgnoreCaseAndCreatedAtAfter("CRITICAL", dayAgo);
+                .countBySeverityAndCreatedAtAfter("CRITICAL", dayAgo);
         long warnings24h = auditLogRepository
-                .countByActionContainingIgnoreCaseAndCreatedAtAfter("WARN", dayAgo);
+                .countBySeverityAndCreatedAtAfter("WARN", dayAgo);
         long exceptions24h = auditLogRepository
-                .countByActionContainingIgnoreCaseAndCreatedAtAfter("EXCEPTION", dayAgo);
+                .countBySeverityAndCreatedAtAfter("ERROR", dayAgo);
 
-        List<AuditLog> recentErrors = auditLogRepository
-                .findByActionContainingIgnoreCaseAndCreatedAtAfterOrderByCreatedAtDesc(
-                        "ERROR", dayAgo, PageRequest.of(0, 5));
+        List<AuditLog> recentErrors = auditLogRepository.errorsSince(dayAgo, PageRequest.of(0, 5));
         List<LogBufferService.LogEntry> stackTraces = recentErrors.stream()
                 .map(a -> new LogBufferService.LogEntry(
                         a.getCreatedAt().toString(), "audit", "ERROR",
                         a.getAction() + (a.getDetails() == null ? "" : " — " + a.getDetails())))
                 .toList();
 
+        // Single query for daily error trend instead of LIKE-based scan
         List<MonitoringDtos.ChartSeriesDto> trend = new ArrayList<>();
         try {
-            for (Object[] row : auditLogRepository.countDailyByActionContaining(dayAgo.minusDays(13), "ERROR")) {
+            for (Object[] row : auditLogRepository.countDailyTrendSince(dayAgo.minusDays(13))) {
                 LocalDate d = toLocalDate(row[0]);
                 trend.add(new MonitoringDtos.ChartSeriesDto(DAY_FMT.format(d), ((Number) row[1]).longValue()));
             }
@@ -467,7 +533,6 @@ public class SystemHealthService {
     private List<MonitoringDtos.NamedChartDto> collectCharts(OffsetDateTime now) {
         List<MonitoringDtos.NamedChartDto> charts = new ArrayList<>();
 
-        // Sampled history (bounded) from RequestStatsService — real measurements.
         List<RequestStatsService.SystemSample> samples = requestStatsService.samples();
 
         // CPU
@@ -530,7 +595,6 @@ public class SystemHealthService {
 
     // ── Overall status + helpers ──────────────────────────────────
 
-    /** Converts a native DATE column into a LocalDate (tolerates both JDBC variants). */
     private static LocalDate toLocalDate(Object value) {
         if (value instanceof java.sql.Date sql) {
             return sql.toLocalDate();
@@ -583,16 +647,5 @@ public class SystemHealthService {
     /** True count of buffered entries matching the level + query filters. */
     public long countLogs(String level, String q) {
         return logBufferService.count(level, q);
-    }
-
-    /** Records one sampled snapshot into the stats history for live charts. */
-    public void recordHealthSample(MonitoringDtos.AdminHealthDto health) {
-        double cpu = health.system() != null ? health.system().cpuPercent() : 0;
-        double heap = health.system() != null ? health.system().heapPercent() : 0;
-        double db = health.database() != null ? Math.max(0, health.database().responseTimeMs()) : 0;
-        double api = health.api() != null ? health.api().avgResponseTimeMs() : 0;
-        double load = health.system() != null ? health.system().systemLoadAverage() : 0;
-        requestStatsService.recordSample(new RequestStatsService.SystemSample(
-                System.currentTimeMillis(), cpu, heap, db, api, load));
     }
 }

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Edit3, GitMerge, PlusCircle, Trash2, X } from 'lucide-react';
+import { BookOpen, CheckCircle, Clock, Edit3, FolderOpen, GitMerge, PlusCircle, Trash2, X } from 'lucide-react';
 import client from '../api/client';
+import HeroSection from '../components/HeroSection';
 import {
   AuBadge,
   AuButton,
   AuEmpty,
-  AuPageHeader,
   AuSkeleton,
+  AuStat,
   AuTable,
   AuToolbar,
   toneFor,
@@ -43,6 +44,19 @@ export default function SkillManagementPage({ notify }) {
   const [mergingSkill, setMergingSkill] = useState(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const res = await client.get('/api/v1/admin/skills/skill-requests?status=PENDING');
+      const data = Array.isArray(res?.data?.data) ? res.data.data : [];
+      setPendingCount(data.length);
+    } catch { /* non-critical */ }
+  }, []);
+
+  useEffect(() => { loadPendingCount(); }, [loadPendingCount]);
+
+  const categories = useMemo(() => new Set(skills.map(s => s.category).filter(Boolean)).size, [skills]);
 
   const loadSkills = useCallback(async () => {
     setLoading(true);
@@ -191,11 +205,24 @@ export default function SkillManagementPage({ notify }) {
   return (
     <div className="au au-page">
       <div className="au-inner">
-        <AuPageHeader
-          crumb={["Admin", "Skills"]}
+        <HeroSection
+          badge="SKILLS"
           title="Skill Management"
           subtitle="Manage the skill catalog: edit or delete skills, merge duplicates into a single canonical entry, and approve new skill categories proposed by users."
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">school</span>
+            </div>
+          }
         />
+
+        {/* ── Stat cards ── */}
+        <div className="au-stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <AuStat icon={BookOpen} label="Total Skills" value={skills.length} subtitle="In the catalog" tone="slate" index={0} />
+          <AuStat icon={FolderOpen} label="Categories" value={categories} subtitle="Distinct categories" tone="blue" index={1} />
+          <AuStat icon={Clock} label="Pending Requests" value={pendingCount} subtitle="Awaiting review" tone="amber" index={2} />
+          <AuStat icon={CheckCircle} label="Approved Requests" value={requests.length} subtitle={tab === 'requests' ? `${requestStatus.toLowerCase()} requests` : 'Currently displayed'} tone="green" index={3} />
+        </div>
 
         {/* Tabs */}
         <div className="au-card" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap", width: "fit-content" }}>

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CalendarX, CalendarDays, Trash2, X } from "lucide-react";
+import { CalendarX, CalendarDays, Clock, PlayCircle, Trash2, X, XOctagon } from "lucide-react";
 import client from "../api/client";
+import HeroSection from "../components/HeroSection";
 import {
   AuBadge,
   AuEmpty,
-  AuPageHeader,
   AuPagination,
   AuSkeleton,
+  AuStat,
   AuTable,
   AuToolbar,
   toneFor,
@@ -30,6 +31,19 @@ const STATUS_OPTIONS = [
 
 const PAGE_SIZE = 20;
 
+/** Derive display status for ACCEPTED sessions based on start/end times. */
+function deriveStatus(s) {
+  if (s.status !== "ACCEPTED") return s.status;
+  const now = Date.now();
+  const start = s.startTime ? new Date(s.startTime).getTime() : 0;
+  const end = s.endTime ? new Date(s.endTime).getTime() : 0;
+  if (start > now) return "UPCOMING";
+  if (end >= now) return "ONGOING";
+  return s.status;
+}
+
+const DISPLAY_TONES = { UPCOMING: "blue", ONGOING: "green", CANCELLED: "red" };
+
 export default function SessionManagementPage({ notify }) {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +56,16 @@ export default function SessionManagementPage({ notify }) {
   const [drawerSession, setDrawerSession] = useState(null);
   const [drawerData, setDrawerData] = useState(null);
   const [drawerLoading, setDrawerLoading] = useState(false);
+  const [stats, setStats] = useState({ total: 0, upcoming: 0, ongoing: 0, cancelled: 0 });
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await client.get("/api/v1/admin/sessions/stats");
+      if (res?.data?.data) setStats(res.data.data);
+    } catch { /* non-critical */ }
+  }, []);
+
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -114,11 +138,24 @@ export default function SessionManagementPage({ notify }) {
   return (
     <div className="au au-page">
       <div className="au-inner">
-        <AuPageHeader
-          crumb={["Admin", "Sessions"]}
+        <HeroSection
+          badge="SESSIONS"
           title="Session Management"
           subtitle="View, search, filter, and manage all sessions. Cancel sessions to remove the meeting link, or permanently delete inappropriate sessions (only allowed when they have no bookings)."
+          illustration={
+            <div className="hero-section__watermark" aria-hidden="true">
+              <span className="material-symbols-outlined">event</span>
+            </div>
+          }
         />
+
+        {/* ── Stat cards ── */}
+        <div className="au-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+          <AuStat icon={CalendarDays} label="Total Sessions" value={stats.total} subtitle="All-time sessions" tone="slate" index={0} />
+          <AuStat icon={Clock} label="Upcoming" value={stats.upcoming} subtitle="Scheduled sessions" tone="blue" index={1} />
+          <AuStat icon={PlayCircle} label="Ongoing" value={stats.ongoing} subtitle="Currently in progress" tone="green" index={2} />
+          <AuStat icon={XOctagon} label="Cancelled" value={stats.cancelled} subtitle="Cancelled sessions" tone="red" index={3} />
+        </div>
 
         <AuToolbar
           search={search}
@@ -159,7 +196,7 @@ export default function SessionManagementPage({ notify }) {
                       <td><strong>{s.title}</strong></td>
                       <td>{s.mentorName}</td>
                       <td style={{ fontVariantNumeric: "tabular-nums" }}>{Number(s.priceAmount || 0).toFixed(2)}</td>
-                      <td><AuBadge tone={toneFor(s.status)} dot>{s.status}</AuBadge></td>
+                      <td><AuBadge tone={DISPLAY_TONES[deriveStatus(s)] || toneFor(s.status)} dot>{deriveStatus(s)}</AuBadge></td>
                       <td>{s.sessionType}</td>
                       <td style={{ fontSize: 13, color: "var(--au-text-2)" }}>{s.participantCount}/{s.maxParticipants}</td>
                       <td style={{ fontSize: 13, color: "var(--au-text-2)" }}>{formatDate(s.startTime)}</td>
