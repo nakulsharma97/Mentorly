@@ -231,7 +231,7 @@ public class GoogleCalendarMeetingProvider implements MeetingProviderService {
                 GoogleNetHttpTransport.newTrustedTransport(),
                 JSON_FACTORY,
                 request -> request.getHeaders().setAuthorization("Bearer " + accessToken))
-                .setApplicationName("SkillSwap")
+                .setApplicationName("Mentorly")
                 .build();
     }
 

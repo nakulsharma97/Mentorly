@@ -170,7 +170,7 @@ export default function MentorStudentsPage({ profile, notify }) {
   }, [profile?.id, notify]);
 
   useEffect(() => {
-    document.title = "Students | SkillSwap Mentor";
+    document.title = "Students | Mentorly Mentor";
   }, []);
 
   useEffect(() => {

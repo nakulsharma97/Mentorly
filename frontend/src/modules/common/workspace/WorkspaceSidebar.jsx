@@ -9,7 +9,7 @@ import { useUnreadMessageCount } from "./useUnreadMessages";
 const DRAWER_TRANSITION = { duration: 0.3, ease: "easeInOut" };
 
 /**
- * SkillSwap Sidebar — Lucide icons via SsIcon.
+ * Mentorly Sidebar — Lucide icons via SsIcon.
  * @param brand         { title, subtitle }
  * @param groups        [{ label, links: [{ to, label, icon, end }] }]
  * @param secondaryLinks[{ to, label, icon }]
@@ -122,11 +122,11 @@ export default function WorkspaceSidebar({
   const sidebarInner = (
     <>
       <div className="ws-sb__brand">
-        <div className="ws-sb__logo" aria-label={brand?.title || "SkillSwap"}>
+        <div className="ws-sb__logo" aria-label={brand?.title || "Mentorly"}>
           <SsIcon name="zap" size={22} strokeWidth={2.5} />
         </div>
         <div className="ws-sb__brand-copy">
-          <p className="ws-sb__brand-title">{brand?.title || "SkillSwap"}</p>
+          <p className="ws-sb__brand-title">{brand?.title || "Mentorly"}</p>
           <p className="ws-sb__brand-sub">{brand?.subtitle}</p>
         </div>
       </div>

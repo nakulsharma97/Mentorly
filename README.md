@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/skillswapper-logo.svg" alt="SkillSwapper" width="540" />
+  <img src="docs/assets/mentorly-logo.svg" alt="Mentorly" width="540" />
 </p>
 
 <p align="center">
@@ -25,7 +25,7 @@
 
 > The CI badges show the live status of the GitHub Actions workflows on `main`. The coverage badges show the **real measured values** from the latest local runs: backend **47.6% line coverage** (JaCoCo — `cd backend && mvn clean verify`, report at `backend/target/site/jacoco/index.html`) and frontend **52.9% line coverage** (Vitest — `cd frontend && npm run test:coverage`, report at `frontend/coverage/index.html`). These are static badges: regenerate them by re-running the commands above and updating the numbers, or replace them with auto-updating badges once a hosted coverage service (e.g. Codecov) is connected to CI.
 
-SkillSwapper is a full-stack, role-based skill-sharing marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes a simulated payment-gateway layer, real-time chat, Google Meet integration, review moderation, and wallet payouts.
+Mentorly is a full-stack, role-based mentorship marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes a simulated payment-gateway layer, real-time chat, Google Meet integration, review moderation, and wallet payouts.
 
 This repository contains:
 
@@ -653,4 +653,4 @@ The `docs/` folder contains the full project knowledge base:
 
 ## License
 
-SkillSwapper is open-sourced under the [MIT License](LICENSE).
+Mentorly is open-sourced under the [MIT License](LICENSE).

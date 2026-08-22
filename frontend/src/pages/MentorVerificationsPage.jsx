@@ -937,7 +937,7 @@ export default function MentorVerificationsPage({ notify }) {
                     {selected.mentor?.email && (
                       <a
                         className="admin-action-btn admin-action-send"
-                        href={`mailto:${encodeURIComponent(selected.mentor.email)}?subject=${encodeURIComponent("SkillSwap: Your mentor verification application")}&body=${encodeURIComponent(`Hi ${selected.mentor.fullName || "there"},\n\nRegarding your mentor verification application (#${selected.id}, status: ${selected.status || "PENDING"}).\n\n${selected.resumeUrl ? `We've reviewed the resume you submitted: ${selected.resumeUrl}\n` : ""}${selected.documentUrl ? `Verification document: ${selected.documentUrl}\n` : ""}\nBest regards,\nThe SkillSwap team`)}`}
+                        href={`mailto:${encodeURIComponent(selected.mentor.email)}?subject=${encodeURIComponent("Mentorly: Your mentor verification application")}&body=${encodeURIComponent(`Hi ${selected.mentor.fullName || "there"},\n\nRegarding your mentor verification application (#${selected.id}, status: ${selected.status || "PENDING"}).\n\n${selected.resumeUrl ? `We've reviewed the resume you submitted: ${selected.resumeUrl}\n` : ""}${selected.documentUrl ? `Verification document: ${selected.documentUrl}\n` : ""}\nBest regards,\nThe Mentorly team`)}`}
                       >
                         <Icon name="send" /> Send message
                       </a>

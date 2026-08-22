@@ -11,7 +11,7 @@ export const EMPTY_ARRAY = [];
 
 export function useDocumentTitle(title) {
   useEffect(() => {
-    document.title = `${title} | SkillSwap`;
+    document.title = `${title} | Mentorly`;
   }, [title]);
 }
 

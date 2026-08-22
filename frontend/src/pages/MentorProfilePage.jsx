@@ -1307,9 +1307,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
       {showShareModal && (
         <ShareModal
           title="Share this mentor"
-          subtitle="Help someone find the right mentor on SkillSwap."
+          subtitle="Help someone find the right mentor on Mentorly."
           url={window.location.href}
-          text={`Check out ${mentor?.fullName || "this mentor"} on SkillSwap.`}
+          text={`Check out ${mentor?.fullName || "this mentor"} on Mentorly.`}
           onClose={() => setShowShareModal(false)}
         />
       )}

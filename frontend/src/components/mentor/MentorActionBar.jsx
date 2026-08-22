@@ -35,8 +35,8 @@ export default function MentorActionBar({
       try {
         await navigator.share({
           title: mentor?.fullName
-            ? `${mentor.fullName} on SkillSwapper`
-            : "SkillSwapper mentor",
+            ? `${mentor.fullName} on Mentorly`
+            : "Mentorly mentor",
           url,
         });
         return;

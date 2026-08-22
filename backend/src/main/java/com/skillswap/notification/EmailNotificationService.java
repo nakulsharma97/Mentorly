@@ -29,14 +29,14 @@ public class EmailNotificationService {
     @Value("${app.email.enabled:false}")
     private boolean emailEnabled;
 
-    @Value("${app.email.from:no-reply@skillswap.local}")
+    @Value("${app.email.from:no-reply@mentorly.local}")
     private String fromAddress;
 
     @Async("emailTaskExecutor")
     public void sendBookingCreated(User mentor, User learner, SkillSession session) {
         sendNotificationEmail(
                 mentor,
-                "SkillSwap: New booking request",
+                "Mentorly: New booking request",
                 EmailTemplates.bookingCreatedToMentor(
                         nameOf(mentor),
                         nameOf(learner),
@@ -48,7 +48,7 @@ public class EmailNotificationService {
     public void sendBookingAccepted(User learner, User mentor, SkillSession session) {
         sendNotificationEmail(
                 learner,
-                "SkillSwap: Booking accepted",
+                "Mentorly: Booking accepted",
                 EmailTemplates.bookingAcceptedToLearner(
                         nameOf(learner),
                         nameOf(mentor),
@@ -60,7 +60,7 @@ public class EmailNotificationService {
     public void sendBookingCompleted(User learner, User mentor, SkillSession session) {
         sendNotificationEmail(
                 learner,
-                "SkillSwap: Booking completed",
+                "Mentorly: Booking completed",
                 EmailTemplates.bookingCompletedToLearner(
                         nameOf(learner),
                         nameOf(mentor),
@@ -71,7 +71,7 @@ public class EmailNotificationService {
     public void sendBookingCancelled(User learner, SkillSession session, int refundPercent) {
         sendNotificationEmail(
                 learner,
-                "SkillSwap: Booking cancelled",
+                "Mentorly: Booking cancelled",
                 EmailTemplates.bookingCancelledToLearner(
                         nameOf(learner),
                         titleOf(session),
@@ -82,7 +82,7 @@ public class EmailNotificationService {
     public void sendVerificationApproved(User mentor) {
         sendNotificationEmail(
                 mentor,
-                "SkillSwap: Mentor verification approved",
+                "Mentorly: Mentor verification approved",
                 EmailTemplates.mentorVerificationApproved(nameOf(mentor)));
     }
 
@@ -90,7 +90,7 @@ public class EmailNotificationService {
     public void sendVerificationRejected(User mentor, String reason) {
         sendNotificationEmail(
                 mentor,
-                "SkillSwap: Mentor verification rejected",
+                "Mentorly: Mentor verification rejected",
                 EmailTemplates.mentorVerificationRejected(nameOf(mentor), reason));
     }
 

@@ -80,7 +80,7 @@ async function apiGet(path, cfg) {
 }
 
 function useDocTitle(title) {
-  useEffect(() => { document.title = `${title} | SkillSwap`; }, [title]);
+  useEffect(() => { document.title = `${title} | Mentorly`; }, [title]);
 }
 
 function useDebounced(val, delay = 300) {

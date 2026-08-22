@@ -30,7 +30,7 @@ export default function PremiumFooter({ onScrollToSection }) {
               <div className="brand-logo">SS</div>
             </div>
             <div className="brand-info">
-              <h3 className="brand-name">SkillSwap</h3>
+              <h3 className="brand-name">Mentorly</h3>
               <p className="brand-tagline">Teach. Learn. Grow.</p>
               <p className="brand-description">
                 A collaborative platform connecting learners and mentors through
@@ -153,7 +153,7 @@ export default function PremiumFooter({ onScrollToSection }) {
           {/* Left: Copyright */}
           <div className="footer-bottom-left">
             <p className="footer-copyright">
-              © 2026 SkillSwap. All rights reserved.
+              © 2026 Mentorly. All rights reserved.
             </p>
           </div>
 

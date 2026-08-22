@@ -1,6 +1,6 @@
 import WorkspaceLayout from "../../common/workspace/WorkspaceLayout";
 
-const BRAND = { title: "SkillSwap", subtitle: "Admin Console" };
+const BRAND = { title: "Mentorly", subtitle: "Admin Console" };
 
 const GROUPS = [
   {

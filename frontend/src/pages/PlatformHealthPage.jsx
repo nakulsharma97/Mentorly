@@ -390,7 +390,7 @@ export default function PlatformHealthPage({ notify }) {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "SkillSwap";
+      workbook.creator = "Mentorly";
       workbook.created = new Date();
       const sheet = workbook.addWorksheet("Platform Health", { views: [{ state: "frozen", ySplit: 1 }] });
       sheet.addRows(exportRows);
@@ -416,7 +416,7 @@ export default function PlatformHealthPage({ notify }) {
       const h = health || {};
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);
-      doc.text("SkillSwap — Platform Health", 14, 16);
+      doc.text("Mentorly — Platform Health", 14, 16);
       doc.setFontSize(9);
       doc.text(`Generated: ${new Date().toLocaleDateString()} · Status: ${h.overallStatus || h.status || "unknown"}`, 14, 24);
       doc.autoTable({

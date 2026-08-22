@@ -7,7 +7,7 @@ export default function MentorNotificationsPage({ notify }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    document.title = "Notifications | SkillSwap";
+    document.title = "Notifications | Mentorly";
   }, []);
 
   return (

@@ -41,7 +41,7 @@ const BASE_PROPS = {
   unreadNotifications: 0,
   onUnreadCountChange: vi.fn(),
   onNotify: vi.fn(),
-  brand: { name: "SkillSwap" },
+  brand: { name: "Mentorly" },
   groups: [],
   secondaryLinks: [],
   pageMeta: {},
@@ -50,7 +50,7 @@ const BASE_PROPS = {
   profileMenu: [],
 };
 
-function renderLayout(initialTitle = "My Page | SkillSwap") {
+function renderLayout(initialTitle = "My Page | Mentorly") {
   document.title = initialTitle;
   return render(
     <MemoryRouter initialEntries={["/"]}>
@@ -85,26 +85,26 @@ describe("WorkspaceLayout tab title", () => {
 
   it("prefixes the tab title with the unread count and removes it when read", () => {
     renderLayout();
-    expect(document.title).toBe("My Page | SkillSwap");
+    expect(document.title).toBe("My Page | Mentorly");
 
     act(() => setUnreadMessages(4));
-    expect(document.title).toBe("(4) My Page | SkillSwap");
+    expect(document.title).toBe("(4) My Page | Mentorly");
 
     act(() => setUnreadMessages(0));
-    expect(document.title).toBe("My Page | SkillSwap");
+    expect(document.title).toBe("My Page | Mentorly");
   });
 
   it("re-applies the prefix when a page effect writes a fresh title, then settles", async () => {
     renderLayout();
     act(() => setUnreadMessages(3));
-    expect(document.title).toBe("(3) My Page | SkillSwap");
+    expect(document.title).toBe("(3) My Page | Mentorly");
 
     // Simulate navigation: the page-level effect writes a new title.
     // Regression: this used to create a self-sustaining MutationObserver loop
     // (every write to document.title fired the observer, which wrote again)
     // that froze the entire workspace in real browsers.
     act(() => {
-      document.title = "Reviews & Ratings | SkillSwap Mentor";
+      document.title = "Reviews & Ratings | Mentorly Mentor";
     });
 
     // Let the observer deliver its mutation and re-apply the prefix once.
@@ -113,7 +113,7 @@ describe("WorkspaceLayout tab title", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(document.title).toBe("(3) Reviews & Ratings | SkillSwap Mentor");
+    expect(document.title).toBe("(3) Reviews & Ratings | Mentorly Mentor");
 
     // The observer must not keep rewriting the title.
     const settled = document.title;
@@ -130,7 +130,7 @@ describe("WorkspaceLayout tab title", () => {
     // Unread count arrives -> exactly one prefix write, then the observer
     // re-fires but must no-op (identical value) instead of writing again.
     act(() => setUnreadMessages(3));
-    expect(document.title).toBe("(3) My Page | SkillSwap");
+    expect(document.title).toBe("(3) My Page | Mentorly");
     await act(async () => {
       await Promise.resolve();
     });
@@ -140,13 +140,13 @@ describe("WorkspaceLayout tab title", () => {
     // the observer re-prefixing exactly once (3). It must then settle — the
     // count must not keep growing across further microtask ticks.
     act(() => {
-      document.title = "Reviews & Ratings | SkillSwap Mentor";
+      document.title = "Reviews & Ratings | Mentorly Mentor";
     });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(document.title).toBe("(3) Reviews & Ratings | SkillSwap Mentor");
+    expect(document.title).toBe("(3) Reviews & Ratings | Mentorly Mentor");
     expect(titleWrites).toBe(3);
     const afterRePrefix = titleWrites;
     await act(async () => {
@@ -160,7 +160,7 @@ describe("WorkspaceLayout tab title", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(document.title).toBe("Reviews & Ratings | SkillSwap Mentor");
+    expect(document.title).toBe("Reviews & Ratings | Mentorly Mentor");
     expect(titleWrites).toBe(4);
   });
 });

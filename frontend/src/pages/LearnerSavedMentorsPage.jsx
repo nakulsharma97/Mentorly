@@ -9,7 +9,7 @@ import "./LearnerPages.css";
 
 function useDocumentTitle(title) {
   useEffect(() => {
-    document.title = `${title} | SkillSwap`;
+    document.title = `${title} | Mentorly`;
   }, [title]);
 }
 

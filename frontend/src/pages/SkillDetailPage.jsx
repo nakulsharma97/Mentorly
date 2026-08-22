@@ -251,7 +251,7 @@ export default function SkillDetailPage({ notify }) {
   }, [skill?.name, skill?.id]);
 
   useEffect(() => {
-    document.title = `${skill?.name || "Skill Details"} | SkillSwap`;
+    document.title = `${skill?.name || "Skill Details"} | Mentorly`;
   }, [skill]);
 
   if (loadState === "loading") {

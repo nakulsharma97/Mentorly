@@ -63,30 +63,30 @@ describe("unreadMessagesStore", () => {
   });
 
   it("leaves the tab title untouched when there are no unread messages", () => {
-    expect(formatTabTitle("Reviews & Ratings | SkillSwap Mentor", 0)).toBe(
-      "Reviews & Ratings | SkillSwap Mentor",
+    expect(formatTabTitle("Reviews & Ratings | Mentorly Mentor", 0)).toBe(
+      "Reviews & Ratings | Mentorly Mentor",
     );
-    expect(formatTabTitle("", 0)).toBe("SkillSwap");
+    expect(formatTabTitle("", 0)).toBe("Mentorly");
   });
 
   it("prefixes the tab title with the unread count", () => {
-    expect(formatTabTitle("Dashboard | SkillSwap", 3)).toBe(
-      "(3) Dashboard | SkillSwap",
+    expect(formatTabTitle("Dashboard | Mentorly", 3)).toBe(
+      "(3) Dashboard | Mentorly",
     );
-    expect(formatTabTitle("Dashboard | SkillSwap", 150)).toBe(
-      "(99+) Dashboard | SkillSwap",
+    expect(formatTabTitle("Dashboard | Mentorly", 150)).toBe(
+      "(99+) Dashboard | Mentorly",
     );
   });
 
   it("strips a stale prefix before re-applying (idempotent)", () => {
-    expect(formatTabTitle("(3) Dashboard | SkillSwap", 5)).toBe(
-      "(5) Dashboard | SkillSwap",
+    expect(formatTabTitle("(3) Dashboard | Mentorly", 5)).toBe(
+      "(5) Dashboard | Mentorly",
     );
-    expect(formatTabTitle("(99+) Dashboard | SkillSwap", 0)).toBe(
-      "Dashboard | SkillSwap",
+    expect(formatTabTitle("(99+) Dashboard | Mentorly", 0)).toBe(
+      "Dashboard | Mentorly",
     );
-    expect(formatTabTitle("(3) Dashboard | SkillSwap", 3)).toBe(
-      "(3) Dashboard | SkillSwap",
+    expect(formatTabTitle("(3) Dashboard | Mentorly", 3)).toBe(
+      "(3) Dashboard | Mentorly",
     );
   });
 });

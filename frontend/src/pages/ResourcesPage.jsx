@@ -220,7 +220,7 @@ export default function ResourcesPage() {
                           {String(session?.title || 'Masterclass').trim()}
                         </h3>
                         <p className="text-xs text-on-surface-variant">
-                          {String(session?.mentor?.fullName || 'SkillSwap Mentor').trim()}
+                          {String(session?.mentor?.fullName || 'Mentorly Mentor').trim()}
                           {duration ? ` · ${duration}` : ''}
                         </p>
                         <span className="mt-4 text-xs font-semibold uppercase tracking-wide text-tertiary">

@@ -74,7 +74,7 @@ export default function LearnerSessionRequestsPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "My Requests | SkillSwap";
+    document.title = "My Requests | Mentorly";
     loadRequests();
   }, [loadRequests]);
 

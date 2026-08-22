@@ -977,7 +977,7 @@ export default function NotificationBroadcastPage({ notify }) {
                     <label htmlFor="nbc-actionUrl">Action URL</label>
                     <input id="nbc-actionUrl" type="url" value={composer.actionUrl}
                       onChange={(e) => setField("actionUrl", e.target.value)}
-                      placeholder="https://skillswap.com/..." />
+                      placeholder="https://mentorly.com/..." />
                   </div>
                 </div>
               )}
@@ -1008,7 +1008,7 @@ export default function NotificationBroadcastPage({ notify }) {
                   <div className="nbc-preview__head">
                     <span className="nbc-preview__avatar"><Icon name="notifications" /></span>
                     <div>
-                      <div className="nbc-preview__app">SkillSwap</div>
+                      <div className="nbc-preview__app">Mentorly</div>
                       <div className="nbc-preview__now">Just now</div>
                     </div>
                   </div>

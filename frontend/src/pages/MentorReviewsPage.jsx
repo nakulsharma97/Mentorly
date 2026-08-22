@@ -176,7 +176,7 @@ export default function MentorReviewsPage({ notify }) {
   const drawerTriggerRef = useRef(null);
 
   useEffect(() => {
-    document.title = "Reviews & Ratings | SkillSwap Mentor";
+    document.title = "Reviews & Ratings | Mentorly Mentor";
   }, []);
 
   // Close the Review Details drawer with Escape (matches the AuthModal
@@ -573,7 +573,7 @@ export default function MentorReviewsPage({ notify }) {
     const ExcelJS = (await import("exceljs")).default;
     const rows = buildExportRows(items);
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "SkillSwap";
+    workbook.creator = "Mentorly";
     workbook.created = new Date();
 
     const worksheet = workbook.addWorksheet("Reviews", {

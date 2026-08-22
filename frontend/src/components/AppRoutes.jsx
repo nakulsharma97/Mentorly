@@ -198,7 +198,7 @@ export default function AppRoutes({
                 notify({
                   type: "success",
                   title: "Profile completed",
-                  message: "You're all set! Enjoy SkillSwap.",
+                  message: "You're all set! Enjoy Mentorly.",
                 });
                 navigate(roleRoot(updated?.role || profile?.role), { replace: true });
               }}
@@ -208,7 +208,7 @@ export default function AppRoutes({
                 notify({
                   type: "success",
                   title: "Profile completed",
-                  message: "You're all set! Enjoy SkillSwap.",
+                  message: "You're all set! Enjoy Mentorly.",
                 });
                 navigate(
                   updated?.role === "MENTOR"
@@ -370,7 +370,7 @@ export default function AppRoutes({
                 title: isProfileComplete(profile) ? "Profile updated" : "Profile completed",
                 message: isProfileComplete(profile)
                   ? "Your profile changes have been saved."
-                  : "You're all set! Enjoy SkillSwap.",
+                  : "You're all set! Enjoy Mentorly.",
               });
               navigate(roleRoot(updated?.role || profile?.role), { replace: true });
             }}
@@ -382,7 +382,7 @@ export default function AppRoutes({
                 title: isProfileComplete(profile) ? "Profile updated" : "Profile completed",
                 message: isProfileComplete(profile)
                   ? "Your profile changes have been saved."
-                  : "You're all set! Enjoy SkillSwap.",
+                  : "You're all set! Enjoy Mentorly.",
               });
               navigate(
                 updated?.role === "MENTOR"

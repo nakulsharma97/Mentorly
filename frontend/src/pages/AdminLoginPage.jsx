@@ -55,7 +55,7 @@ export default function AdminLoginPage({ onLoggedIn, notify }) {
           role,
         });
         const msg =
-          "This portal is restricted to SkillSwap administrators. Learners and mentors should sign in from the main login page.";
+          "This portal is restricted to Mentorly administrators. Learners and mentors should sign in from the main login page.";
         setError(msg);
         notify?.({ type: "error", title: "Access restricted", message: msg });
         return;
@@ -134,7 +134,7 @@ export default function AdminLoginPage({ onLoggedIn, notify }) {
             <span className="material-symbols-outlined" aria-hidden="true">
               admin_panel_settings
             </span>
-            SkillSwap Admin
+            Mentorly Admin
           </UIBadge>
           <h2 id={titleId} className="admin-login-title">
             Admin Portal

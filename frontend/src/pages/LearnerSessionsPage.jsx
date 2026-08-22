@@ -17,7 +17,7 @@ const EMPTY_ARRAY = [];
 
 function useDocumentTitle(title) {
   useEffect(() => {
-    document.title = `${title} | SkillSwap`;
+    document.title = `${title} | Mentorly`;
   }, [title]);
 }
 
@@ -218,7 +218,7 @@ function generateSessionReceiptHtml(booking) {
 <body>
 <div class="receipt">
   <div class="receipt__header">
-    <div class="receipt__brand">SkillSwap</div>
+    <div class="receipt__brand">Mentorly</div>
     <span class="receipt__status">${status}</span>
   </div>
   <h1 class="receipt__title">${paid ? "Payment Receipt" : "Booking Receipt"}</h1>
@@ -237,7 +237,7 @@ function generateSessionReceiptHtml(booking) {
   </div>
   <div class="receipt__divider"></div>
   <div class="receipt__footer">
-    SkillSwap Platform · Generated ${new Date().toLocaleString()}<br>
+    Mentorly Platform · Generated ${new Date().toLocaleString()}<br>
     This is a computer-generated receipt.
   </div>
 </div>
@@ -1140,7 +1140,7 @@ export default function LearnerSessionsPage() {
         key: razorpayKeyId,
         amount: amountPaise,
         currency: payment.gatewayResponse.currency || "INR",
-        name: "Skill Swapper",
+        name: "Mentorly",
         description: `Payment for session with ${booking?.session?.mentor?.fullName || "mentor"}`,
         order_id: razorpayOrderId,
         theme: { color: "#0f766e" },

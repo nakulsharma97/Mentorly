@@ -497,7 +497,7 @@ public class BookingLifecycleService {
         }
 
         // ── Wallet-escrow path (no payment created yet) ──
-        // The learner is paying from their SkillSwap wallet: require a
+        // The learner is paying from their Mentorly wallet: require a
         // sufficient balance and hold the funds in escrow.
         BigDecimal currentBalance = walletService.balance(learner).balance();
         if (currentBalance.compareTo(priceAmount) < 0) {

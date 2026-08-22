@@ -1,7 +1,7 @@
 /* ============================================================================
-   SkillSwap Shared Workspace — Premium SaaS Design System v2.0
+   Mentorly Shared Workspace — Premium SaaS Design System v2.0
    ============================================================================
-   Unified SkillSwap design tokens (--ss-*). All surfaces reference the same
+   Unified Mentorly design tokens (--ss-*). All surfaces reference the same
    color, spacing and radius variables from design-system.css.
 
    App-shell architecture: `.ws-shell` is a flex row locked to 100vh with

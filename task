@@ -1,9 +1,0 @@
-- [x] Create Flyway database migration script (`V27__payment_adapter_pattern.sql`)
-- [x] Modify `Payment` and `Booking` JPA entities
-- [/] Create `MentorWallet` entity and repositories
-- [ ] Implement `PaymentGateway` interface and its adapters (`RazorpayAdapter`, `StripeAdapter`, `PayPalAdapter`)
-- [ ] Implement `PaymentService` and `PaymentVerificationService`
-- [ ] Implement/Update `PaymentController` with new endpoints
-- [ ] Adapt `AnalyticsService` queries to use updated payments repository
-- [ ] Update frontend `BookingFlowPage.jsx` to load and initiate Razorpay checkout
-- [ ] Run backend tests and verify the code compiles and passes

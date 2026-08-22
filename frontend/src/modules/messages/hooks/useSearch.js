@@ -79,8 +79,8 @@ function normalizeRow(r) {
     conversation: r,
     title:
       r?.participantName ||
-      (kind === "booking" ? r?.sessionTitle : "SkillSwap Member") ||
-      "SkillSwap Member",
+      (kind === "booking" ? r?.sessionTitle : "Mentorly Member") ||
+      "Mentorly Member",
     subtitle:
       r?.lastMessagePreview ||
       (kind === "booking" ? r?.sessionTitle : "") ||

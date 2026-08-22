@@ -57,7 +57,7 @@ public class NotificationService {
         if (shouldSendEmail(preference, user.getRole(), type)) {
             emailNotificationService.sendNotificationEmail(
                     user,
-                    "SkillSwap: " + title,
+                    "Mentorly: " + title,
                     message + "\n\nType: " + type + "\nReference: " + (referenceId == null ? "n/a" : referenceId));
         }
     }

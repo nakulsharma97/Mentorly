@@ -12,7 +12,7 @@ import "./ShareModal.css";
  *
  * @param {object} props
  * @param {string} props.title          Heading, e.g. "Invite Friends"
- * @param {string} props.subtitle       Sub-heading, e.g. "Share SkillSwap with them."
+ * @param {string} props.subtitle       Sub-heading, e.g. "Share Mentorly with them."
  * @param {string} props.url            The URL to share (always the real app URL)
  * @param {string} props.text           Optional share text used with navigator.share()
  * @param {string} props.copyLabel      Label of the copy button (default "Copy Link")

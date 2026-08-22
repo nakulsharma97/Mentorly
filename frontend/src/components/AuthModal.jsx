@@ -219,7 +219,7 @@ export default function AuthModal({
           ×
         </UIButton>
         <UIBadge className="auth-modal-badge" tone="accent">
-          Skill Swapper
+          Mentorly
         </UIBadge>
         <h2 id={titleId} className="auth-modal-title">
           {mode === "login" ? "Welcome back" : "Create your account"}
@@ -255,7 +255,7 @@ export default function AuthModal({
             <div className="auth-onboarding-header">
               <span className="auth-onboarding-pill">Step 1 of 3</span>
               <span className="auth-onboarding-title">
-                Set up your SkillSwap journey
+                Set up your Mentorly journey
               </span>
             </div>
             <div className="auth-onboarding-steps">

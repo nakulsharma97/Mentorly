@@ -71,8 +71,8 @@ public class AnalyticsService {
 
                 String title = role.equals("MENTOR") ? "Mentor Performance Snapshot" : "Learner Progress Snapshot";
                 String message = role.equals("MENTOR")
-                                ? "Sharing my mentor analytics dashboard snapshot from Skill Swapper."
-                                : "Sharing my learner analytics dashboard snapshot from Skill Swapper.";
+                                ? "Sharing my mentor analytics dashboard snapshot from Mentorly."
+                                : "Sharing my learner analytics dashboard snapshot from Mentorly.";
 
                 return new AnalyticsDtos.SharePayloadDto(role, title, message, deepLink);
         }

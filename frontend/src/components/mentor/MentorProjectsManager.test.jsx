@@ -18,15 +18,15 @@ describe("MentorProjectsManager", () => {
 
   it("renders the empty state and lets the mentor add a project", async () => {
     listMyProjects.mockResolvedValue([]);
-    createProject.mockResolvedValue({ id: 1, title: "SkillSwap" });
+    createProject.mockResolvedValue({ id: 1, title: "Mentorly" });
 
     render(<MentorProjectsManager notify={vi.fn()} />);
 
     expect(await screen.findByText("No Projects Added Yet")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: /Add Project/i })[0]);
-    const titleInput = screen.getByPlaceholderText(/e.g. SkillSwap/i);
-    fireEvent.change(titleInput, { target: { value: "SkillSwap" } });
+    const titleInput = screen.getByPlaceholderText(/e.g. Mentorly/i);
+    fireEvent.change(titleInput, { target: { value: "Mentorly" } });
     const descInput = screen.getByPlaceholderText(/What did you build/i);
     fireEvent.change(descInput, { target: { value: "A mentor marketplace" } });
     const techInput = screen.getByPlaceholderText(/Type a technology/i);
@@ -39,7 +39,7 @@ describe("MentorProjectsManager", () => {
 
     await waitFor(() => expect(createProject).toHaveBeenCalled());
     expect(createProject.mock.calls[0][0]).toMatchObject({
-      title: "SkillSwap",
+      title: "Mentorly",
       description: "A mentor marketplace",
       technologies: "React",
       startDate: "2025-01-01",

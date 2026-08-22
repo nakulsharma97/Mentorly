@@ -54,7 +54,7 @@ export default function MaintenancePage({ isAdmin = false }) {
           opacity: 0.8,
         }}
       >
-        The SkillSwap platform is currently undergoing scheduled maintenance.
+        The Mentorly platform is currently undergoing scheduled maintenance.
         We&rsquo;ll be back shortly with improvements.
       </p>
 

@@ -72,7 +72,7 @@ public class AdminScheduledReportService {
             for (User admin : admins) {
                 emailNotificationService.sendNotificationEmail(
                         admin,
-                        "SkillSwap " + (frequency.equals("weekly") ? "Weekly" : "Monthly") + " Dashboard Report",
+                        "Mentorly " + (frequency.equals("weekly") ? "Weekly" : "Monthly") + " Dashboard Report",
                         reportBody);
             }
             log.info("Scheduled {} report sent to {} admin(s)", frequency, admins.size());
@@ -98,7 +98,7 @@ public class AdminScheduledReportService {
 
         return """
                 ========================================
-                SkillSwap %s Dashboard Report
+                Mentorly %s Dashboard Report
                 Generated: %s
                 ========================================
                 

@@ -26,7 +26,7 @@ export default function TestChecklistPage() {
 
   return (
     <div className="min-h-screen" style={styles.container}>
-      <h1 style={styles.heading}>SkillSwapper Testing Checklist</h1>
+      <h1 style={styles.heading}>Mentorly Testing Checklist</h1>
 
       {checklist.map((item) => (
         <div key={item} style={styles.card}>

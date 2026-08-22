@@ -225,7 +225,7 @@ export default function AdminDashboardPage({ notify }) {
           <h3>No platform data yet</h3>
           <p>
             Once learners, mentors, and sessions start flowing through
-            SkillSwap, your key metrics will appear here.
+            Mentorly, your key metrics will appear here.
           </p>
           <button type="button" className="admin-dash-retry" onClick={loadAll}>
             Refresh now

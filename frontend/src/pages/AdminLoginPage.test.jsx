@@ -108,7 +108,7 @@ describe("AdminLoginPage", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/restricted to skillswap administrators/i),
+        screen.getByText(/restricted to mentorly administrators/i),
       ).toBeInTheDocument(),
     );
     expect(onLoggedIn).not.toHaveBeenCalled();

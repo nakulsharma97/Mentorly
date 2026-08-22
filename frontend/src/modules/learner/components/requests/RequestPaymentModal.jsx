@@ -84,7 +84,7 @@ export default function RequestPaymentModal({ request, onClose, onPaid }) {
         key: razorpayKeyId,
         amount: payment.gatewayResponse.amount || priceAmount * 100,
         currency: payment.gatewayResponse.currency || "INR",
-        name: "Skill Swapper",
+        name: "Mentorly",
         description: `Payment for session with ${mentorName(mentor)}`,
         order_id: payment.gatewayResponse.id,
         theme: { color: "#0f766e" },

@@ -28,7 +28,7 @@ describe("CompleteProfilePage", () => {
       screen.getByRole("heading", { name: "Complete Your Profile" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Please complete your profile before continuing to SkillSwap/i),
+      screen.getByText(/Please complete your profile before continuing to Mentorly/i),
     ).toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Logout/i })).toBeInTheDocument();

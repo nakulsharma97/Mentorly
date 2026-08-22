@@ -1672,7 +1672,7 @@ public class AdminController {
                     .append('\n');
         }
         return org.springframework.http.ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=skillswap-settings.csv")
+                .header("Content-Disposition", "attachment; filename=mentorly-settings.csv")
                 .contentType(org.springframework.http.MediaType.parseMediaType("text/csv"))
                 .body(csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }

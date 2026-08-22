@@ -170,8 +170,8 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
   const faqItems = [
     {
-      q: 'How does SkillSwap work?',
-      a: 'SkillSwap connects learners with verified mentors for live, one-on-one sessions. Browse mentor profiles, find someone whose expertise matches your goals, book a session, and meet via the platform — with message context, session links, and follow-up tools all in one place.'
+      q: 'How does Mentorly work?',
+      a: 'Mentorly connects learners with verified mentors for live, one-on-one sessions. Browse mentor profiles, find someone whose expertise matches your goals, book a session, and meet via the platform — with message context, session links, and follow-up tools all in one place.'
     },
     {
       q: 'How are mentors verified?',
@@ -222,9 +222,9 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           href="#product"
           onClick={scrollToSection("product")}
         >
-          <span className="landing-brand-mark">SS</span>
+          <span className="landing-brand-mark">ML</span>
           <span>
-            <strong>SkillSwap</strong>
+            <strong>Mentorly</strong>
             <small>Teach. Learn. Grow.</small>
           </span>
         </a>
@@ -360,7 +360,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             </span>
             <h1>Learn from operators who have already built the path.</h1>
             <p>
-              SkillSwap brings together verified mentors, live sessions, and
+              Mentorly brings together verified mentors, live sessions, and
               clear follow-up workflows so learners can move faster with less
               friction.
             </p>
@@ -685,7 +685,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
               <strong>
                 {heroCompletion !== null ? `${heroCompletion.toFixed(0)}%` : "—"}
               </strong>
-              <p>of bookings completed on SkillSwap</p>
+              <p>of bookings completed on Mentorly</p>
             </div>
             <div className="landing-check-list">
               <p>
@@ -723,7 +723,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
             <span className="landing-kicker">Questions?</span>
             <h2>Frequently asked questions.</h2>
             <p>
-              Everything you need to know about SkillSwap. Still have questions?
+              Everything you need to know about Mentorly. Still have questions?
               Reach out to our support team.
             </p>
           </div>

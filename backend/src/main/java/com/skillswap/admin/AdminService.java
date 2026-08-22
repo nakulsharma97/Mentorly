@@ -67,7 +67,7 @@ public class AdminService {
 
         user.setEnabled(false);
         user.setFullName("[Deleted User]");
-        user.setEmail("deleted-" + user.getId() + "@skillswap.local");
+        user.setEmail("deleted-" + user.getId() + "@mentorly.local");
         user.setPasswordHash("[DELETED]");
         user.setAboutMe(null);
         user.setSkills(null);
@@ -120,8 +120,8 @@ public class AdminService {
     public void sendTestNotification(User currentUser) {
         emailNotificationService.sendNotificationEmail(
                 currentUser,
-                "SkillSwap: Admin test notification",
-                "This is a test notification from the SkillSwap admin panel.\n\n"
+                "Mentorly: Admin test notification",
+                "This is a test notification from the Mentorly admin panel.\n\n"
                         + "If you're receiving this, email notifications are configured correctly.\n\n"
                         + "Timestamp: " + OffsetDateTime.now());
 

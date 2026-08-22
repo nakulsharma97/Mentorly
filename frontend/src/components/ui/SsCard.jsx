@@ -1,5 +1,5 @@
 /**
- * SsCard — Reusable card components for the SkillSwap design system.
+ * SsCard — Reusable card components for the Mentorly design system.
  */
 import SsIcon from "./SsIcon";
 

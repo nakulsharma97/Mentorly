@@ -52,6 +52,11 @@ pnpm-lock.yaml
 *.swo
 *.iml
 
+# AI tool configs
+.claude/
+.cursor/
+.windsurf/
+
 # Backup / broken files (not to be committed)
 *.broken
 *.bak

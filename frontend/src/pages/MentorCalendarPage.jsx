@@ -182,7 +182,7 @@ export default function MentorCalendarPage({ profile, notify }) {
   }, [notify]);
 
   useEffect(() => {
-    document.title = "Calendar | SkillSwap Mentor";
+    document.title = "Calendar | Mentorly Mentor";
     loadData();
   }, [loadData]);
 

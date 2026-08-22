@@ -35,7 +35,7 @@ export default function Testimonials({ onShareReview }) {
           <h2>What Our Learners Say</h2>
           <p>
             Real feedback from learners and mentors who have exchanged skills
-            through SkillSwapper.
+            through Mentorly.
           </p>
         </div>
         <div className="landing-mentor-grid">
@@ -66,7 +66,7 @@ export default function Testimonials({ onShareReview }) {
           <h2>What Our Learners Say</h2>
           <p>
             Real feedback from learners and mentors who have exchanged skills
-            through SkillSwapper.
+            through Mentorly.
           </p>
         </div>
         <div className="landing-outcome-copy">
@@ -89,7 +89,7 @@ export default function Testimonials({ onShareReview }) {
         <h2>What Our Learners Say</h2>
         <p>
           Real feedback from learners and mentors who have exchanged skills
-          through SkillSwapper.
+          through Mentorly.
         </p>
       </div>
 

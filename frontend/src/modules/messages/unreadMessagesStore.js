@@ -50,11 +50,11 @@ export function formatUnreadCount(value) {
  *
  * Prefixes the page title with the unread count when present and strips any
  * stale prefix first so re-applying is idempotent:
- *   formatTabTitle("Reviews | SkillSwap", 0) -> "Reviews | SkillSwap"
- *   formatTabTitle("Reviews | SkillSwap", 3) -> "(3) Reviews | SkillSwap"
- *   formatTabTitle("(3) Reviews | SkillSwap", 5) -> "(5) Reviews | SkillSwap"
+ *   formatTabTitle("Reviews | Mentorly", 0) -> "Reviews | Mentorly"
+ *   formatTabTitle("Reviews | Mentorly", 3) -> "(3) Reviews | Mentorly"
+ *   formatTabTitle("(3) Reviews | Mentorly", 5) -> "(5) Reviews | Mentorly"
  */
 export function formatTabTitle(currentTitle, unread) {
-  const base = (currentTitle || "SkillSwap").replace(/^\(\d+\+?\)\s*/u, "");
+  const base = (currentTitle || "Mentorly").replace(/^\(\d+\+?\)\s*/u, "");
   return unread > 0 ? `(${formatUnreadCount(unread)}) ${base}` : base;
 }

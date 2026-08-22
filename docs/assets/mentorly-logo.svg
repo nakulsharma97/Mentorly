@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-labelledby="title desc">
-  <title id="title">SkillSwapper</title>
-  <desc id="desc">SkillSwapper logo — a circular swap icon with the SkillSwapper wordmark and tagline</desc>
+  <title id="title">Mentorly</title>
+  <desc id="desc">Mentorly logo — a circular mentorship icon with the Mentorly wordmark and tagline</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -28,22 +28,22 @@
   <!-- Icon tile -->
   <rect x="96" y="76" width="208" height="208" rx="52" fill="#ffffff"/>
 
-  <!-- Swap arrows (clockwise circular exchange) -->
+  <!-- Mentorship icon (people/connection symbol) -->
   <g fill="none" stroke="url(#icon)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-    <!-- upper arc, left → right -->
-    <path d="M 158 180 A 42 42 0 0 1 242 180"/>
-    <!-- lower arc, right → left -->
-    <path d="M 242 180 A 42 42 0 0 1 158 180"/>
+    <!-- Two people connected by a arc (mentorship connection) -->
+    <circle cx="180" cy="160" r="24"/>
+    <circle cx="240" cy="160" r="24"/>
+    <path d="M 148 210 Q 210 250 272 210"/>
   </g>
-  <!-- Arrowheads (filled, follow direction of travel) -->
-  <polygon points="242,196 229,171 255,171" fill="url(#icon)"/>
-  <polygon points="158,164 171,189 145,189" fill="url(#icon)"/>
+  <!-- Connection dots -->
+  <circle cx="180" cy="160" r="8" fill="url(#icon)"/>
+  <circle cx="240" cy="160" r="8" fill="url(#icon)"/>
 
   <!-- Wordmark -->
   <text x="372" y="196" font-family="'Sora','Inter','Segoe UI',system-ui,Arial,sans-serif"
-        font-size="84" font-weight="800" letter-spacing="0.5" fill="#ffffff">SkillSwapper</text>
+        font-size="84" font-weight="800" letter-spacing="0.5" fill="#ffffff">Mentorly</text>
 
   <!-- Tagline -->
   <text x="375" y="252" font-family="'Inter','Segoe UI',system-ui,Arial,sans-serif"
-        font-size="29" font-weight="600" letter-spacing="9" fill="url(#accent)">LEARN&#160;&#183;&#160;TEACH&#160;&#183;&#160;GROW</text>
+        font-size="29" font-weight="600" letter-spacing="9" fill="url(#accent)">LEARN&#160;&#183;&#160;GROW&#160;&#183;&#160;THRIVE</text>
 </svg>

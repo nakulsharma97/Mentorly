@@ -182,7 +182,7 @@ export default function MentorDashboard({ profile, notify }) {
       .split(" ")[0] || "Mentor";
 
   useEffect(() => {
-    document.title = `${firstName} · Mentor Dashboard | SkillSwap`;
+    document.title = `${firstName} · Mentor Dashboard | Mentorly`;
   }, [firstName]);
 
   const [loading, setLoading] = useState(true);
@@ -1214,7 +1214,7 @@ export default function MentorDashboard({ profile, notify }) {
           </h3>
           <p className="mdash2-invite__subtitle">
             Know someone who wants to learn from experienced mentors? Share
-            SkillSwap with them.
+            Mentorly with them.
           </p>
         </div>
         <button
@@ -1235,9 +1235,9 @@ export default function MentorDashboard({ profile, notify }) {
       {showInviteModal && (
         <ShareModal
           title="Invite Friends"
-          subtitle="Know someone who wants to learn from experienced mentors? Share SkillSwap with them."
+          subtitle="Know someone who wants to learn from experienced mentors? Share Mentorly with them."
           url={window.location.origin + "/signup"}
-          text="Join me on SkillSwap and learn from experienced mentors."
+          text="Join me on Mentorly and learn from experienced mentors."
           copyLabel="Copy Invite Link"
           copyDoneLabel="Invite link copied!"
           onClose={() => setShowInviteModal(false)}

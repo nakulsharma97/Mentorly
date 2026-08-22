@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 /**
- * HeroSection — ONE unified hero design system for every SkillSwap page.
+ * HeroSection — ONE unified hero design system for every Mentorly page.
  *
  * Every page (Students, Manage Sessions, Calendar, Analytics, Earnings,
  * Reviews, Messages, dashboards, admin, learner, mentor) renders the exact

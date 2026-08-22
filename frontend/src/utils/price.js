@@ -1,5 +1,5 @@
 /**
- * Centralized price formatting for the SkillSwap marketplace.
+ * Centralized price formatting for the Mentorly marketplace.
  *
  * Rules:
  * - null / undefined / NaN            → freeLabel ("FREE")

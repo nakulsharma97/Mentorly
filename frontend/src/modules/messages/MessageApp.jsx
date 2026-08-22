@@ -29,13 +29,13 @@ export default function MessageApp({
   const currentUserEmail = String(profile?.email || "").toLowerCase();
 
   // Browser tab title — matches the per-page convention used across the
-  // workspaces ("Messages | SkillSwap Mentor" / "Messages | SkillSwap").
+  // workspaces ("Messages | Mentorly Mentor" / "Messages | Mentorly").
   // WorkspaceLayout observes <title> and re-applies the unread-count prefix.
   useEffect(() => {
     document.title =
       variant === "MENTOR"
-        ? "Messages | SkillSwap Mentor"
-        : "Messages | SkillSwap";
+        ? "Messages | Mentorly Mentor"
+        : "Messages | Mentorly";
   }, [variant]);
 
   const { conversations, loading, error, load, filterConversations, patchDirect } =
@@ -330,7 +330,7 @@ export default function MessageApp({
         pinned: false,
         archived: false,
       },
-      title: data.participantName ?? data.name ?? "SkillSwap Member",
+      title: data.participantName ?? data.name ?? "Mentorly Member",
       subtitle: data.lastMessagePreview ?? "Say hello",
       role: data.participantRole ?? data.role ?? "",
       email: data.participantEmail ?? data.email ?? "",

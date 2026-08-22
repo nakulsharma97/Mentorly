@@ -236,7 +236,7 @@ function SuccessOverlay({ onGoDashboard, onViewProfile, editMode }) {
           </p>
         ) : (
           <p>
-            Your profile has been submitted successfully. The SkillSwap Admin team will
+            Your profile has been submitted successfully. The Mentorly Admin team will
             review and verify your mentor profile — usually within 24 hours.
           </p>
         )}
@@ -528,7 +528,7 @@ export default function CompleteProfilePage({
       notify?.({
         type: "success",
         title: "Profile completed",
-        message: "Welcome to SkillSwap!",
+        message: "Welcome to Mentorly!",
       });
       setSuccess(true);
     } catch (err) {
@@ -846,7 +846,7 @@ export default function CompleteProfilePage({
       <header className="cpp-topbar">
         <div className="cpp-brand">
           <span className="cpp-logo">SS</span>
-          <span className="cpp-brand-name">SkillSwap</span>
+          <span className="cpp-brand-name">Mentorly</span>
         </div>
         <div className="cpp-topbar-actions">
           <span className="cpp-role-chip">
@@ -894,7 +894,7 @@ export default function CompleteProfilePage({
           <p className="cpp-subtitle">
             {editMode
               ? "Update your professional details any time. Certifications and projects are optional."
-              : "Please complete your profile before continuing to SkillSwap. This only takes a couple of minutes."}
+              : "Please complete your profile before continuing to Mentorly. This only takes a couple of minutes."}
           </p>
 
           {/* Progress */}
@@ -1065,7 +1065,7 @@ export default function CompleteProfilePage({
 
         <footer className="cpp-footer">
           <span className="cpp-logo cpp-logo--sm">SS</span>
-          <p>SkillSwap · {isPhotoSet ? "Profile photo added ✓" : "Add a profile photo to get discovered faster"}</p>
+          <p>Mentorly · {isPhotoSet ? "Profile photo added ✓" : "Add a profile photo to get discovered faster"}</p>
         </footer>
       </div>
     </main>

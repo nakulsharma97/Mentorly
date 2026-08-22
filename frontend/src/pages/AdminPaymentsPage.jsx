@@ -124,7 +124,7 @@ function generateReceiptHtml(payment) {
 <body>
 <div class="receipt">
   <div class="receipt__header">
-    <div class="receipt__brand">SkillSwap</div>
+    <div class="receipt__brand">Mentorly</div>
     <span class="receipt__status">${payment.status}</span>
   </div>
   <h1 class="receipt__title">Payment Receipt</h1>
@@ -161,7 +161,7 @@ function generateReceiptHtml(payment) {
   </div>
   <div class="receipt__divider"></div>
   <div class="receipt__footer">
-    SkillSwap Platform · Generated ${new Date().toLocaleString()}<br>
+    Mentorly Platform · Generated ${new Date().toLocaleString()}<br>
     This is a computer-generated receipt.
   </div>
 </div>

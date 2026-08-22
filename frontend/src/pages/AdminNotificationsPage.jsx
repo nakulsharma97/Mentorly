@@ -7,7 +7,7 @@ export default function AdminNotificationsPage({ notify }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    document.title = "Notifications | SkillSwap Admin";
+    document.title = "Notifications | Mentorly Admin";
   }, []);
 
   return (

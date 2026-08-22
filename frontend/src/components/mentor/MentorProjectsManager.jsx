@@ -288,7 +288,7 @@ export default function MentorProjectsManager({ notify, readonly, onCountChange 
                   value={form.title}
                   onChange={setField("title")}
                   onBlur={handleBlur("title")}
-                  placeholder="e.g. SkillSwap — Mentor Marketplace"
+                  placeholder="e.g. Mentorly — Mentor Marketplace"
                   maxLength={500}
                 />
                 {formErrors.title && <span className="mcm-form__field-error">Required</span>}

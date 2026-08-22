@@ -88,7 +88,7 @@ export function computeStreak(bookings) {
 
 /* ==========================================================================
    Career path catalogs (used as graceful guidance when a roadmap has no
-   milestones — the SkillSwap path templates live here).
+   milestones — the Mentorly path templates live here).
    ========================================================================== */
 
 const MILESTONE_LIBRARY = [
@@ -611,7 +611,7 @@ export function buildAchievements({
     {
       icon: "🎓",
       label: "Certified Learner",
-      hint: "Earn a SkillSwap certificate",
+      hint: "Earn a Mentorly certificate",
       unlocked: certifications.length > 0,
       progress: certifications.length > 0 ? 100 : 0,
     },
@@ -894,7 +894,7 @@ export function buildCertificates(certifications, milestones, overallProgress) {
     title: c.title || "Certificate",
     issuedAt: c.issuedAt,
     certificateId: c.certificateId,
-    issuedBy: c.mentorName || c.issuedBy || "SkillSwap",
+    issuedBy: c.mentorName || c.issuedBy || "Mentorly",
   }));
   const locked = milestones
     .filter((m) => m.status !== "completed")

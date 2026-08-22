@@ -171,7 +171,7 @@ export default function LearnerDashboard({ profile }) {
     String(profile?.fullName || "Learner").trim().split(" ")[0] || "Learner";
 
   useEffect(() => {
-    document.title = `${firstName} \u00b7 Learner Dashboard | SkillSwap`;
+    document.title = `${firstName} \u00b7 Learner Dashboard | Mentorly`;
   }, [firstName]);
 
   const [loading, setLoading] = useState(true);
@@ -437,7 +437,7 @@ export default function LearnerDashboard({ profile }) {
           </span>
           <h2 className="ld-invite__title">Know someone who wants to learn from mentors?</h2>
           <p className="ld-invite__subtitle">
-            Share SkillSwap with your friends. No rewards, no tracking — just help them find the right mentor.
+            Share Mentorly with your friends. No rewards, no tracking — just help them find the right mentor.
           </p>
         </div>
         <div className="ld-invite__actions">
@@ -815,7 +815,7 @@ export default function LearnerDashboard({ profile }) {
                   <div className="ld-cert__body">
                     <span className="ld-cert__title">{cert.title || "Certificate"}</span>
                     <span className="ld-cert__meta">
-                      {cert.mentorName || cert.issuedBy || "SkillSwap"} \u00b7 {formatDate(cert.issuedAt)}
+                      {cert.mentorName || cert.issuedBy || "Mentorly"} \u00b7 {formatDate(cert.issuedAt)}
                     </span>
                   </div>
                 </div>
@@ -837,9 +837,9 @@ export default function LearnerDashboard({ profile }) {
       {showInviteModal && (
         <ShareModal
           title="Invite Friends"
-          subtitle="Know someone who wants to learn from experienced mentors? Share SkillSwap with them."
+          subtitle="Know someone who wants to learn from experienced mentors? Share Mentorly with them."
           url={window.location.origin + "/signup"}
-          text="Join me on SkillSwap and learn from experienced mentors."
+          text="Join me on Mentorly and learn from experienced mentors."
           copyLabel="Copy Invite Link"
           copyDoneLabel="Invite link copied!"
           onClose={() => setShowInviteModal(false)}

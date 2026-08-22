@@ -18,8 +18,8 @@ function copyFor(variant) {
     suggestedTitle: isMentor ? "Suggested Learners" : "Suggested Mentors",
     emptyTitle: isMentor ? "No learners found" : "No mentors found",
     emptyHint: isMentor
-      ? "Try another search keyword — learners across SkillSwap will appear here."
-      : "Try another search keyword — mentors across SkillSwap will appear here.",
+      ? "Try another search keyword — learners across Mentorly will appear here."
+      : "Try another search keyword — mentors across Mentorly will appear here.",
   };
 }
 
@@ -324,7 +324,7 @@ export default function NewConversation({ profile, onClose, onStart, notify, var
                     suggestedPrimary.map(renderCard)
                   ) : (
                     <p className="ms-new__hint">
-                      Type above to search for {copy.subjectPlural} across SkillSwap.
+                      Type above to search for {copy.subjectPlural} across Mentorly.
                     </p>
                   )}
                 </div>

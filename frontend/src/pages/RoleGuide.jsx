@@ -33,7 +33,7 @@ export default function RoleGuide() {
             </div>
           </div>
           <h1 className="text-5xl font-bold text-on-surface mb-4">
-            Welcome to <span className="text-primary">SkillSwap</span>
+            Welcome to <span className="text-primary">Mentorly</span>
           </h1>
           <p className="text-xl text-on-surface-variant mb-8">
             Two different worlds. One platform. Choose your role and start your

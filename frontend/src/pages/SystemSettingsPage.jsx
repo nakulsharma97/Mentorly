@@ -205,7 +205,7 @@ export default function SystemSettingsPage({ notify }) {
     setBusyAction("export");
     try {
       const res = await client.get("/api/v1/admin/settings/export", { responseType: "blob" });
-      downloadBlob(res.data, "skillswap-settings.csv");
+      downloadBlob(res.data, "mentorly-settings.csv");
       notify?.({ type: "success", title: "Export ready", message: "Settings exported as CSV." });
     } catch (err) {
       notifyOnce("error", "Export failed", errorMessage(err, "Could not export settings."));
@@ -220,7 +220,7 @@ export default function SystemSettingsPage({ notify }) {
       const res = await client.get("/api/v1/admin/settings/logs", { params: { limit: 500 } });
       const rows = unwrap(res) || [];
       const lines = rows.map((l) => `[${l.timestamp}] [${l.level}] ${l.service}: ${l.message}`).join("\n");
-      downloadBlob(new Blob([lines], { type: "text/plain" }), "skillswap-system.log");
+      downloadBlob(new Blob([lines], { type: "text/plain" }), "mentorly-system.log");
       notify?.({ type: "success", title: "Logs downloaded", message: `${rows.length} log entries exported.` });
     } catch (err) {
       notifyOnce("error", "Logs failed", errorMessage(err, "Could not download system logs."));

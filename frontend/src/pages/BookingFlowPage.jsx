@@ -300,7 +300,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
         key: razorpayKeyId,
         amount: amountPaise,
         currency: payment.gatewayResponse?.currency || 'INR',
-        name: 'Skill Swapper',
+        name: 'Mentorly',
         description: `Payment for ${session?.title || 'session'} with ${session?.mentor?.fullName || 'mentor'}`,
         order_id: razorpayOrderId,
         prefill: {

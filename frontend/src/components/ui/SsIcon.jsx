@@ -1,5 +1,5 @@
 /**
- * SsIcon — Material Symbols icon component for the SkillSwap design system.
+ * SsIcon — Material Symbols icon component for the Mentorly design system.
  * Maps descriptive names to Material Symbols icon names.
  *
  * Usage: <SsIcon name="dashboard" size={20} className="..." />

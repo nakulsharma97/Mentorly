@@ -74,7 +74,7 @@ export default function CommunityStats() {
           <h2>Trusted by a Growing Community</h2>
           <p>
             Every number below is generated from real activity happening on
-            SkillSwapper.
+            Mentorly.
           </p>
         </div>
         <div className="landing-stats-grid">
@@ -141,7 +141,7 @@ export default function CommunityStats() {
         <h2>Trusted by a Growing Community</h2>
         <p>
           Every number below is generated from real activity happening on
-          SkillSwapper.
+          Mentorly.
         </p>
       </div>
       <div className="landing-stats-grid">

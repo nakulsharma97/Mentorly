@@ -383,9 +383,9 @@ public class MentorVerificationService {
                 notificationType = "VERIFICATION_APPROVED";
                 priority = "HIGH";
                 title = "🎉 Congratulations! Your Profile Has Been Verified";
-                message = "Your mentor profile has been successfully verified by the SkillSwap Admin Team. "
+                message = "Your mentor profile has been successfully verified by the Mentorly Admin Team. "
                         + "You can now create mentoring sessions, receive learner bookings, "
-                        + "appear in Explore Mentors, and start earning on SkillSwap.";
+                        + "appear in Explore Mentors, and start earning on Mentorly.";
                 log.info("[Verification] Verification Approved adminId={} mentorId={}",
                         currentUser.getId(), mentor.getId());
             }

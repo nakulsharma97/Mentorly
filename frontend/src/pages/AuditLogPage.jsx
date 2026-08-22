@@ -418,7 +418,7 @@ export default function AuditLogPage({ notify }) {
   const exportRows = useMemo(() => {
     const rows = logs?.content || [];
     return [
-      ["SkillSwap — Activity Timeline Export"],
+      ["Mentorly — Activity Timeline Export"],
       ["Generated", new Date().toISOString()],
       ["Filters", [
         filters.action && `action=${filters.action}`,
@@ -469,7 +469,7 @@ export default function AuditLogPage({ notify }) {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "SkillSwap";
+      workbook.creator = "Mentorly";
       workbook.created = new Date();
       const sheet = workbook.addWorksheet("Activity Timeline", { views: [{ state: "frozen", ySplit: 1 }] });
       sheet.addRows(exportRows);
@@ -497,7 +497,7 @@ export default function AuditLogPage({ notify }) {
       const rows = logs?.content || [];
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);
-      doc.text("SkillSwap — Activity Timeline", 14, 16);
+      doc.text("Mentorly — Activity Timeline", 14, 16);
       doc.setFontSize(9);
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
       doc.autoTable({

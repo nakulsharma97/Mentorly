@@ -63,7 +63,7 @@ export default function ReportModal({ targetType, targetId, targetUserId, target
         reason: reason.trim(),
         details: details.trim() || null,
       });
-      notify?.({ type: "success", title: "Report submitted", message: "Our team will review this report. Thank you for keeping SkillSwap safe." });
+      notify?.({ type: "success", title: "Report submitted", message: "Our team will review this report. Thank you for keeping Mentorly safe." });
       onClose?.();
     } catch (err) {
       const msg = err?.response?.data?.data?.error || err?.response?.data?.message || err?.message || "Could not submit the report. Please try again.";

@@ -72,11 +72,11 @@ public final class PlatformSettingsCatalog {
     public static final List<SettingDef> DEFINITIONS = List.of(
             // ── General ──
             def(CAT_GENERAL, "platform_name", "text", "Platform Name",
-                    "The display name shown across the platform.", "SkillSwap"),
+                    "The display name shown across the platform.", "Mentorly"),
             def(CAT_GENERAL, "platform_logo_url", "text", "Platform Logo URL",
                     "Public URL of the logo used in the header and emails.", ""),
             def(CAT_GENERAL, "support_email", "email", "Support Email",
-                    "Contact address shown in the footer and support flows.", "support@skillswap.com"),
+                    "Contact address shown in the footer and support flows.", "support@mentorly.com"),
             def(CAT_GENERAL, "support_phone", "text", "Support Phone",
                     "Contact phone number for support (optional).", ""),
             def(CAT_GENERAL, "default_timezone", "select", "Default Timezone",
@@ -91,7 +91,7 @@ public final class PlatformSettingsCatalog {
             def(CAT_GENERAL, "platform_version", "text", "Platform Version",
                     "Version string shown in the admin console.", "2.4.0"),
             def(CAT_GENERAL, "company_name", "text", "Company Name",
-                    "Legal company name used on invoices and contracts.", "SkillSwap Inc."),
+                    "Legal company name used on invoices and contracts.", "Mentorly Inc."),
 
             // ── Registration ──
             bool(CAT_REGISTRATION, "new_registrations_enabled", "New Registrations Enabled",
@@ -190,11 +190,11 @@ public final class PlatformSettingsCatalog {
             def(CAT_EMAIL, "smtp_port", "number", "SMTP Port",
                     "Outgoing mail server port.", "587"),
             def(CAT_EMAIL, "email_sender", "email", "Sender Email",
-                    "From-address used on all outbound email.", "no-reply@skillswap.com"),
+                    "From-address used on all outbound email.", "no-reply@mentorly.com"),
             def(CAT_EMAIL, "email_sender_name", "text", "Sender Name",
-                    "Display name used on all outbound email.", "SkillSwap"),
+                    "Display name used on all outbound email.", "Mentorly"),
             def(CAT_EMAIL, "email_reply_to", "email", "Reply-To Email",
-                    "Address users reply to on outbound email.", "support@skillswap.com"),
+                    "Address users reply to on outbound email.", "support@mentorly.com"),
 
             // ── Feature Toggles ──
             bool(CAT_FEATURES, "enable_payments", "Enable Payments",

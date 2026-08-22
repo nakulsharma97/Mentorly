@@ -363,7 +363,7 @@ export default function AdminAnalyticsPage({ notify }) {
     try {
       const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = "SkillSwap";
+      workbook.creator = "Mentorly";
       workbook.created = new Date();
       const sheet = workbook.addWorksheet("Analytics", { views: [{ state: "frozen", ySplit: 1 }] });
       sheet.addRows(exportRows);
@@ -391,7 +391,7 @@ export default function AdminAnalyticsPage({ notify }) {
       const h = dashboard?.health || {};
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(16);
-      doc.text("SkillSwap — Admin Analytics", 14, 16);
+      doc.text("Mentorly — Admin Analytics", 14, 16);
       doc.setFontSize(9);
       doc.text(`Generated: ${new Date().toLocaleDateString()} · Window: ${effectiveDays} days`, 14, 24);
       doc.autoTable({
