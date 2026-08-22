@@ -122,6 +122,37 @@ public class EmailNotificationService {
         }
     }
 
+    /**
+     * Send a raw email to an arbitrary address (for OTP, password reset, etc.).
+     */
+    public void sendRawEmail(String toEmail, String subject, String body) {
+        if (toEmail == null || toEmail.isBlank()) {
+            return;
+        }
+        if (!emailEnabled) {
+            log.info("Email disabled. Would send email to {} with subject: {}", toEmail, subject);
+            return;
+        }
+
+        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+        if (mailSender == null) {
+            log.warn("Email enabled but JavaMailSender is not configured. Skipping email for {}", toEmail);
+            return;
+        }
+
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromAddress);
+            message.setTo(toEmail);
+            message.setSubject(subject);
+            message.setText(body);
+            mailSender.send(message);
+        } catch (MailException ex) {
+            log.warn("Failed to send email to {}: {}", toEmail, ex.getMessage());
+            throw new RuntimeException("Unable to send email. Please try again.");
+        }
+    }
+
     private static String nameOf(User user) {
         if (user == null || user.getFullName() == null || user.getFullName().isBlank()) {
             return "there";

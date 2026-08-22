@@ -93,4 +93,36 @@ public class AuthDtos {
                         @NotBlank String token,
                         @NotBlank String newPassword) {
         }
+
+/**
+ * Immutable data carrier for send verification OTP request.
+ */
+        public record SendOtpRequest(
+                        @Email @NotBlank String email,
+                        @NotBlank String fullName,
+                        @NotBlank String username,
+                        @NotBlank String password,
+                        UserRole role,
+                        String walletAddress) {
+        }
+
+/**
+ * Immutable data carrier for verify email OTP request.
+ */
+        public record VerifyOtpRequest(
+                        @Email @NotBlank String email,
+                        @NotBlank String otp,
+                        @NotBlank String fullName,
+                        @NotBlank String username,
+                        @NotBlank String password,
+                        UserRole role,
+                        String walletAddress) {
+        }
+
+/**
+ * Immutable data carrier for resend verification OTP request.
+ */
+        public record ResendOtpRequest(
+                        @Email @NotBlank String email) {
+        }
 }

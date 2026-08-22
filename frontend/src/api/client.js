@@ -475,4 +475,48 @@ client.interceptors.response.use(
   },
 );
 
+// ── OTP Verification API ──
+
+/**
+ * Send OTP for email verification during signup.
+ * Does NOT create the account yet.
+ */
+export async function sendVerificationOtp({ email, fullName, username, password, role, walletAddress }) {
+  const response = await client.post("/api/v1/auth/send-verification-otp", {
+    email,
+    fullName,
+    username,
+    password,
+    role,
+    walletAddress,
+  });
+  return response.data;
+}
+
+/**
+ * Verify OTP and complete account creation.
+ */
+export async function verifyEmailAndSignup({ email, otp, fullName, username, password, role, walletAddress }) {
+  const response = await client.post("/api/v1/auth/verify-email", {
+    email,
+    otp,
+    fullName,
+    username,
+    password,
+    role,
+    walletAddress,
+  });
+  return response.data;
+}
+
+/**
+ * Resend OTP for email verification.
+ */
+export async function resendVerificationOtp(email) {
+  const response = await client.post("/api/v1/auth/resend-verification-otp", {
+    email,
+  });
+  return response.data;
+}
+
 export default client;

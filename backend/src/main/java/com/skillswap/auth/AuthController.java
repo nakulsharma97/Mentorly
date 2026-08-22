@@ -33,6 +33,7 @@ public class AuthController {
     private final AuthService authService;
     private final AuthCookieService authCookieService;
     private final ClientIpResolver clientIpResolver;
+    private final OtpService otpService;
 
     @PostMapping("/signup")
     public ApiResponse<AuthSessionResponse> signup(@Valid @RequestBody SignupRequest request,
@@ -42,6 +43,46 @@ public class AuthController {
         AuthResponse authResponse = authService.signup(request, clientIp);
         authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
         return new ApiResponse<>("Signup successful", sanitize(authResponse));
+    }
+
+    /**
+     * Send OTP for email verification during signup.
+     * Does NOT create the account yet - only sends the OTP.
+     */
+    @PostMapping("/send-verification-otp")
+    public ApiResponse<Void> sendVerificationOtp(@Valid @RequestBody SendOtpRequest request,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        // Validate signup information first
+        authService.validateSignupRequest(request, clientIp);
+        // Generate and send OTP
+        otpService.generateAndSendOtp(request.email());
+        return new ApiResponse<>("Verification code sent to your email", null);
+    }
+
+    /**
+     * Verify OTP and complete account creation.
+     */
+    @PostMapping("/verify-email")
+    public ApiResponse<AuthSessionResponse> verifyEmailAndSignup(@Valid @RequestBody VerifyOtpRequest request,
+            HttpServletResponse response,
+            HttpServletRequest httpRequest) {
+        String clientIp = clientIpResolver.resolve(httpRequest);
+        // Verify OTP
+        otpService.verifyOtp(request.email(), request.otp());
+        // Create account now that email is verified
+        AuthResponse authResponse = authService.signupWithVerifiedEmail(request, clientIp);
+        authCookieService.writeAuthCookies(response, authResponse.token(), authResponse.refreshToken());
+        return new ApiResponse<>("Email verified and account created", sanitize(authResponse));
+    }
+
+    /**
+     * Resend OTP for email verification.
+     */
+    @PostMapping("/resend-verification-otp")
+    public ApiResponse<Void> resendVerificationOtp(@Valid @RequestBody ResendOtpRequest request) {
+        otpService.resendOtp(request.email());
+        return new ApiResponse<>("Verification code resent", null);
     }
 
     @PostMapping("/login")

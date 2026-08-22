@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import AuthModal from "./AuthModal";
-import client, { clearAuthSessionState } from "../api/client";
+import client, { clearAuthSessionState, sendVerificationOtp, verifyEmailAndSignup } from "../api/client";
 
 vi.mock("../api/client", () => ({
   default: {
@@ -20,6 +20,9 @@ vi.mock("../api/client", () => ({
   resolveAuthResponsePayload: (payload) =>
     payload?.data?.data || payload?.data || payload,
   API_BASE_URL: "http://localhost:8080",
+  sendVerificationOtp: vi.fn(),
+  verifyEmailAndSignup: vi.fn(),
+  resendVerificationOtp: vi.fn(),
 }));
 
 vi.mock("../utils/analyticsEvents", () => ({
@@ -64,7 +67,7 @@ describe("AuthModal — login", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "Secret123" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(onLoggedIn).toHaveBeenCalledTimes(1));
     expect(client.post).toHaveBeenCalledWith("/api/v1/auth/login", {
@@ -92,7 +95,7 @@ describe("AuthModal — login", () => {
     fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "Secret123" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /login/i }));
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => expect(onLoggedIn).toHaveBeenCalledTimes(1));
     expect(client.post).toHaveBeenCalledWith("/api/v1/auth/login", {
@@ -128,6 +131,9 @@ describe("AuthModal — signup username availability", () => {
       target: { value: "nakul@gmail.com" },
     });
     fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Secret123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm Password"), {
       target: { value: "Secret123" },
     });
   };
@@ -218,9 +224,8 @@ describe("AuthModal — signup username availability", () => {
   it("fails open when the availability check errors (backend re-validates on submit)", async () => {
     const onLoggedIn = vi.fn();
     client.get.mockRejectedValue(new Error("network down"));
-    client.post.mockResolvedValue({
-      data: { data: { token: "t", role: "LEARNER", email: "nakul@gmail.com" } },
-    });
+    // Mock client.post to handle the OTP endpoint
+    client.post.mockResolvedValue({ data: { message: "Verification code sent" } });
     renderSignup({ onLoggedIn });
 
     fillSignupBasics();
@@ -239,31 +244,27 @@ describe("AuthModal — signup username availability", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
-    await waitFor(() => expect(onLoggedIn).toHaveBeenCalledTimes(1));
-    expect(client.post).toHaveBeenCalledWith(
-      "/api/v1/auth/signup",
+    // Should now show OTP verification screen
+    await waitFor(() => expect(screen.getByText(/verify your email/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(sendVerificationOtp).toHaveBeenCalledWith(
       expect.objectContaining({ username: "nakul" }),
     );
-  });
-
-  it("submits a valid signup with the chosen username", async () => {
+  });  it("submits a valid signup with the chosen username", async () => {
     const onLoggedIn = vi.fn();
     client.get.mockResolvedValue({
       data: { data: { available: true, suggestion: null } },
     });
-    client.post.mockResolvedValue({
-      data: { data: { token: "t", role: "MENTOR", email: "nakul@gmail.com" } },
-    });
+    // Mock client.post to handle the OTP endpoint
+    client.post.mockResolvedValue({ data: { message: "Verification code sent" } });
 
     renderSignup({ onLoggedIn });
 
     fillSignupBasics();
     fireEvent.change(screen.getByLabelText("Username"), {
       target: { value: "nakul" },
-    });
-    fireEvent.change(screen.getByLabelText("Role"), {
-      target: { value: "MENTOR" },
-    });
+    });fireEvent.change(screen.getByLabelText(/role|want to/i), {
+       target: { value: "MENTOR" },
+     });
 
     await waitFor(
       () => expect(screen.getByText("✅ Username available")).toBeInTheDocument(),
@@ -271,18 +272,14 @@ describe("AuthModal — signup username availability", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
-    await waitFor(() => expect(onLoggedIn).toHaveBeenCalledTimes(1));
-    expect(client.post).toHaveBeenCalledWith(
-      "/api/v1/auth/signup",
+    // Should now show OTP verification screen
+    await waitFor(() => expect(screen.getByText(/verify your email/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(sendVerificationOtp).toHaveBeenCalledWith(
       expect.objectContaining({
         username: "nakul",
         role: "MENTOR",
         email: "nakul@gmail.com",
       }),
-    );
-    expect(onLoggedIn).toHaveBeenCalledWith(
-      "signup",
-      expect.objectContaining({ role: "MENTOR" }),
     );
   });
 

@@ -87,6 +87,94 @@ public class AuthService {
     private final AuditLogService auditLogService;
     private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
+    /**
+     * Validate signup request without creating the account.
+     * Used by the OTP flow to validate before sending OTP.
+     */
+    public void validateSignupRequest(SendOtpRequest req, String clientIp) {
+        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+
+        // Rate-limit signups per IP
+        if (clientIp != null && !clientIp.isBlank()) {
+            OffsetDateTime windowStart = OffsetDateTime.now().minusMinutes(60);
+            long recentSignups = loginAttemptRepository
+                    .countByIpAddressAndLastAttemptAtAfter(clientIp, windowStart);
+            if (recentSignups > 10) {
+                throw new IllegalArgumentException("Too many accounts created from this IP. Please try again later.");
+            }
+        }
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "EMAIL_TAKEN",
+                    "An account with this email already exists.", false);
+        }
+
+        if (req.role() == UserRole.ADMIN) {
+            throw new IllegalArgumentException(
+                    "Admin accounts cannot be created via signup. Contact the platform administrator.");
+        }
+
+        // Username validation
+        String displayUsername = req.username().trim();
+        String normalizedUsername = displayUsername.toLowerCase(Locale.ROOT);
+        UsernameRules.validateFormat(displayUsername);
+        if (UsernameRules.isReserved(displayUsername)) {
+            throw new IllegalArgumentException("This username is reserved. Please choose another one.");
+        }
+        if (userRepository.existsByUsernameLower(normalizedUsername)) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "USERNAME_TAKEN",
+                    "This username is already taken. Please choose another username.", false);
+        }
+    }
+
+    /**
+     * Create account after email verification with OTP.
+     */
+    @Transactional
+    public AuthResponse signupWithVerifiedEmail(VerifyOtpRequest req, String clientIp) {
+        String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();
+
+        // Re-validate in case of race conditions
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "EMAIL_TAKEN",
+                    "An account with this email already exists.", false);
+        }
+
+        String displayUsername = req.username().trim();
+        String normalizedUsername = displayUsername.toLowerCase(Locale.ROOT);
+        if (userRepository.existsByUsernameLower(normalizedUsername)) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "USERNAME_TAKEN",
+                    "This username is already taken. Please choose another username.", false);
+        }
+
+        User user = new User();
+        user.setEmail(normalizedEmail);
+        user.setUsername(displayUsername);
+        user.setUsernameLower(normalizedUsername);
+        user.setPasswordHash(passwordEncoder.encode(req.password()));
+        user.setFullName(req.fullName());
+        user.setRole(req.role() == null ? UserRole.LEARNER : req.role());
+        user.setWalletAddress(req.walletAddress());
+        user.setLastActiveAt(OffsetDateTime.now());
+        user.setEmailVerified(true);
+
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ApiClientException(HttpStatus.CONFLICT, "DUPLICATE_ACCOUNT",
+                    "An account with this email or username already exists.", false);
+        }
+
+        String tokenId = UUID.randomUUID().toString();
+        String token = jwtService.generateToken(user, tokenId);
+        String refreshToken = jwtService.generateRefreshToken(user, tokenId);
+        persistRefreshSession(user, refreshToken);
+        incrementCounter("auth.signup.success");
+        recordSignup(user);
+        return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(),
+                user.getDisplayUsername(), user.isProfileCompleted());
+    }
+
     @Transactional
     public AuthResponse signup(SignupRequest req, String clientIp) {
         String normalizedEmail = req.email().toLowerCase(Locale.ROOT).trim();

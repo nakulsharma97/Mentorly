@@ -999,7 +999,7 @@ form {
   gap: 10px;
 }
 
-input,
+input:not([type='checkbox']),
 select {
   width: 100%;
   border: 1px solid #d0d8e0;
@@ -2785,7 +2785,7 @@ ul {
   margin-top: 2px;
 }
 
-.auth-modal-overlay .auth-card input,
+.auth-modal-overlay .auth-card input:not([type='checkbox']),
 .auth-modal-overlay .auth-card select,
 .auth-modal-overlay .auth-card textarea {
   background: rgba(246, 253, 255, 0.98);
@@ -2797,7 +2797,16 @@ ul {
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
-.auth-modal-overlay .auth-card input:focus,
+/* Override label/hint colors inside auth modal for dark background */
+.auth-modal-overlay .ui-field-label {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.auth-modal-overlay .ui-field-hint {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.auth-modal-overlay .auth-card input:not([type='checkbox']):focus,
 .auth-modal-overlay .auth-card select:focus,
 .auth-modal-overlay .auth-card textarea:focus {
   outline: none;
@@ -2806,7 +2815,7 @@ ul {
   transform: translateY(-1px);
 }
 
-.auth-modal-overlay .auth-card input::placeholder,
+.auth-modal-overlay .auth-card input:not([type='checkbox'])::placeholder,
 .auth-modal-overlay .auth-card textarea::placeholder {
   color: #5f7488;
 }
@@ -5640,5 +5649,290 @@ html {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   16. AUTH MODAL — PASSWORD & OTP ENHANCEMENTS
+   ═══════════════════════════════════════════════════ */
+
+/* Password input wrapper with toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  flex: 1;
+  padding-right: 44px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.password-toggle-btn:hover:not(:disabled) {
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.08);
+}
+
+.password-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.password-toggle-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+/* Password hint */
+.password-hint {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+/* Password status messages */
+.password-status-msg {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 6px;
+}
+
+.password-status-msg.error {
+  color: #dc2626;
+}
+
+.password-status-msg.success {
+  color: #16a34a;
+}
+
+/* Username status icons */
+.username-status-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+}
+
+.username-status-icon.checking {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.username-status-icon.available {
+  color: #16a34a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.username-status-icon.unavailable {
+  color: #dc2626;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.username-status-msg {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 6px;
+}
+
+.username-status-msg.available {
+  color: #16a34a;
+}
+
+.username-status-msg.unavailable {
+  color: #dc2626;
+}
+
+.username-status-msg.muted {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.username-suggestion-btn {
+  background: none;
+  border: none;
+  color: #0f766e;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.78rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.username-suggestion-btn:hover {
+  color: #0d9488;
+}
+
+/* Remember me */
+.auth-forgot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.remember-me-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.4;
+}
+
+.remember-me-checkbox {
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #2dd4bf;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.auth-forgot-link {
+  background: none;
+  border: none;
+  color: #0f766e;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-forgot-link:hover {
+  color: #2dd4bf;
+  text-decoration: underline;
+}
+
+/* Switch mode */
+.auth-switch-mode {
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15, 118, 110, 0.1);
+}
+
+.auth-switch-mode p {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.auth-switch-mode button {
+  background: none;
+  border: none;
+  color: #0f766e;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0;
+}
+
+.auth-switch-mode button:hover {
+  color: #0d9488;
+  text-decoration: underline;
+}
+
+/* Forgot password modal */
+.auth-forgot-modal {
+  max-width: 420px;
+}
+
+.auth-forgot-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.auth-forgot-modal-actions .auth-forgot-cancel-btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.auth-forgot-modal-actions .auth-modal-submit-btn {
+  flex: 2;
+}
+
+.auth-forgot-success-state {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.auth-forgot-success-state .success-icon {
+  font-size: 48px;
+  color: #16a34a;
+  margin-bottom: 16px;
+}
+
+.auth-forgot-success-state p {
+  color: #475569;
+  margin-bottom: 20px;
+}
+
+/* Improved focus styles — subtle teal, no double borders */
+.auth-modal-overlay .auth-card input:focus,
+.auth-modal-overlay .auth-card select:focus,
+.auth-modal-overlay .auth-card textarea:focus {
+  outline: none;
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12) !important;
+}
+
+/* Social auth buttons */
+.social-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-social-btn {
+  width: 100% !important;
+  min-height: 44px !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Mobile responsive for auth enhancements */
+@media (max-width: 480px) {
+  .auth-forgot-row {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .auth-forgot-modal-actions {
+    flex-direction: column;
+  }
+
+  .auth-forgot-modal-actions .auth-forgot-cancel-btn,
+  .auth-forgot-modal-actions .auth-modal-submit-btn {
+    flex: 1;
+    width: 100%;
   }
 }
