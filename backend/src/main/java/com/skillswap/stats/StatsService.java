@@ -10,20 +10,37 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Service implementing stats business logic.
+ * <p>
+ * The community-stats endpoint runs multiple aggregate queries on every call.
+ * To avoid hammering the database with identical requests (e.g. the landing
+ * page fires 3 simultaneous calls), results are cached in-memory for
+ * {@link #CACHE_TTL_MS} milliseconds.
  */
 @Service
 @RequiredArgsConstructor
 public class StatsService {
+    private static final long CACHE_TTL_MS = 30_000;
+
     private final UserRepository userRepository;
     private final SkillRepository skillRepository;
     private final BookingRepository bookingRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final LearnerReviewRepository learnerReviewRepository;
 
+    // Simple in-memory cache with TTL — one stats result, shared by all callers.
+    private final AtomicReference<CachedStats> cache = new AtomicReference<>();
+
+    private record CachedStats(CommunityStatsDto stats, long timestamp) {}
+
     public CommunityStatsDto getCommunityStats() {
+        CachedStats entry = cache.get();
+        if (entry != null && System.currentTimeMillis() - entry.timestamp < CACHE_TTL_MS) {
+            return entry.stats();
+        }
         long totalUsers = userRepository.count();
         OffsetDateTime cutoff = OffsetDateTime.now().minusMinutes(10);
         long activeUsers = userRepository.countByLastActiveAtAfter(cutoff);
@@ -48,7 +65,9 @@ public class StatsService {
             averageRating = (mentorAvg + learnerAvgSum) / (double) totalCount;
         }
 
-        return new CommunityStatsDto(totalUsers, activeUsers, skillsOffered, completedSwaps,
+        CommunityStatsDto result = new CommunityStatsDto(totalUsers, activeUsers, skillsOffered, completedSwaps,
                 Math.round(averageRating * 100.0) / 100.0, completionRate);
+        cache.set(new CachedStats(result, System.currentTimeMillis()));
+        return result;
     }
 }

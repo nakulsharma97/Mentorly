@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import NotificationCenter from "../components/NotificationCenter";
+import useUnreadNotifications from "../hooks/useUnreadNotifications";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "../modules/mentor/mentor-pages.css";
 
 export default function LearnerNotificationsPage({ notify }) {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, refresh } = useUnreadNotifications();
 
   useEffect(() => {
     document.title = "Notifications | Mentorly";
@@ -28,7 +29,7 @@ export default function LearnerNotificationsPage({ notify }) {
           hideFullPageHeader
           notificationsPath="/learner/notifications"
           unreadNotifications={unreadCount}
-          onUnreadCountChange={setUnreadCount}
+          onUnreadCountChange={() => refresh()}
           onNotify={notify}
         />
       </div>

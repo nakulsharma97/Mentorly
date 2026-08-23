@@ -1,31 +1,12 @@
-import React, { useEffect, useState } from "react";
-import client from "../api/client";
+import React from "react";
 import { motion } from "framer-motion";
+import usePublicData from "../hooks/usePublicData";
 
 export default function Testimonials({ onShareReview }) {
-  const [items, setItems] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-    client
-      .get("/api/v1/public/testimonials")
-      .then((r) => {
-        if (mounted) {
-          setItems(r.data);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setItems([]);
-          setLoading(false);
-        }
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { testimonials: items, testimonialsLoading: loading } = usePublicData({
+    fetchMentors: false,
+    fetchTestimonials: true,
+  });
 
   if (loading)
     return (

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import client from "../../api/client";
 import useChatSocket from "./hooks/useChatSocket";
-import useConversations from "./hooks/useConversations";
 import useSearch from "./hooks/useSearch";
+import { useChatContext } from "../../context/ChatContext";
 import MessageLayout from "./components/MessageLayout";
 import ConversationSidebar from "./components/ConversationSidebar";
 import ChatHeader from "./components/ChatHeader";
@@ -12,7 +12,6 @@ import QuickReplies from "./components/QuickReplies";
 import NewConversation from "./components/NewConversation";
 import EmptyConversation from "./components/EmptyConversation";
 import { unwrap } from "./utils";
-import { setUnreadMessages } from "./unreadMessagesStore";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL || "";
 const wsBase = apiBase
@@ -39,7 +38,7 @@ export default function MessageApp({
   }, [variant]);
 
   const { conversations, loading, error, load, filterConversations, patchDirect } =
-    useConversations(currentUserId);
+    useChatContext();
   const search = useSearch();
 
   const [selectedId, setSelectedId] = useState(null);
@@ -621,16 +620,8 @@ export default function MessageApp({
   };
 
   const isTyping = Boolean(selConv && typingConversationId === String(convId));
-  const totalUnread = conversations.reduce(
-    (sum, c) => sum + (!c.archived ? Number(c.unreadCount || 0) : 0),
-    0,
-  );
-
-  // Publish the live unread total to the shared store (sidebar badge + tab
-  // title subscribe to it). Backend-driven: sums per-conversation counts.
-  useEffect(() => {
-    setUnreadMessages(totalUnread);
-  }, [totalUnread]);
+  // NOTE: unread-count publication to the shared store is now handled by
+  // ChatProvider (context/ChatContext.jsx) — no need to duplicate it here.
 
   return (
     <MessageLayout

@@ -328,6 +328,19 @@ export function createIdempotencyKey(prefix = "req") {
   return `${prefix}-${Date.now()}-${idempotencySeed}`;
 }
 
+// ── GET-request deduplication cache ──────────────────────────────────────
+const GET_DEDUP_TTL_MS = 5_000;
+const _getCache = new Map();
+const _getInflight = new Map();
+
+/**
+ * Clear the GET dedup cache. Call on logout or when auth state changes.
+ */
+export function clearGetCache() {
+  _getCache.clear();
+  _getInflight.clear();
+}
+
 client.interceptors.request.use((config) => {
   config.headers = config.headers || {};
   config.metadata = {
@@ -339,6 +352,47 @@ client.interceptors.request.use((config) => {
   const authToken = getActiveAuthToken();
   if (authToken && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  // GET dedup: reuse cached result or piggyback on in-flight request
+  if (requestMethod === "GET" && !config.__dedupAdapterSet) {
+    const cacheKey = String(config.url || "");
+    const cached = _getCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiry) {
+      config.__dedupAdapterSet = true;
+      config.adapter = () =>
+        Promise.resolve({ data: cached.data, status: 200, statusText: "OK", headers: {}, config });
+      return config;
+    }
+    if (_getInflight.has(cacheKey)) {
+      config.__dedupAdapterSet = true;
+      config.adapter = () => _getInflight.get(cacheKey);
+      return config;
+    }
+    // Register inflight: wrap the real adapter so a concurrent caller
+    // can piggyback on this exact HTTP request.
+    let resolveInflight, rejectInflight;
+    const inflightPromise = new Promise((resolve, reject) => {
+      resolveInflight = resolve;
+      rejectInflight = reject;
+    });
+    _getInflight.set(cacheKey, inflightPromise);
+    const realAdapter = config.adapter;
+    config.adapter = async (cfg) => {
+      try {
+        const response = realAdapter
+          ? await realAdapter(cfg)
+          : await axios.defaults.adapter(cfg);
+        resolveInflight(response);
+        return response;
+      } catch (err) {
+        rejectInflight(err);
+        _getInflight.delete(cacheKey);
+        throw err;
+      }
+    };
+    config.__dedupAdapterSet = true;
+    return config;
   }
 
   if (
@@ -371,6 +425,12 @@ client.interceptors.response.use(
         status: Number(response?.status || 0),
       });
     }
+    // Populate the GET dedup cache on success
+    if (String(response?.config?.method || "get").toUpperCase() === "GET") {
+      const cacheKey = String(response?.config?.url || "");
+      _getCache.set(cacheKey, { data: response.data, expiry: Date.now() + GET_DEDUP_TTL_MS });
+      _getInflight.delete(cacheKey);
+    }
     return response;
   },
   async (error) => {
@@ -379,6 +439,11 @@ client.interceptors.response.use(
     const status = Number(error?.response?.status || 0);
     const isNetworkError = !error?.response;
     const retryCount = Number(config.__retryCount || 0);
+
+    // Clear inflight dedup on non-retryable errors
+    if (method === "GET" && status !== 401) {
+      _getInflight.delete(String(config.url || ""));
+    }
 
     const startedAt = config.metadata?.startedAt;
     if (Number.isFinite(startedAt)) {
@@ -469,8 +534,11 @@ client.interceptors.response.use(
     }
 
     config.__retryCount = retryCount + 1;
+    // Preserve the dedup adapter through retries so it isn't lost
+    const prevAdapter = config.adapter;
     const delayMs = 250 * config.__retryCount;
     await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (prevAdapter) config.adapter = prevAdapter;
     return client(config);
   },
 );

@@ -8,6 +8,8 @@ import client, {
 } from "../api/client";
 import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
 import { isPublicPath, roleRoot } from "../modules/common/routeUtils";
+import useUnreadNotifications from "./useUnreadNotifications";
+import { fetchProfile, invalidateProfileCache } from "./useProfileCache";
 import {
   clearOnboardingDismissal,
   isOnboardingDismissed,
@@ -58,8 +60,7 @@ export function useAuthProfile({ notify }) {
     const activeToken = getActiveAuthToken();
     if (!activeToken) {
       try {
-        const maybe = await client.get("/api/v1/users/me");
-        const maybeProfile = maybe?.data?.data || null;
+        const maybeProfile = await fetchProfile();
         if (maybeProfile?.id) {
           if (generation !== syncGenerationRef.current) {
             return null;
@@ -96,8 +97,7 @@ export function useAuthProfile({ notify }) {
     }
 
     try {
-      const response = await client.get("/api/v1/users/me");
-      const nextProfile = response?.data?.data || null;
+      const nextProfile = await fetchProfile();
       if (!nextProfile?.id) {
         clearAuthSessionState();
         setProfile(null);
@@ -247,42 +247,29 @@ export function useAuthProfile({ notify }) {
     };
   }, [syncCurrentUser]);
 
-  // Unread notification polling
-  useEffect(() => {
-    if (!isLoggedIn) return undefined;
-    let isMounted = true;
+  // Unread notification polling — delegated to shared hook
+  const { unreadCount } = useUnreadNotifications({
+    onChange: isLoggedIn ? (count) => setUnreadNotifications(count) : undefined,
+  });
 
-    const fetchUnreadCount = async () => {
-      try {
-        const response = await client.get("/api/v1/notifications/unread-count");
-        if (isMounted) setUnreadNotifications(Number(response?.data?.data || 0));
-      } catch {
-        if (isMounted) setUnreadNotifications(0);
-      }
-    };
-
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 15000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [isLoggedIn]);
-
-  // Activity ping
+  // Activity ping — skip first mount, only ping every 60s
+  const lastPingRef = useRef(0);
   useEffect(() => {
     if (!isLoggedIn) return undefined;
 
     const pingActivity = async () => {
+      const now = Date.now();
+      if (now - lastPingRef.current < 60_000) return; // skip if <60s since last
       try {
         await client.post("/api/v1/users/me/ping");
+        lastPingRef.current = now;
       } catch {
         // ignore
       }
     };
 
-    pingActivity();
-    const intervalId = setInterval(pingActivity, 60000);
+    // Skip first mount — only start pinging after 60s
+    const intervalId = setInterval(pingActivity, 15_000);
     return () => {
       clearInterval(intervalId);
     };
@@ -376,8 +363,7 @@ export function useAuthProfile({ notify }) {
     if (
       pathname === "/" ||
       pathname === "/login" ||
-      pathname === "/signup" ||
-      pathname === "/admin/login"
+      pathname === "/signup"
     ) {
       // A protected page (e.g. a mentor profile) may have saved a pending
       // post-login redirect. Honor the intended destination instead of
@@ -401,6 +387,7 @@ export function useAuthProfile({ notify }) {
       // Clear UI state even if server call fails
     }
     clearAuthSessionState();
+    invalidateProfileCache();
     // A fresh login must re-trigger mandatory onboarding for an incomplete
     // profile — never carry the previous session's dismissal across accounts.
     clearOnboardingDismissal();

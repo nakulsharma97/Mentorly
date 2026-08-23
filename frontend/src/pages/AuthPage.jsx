@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { normalizeSkills } from "../utils/skills";
-import { pageContent } from "../utils/pagination";
-import client from "../api/client";
 import OptimizedImage from "../components/OptimizedImage";
 import PremiumFooter from "../components/PremiumFooter";
 import CommunityStats from "../components/CommunityStats";
 import Testimonials from "../components/Testimonials";
+import useCommunityStats from "../hooks/useCommunityStats";
+import usePublicData from "../hooks/usePublicData";
 import "./AuthPage.css";
 
 const SECTION_IDS = ["product", "mentors", "workflow", "outcomes"];
@@ -42,10 +42,9 @@ const scrollToSection = (sectionId) => (event) => {
 export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("product");
-  const [mentors, setMentors] = useState([]);
-  const [mentorsLoading, setMentorsLoading] = useState(true);
+  const { mentors = [], mentorsLoading } = usePublicData({ fetchMentors: true, fetchTestimonials: false });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [communityStats, setCommunityStats] = useState(null);
+  const { stats: communityStats } = useCommunityStats();
 
   useEffect(() => {
     const updateActiveSection = () => {
@@ -91,60 +90,11 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
     return () => observer.disconnect();
   }, [mentorsLoading]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    client
-      .get("/api/v1/users/mentors")
-      .then((response) => {
-        if (!isMounted) {
-          return;
-        }
-        // Paginated response — unwrap .content from the Page object.
-        setMentors(pageContent(response?.data?.data));
-      })
-      .catch(() => {
-        if (isMounted) {
-          setMentors([]);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setMentorsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Hero metrics are fed from the live community-stats endpoint (no fabricated
-  // numbers). averageRating / completedSwaps / completionRate are all computed
-  // server-side from real database rows.
-  useEffect(() => {
-    let isMounted = true;
-    client
-      .get("/api/v1/public/community-stats")
-      .then((response) => {
-        if (isMounted) {
-          setCommunityStats(response?.data || null);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setCommunityStats(null);
-        }
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const [openFaq, setOpenFaq] = useState(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
 
-  const displayMentors = useMemo(() => mentors.slice(0, 3), [mentors]);
+  const displayMentors = useMemo(() => (mentors ?? []).slice(0, 3), [mentors]);
   const mentorCountLabel = String(mentors.length);
 
   // Real hero metrics (null until the community-stats call resolves)

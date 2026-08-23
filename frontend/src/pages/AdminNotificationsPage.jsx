@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import NotificationCenter from "../components/NotificationCenter";
+import useUnreadNotifications from "../hooks/useUnreadNotifications";
 import HeroSection from "../components/HeroSection";
 import "../modules/admin/ui/admin-ui.css";
 
 export default function AdminNotificationsPage({ notify }) {
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, refresh } = useUnreadNotifications();
 
   useEffect(() => {
     document.title = "Notifications | Mentorly Admin";
@@ -41,7 +42,7 @@ export default function AdminNotificationsPage({ notify }) {
           hideFullPageHeader
           notificationsPath="/admin/notification-center"
           unreadNotifications={unreadCount}
-          onUnreadCountChange={setUnreadCount}
+          onUnreadCountChange={() => refresh()}
           onNotify={notify}
         />
       </div>

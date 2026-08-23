@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import client from "../api/client";
+import useUnreadNotifications from "../hooks/useUnreadNotifications";
+import useNotificationList from "../hooks/useNotificationList";
 import "./NotificationCenter.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -74,13 +76,6 @@ function getTypeConfig(type) {
 /* ──────────────────────────────────────────────────────────────────────────
    Helpers
    ────────────────────────────────────────────────────────────────────────── */
-
-function unwrap(payload) {
-  if (payload && typeof payload === "object" && "data" in payload && "message" in payload) {
-    return payload.data;
-  }
-  return payload;
-}
 
 function relativeTime(dateStr) {
   if (!dateStr) return "";
@@ -277,81 +272,44 @@ export default function NotificationCenter({
   const pendingReadsRef = useRef(new Set());
 
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState(null);
   const [unreadCount, setUnreadCount] = useState(externalUnreadCount || 0);
-  const [fetchedOnce, setFetchedOnce] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState("all"); // "all" | "unread"
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
 
   const isAdmin = notificationsPath.startsWith("/admin");
 
+  // Shared notification list — multiple NotificationCenter instances
+  // (dropdown + fullPage) share a single fetch cache via this hook.
+  const {
+    notifications,
+    totalCount,
+    loading,
+    error,
+    fetchNotifications: fetchList,
+  } = useNotificationList({ fullPage, filter });
+
   /* ────────────────────────────────────────────── Data fetching ── */
 
+  // Unified fetch wrapper that manages page/hasMore state.
   const fetchNotifications = useCallback(async (silent = false, pageNum = 0, append = false) => {
-    if (!silent && !append) {
-      setLoading(true);
-      setError(null);
-    }
-    if (append) {
-      setLoadingMore(true);
-    }
+    const result = await fetchList({
+      page: pageNum,
+      size: 20,
+      unreadOnly: filter === "unread",
+      append,
+    });
+    setPage(pageNum);
+    setHasMore((result?.items?.length || 0) >= 20);
+  }, [fetchList, filter]);
 
-    try {
-      const response = await client.get("/api/v1/notifications", {
-        params: {
-          page: pageNum,
-          size: 20,
-          unreadOnly: filter === "unread",
-        },
-      });
-      const result = unwrap(response.data);
-      const items = result?.content || result || [];
-      setTotalCount(result?.totalElements || items.length);
-
-      if (append) {
-        setNotifications((prev) => [...prev, ...items]);
-      } else {
-        setNotifications(items);
-      }
-      setPage(pageNum);
-      setHasMore(items.length >= 20);
-      setFetchedOnce(true);
-    } catch (err) {
-      if (!silent) {
-        setError(
-          err?.response?.data?.message ||
-          err?.message ||
-          "Something went wrong while fetching notifications."
-        );
-      }
-    } finally {
-      if (!silent) setLoading(false);
-      if (append) setLoadingMore(false);
-    }
-  }, [filter]);
-
+  // Use shared unread-count hook instead of independent polling
+  const { unreadCount: sharedUnreadCount, refresh: refreshUnread } = useUnreadNotifications();
   const fetchUnreadCount = useCallback(async () => {
-    try {
-      const response = await client.get("/api/v1/notifications/unread-count");
-      const raw = response?.data?.data;
-      const count = Number(raw) || 0;
-      if (count > 0 && count < 1000) {
-        setUnreadCount(count);
-        if (onUnreadCountChange) onUnreadCountChange(count);
-      } else {
-        setUnreadCount(0);
-        if (onUnreadCountChange) onUnreadCountChange(0);
-      }
-    } catch {
-      // silently fail for background polling
-    }
-  }, [onUnreadCountChange]);
+    await refreshUnread();
+  }, [refreshUnread]);
 
   /* ─────────────────────────────────────── WebSocket (real-time) ── */
 
@@ -379,15 +337,12 @@ export default function NotificationCenter({
       socket.onmessage = (event) => {
         try {
           const newNotif = JSON.parse(event.data);
-          setNotifications((prev) => {
-            // Deduplicate by ID — skip if already present
-            if (prev.some((n) => n.id === newNotif.id)) return prev;
-            return [newNotif, ...prev];
-          });
-          // Use functional update to avoid stale closure
+          // The shared notification list is managed by useNotificationList;
+          // we can't directly update it here. Instead bump the unread count
+          // so the badge reflects the new message. The full list will refresh
+          // on the next 30s poll or when the user opens the panel.
           setUnreadCount((prev) => {
             const newCount = prev + 1;
-            // Also call the external handler with the new value
             if (onUnreadCountChangeRef.current) {
               onUnreadCountChangeRef.current(newCount);
             }
@@ -440,33 +395,15 @@ export default function NotificationCenter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch on open filter change — reset and refetch when filter changes
-  useEffect(() => {
-    if ((isOpen || fullPage) && !fetchedOnce) {
-      fetchNotifsRef.current();
-      fetchUnreadRef.current();
-    } else if (fetchedOnce) {
-      // Refetch for filter change (page is reset inside fetchNotifications is not needed here)
-      // If filter just changed, we need the fetch to use the new filter value
-      fetchNotifsRef.current();
-      // Reset pagination state for the new filter
-      setPage(0);
-      setHasMore(true);
-    }
-  }, [isOpen, fullPage, fetchedOnce, filter]);
-
-  // Background refresh when external count changes
-  useEffect(() => {
-    if (fetchedOnce && (isOpen || fullPage)) {
-      fetchNotifsRef.current();
-      fetchUnreadRef.current();
-    }
-  }, [externalUnreadCount, fetchedOnce, isOpen, fullPage]);
-
-  // Sync external unread count
+  // Sync external unread count + shared hook count
   useEffect(() => {
     setUnreadCount(externalUnreadCount || 0);
   }, [externalUnreadCount]);
+
+  useEffect(() => {
+    setUnreadCount(sharedUnreadCount);
+    if (onUnreadCountChange) onUnreadCountChange(sharedUnreadCount);
+  }, [sharedUnreadCount, onUnreadCountChange]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -490,16 +427,18 @@ export default function NotificationCenter({
     return () => window.removeEventListener("keydown", onKey);
   }, [fullPage, isOpen]);
 
-  // 30s polling fallback (only when WebSocket not available)
+  // 30s polling fallback — only polls notifications list (unread-count
+  // is handled by the shared useUnreadNotifications hook).
+  // The shared useNotificationList hook caches at module level, so
+  // multiple NotificationCenter instances won't fire duplicate requests.
   useEffect(() => {
     if (!isOpen && !fullPage) return;
 
     const interval = setInterval(() => {
       fetchNotifications(true);
-      fetchUnreadCount();
     }, 30000);
     return () => clearInterval(interval);
-  }, [isOpen, fullPage, fetchNotifications, fetchUnreadCount]);
+  }, [isOpen, fullPage, fetchNotifications])
 
   /* ──────────────────────────────────────────────────── Actions ── */
 
@@ -565,8 +504,13 @@ export default function NotificationCenter({
     }
   }, []); // Intentionally empty — all dependencies use Ref.current
 
-  const handleLoadMore = useCallback(() => {
-    fetchNotifications(false, page + 1, true);
+  const handleLoadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      await fetchNotifications(false, page + 1, true);
+    } finally {
+      setLoadingMore(false);
+    }
   }, [fetchNotifications, page]);
 
   /**

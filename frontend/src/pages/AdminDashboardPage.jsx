@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import StatsCard from "../modules/common/dashboard/StatsCard";
@@ -72,6 +72,8 @@ const formatCurrency = (value) => {
  * error state with retry.
  */
 export default function AdminDashboardPage({ notify }) {
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
   const [dashboard, setDashboard] = useState(null);
   const [skillsCount, setSkillsCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export default function AdminDashboardPage({ notify }) {
           ? "The server is having trouble right now. Please try again shortly."
           : "We could not load the dashboard data. Check your connection and try again.",
       );
-      notify?.({
+      notifyRef.current?.({
         type: "error",
         title: "Dashboard unavailable",
         message: "Could not load admin dashboard data from the backend.",
@@ -104,9 +106,13 @@ export default function AdminDashboardPage({ notify }) {
     } finally {
       setLoading(false);
     }
-  }, [notify]);
+  }, []);
 
+  // Fire once on mount, skip if already loaded
+  const loadedRef = useRef(false);
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     loadAll();
   }, [loadAll]);
 

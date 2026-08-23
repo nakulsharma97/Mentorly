@@ -326,7 +326,9 @@ public class SystemHealthService {
         String driver = "";
         try {
             if (jdbcTemplate.getDataSource() != null) {
-                driver = jdbcTemplate.getDataSource().getConnection().getMetaData().getDriverName();
+                try (var conn = jdbcTemplate.getDataSource().getConnection()) {
+                    driver = conn.getMetaData().getDriverName();
+                }
             }
         } catch (Exception ignored) {
             // Driver name is cosmetic.

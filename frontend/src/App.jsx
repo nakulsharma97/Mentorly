@@ -156,6 +156,14 @@ export default function App() {
         // overridden by the effect's own /login → role-dashboard bounce.
         return;
       }
+      // Preload admin layout CSS so it's ready before the first admin navigation
+      if (user?.role === "ADMIN") {
+        const link = document.createElement("link");
+        link.rel = "preload";
+        link.as = "style";
+        link.href = "/assets/admin-ui-D-5kr9Zm.css";
+        document.head.appendChild(link);
+      }
       navigate(roleRoot(user.role), { replace: true });
     } catch (error) {
       console.error("Post-login profile initialization failed", error);

@@ -709,15 +709,16 @@ export default function TeachingPage({ profile: profileProp, notify }) {
     setLoading(true);
     setLoadError("");
     try {
-      const [profileRes, sessionsRes, bookingsRes, availabilityRes] =
+      const { fetchProfile } = await import("../hooks/useProfileCache");
+      const [cachedProfile, sessionsRes, bookingsRes, availabilityRes] =
         await Promise.all([
-          client.get("/api/v1/users/me"),
+          fetchProfile(),
           client.get("/api/v1/sessions"),
           client.get("/api/v1/bookings"),
           client.get("/api/v1/availability/my-slots"),
         ]);
 
-      setProfile(profileRes?.data?.data || null);
+      setProfile(cachedProfile);
       // Paginated responses — unwrap .content from the Page objects.
       setSessions(sessionsRes?.data?.data?.content || []);
       setBookings(bookingsRes?.data?.data?.content || []);

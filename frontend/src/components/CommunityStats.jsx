@@ -1,19 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
-import client from "../api/client";
-import { motion } from "framer-motion";
+import React, { useState, useRef, useEffect } from "react";
+import useCommunityStats from "../hooks/useCommunityStats";
 import "./CommunityStats.css";
-
-function useInterval(callback, delay) {
-  const savedRef = useRef(null);
-  useEffect(() => {
-    savedRef.current = callback;
-  }, [callback]);
-  useEffect(() => {
-    if (delay == null) return;
-    const id = setInterval(() => savedRef.current(), delay);
-    return () => clearInterval(id);
-  }, [delay]);
-}
 
 function CountUp({ value }) {
   const [display, setDisplay] = useState(0);
@@ -39,32 +26,7 @@ function CountUp({ value }) {
 }
 
 export default function CommunityStats() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  const fetch = async () => {
-    try {
-      const res = await client.get("/api/v1/public/community-stats");
-      setStats(res.data);
-    } catch (e) {
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetch();
-  }, []);
-  // refresh only activeUsers every 60s
-  useInterval(() => {
-    client
-      .get("/api/v1/public/community-stats")
-      .then((r) => {
-        setStats(() => ({ ...r.data, activeUsers: r.data.activeUsers }));
-      })
-      .catch(() => {});
-  }, 60000);
+  const { stats, loading } = useCommunityStats({ refreshInterval: 60_000 });
 
   if (loading)
     return (
@@ -146,16 +108,10 @@ export default function CommunityStats() {
       </div>
       <div className="landing-stats-grid">
         {cards.map((c, idx) => (
-          <motion.article
-            className="landing-feature-card landing-stat-card"
+          <article
+            className="landing-feature-card landing-stat-card landing-stat-animate"
             key={c.key}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.06 * idx, duration: 0.6 }}
-            whileHover={{
-              translateY: -6,
-              boxShadow: "0 28px 70px rgba(16,32,29,0.15)",
-            }}
+            style={{ animationDelay: `${0.06 * idx}s` }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 28 }} aria-hidden>
@@ -174,7 +130,7 @@ export default function CommunityStats() {
                 </div>
               </div>
             </div>
-          </motion.article>
+          </article>
         ))}
       </div>
     </section>

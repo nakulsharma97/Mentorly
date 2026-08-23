@@ -3,10 +3,8 @@ import { Outlet } from "react-router";
 import WorkspaceSidebar from "./WorkspaceSidebar";
 import WorkspaceTopbar from "./WorkspaceTopbar";
 import { formatTabTitle } from "../../messages/unreadMessagesStore";
-import {
-  useUnreadMessageCount,
-  useUnreadMessagePolling,
-} from "./useUnreadMessages";
+import { useUnreadMessageCount } from "./useUnreadMessages";
+import { ChatProvider } from "../../../context/ChatContext";
 import "../dashboard/dashboard.css";
 import "./workspace.css";
 
@@ -47,7 +45,7 @@ export default function WorkspaceLayout({
   );
 
   // Backend-driven unread message count (sidebar badge + tab title).
-  useUnreadMessagePolling(profile);
+  // Polling is now handled inside ChatProvider (see ChatContext.jsx).
   const unreadMessages = useUnreadMessageCount();
 
   // Browser tab title: "(N) <page title>" while unread messages exist.
@@ -131,37 +129,39 @@ export default function WorkspaceLayout({
   const navExpanded = isDesktop ? !collapsed : mobileOpen;
 
   return (
-    <div className={`ws-shell${collapsed && isDesktop ? " is-collapsed" : ""}`}>
-      <WorkspaceSidebar
-        brand={brand}
-        groups={groups}
-        secondaryLinks={secondaryLinks}
-        profile={profile}
-        onLogout={onLogout}
-        collapsed={collapsed}
-        isDesktop={isDesktop}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-      />
-      <div className="ws-main">
-        <WorkspaceTopbar
+    <ChatProvider profile={profile}>
+      <div className={`ws-shell${collapsed && isDesktop ? " is-collapsed" : ""}`}>
+        <WorkspaceSidebar
+          brand={brand}
+          groups={groups}
+          secondaryLinks={secondaryLinks}
           profile={profile}
           onLogout={onLogout}
-          unreadNotifications={unreadNotifications}
-          onUnreadCountChange={onUnreadCountChange}
-          onNotify={onNotify}
-          pageMeta={pageMeta}
-          crumbRoot={crumbRoot}
-          notificationsTo={notificationsTo}
-          profileMenu={profileMenu}
-          navOpen={navOpen}
-          navExpanded={navExpanded}
-          onToggleNav={toggleNav}
+          collapsed={collapsed}
+          isDesktop={isDesktop}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
         />
-        <main className="ws-main-content">
-          <Outlet />
-        </main>
+        <div className="ws-main">
+          <WorkspaceTopbar
+            profile={profile}
+            onLogout={onLogout}
+            unreadNotifications={unreadNotifications}
+            onUnreadCountChange={onUnreadCountChange}
+            onNotify={onNotify}
+            pageMeta={pageMeta}
+            crumbRoot={crumbRoot}
+            notificationsTo={notificationsTo}
+            profileMenu={profileMenu}
+            navOpen={navOpen}
+            navExpanded={navExpanded}
+            onToggleNav={toggleNav}
+          />
+          <main className="ws-main-content">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </ChatProvider>
   );
 }

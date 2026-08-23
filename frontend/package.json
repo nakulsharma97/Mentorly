@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "perf:audit": "playwright test e2e/perf-audit.spec.js --reporter=list"
   },
   "dependencies": {
     "@sentry/react": "^8.55.2",
@@ -45,6 +46,7 @@
     "jsdom": "^25.0.1",
     "msw": "^2.14.6",
     "vite": "^8.0.8",
+    "vite-plugin-compression": "^0.5.1",
     "vitest": "^4.1.4"
   }
 }

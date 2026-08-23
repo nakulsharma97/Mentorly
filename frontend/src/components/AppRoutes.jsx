@@ -1,7 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import AuthPage from "../pages/AuthPage";
-import AdminLoginPage from "../pages/AdminLoginPage";
 import TestChecklistPage from "../pages/TestChecklistPage";
 import RouteErrorBoundary from "./RouteErrorBoundary";
 import LearnerLayout from "../modules/learner/layouts/LearnerLayout";
@@ -126,14 +125,7 @@ export default function AppRoutes({
         <Route path="/" element={sharedAuthPage} />
         <Route path="/login" element={sharedAuthPage} />
         <Route path="/signup" element={sharedAuthPage} />
-        <Route
-          path="/admin/login"
-          element={routeContent(
-            "admin-login",
-            <AdminLoginPage onLoggedIn={onLoggedIn} notify={notify} />,
-            routeFallback,
-          )}
-        />
+        <Route path="/admin/login" element={<Navigate to="/login" replace />} />
         <Route path="/test-checklist" element={<TestChecklistPage />} />
         {/* Mentor profiles are authenticated-only: anonymous visitors are
             bounced to /login with their destination preserved (see

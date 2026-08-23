@@ -44,17 +44,14 @@ export default function SkillManagementPage({ notify }) {
   const [mergingSkill, setMergingSkill] = useState(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [saving, setSaving] = useState(false);
+  // Derive pending count from the initial requests fetch — no separate API call needed.
+  // We only set it once so it doesn't reset when the user switches tabs.
   const [pendingCount, setPendingCount] = useState(0);
-
-  const loadPendingCount = useCallback(async () => {
-    try {
-      const res = await client.get('/api/v1/admin/skills/skill-requests?status=PENDING');
-      const data = Array.isArray(res?.data?.data) ? res.data.data : [];
-      setPendingCount(data.length);
-    } catch { /* non-critical */ }
-  }, []);
-
-  useEffect(() => { loadPendingCount(); }, [loadPendingCount]);
+  useEffect(() => {
+    if (requestStatus === 'PENDING' && requests.length > 0 && pendingCount === 0) {
+      setPendingCount(requests.length);
+    }
+  }, [requestStatus, requests.length, pendingCount]);
 
   const categories = useMemo(() => new Set(skills.map(s => s.category).filter(Boolean)).size, [skills]);
 

@@ -70,6 +70,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -907,7 +909,7 @@ public class AdminController {
     // ════════════════════════════════════════════════
 
     @GetMapping("/users")
-    public ApiResponse<Page<AdminUserDto>> listUsers(
+    public ResponseEntity<ApiResponse<Page<AdminUserDto>>> listUsers(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String q,
@@ -925,7 +927,9 @@ public class AdminController {
                     u.getLastActiveAt(), walletBalance, u.getAdminSubRole());
         });
 
-        return new ApiResponse<>("Users fetched", dtoPage);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofSeconds(60)))
+                .body(new ApiResponse<>("Users fetched", dtoPage));
     }
 
     @PatchMapping("/users/{id}/role")
@@ -1713,7 +1717,7 @@ public class AdminController {
 
     @GetMapping("/dashboard")
     @Transactional(readOnly = true)
-    public ApiResponse<AdminDashboardDto> getDashboard(
+    public ResponseEntity<ApiResponse<AdminDashboardDto>> getDashboard(
             @AuthenticationPrincipal User currentUser,
             @RequestParam(required = false, defaultValue = "6") int months,
             @RequestParam(required = false, defaultValue = "30") int days) {
@@ -1958,7 +1962,9 @@ public class AdminController {
                         pendingRequests, activeConversations, openReports, flaggedContent,
                         totalPayments, monthlyRevenue));
 
-        return new ApiResponse<>("Dashboard data fetched", dashboard);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofSeconds(30)))
+                .body(new ApiResponse<>("Dashboard data fetched", dashboard));
     }
 
     /**
@@ -2105,13 +2111,17 @@ public class AdminController {
      */
     @GetMapping("/health")
     @Transactional(readOnly = true)
-    public ApiResponse<MonitoringDtos.AdminHealthDto> getPlatformHealth(
+    public ResponseEntity<ApiResponse<MonitoringDtos.AdminHealthDto>> getPlatformHealth(
             @AuthenticationPrincipal User currentUser) {
         ensureAdmin(currentUser);
         // Health sampling now runs on a @Scheduled background task, so the
         // GET endpoint only reads the cached snapshot — no writes per request.
+        // Cache for 8s at the HTTP level — the service caches for 10s, so
+        // the browser/CDN won't make redundant requests within that window.
         MonitoringDtos.AdminHealthDto health = systemHealthService.getPlatformHealth();
-        return new ApiResponse<>("Health data fetched", health);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofSeconds(8)))
+                .body(new ApiResponse<>("Health data fetched", health));
     }
 
     /**
