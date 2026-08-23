@@ -10,6 +10,7 @@ import HeroSection from "../components/HeroSection";
 import UsernameSettingsCard from "../components/UsernameSettingsCard";
 import { normalizeSkills } from "../utils/skills";
 import { pageContent } from "../utils/pagination";
+import { fetchCachedMentors } from "../hooks/usePublicData";
 import "./LearnerPages.css";
 
 /* Stable empty array reference to avoid creating a new [] on every render */
@@ -180,7 +181,7 @@ function useLearnerLearningData(refreshKey = 0) {
       await Promise.all([
         apiGet("/api/v1/bookings"),
         apiGet("/api/v1/certifications/me"),
-        apiGet("/api/v1/users/mentors").catch(() => []),
+        fetchCachedMentors().catch(() => []),
         apiGet("/api/v1/watchlist/mentors").catch(() => []),
         apiGet("/api/v1/watchlist/skills").catch(() => []),
         apiGet("/api/v1/users/me"),

@@ -19,11 +19,9 @@ let sharedNotifications = null;
 let sharedTotalCount = 0;
 let lastFetchTime = 0;
 let inflightPromise = null;
-let subscriberCount = 0;
 let onChangeCallbacks = new Set();
 
 function fetchList({ page = 0, size = 20, unreadOnly = false, append = false } = {}) {
-  const key = `${page}-${size}-${unreadOnly}-${append}`;
 
   // For the initial (non-append) request with the same params, return cached data if fresh
   if (!append && sharedNotifications && Date.now() - lastFetchTime < CACHE_TTL_MS) {
@@ -78,7 +76,7 @@ function fetchList({ page = 0, size = 20, unreadOnly = false, append = false } =
  * @param {{ fullPage?: boolean, filter?: string }} opts
  * @returns {{ notifications: Array, totalCount: number, loading: boolean, error: string|null, fetchNotifications: Function }}
  */
-export default function useNotificationList({ fullPage = false, filter = "all" } = {}) {
+export default function useNotificationList({ filter = "all" } = {}) {
   const [notifications, setNotifications] = useState(sharedNotifications || []);
   const [totalCount, setTotalCount] = useState(sharedTotalCount);
   const [loading, setLoading] = useState(!sharedNotifications);
@@ -92,7 +90,6 @@ export default function useNotificationList({ fullPage = false, filter = "all" }
 
   // Register as subscriber
   useEffect(() => {
-    subscriberCount++;
     const cb = ({ notifications: items, total }) => {
       if (mountedRef.current) {
         setNotifications(items);
@@ -124,7 +121,6 @@ export default function useNotificationList({ fullPage = false, filter = "all" }
 
     return () => {
       onChangeCallbacks.delete(cb);
-      subscriberCount--;
     };
   }, [filter]);
 
@@ -167,8 +163,9 @@ export default function useNotificationList({ fullPage = false, filter = "all" }
     setTotalCount(0);
     try {
       await client.patch("/api/v1/notifications/read-all");
-    } catch {
+    } catch (err) {
       fetchList({ page: 0, unreadOnly: filter === "unread" });
+      throw err;
     }
   }, [filter]);
 

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { useTheme } from "../../../context/ThemeContext";
 import client from "../../../api/client";
 import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
-import NotificationCenter from "../../../components/NotificationCenter";
+const NotificationCenter = lazy(() => import("../../../components/NotificationCenter"));
 
 /**
  * Role-agnostic sticky topbar: breadcrumb + page title, centered search,
@@ -274,12 +274,14 @@ export default function WorkspaceTopbar({
       )}
 
       <div className="ws-top__right">
-        <NotificationCenter
-          unreadNotifications={unreadNotifications}
-          onUnreadCountChange={onUnreadCountChange}
-          onNotify={onNotify}
-          notificationsPath={notificationsPath}
-        />
+        <Suspense fallback={null}>
+          <NotificationCenter
+            unreadNotifications={unreadNotifications}
+            onUnreadCountChange={onUnreadCountChange}
+            onNotify={onNotify}
+            notificationsPath={notificationsPath}
+          />
+        </Suspense>
 
         <button type="button" className="ws-top__icon-btn" onClick={toggle} aria-label="Toggle theme">
           <SsIcon name={isDark ? "sun" : "moon"} size={22} />

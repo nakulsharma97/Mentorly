@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Link, useNavigate } from "react-router";
 import client from "../api/client";
 import HeroSection from "../components/HeroSection";
-import ProfileGateModal from "../components/ProfileGateModal";
-import ShareModal from "../components/ShareModal";
 import SsIcon from "../components/ui/SsIcon";
 import { SsStatCard, SsBadge } from "../components/ui/SsCard";
 import useMentorGate from "../modules/common/useMentorGate";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import "./MentorDashboard.css";
+
+const ProfileGateModal = lazy(() => import("../components/ProfileGateModal"));
+const ShareModal = lazy(() => import("../components/ShareModal"));
 
 /* Stable empty array reference to avoid creating a new [] on every render */
 const EMPTY_ARRAY = [];
@@ -1229,19 +1230,21 @@ export default function MentorDashboard({ profile, notify }) {
 
       {/* Marketplace gate modal — blocks create/publish/availability/accept
           until the mentor's profile is complete AND admin-verified. */}
-      <ProfileGateModal {...gate.gate} />
+      <Suspense fallback={null}><ProfileGateModal {...gate.gate} /></Suspense>
 
       {/* ═══════════ INVITE FRIENDS MODAL — non-monetary sharing ═══════════ */}
       {showInviteModal && (
-        <ShareModal
-          title="Invite Friends"
-          subtitle="Know someone who wants to learn from experienced mentors? Share Mentorly with them."
-          url={window.location.origin + "/signup"}
-          text="Join me on Mentorly and learn from experienced mentors."
-          copyLabel="Copy Invite Link"
-          copyDoneLabel="Invite link copied!"
-          onClose={() => setShowInviteModal(false)}
-        />
+        <Suspense fallback={null}>
+          <ShareModal
+            title="Invite Friends"
+            subtitle="Know someone who wants to learn from experienced mentors? Share Mentorly with them."
+            url={window.location.origin + "/signup"}
+            text="Join me on Mentorly and learn from experienced mentors."
+            copyLabel="Copy Invite Link"
+            copyDoneLabel="Invite link copied!"
+            onClose={() => setShowInviteModal(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

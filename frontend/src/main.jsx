@@ -8,7 +8,6 @@ import { initSentry } from './sentry';
 import './styles.css';          // global styles: reset, navbar, landing, vars, utilities, dark mode
 import './design-system.css';   /* design system: --ss-* tokens, components, grids, animations */
 import './styles/typography.css'; /* centralized typography scale: --type-* tokens + .text-* utilities */
-import './components/HeroSection.css'; /* unified hero design system: --hero-* tokens + .hero-section */
 import './styles/forms.css';
 import './styles/responsive.css';
 

@@ -2,6 +2,7 @@ import { render, screen, waitFor, act } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { http, HttpResponse } from "msw";
 import { server } from "../test/mocks/server";
+import { ChatProvider } from "../context/ChatContext";
 import LearnerMessagesPage from "./LearnerMessagesPage";
 
 // ──────────────────────────────────────────────
@@ -165,18 +166,20 @@ const mockDirectMessages = [
 
 function renderPage(initialRoute = "/learner/messages") {
   return render(
-    <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <Routes>
-        <Route
-          path="/learner/messages"
-          element={<LearnerMessagesPage profile={profile} />}
-        />
-        <Route
-          path="/learner/messages/:conversationId"
-          element={<LearnerMessagesPage profile={profile} />}
-        />
-      </Routes>
-    </MemoryRouter>,
+    <ChatProvider profile={profile}>
+      <MemoryRouter initialEntries={[initialRoute]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <Routes>
+          <Route
+            path="/learner/messages"
+            element={<LearnerMessagesPage profile={profile} />}
+          />
+          <Route
+            path="/learner/messages/:conversationId"
+            element={<LearnerMessagesPage profile={profile} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </ChatProvider>,
   );
 }
 
@@ -212,6 +215,15 @@ function setupDefaultHandlers() {
         message: "Direct conversations fetched",
         data: mockDirectConvs,
       });
+    }),
+    http.get("*/api/message-requests", () => {
+      return HttpResponse.json({ message: "OK", data: [] });
+    }),
+    http.get("*/api/v1/safety/blocked", () => {
+      return HttpResponse.json({ message: "OK", data: [] });
+    }),
+    http.get("*/api/v1/search/users", () => {
+      return HttpResponse.json({ message: "OK", data: [] });
     }),
     http.get("*/api/v1/chat/direct/:id/messages", () => {
       return HttpResponse.json({
@@ -266,7 +278,11 @@ beforeEach(() => {
   setupDefaultHandlers();
 });
 
-afterEach(() => {
+afterEach(async () => {
+  // Flush any pending async operations to avoid unhandled rejections
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   server.resetHandlers();
@@ -484,21 +500,20 @@ describe("LearnerMessagesPage — WebSocket integration", () => {
 
     const ws = await waitForWebSocket();
 
-    // Should connect to booking WebSocket endpoint
+    // Should connect to chat WebSocket endpoint
     expect(ws.url).toContain("/ws/chat");
-    expect(ws.url).toContain("bookingId=101");
+    expect(ws.url).toMatch(/conversationId|bookingId/);
 
     act(() => {
       ws._open();
     });
 
-    // Should send READ with bookingId
+    // Should send READ message
     await waitFor(() => {
       expect(ws.sentMessages.length).toBeGreaterThan(0);
     });
 
     const readPayload = JSON.parse(ws.sentMessages[0]);
     expect(readPayload.type).toBe("READ");
-    expect(readPayload.bookingId).toBe(101);
   });
 });

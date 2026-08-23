@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import AuthModal from "./AuthModal";
-import client, { clearAuthSessionState, sendVerificationOtp, verifyEmailAndSignup } from "../api/client";
+import client, { clearAuthSessionState, sendVerificationOtp } from "../api/client";
 
 vi.mock("../api/client", () => ({
   default: {

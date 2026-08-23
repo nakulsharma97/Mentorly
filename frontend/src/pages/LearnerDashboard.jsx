@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import client from "../api/client";
 import { pageContent } from "../utils/pagination";
+import { fetchCachedMentors } from "../hooks/usePublicData";
 import HeroSection from "../components/HeroSection";
 import SsIcon from "../components/ui/SsIcon";
 import ShareModal from "../components/ShareModal";
@@ -202,7 +203,7 @@ export default function LearnerDashboard({ profile }) {
           client.get("/api/v1/bookings"),
           client.get("/api/v1/watchlist/skills"),
           client.get("/api/v1/certifications/me").catch(() => ({ data: { data: [] } })),
-          client.get("/api/v1/users/mentors").catch(() => ({ data: { data: [] } })),
+          fetchCachedMentors().then((data) => ({ data: { data } })).catch(() => ({ data: { data: [] } })),
         ]);
 
       // Paginated response — unwrap .content from the Page object.

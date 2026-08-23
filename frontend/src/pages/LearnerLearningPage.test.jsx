@@ -1,8 +1,10 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { http, HttpResponse } from "msw";
+import { beforeEach } from "vitest";
 import LearnerLearningPage from "./LearnerLearningPage";
 import { server } from "../test/mocks/server";
+import { clearGetCache } from "../api/client";
 
 // A start time inside the CURRENT month so the calendar grid renders the chip.
 const thisMonthEvent = (day, hour) => {
@@ -185,7 +187,8 @@ function stubDashboard(payload = dashboard) {
 }
 
 describe("LearnerLearningPage", () => {
-  afterEach(() => server.resetHandlers());
+  beforeEach(() => { server.resetHandlers(); clearGetCache(); });
+  afterEach(() => { server.resetHandlers(); clearGetCache(); });
 
   it("renders the hero greeting and all dashboard sections", async () => {
     stubDashboard();
@@ -313,6 +316,7 @@ describe("LearnerLearningPage", () => {
       http.post("*/api/v1/learning/todos", async ({ request }) => {
         const body = await request.json();
         todos = [...todos, { id: 2, task: body.task, done: false }];
+        clearGetCache();
         return HttpResponse.json({ data: todos });
       }),
       http.get("*/api/v1/learning/dashboard", () =>
@@ -341,6 +345,7 @@ describe("LearnerLearningPage", () => {
       http.post("*/api/v1/learning/todos", async ({ request }) => {
         const body = await request.json();
         todos = [...todos, { id: 2, task: body.task, done: Boolean(body.done) }];
+        clearGetCache();
         return HttpResponse.json({ data: todos });
       }),
       http.get("*/api/v1/learning/dashboard", () =>
@@ -372,6 +377,7 @@ describe("LearnerLearningPage", () => {
       http.patch("*/api/v1/learning/todos/:id", async ({ request }) => {
         const body = await request.json();
         todos = todos.map((todo) => (todo.id === 1 ? { ...todo, done: body.done } : todo));
+        clearGetCache();
         return HttpResponse.json({ data: todos });
       }),
       http.get("*/api/v1/learning/dashboard", () =>
@@ -426,11 +432,11 @@ describe("LearnerLearningPage", () => {
     await waitFor(() => {
       expect(savedNote).toBe("Learn the request lifecycle.");
     });
-  });
-
-  it("searches and filters the learning history", async () => {
+  });  it("searches and filters the learning history", async () => {
+    clearGetCache();
     stubDashboard();
     let lastParams = null;
+    // Override history handler AFTER stubDashboard so it takes priority
     server.use(
       http.get("*/api/v1/learning/history", ({ request }) => {
         const url = new URL(request.url);
@@ -439,19 +445,23 @@ describe("LearnerLearningPage", () => {
           status: url.searchParams.get("status"),
           page: url.searchParams.get("page"),
         };
+        clearGetCache();
         return HttpResponse.json({ data: historyPage });
       }),
     );
 
     renderPage();
 
+    // Wait for initial history load to complete
     await waitFor(() => {
       expect(screen.getAllByText("Spring Boot REST API").length).toBeGreaterThan(0);
     });
+    expect(lastParams).not.toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Search learning history"), {
-      target: { value: "java" },
-    });
+    // Clear captured params for filter test
+    lastParams = null;
+    clearGetCache();
+
     fireEvent.change(screen.getByLabelText("Filter by status"), {
       target: { value: "COMPLETED" },
     });

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { http, HttpResponse } from "msw";
 import MentorDashboard from "./MentorDashboard";
 import { server } from "../test/mocks/server";
+import client from "../api/client";
 
 const profile = { fullName: "Mentor Prime" };
 
@@ -251,20 +252,38 @@ describe("MentorDashboard", () => {
   });
 
   it("shows compact onboarding state when no data exists", async () => {
-    server.use(
-      http.get("*/api/v1/sessions", () => HttpResponse.json({ data: [] })),
-      http.get("*/api/v1/bookings", () => HttpResponse.json({ data: [] })),
-      http.get("*/api/v1/reviews/mentor", () =>
-        HttpResponse.json({ data: { averageRating: 0, totalReviews: 0, reviews: [] } }),
-      ),
-    );
-
-    renderMentorDashboard();
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/Welcome to Your Mentor Dashboard/i),
-      ).toBeInTheDocument();
+    // Use the real axios client (not MSW) and override its get/post methods
+    // to return empty data for all dashboard endpoints.
+    const originalGet = client.get;
+    const originalPost = client.post;
+    client.get = vi.fn((url) => {
+      if (url === "/api/v1/sessions") {
+        return Promise.resolve({ data: { data: { content: [], totalElements: 0, totalPages: 0, number: 0, size: 20, first: true, last: true } } });
+      }
+      if (url === "/api/v1/bookings") {
+        return Promise.resolve({ data: { data: { content: [], totalElements: 0, totalPages: 0, number: 0, size: 20, first: true, last: true } } });
+      }
+      if (url === "/api/v1/reviews/mentor") {
+        return Promise.resolve({ data: { data: { averageRating: 0, totalReviews: 0, reviews: [] } } });
+      }
+      if (url === "/api/v1/verification/mentor/status") {
+        return Promise.resolve({ data: { data: null } });
+      }
+      return Promise.resolve({ data: { data: null } });
     });
+    client.post = vi.fn(() => Promise.resolve({ data: { data: null } }));
+
+    try {
+      renderMentorDashboard();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Welcome to Your Mentor Dashboard/i),
+        ).toBeInTheDocument();
+      });
+    } finally {
+      client.get = originalGet;
+      client.post = originalPost;
+    }
   });
 });

@@ -3,8 +3,8 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "re
 import AuthPage from "../pages/AuthPage";
 import TestChecklistPage from "../pages/TestChecklistPage";
 import RouteErrorBoundary from "./RouteErrorBoundary";
-import LearnerLayout from "../modules/learner/layouts/LearnerLayout";
-import MentorLayout from "../modules/mentor/layouts/MentorLayout";
+const LearnerLayout = lazy(() => import("../modules/learner/layouts/LearnerLayout"));
+const MentorLayout = lazy(() => import("../modules/mentor/layouts/MentorLayout"));
 import RoleGuard from "../modules/common/RoleGuard";
 import { roleRoot } from "../modules/common/routeUtils";
 import {
@@ -98,7 +98,6 @@ export default function AppRoutes({
   needsProfileSetup,
   handleLogout,
   handleSelectAuthMode,
-  onLoggedIn,
   notify,
   language,
   onLanguageChange,
@@ -258,15 +257,17 @@ export default function AppRoutes({
         path="/learner"
         element={
           <RoleGuard profile={profile} allowedRoles={["LEARNER"]}>
-            <LearnerLayout
-              profile={profile}
-              onLogout={handleLogout}
-              language={language}
-              onLanguageChange={onLanguageChange}
-              unreadNotifications={unreadNotifications}
-              onUnreadCountChange={setUnreadNotifications}
-              notify={notify}
-            />
+            <Suspense fallback={routeFallback}>
+              <LearnerLayout
+                profile={profile}
+                onLogout={handleLogout}
+                language={language}
+                onLanguageChange={onLanguageChange}
+                unreadNotifications={unreadNotifications}
+                onUnreadCountChange={setUnreadNotifications}
+                notify={notify}
+              />
+            </Suspense>
           </RoleGuard>
         }
       >
@@ -301,15 +302,17 @@ export default function AppRoutes({
         path="/mentor"
         element={
           <RoleGuard profile={profile} allowedRoles={["MENTOR"]}>
-            <MentorLayout
-              profile={profile}
-              onLogout={handleLogout}
-              language={language}
-              onLanguageChange={onLanguageChange}
-              unreadNotifications={unreadNotifications}
-              onUnreadCountChange={setUnreadNotifications}
-              notify={notify}
-            />
+            <Suspense fallback={routeFallback}>
+              <MentorLayout
+                profile={profile}
+                onLogout={handleLogout}
+                language={language}
+                onLanguageChange={onLanguageChange}
+                unreadNotifications={unreadNotifications}
+                onUnreadCountChange={setUnreadNotifications}
+                notify={notify}
+              />
+            </Suspense>
           </RoleGuard>
         }
       >

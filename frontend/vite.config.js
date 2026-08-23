@@ -7,6 +7,17 @@ export default defineConfig({
     react(),
     compression({ algorithm: "gzip" }),
     compression({ algorithm: "brotliCompress" }),
+    // Strip admin/mentor/role-specific CSS and JS from index.html preload links.
+    // These chunks are lazy-loaded on demand and should not block first paint.
+    {
+      name: "strip-role-preloads",
+      transformIndexHtml(html) {
+        return html.replace(
+          /<link[^>]+href="[^"]*\/(admin|mentor|workspace|chat)[^"]*\.(js|css)"[^>]*>/g,
+          "",
+        );
+      },
+    },
   ],
   server: {
     host: "0.0.0.0",
@@ -68,6 +79,10 @@ export default defineConfig({
   build: {
     cssMinify: true,
     chunkSizeWarningLimit: 600,
+    modulePreload: {
+      resolveDependencies: (filename, deps) =>
+        deps.filter((dep) => !dep.includes('/admin') && !dep.includes('/mentor')),
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

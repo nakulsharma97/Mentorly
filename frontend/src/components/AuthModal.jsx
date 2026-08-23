@@ -8,7 +8,6 @@ import client, {
   verifyEmailAndSignup,
   resendVerificationOtp,
 } from "../api/client";
-import { t } from "../utils/i18n";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import { getApiErrorMessage } from "../utils/apiErrors";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "./ui/Primitives";
@@ -128,7 +127,6 @@ export default function AuthModal({
   mode: initialMode,
   onClose,
   onLoggedIn,
-  language,
   initialError,
   notify,
 }) {

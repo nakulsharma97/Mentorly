@@ -230,7 +230,7 @@ export default function ProfileSetup({
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [touchedFields, setTouchedFields] = useState({});
-  const [structuredCertsCount, setStructuredCertsCount] = useState(0);
+  const [, setStructuredCertsCount] = useState(0);
 
   /* ── Refs ── */
   const cardRef = useRef(null);

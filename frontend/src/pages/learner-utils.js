@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import client from "../api/client";
 import { pageContent } from "../utils/pagination";
+import { fetchCachedMentors } from "../hooks/usePublicData";
 
 /* Stable empty array reference */
 export const EMPTY_ARRAY = [];
@@ -81,7 +82,7 @@ export function useLearnerLearningData(refreshKey = 0) {
       await Promise.all([
         apiGet("/api/v1/bookings"),
         apiGet("/api/v1/certifications/me"),
-        apiGet("/api/v1/users/mentors").catch(() => []),
+        fetchCachedMentors().catch(() => []),
         apiGet("/api/v1/watchlist/mentors").catch(() => []),
         apiGet("/api/v1/watchlist/skills").catch(() => []),
         apiGet("/api/v1/users/me"),

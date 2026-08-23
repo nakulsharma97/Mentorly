@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { normalizeSkills } from "../utils/skills";
 import client from "../api/client";
 import { getApiErrorMessage } from "../utils/apiErrors";
-import MentorCertificationsManager from "../components/mentor/MentorCertificationsManager";
 import HeroSection from "../components/HeroSection";
 import "./ProfessionalProfilePage.css";
+
+const MentorCertificationsManager = lazy(() => import("../components/mentor/MentorCertificationsManager"));
 
 /* ── Helpers ─────────────────────────────────────────── */
 
@@ -605,7 +606,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
             id="pp-panel-certifications"
             aria-labelledby="pp-tab-certifications"
           >
-            <MentorCertificationsManager mentorId={profile?.id} notify={notify} />
+            <Suspense fallback={null}><MentorCertificationsManager mentorId={profile?.id} notify={notify} /></Suspense>
           </div>
         )}
 

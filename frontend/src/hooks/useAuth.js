@@ -248,7 +248,7 @@ export function useAuthProfile({ notify }) {
   }, [syncCurrentUser]);
 
   // Unread notification polling — delegated to shared hook
-  const { unreadCount } = useUnreadNotifications({
+  useUnreadNotifications({
     onChange: isLoggedIn ? (count) => setUnreadNotifications(count) : undefined,
   });
 

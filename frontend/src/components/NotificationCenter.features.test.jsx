@@ -22,6 +22,35 @@ vi.mock("../api/client", () => ({
 
 vi.mock("./NotificationCenter.css", () => ({}));
 
+// Mock useUnreadNotifications to prevent module-level shared state leaking between tests
+let mockUnreadCountValue = 0;
+vi.mock("../hooks/useUnreadNotifications", () => ({
+  default: () => ({
+    unreadCount: mockUnreadCountValue,
+    refresh: vi.fn(),
+  }),
+}));
+
+// Mock useNotificationList to prevent module-level shared state leaking between tests
+let mockListNotifications = [];
+let mockListTotalCount = 0;
+let mockListLoading = false;
+let mockListError = null;
+const mockFetchNotifications = vi.fn();
+const mockMarkRead = vi.fn();
+const mockMarkAllRead = vi.fn();
+vi.mock("../hooks/useNotificationList", () => ({
+  default: () => ({
+    notifications: mockListNotifications,
+    totalCount: mockListTotalCount,
+    loading: mockListLoading,
+    error: mockListError,
+    fetchNotifications: mockFetchNotifications,
+    markRead: mockMarkRead,
+    markAllRead: mockMarkAllRead,
+  }),
+}));
+
 import NotificationCenter from "./NotificationCenter";
 
 function daysAgo(days) {
@@ -33,6 +62,11 @@ describe("NotificationCenter — admin routing, grouping, search", () => {
     vi.clearAllMocks();
     mockNavigate.mockClear();
     mockPatch.mockResolvedValue({ data: null });
+    mockUnreadCountValue = 0;
+    mockListNotifications = [];
+    mockListTotalCount = 0;
+    mockListLoading = false;
+    mockListError = null;
   });
 
   const buildGetResponse = (content) => ({
@@ -43,6 +77,8 @@ describe("NotificationCenter — admin routing, grouping, search", () => {
   });
 
   const mockFetch = (items) => {
+    mockListNotifications = items;
+    mockListTotalCount = items.length;
     mockGet.mockImplementation((url) => {
       if (url === "/api/v1/notifications") {
         return Promise.resolve(buildGetResponse(items));
@@ -197,6 +233,7 @@ describe("NotificationCenter — admin routing, grouping, search", () => {
   });
 
   it("shows 99+ on the badge for large unread counts", () => {
+    mockUnreadCountValue = 145;
     render(
       <NotificationCenter
         unreadNotifications={145}
@@ -234,6 +271,7 @@ describe("NotificationCenter — admin routing, grouping, search", () => {
 
   it("opens the admin notification dropdown on bell click without navigating", async () => {
     const user = userEvent.setup();
+    mockUnreadCountValue = 2;
     mockFetch(ADMIN_NOTIFICATIONS);
 
     render(

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
-  ArrowRight, BadgeCheck, BarChart3, CreditCard, Flag, LayoutDashboard,
+  BadgeCheck, CreditCard, Flag, LayoutDashboard,
   MessageSquare, Users as UsersIcon,
 } from 'lucide-react';
 import client from '../api/client';

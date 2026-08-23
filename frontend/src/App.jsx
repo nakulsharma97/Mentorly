@@ -99,6 +99,11 @@ export default function App() {
       left: 0,
       behavior: prefersReducedMotion ? "auto" : "smooth",
     });
+    // Dispatch scroll event so scroll-based reveal hooks fire
+    // (programmatic scrollTo doesn't always emit events)
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
   }, [pathname]);
 
   useEffect(() => {

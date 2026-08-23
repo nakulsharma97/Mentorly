@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { AnimatePresence, motion } from "framer-motion";
+
 import client from "../api/client";
 import useUnreadNotifications from "../hooks/useUnreadNotifications";
 import useNotificationList from "../hooks/useNotificationList";
@@ -139,17 +139,15 @@ function NotificationCard({ notification, onMarkRead, onNavigate, index = 0 }) {
   };
 
   return (
-    <motion.div
-      className={`notif-card${isUnread ? " notif-card--unread" : ""}`}
+    <div
+      className={`notif-card notif-card--animate${isUnread ? " notif-card--unread" : ""}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") handleClick();
       }}
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
+      style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}
       aria-label={isUnread ? `Unread: ${notification.title}` : notification.title}
     >
       {/* Type icon — 48px circular */}
@@ -173,7 +171,7 @@ function NotificationCard({ notification, onMarkRead, onNavigate, index = 0 }) {
         </div>
         <p className="notif-card__desc">{notification.message}</p>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -289,12 +287,14 @@ export default function NotificationCenter({
     loading,
     error,
     fetchNotifications: fetchList,
+    markRead: hookMarkRead,
+    markAllRead: hookMarkAllRead,
   } = useNotificationList({ fullPage, filter });
 
   /* ────────────────────────────────────────────── Data fetching ── */
 
   // Unified fetch wrapper that manages page/hasMore state.
-  const fetchNotifications = useCallback(async (silent = false, pageNum = 0, append = false) => {
+  const fetchNotifications = useCallback(async (pageNum = 0, append = false) => {
     const result = await fetchList({
       page: pageNum,
       size: 20,
@@ -336,7 +336,7 @@ export default function NotificationCenter({
 
       socket.onmessage = (event) => {
         try {
-          const newNotif = JSON.parse(event.data);
+          JSON.parse(event.data); // validate JSON; list refreshes on next poll
           // The shared notification list is managed by useNotificationList;
           // we can't directly update it here. Instead bump the unread count
           // so the badge reflects the new message. The full list will refresh
@@ -448,10 +448,8 @@ export default function NotificationCenter({
       if (pendingReadsRef.current.has(id)) return;
       pendingReadsRef.current.add(id);
 
-      // Optimistically update local state
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
+      // Delegate optimistic update + API call to the hook
+      hookMarkRead(id);
 
       // Decrement local unread count AND propagate to parent (Navbar badge)
       setUnreadCount((prev) => {
@@ -479,21 +477,16 @@ export default function NotificationCenter({
         pendingReadsRef.current.delete(id);
       }
     },
-    [], // Intentionally empty — all dependencies use Ref.current
+    [hookMarkRead],
   );
 
   const handleMarkAllRead = useCallback(async () => {
-    // Optimistic update: mark all as read instantly
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    setUnreadCount(0);
-    if (onUnreadCountChangeRef.current) onUnreadCountChangeRef.current(0);
-
+    // Delegate to hook (handles optimistic update + API call)
     try {
-      await client.patch("/api/v1/notifications/read-all");
+      await hookMarkAllRead();
+      setUnreadCount(0);
+      if (onUnreadCountChangeRef.current) onUnreadCountChangeRef.current(0);
     } catch (err) {
-      // Rollback on failure: refetch from backend to restore real state
-      fetchNotifsRef.current(true);
-      fetchUnreadRef.current();
       if (onNotifyRef.current) {
         onNotifyRef.current({
           type: "error",
@@ -502,7 +495,7 @@ export default function NotificationCenter({
         });
       }
     }
-  }, []); // Intentionally empty — all dependencies use Ref.current
+  }, [hookMarkAllRead]);
 
   const handleLoadMore = useCallback(async () => {
     setLoadingMore(true);
@@ -901,22 +894,16 @@ export default function NotificationCenter({
   return (
     <div className="notif-wrapper" ref={dropdownRef}>
       {bellButton}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className="notif-dropdown"
-            role="region"
-            aria-label="Notifications panel"
-            initial={{ opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="notif-dropdown__arrow" />
-            {renderPanel()}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isOpen && (
+        <div
+          className="notif-dropdown notif-dropdown--open"
+          role="region"
+          aria-label="Notifications panel"
+        >
+          <div className="notif-dropdown__arrow" />
+          {renderPanel()}
+        </div>
+      )}
     </div>
   );
 }

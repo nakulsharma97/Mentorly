@@ -4,6 +4,7 @@ import client from "../api/client";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills } from "../utils/skills";
 import { pageContent } from "../utils/pagination";
+import { fetchCachedMentors } from "../hooks/usePublicData";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
 import "./LearnerPages.css";
 import "../modules/mentor/mentor-pages.css";
@@ -331,7 +332,7 @@ export default function LearnerSkillsPage() {
       try {
         const [skills, mentors] = await Promise.all([
           apiGet("/api/v1/skills", { params: debouncedQuery ? { q: debouncedQuery } : undefined }),
-          apiGet("/api/v1/users/mentors").catch(() => []),
+          fetchCachedMentors().catch(() => []),
         ]);
         if (!active) return;
         // Paginated endpoints return Page objects — unwrap .content uniformly.

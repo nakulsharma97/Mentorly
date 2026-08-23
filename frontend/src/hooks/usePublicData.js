@@ -27,7 +27,12 @@ let lastFetchTime = 0;
 let inflightMentors = null;
 let inflightTestimonials = null;
 
-function fetchMentors() {
+/**
+ * Cached, deduplicated fetcher for /api/v1/users/mentors.
+ * Exported so non-hook code (learner-utils, useEffect loaders) can share
+ * the same in-flight request and result.
+ */
+export function fetchCachedMentors() {
   if (inflightMentors) return inflightMentors;
 
   inflightMentors = client
@@ -101,7 +106,7 @@ export default function usePublicData({ fetchMentors: shouldFetchMentors = true,
     }
 
     setMentorsLoading(true);
-    fetchMentors().then((data) => {
+    fetchCachedMentors().then((data) => {
       if (!mountedRef.current) return;
       setMentors(data);
       setMentorsLoading(false);

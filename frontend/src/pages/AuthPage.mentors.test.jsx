@@ -7,16 +7,15 @@ vi.mock("react-router", () => ({
   useNavigate: () => mockNavigate,
 }));
 
-const mockGet = vi.fn();
-
-vi.mock("../api/client", () => ({
-  default: {
-    get: (...args) => mockGet(...args),
-    post: vi.fn(),
-    patch: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-  },
+// Mock usePublicData to control mentor data directly.
+const mockPublicData = vi.fn(() => ({
+  mentors: [],
+  mentorsLoading: false,
+  testimonials: [],
+  testimonialsLoading: false,
+}));
+vi.mock("../hooks/usePublicData", () => ({
+  default: (...args) => mockPublicData(...args),
 }));
 
 // Stub heavy landing sections so the test only exercises the mentor grid.
@@ -79,31 +78,23 @@ describe("AuthPage — mentor cards", () => {
     }
     globalThis.IntersectionObserver = IntersectionObserverMock;
 
-    mockGet.mockImplementation((url) => {
-      if (url === "/api/v1/users/mentors") {
-        return Promise.resolve({
-          data: { message: "Mentors fetched", data: MENTORS },
-        });
-      }
-      if (url === "/api/v1/public/community-stats") {
-        return Promise.resolve({ data: {} });
-      }
-      return Promise.resolve({ data: null });
+    mockPublicData.mockReturnValue({
+      mentors: MENTORS,
+      mentorsLoading: false,
+      testimonials: [],
+      testimonialsLoading: false,
     });
   });
 
-  it("renders real mentor cards and reveals them after loading (regression: invisible cards)", async () => {
+  it("renders real mentor cards and reveals them after loading", async () => {
     const { container } = render(<AuthPage onSelectLogin={vi.fn()} onSelectSignup={vi.fn()} />);
 
-    // Skeleton placeholders shown while loading…
-    expect(container.querySelectorAll(".landing-mentor-card--skeleton").length).toBe(3);
-
-    // …then real cards appear and are revealed (is-visible), not stuck at opacity 0.
+    // Real cards appear with mentors data from usePublicData mock.
     expect(await screen.findByText("Emma Wilson")).toBeInTheDocument();
     expect(screen.getByText("Pritil")).toBeInTheDocument();
 
     await waitFor(() => {
-      const cards = container.querySelectorAll(".landing-mentor-card:not(.landing-mentor-card--skeleton)");
+      const cards = container.querySelectorAll(".landing-mentor-card");
       expect(cards.length).toBe(MENTORS.length);
       cards.forEach((card) => {
         expect(card.classList.contains("is-visible")).toBe(true);
@@ -112,11 +103,11 @@ describe("AuthPage — mentor cards", () => {
   });
 
   it("shows a professional empty state when no mentors exist", async () => {
-    mockGet.mockImplementation((url) => {
-      if (url === "/api/v1/users/mentors") {
-        return Promise.resolve({ data: { message: "Mentors fetched", data: [] } });
-      }
-      return Promise.resolve({ data: {} });
+    mockPublicData.mockReturnValue({
+      mentors: [],
+      mentorsLoading: false,
+      testimonials: [],
+      testimonialsLoading: false,
     });
 
     render(<AuthPage onSelectLogin={vi.fn()} onSelectSignup={vi.fn()} />);

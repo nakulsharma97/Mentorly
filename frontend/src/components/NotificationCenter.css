@@ -874,3 +874,22 @@
     padding: 10px 16px;
   }
 }
+
+/* Staggered fade-in for notification cards (replaces framer-motion) */
+@keyframes notifCardIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.notif-card--animate {
+  opacity: 0;
+  animation: notifCardIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dropdown open transition (replaces framer-motion AnimatePresence) */
+@keyframes notifDropdownIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.notif-dropdown--open {
+  animation: notifDropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

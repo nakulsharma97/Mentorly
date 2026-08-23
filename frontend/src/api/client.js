@@ -377,20 +377,14 @@ client.interceptors.request.use((config) => {
       rejectInflight = reject;
     });
     _getInflight.set(cacheKey, inflightPromise);
-    const realAdapter = config.adapter;
-    config.adapter = async (cfg) => {
-      try {
-        const response = realAdapter
-          ? await realAdapter(cfg)
-          : await axios.defaults.adapter(cfg);
-        resolveInflight(response);
-        return response;
-      } catch (err) {
-        rejectInflight(err);
-        _getInflight.delete(cacheKey);
-        throw err;
-      }
-    };
+    // In axios 1.x, config.adapter is a string ("xhr"), not a function.
+    // Delete it so axios resolves the adapter internally.  The response
+    // interceptor already populates the dedup cache and clears inflight
+    // on success; we just need to also resolve inflight on error.
+    delete config.adapter;
+    config.__inflightKey = cacheKey;
+    config.__resolveInflight = resolveInflight;
+    config.__rejectInflight = rejectInflight;
     config.__dedupAdapterSet = true;
     return config;
   }
@@ -425,11 +419,16 @@ client.interceptors.response.use(
         status: Number(response?.status || 0),
       });
     }
-    // Populate the GET dedup cache on success
+    // Populate the GET dedup cache on success and resolve inflight piggybackers
     if (String(response?.config?.method || "get").toUpperCase() === "GET") {
       const cacheKey = String(response?.config?.url || "");
       _getCache.set(cacheKey, { data: response.data, expiry: Date.now() + GET_DEDUP_TTL_MS });
       _getInflight.delete(cacheKey);
+    }
+    // Resolve inflight piggybackers (set by the request interceptor)
+    if (response?.config?.__resolveInflight) {
+      response.config.__resolveInflight(response);
+      _getInflight.delete(String(response?.config?.url || ""));
     }
     return response;
   },
@@ -440,8 +439,11 @@ client.interceptors.response.use(
     const isNetworkError = !error?.response;
     const retryCount = Number(config.__retryCount || 0);
 
-    // Clear inflight dedup on non-retryable errors
+    // Clear inflight dedup on non-retryable errors and reject piggybackers
     if (method === "GET" && status !== 401) {
+      if (config.__rejectInflight) {
+        config.__rejectInflight(error);
+      }
       _getInflight.delete(String(config.url || ""));
     }
 

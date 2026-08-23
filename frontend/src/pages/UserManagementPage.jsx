@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Search, Trash2, UserCog, Users as UsersIcon } from "lucide-react";
+import { Search, Trash2, UserCog, Users as UsersIcon } from "lucide-react";
 import client from "../api/client";
 import HeroSection from "../components/HeroSection";
 import {

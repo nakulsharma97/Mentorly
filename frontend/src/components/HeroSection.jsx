@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import "./HeroSection.css";
 
 /**
  * HeroSection — ONE unified hero design system for every Mentorly page.

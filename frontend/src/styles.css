@@ -399,15 +399,23 @@ body,
   width: 100%;
   min-width: 100%;
   max-width: 100%;
-  min-height: 100vh;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
-  overscroll-behavior-x: none;
   border: 0;
   outline: none;
   background-color: var(--bg);
   background-clip: border-box;
+}
+
+/* overflow-x: clip on body does NOT create a BFC, so scrollHeight stays correct */
+html, body, #root {
+  overflow-x: clip;
+  overscroll-behavior-x: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 @keyframes route-fade-slide {
@@ -2812,7 +2820,6 @@ ul {
   outline: none;
   border-color: #22b8cf;
   box-shadow: 0 0 0 3px rgba(34, 184, 207, 0.22);
-  transform: translateY(-1px);
 }
 
 .auth-modal-overlay .auth-card input:not([type='checkbox'])::placeholder,
@@ -4236,6 +4243,30 @@ textarea:focus-visible {
   color: #7f1d1d;
   border-color: #fca5a5;
   background: #fef2f2;
+}
+
+[data-theme="dark"] .ui-alert-error {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+[data-theme="dark"] .ui-alert-info {
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+[data-theme="dark"] .ui-alert-success {
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+[data-theme="dark"] .ui-alert-warning {
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .auth-inline-error {
@@ -5665,6 +5696,7 @@ html {
 
 .password-input-wrapper input {
   flex: 1;
+  min-width: 0;
   padding-right: 44px !important;
 }
 
@@ -5679,9 +5711,10 @@ html {
   cursor: pointer;
   padding: 6px;
   border-radius: 6px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
   transition: color 0.2s, background 0.2s;
 }
 
