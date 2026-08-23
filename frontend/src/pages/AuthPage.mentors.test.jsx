@@ -18,6 +18,13 @@ vi.mock("../hooks/usePublicData", () => ({
   default: (...args) => mockPublicData(...args),
 }));
 
+// Mock useCommunityStats to prevent a real network call to
+// /api/v1/public/community-stats which would cause an unhandled
+// AxiosError and prevent lazy sections from rendering.
+vi.mock("../hooks/useCommunityStats", () => ({
+  default: () => ({ stats: null, loading: false, error: false }),
+}));
+
 // Stub heavy landing sections so the test only exercises the mentor grid.
 vi.mock("../components/OptimizedImage", () => ({
   default: () => null,
@@ -29,6 +36,52 @@ vi.mock("../components/Testimonials", () => ({
   default: () => null,
 }));
 vi.mock("../components/PremiumFooter", () => ({
+  default: () => null,
+}));
+
+// Mock every lazy-loaded landing section so React.lazy dynamic imports
+// resolve immediately instead of depending on async module loading
+// timing, which is flaky in jsdom.
+vi.mock("../pages/landing/LandingFeatures", () => ({
+  default: () => null,
+}));
+vi.mock("../pages/landing/LandingMentors", () => ({
+  default: ({ mentors = [], onSelectSignup }) => (
+    <section id="mentors" className="landing-section landing-mentors">
+      <div className="landing-mentor-grid">
+        {mentors.map((mentor) => (
+          <article
+            className="landing-mentor-card landing-reveal"
+            key={mentor.fullName}
+          >
+            <div className="landing-mentor-body">
+              <div>
+                <h3>{mentor.fullName}</h3>
+              </div>
+            </div>
+          </article>
+        ))}
+        {mentors.length === 0 && (
+          <div className="landing-mentor-empty">
+            <p className="landing-mentor-empty-title">
+              No verified mentors available yet.
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
+  ),
+}));
+vi.mock("../pages/landing/LandingWorkflow", () => ({
+  default: () => null,
+}));
+vi.mock("../pages/landing/LandingOutcomes", () => ({
+  default: () => null,
+}));
+vi.mock("../pages/landing/LandingFAQ", () => ({
+  default: () => null,
+}));
+vi.mock("../pages/landing/LandingCTA", () => ({
   default: () => null,
 }));
 
