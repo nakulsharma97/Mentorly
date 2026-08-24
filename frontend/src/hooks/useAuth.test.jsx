@@ -472,11 +472,7 @@ describe("useAuthProfile – syncCurrentUser", () => {
     const networkErr = new Error("Network error");
     networkErr.response = { status: 0 };
 
-    let fetchCall = 0;
-    mockFetchProfile.mockImplementation(() => {
-      fetchCall++;
-      return Promise.reject(networkErr);
-    });
+    mockFetchProfile.mockRejectedValue(networkErr);
 
     client.post
       .mockRejectedValueOnce(new Error("Refresh failed")) // refresh fails

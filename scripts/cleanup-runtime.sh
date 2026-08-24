@@ -39,7 +39,7 @@ remove() {
   fi
 }
 
-echo "== SkillSwapper repo-root cleanup ($ROOT) =="
+echo "== Mentorly repo-root cleanup ($ROOT) =="
 
 # 1. Stray root node_modules (dependencies are installed under frontend/)
 if [ -d "$ROOT/node_modules" ]; then

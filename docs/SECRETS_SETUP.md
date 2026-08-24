@@ -187,7 +187,7 @@ Follow each step in order. Secrets are never committed — they live only in Git
 |---|---|---|---|
 | 1 | `DEPLOY_HOST` | Server IP or hostname | Your VPS/cloud server IP, e.g. `123.45.67.89` |
 | 2 | `DEPLOY_USER` | SSH username | e.g. `ubuntu`, `root`, `deploy` |
-| 3 | `DEPLOY_PATH` | Absolute path to project on server | e.g. `/opt/SkillSwapper` |
+| 3 | `DEPLOY_PATH` | Absolute path to project on server | e.g. `/opt/Mentorly` |
 | 4 | `DEPLOY_SSH_KEY` | Full SSH private key | See instructions below |
 
 ### Optional
@@ -230,7 +230,7 @@ On the same `production` environment page:
 |---|---|---|---|
 | 1 | `STAGING_HOST` | Staging server IP | Same format as production |
 | 2 | `STAGING_USER` | SSH username | Same format as production |
-| 3 | `STAGING_PATH` | Project path on staging server | e.g. `/opt/SkillSwapper-staging` |
+| 3 | `STAGING_PATH` | Project path on staging server | e.g. `/opt/Mentorly-staging` |
 | 4 | `STAGING_SSH_KEY` | SSH private key for staging | Generate separately or reuse |
 | 5 | `STAGING_SSH_PORT` | SSH port | Defaults to `22` |
 | 6 | `STAGING_PROTOCOL` | Protocol for health checks | Defaults to `https` |
@@ -247,7 +247,7 @@ docker --version        # Docker 20.10+
 docker compose version  # v2+
 
 # 2. Project cloned at DEPLOY_PATH
-cd /opt/SkillSwapper
+cd /opt/Mentorly
 git pull origin main
 
 # 3. deploy.sh is executable

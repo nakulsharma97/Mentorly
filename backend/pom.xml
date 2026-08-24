@@ -14,8 +14,8 @@
     <groupId>com.skillswap</groupId>
     <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>skill-swapping-backend</name>
-    <description>Skill Swapping Platform backend</description>
+    <name>mentorly-backend</name>
+    <description>Mentorly Platform backend</description>
 
     <properties>
         <java.version>21</java.version>

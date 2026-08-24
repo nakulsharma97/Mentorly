@@ -203,6 +203,12 @@ public class PaymentService {
                     "Wallet escrow refunds are processed through the booking cancellation flow");
         }
 
+        // Refund amount must not exceed the original payment amount.
+        if (amount.compareTo(payment.getAmount()) > 0) {
+            throw new IllegalArgumentException(
+                    "Refund amount cannot exceed original payment amount: " + payment.getAmount());
+        }
+
         refundThroughGateway(payment, amount, reason);
 
         payment.setStatus(PaymentStatus.REFUNDED);
@@ -250,6 +256,12 @@ public class PaymentService {
             throw new IllegalArgumentException(
                     "Only escrowed or initiated payments can be refunded. Current status: "
                             + payment.getStatus());
+        }
+
+        // Refund amount must not exceed the original payment amount.
+        if (amount.compareTo(payment.getAmount()) > 0) {
+            throw new IllegalArgumentException(
+                    "Refund amount cannot exceed original payment amount: " + payment.getAmount());
         }
 
         refundThroughGateway(payment, amount, reason);

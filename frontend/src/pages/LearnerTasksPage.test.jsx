@@ -92,7 +92,6 @@ describe("LearnerTasksPage", () => {
     const origPatch = client.patch;
     let currentTasks = [...tasks];
     client.get = vi.fn((url) => {
-      const emptyPage = { content: [], totalElements: 0, totalPages: 0, number: 0, size: 20, first: true, last: true };
       if (url === '/api/v1/learning/tasks') return Promise.resolve({ data: { data: currentTasks } });
       if (url === '/api/v1/learning/tasks/stats') return Promise.resolve({ data: { data: { ...stats, completed: 1, remaining: 1, todayCompleted: 1 } } });
       return Promise.resolve({ data: { data: null } });

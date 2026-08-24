@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import client from "../api/client";
+import { useToasts } from "../hooks/useToasts";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills, skillsMatchQuery } from "../utils/skills";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
@@ -1232,14 +1233,14 @@ export default function LearnerSessionsPage() {
     }
   }
 
+  const { notify } = useToasts();
+
   /* ── Dual-confirmation: confirm session completion ── */
   async function confirmSessionCompletion(booking) {
     try {
       await client.post(`/api/v1/bookings/${booking.id}/confirm-completion`);
       notify({ type: "success", title: "Session confirmed", message: "Thank you for confirming this session." });
-      // Refresh the bookings list
-      const res = await client.get("/api/v1/bookings");
-      setAllBookings(res?.data?.data?.content || []);
+      setRefreshKey((v) => v + 1);
     } catch (err) {
       const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to confirm session.";
       notify({ type: "error", title: "Confirmation failed", message: msg });
@@ -1257,9 +1258,7 @@ export default function LearnerSessionsPage() {
     try {
       await client.post(`/api/v1/bookings/${booking.id}/dispute-completion`, { reason: reason.trim() });
       notify({ type: "success", title: "Dispute filed", message: "Your dispute has been submitted. Admin will review it." });
-      // Refresh the bookings list
-      const res = await client.get("/api/v1/bookings");
-      setAllBookings(res?.data?.data?.content || []);
+      setRefreshKey((v) => v + 1);
     } catch (err) {
       const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to file dispute.";
       notify({ type: "error", title: "Dispute failed", message: msg });

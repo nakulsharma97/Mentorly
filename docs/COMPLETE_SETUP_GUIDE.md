@@ -346,8 +346,8 @@ EXIT;
 
 ```bash
 # Clone the repo
-git clone https://github.com/nakulsharma97/SkillSwapper.git
-cd SkillSwapper
+git clone https://github.com/nakulsharma97/Mentorly.git
+cd Mentorly
 
 # Install frontend dependencies
 cd frontend
@@ -475,7 +475,7 @@ npm run dev
 
 ### Step 4.1 — Repository Secrets
 
-**Path:** https://github.com/nakulsharma97/SkillSwapper/settings/secrets/actions
+**Path:** https://github.com/nakulsharma97/Mentorly/settings/secrets/actions
 
 Click **"New repository secret"** for each:
 
@@ -514,7 +514,7 @@ Click **"New repository secret"** for each:
 
 ### Step 4.2 — Production Environment Secrets
 
-**Path:** https://github.com/nakulsharma97/SkillSwapper/settings/environments
+**Path:** https://github.com/nakulsharma97/Mentorly/settings/environments
 
 1. Click **"New environment"**
 2. Name it: `production`
@@ -526,7 +526,7 @@ Click **"New repository secret"** for each:
 |---|---|---|---|
 | 1 | `DEPLOY_HOST` | Server IP (e.g. `123.45.67.89`) | ✅ Yes |
 | 2 | `DEPLOY_USER` | SSH username (e.g. `ubuntu`) | ✅ Yes |
-| 3 | `DEPLOY_PATH` | Project path (e.g. `/opt/SkillSwapper`) | ✅ Yes |
+| 3 | `DEPLOY_PATH` | Project path (e.g. `/opt/Mentorly`) | ✅ Yes |
 | 4 | `DEPLOY_SSH_KEY` | SSH private key | ✅ Yes |
 | 5 | `DEPLOY_SSH_PORT` | SSH port (default `22`) | Optional |
 | 6 | `DEPLOY_PROTOCOL` | `https` or `http` | Optional |
@@ -613,8 +613,8 @@ ssh deploy@YOUR_SERVER_IP
 
 # Clone the repo
 cd /opt
-git clone https://github.com/nakulsharma97/SkillSwapper.git
-cd SkillSwapper
+git clone https://github.com/nakulsharma97/Mentorly.git
+cd Mentorly
 
 # Make deploy script executable
 chmod +x scripts/deploy.sh
@@ -705,7 +705,7 @@ nslookup yourdomain.com
 
 ```bash
 # On your server
-cd /opt/SkillSwapper
+cd /opt/Mentorly
 mkdir -p certs
 ```
 
@@ -736,7 +736,7 @@ docker compose up -d frontend
 crontab -e
 
 # Add this line (renews daily at 3 AM)
-0 3 * * * cd /opt/SkillSwapper && docker compose --profile ssl run --rm certbot renew && docker compose exec frontend nginx -s reload
+0 3 * * * cd /opt/Mentorly && docker compose --profile ssl run --rm certbot renew && docker compose exec frontend nginx -s reload
 ```
 
 ---
@@ -753,7 +753,7 @@ crontab -e
    - Deploy to your server
 
 **Monitor deployment:**
-- Go to https://github.com/nakulsharma97/SkillSwapper/actions
+- Go to https://github.com/nakulsharma97/Mentorly/actions
 - Click on the latest workflow run
 - Watch the progress
 
@@ -764,7 +764,7 @@ crontab -e
 ssh deploy@YOUR_SERVER_IP
 
 # Go to project directory
-cd /opt/SkillSwapper
+cd /opt/Mentorly
 
 # Pull latest changes
 git pull origin main
@@ -780,7 +780,7 @@ git pull origin main
 ssh deploy@YOUR_SERVER_IP
 
 # Go to project directory
-cd /opt/SkillSwapper
+cd /opt/Mentorly
 
 # List backups
 ls -la backups/
@@ -953,4 +953,4 @@ STAGING ENVIRONMENT (GitHub Settings → Environments → staging):
 
 ---
 
-**Need help?** Check the [Troubleshooting](#10-troubleshooting) section or open an issue at https://github.com/nakulsharma97/SkillSwapper/issues
+**Need help?** Check the [Troubleshooting](#10-troubleshooting) section or open an issue at https://github.com/nakulsharma97/Mentorly/issues

@@ -46,7 +46,7 @@ vi.mock("../pages/landing/LandingFeatures", () => ({
   default: () => null,
 }));
 vi.mock("../pages/landing/LandingMentors", () => ({
-  default: ({ mentors = [], onSelectSignup }) => (
+  default: ({ mentors = [] }) => (
     <section id="mentors" className="landing-section landing-mentors">
       <div className="landing-mentor-grid">
         {mentors.map((mentor) => (

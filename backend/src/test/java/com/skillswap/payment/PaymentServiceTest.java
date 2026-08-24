@@ -440,6 +440,48 @@ class PaymentServiceTest {
         verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("100.00")), eq("Admin refund"));
     }
 
+    @Test
+    void refundPaymentAllowsFullRefundEqualToOriginalAmount() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("250.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundPayment(1000L, new BigDecimal("250.00"), "Full refund", learner);
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("250.00")), eq("Full refund"));
+    }
+
+    @Test
+    void refundPaymentAllowsPartialRefundLessThanOriginalAmount() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("500.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundPayment(1000L, new BigDecimal("300.00"), "Partial refund", learner);
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("300.00")), eq("Partial refund"));
+    }
+
+    @Test
+    void refundPaymentRejectsRefundAmountGreaterThanOriginal() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("100.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundPayment(1000L, new BigDecimal("150.00"), "Too much", learner));
+        assertEquals("Refund amount cannot exceed original payment amount: 100.00", ex.getMessage());
+        verify(stripeGateway, never()).processRefund(any(), any(), any());
+        verify(paymentRepository, never()).save(any());
+    }
+
     // ── refundForCancellation (booking cancel / admin flows) ──
 
     @Test
@@ -510,6 +552,48 @@ class PaymentServiceTest {
 
         assertThrows(IllegalStateException.class,
                 () -> paymentService.refundForCancellation(1000L, new BigDecimal("100.00"), "Booking cancelled"));
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void refundForCancellationAllowsFullRefundEqualToOriginalAmount() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("300.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundForCancellation(1000L, new BigDecimal("300.00"), "Full cancel refund");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("300.00")), eq("Full cancel refund"));
+    }
+
+    @Test
+    void refundForCancellationAllowsPartialRefundLessThanOriginalAmount() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("800.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.refundForCancellation(1000L, new BigDecimal("400.00"), "Partial cancel refund");
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(stripeGateway).processRefund(eq("pi_test_123"), eq(new BigDecimal("400.00")), eq("Partial cancel refund"));
+    }
+
+    @Test
+    void refundForCancellationRejectsRefundAmountGreaterThanOriginal() {
+        payment.setStatus(PaymentStatus.ESCROWED);
+        payment.setPaymentId("pi_test_123");
+        payment.setAmount(new BigDecimal("200.00"));
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> paymentService.refundForCancellation(1000L, new BigDecimal("500.00"), "Too much cancel refund"));
+        assertEquals("Refund amount cannot exceed original payment amount: 200.00", ex.getMessage());
+        verify(stripeGateway, never()).processRefund(any(), any(), any());
         verify(paymentRepository, never()).save(any());
     }
 

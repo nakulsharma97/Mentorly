@@ -3,17 +3,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/backend-ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/backend-ci.yml?branch=main&label=backend%20CI&logo=github" alt="Backend CI" />
+  <a href="https://github.com/nakulsharma97/Mentorly/actions/workflows/backend-ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/backend-ci.yml?branch=main&label=backend%20CI&logo=github" alt="Backend CI" />
   </a>
-  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/frontend-ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/frontend-ci.yml?branch=main&label=frontend%20CI&logo=github" alt="Frontend CI" />
+  <a href="https://github.com/nakulsharma97/Mentorly/actions/workflows/frontend-ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/frontend-ci.yml?branch=main&label=frontend%20CI&logo=github" alt="Frontend CI" />
   </a>
-  <a href="https://github.com/nakulsharma97/SkillSwapper/actions/workflows/deploy.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/SkillSwapper/deploy.yml?branch=main&label=deploy&logo=github" alt="Deploy" />
+  <a href="https://github.com/nakulsharma97/Mentorly/actions/workflows/deploy.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/deploy.yml?branch=main&label=deploy&logo=github" alt="Deploy" />
   </a>
   <a href="LICENSE">
-    <img src="https://img.shields.io/github/license/nakulsharma97/SkillSwapper" alt="License" />
+    <img src="https://img.shields.io/github/license/nakulsharma97/Mentorly" alt="License" />
   </a>
   <a href="#testing">
     <img src="https://img.shields.io/badge/backend%20coverage-47.6%25%20line%20%C2%B7%20gate%20%E2%89%A540%25-yellow" alt="Backend coverage — 47.6% line (JaCoCo), gate ≥ 40%" />
@@ -183,7 +183,7 @@ This repository contains:
 ## Repository structure
 
 ```
-SkillSwapper/
+Mentorly/
 ├── backend/                          # Spring Boot modular monolith (Java 21)
 │   ├── src/main/java/com/skillswap/  #   domain packages (see below)
 │   ├── src/main/resources/

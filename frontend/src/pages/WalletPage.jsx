@@ -169,7 +169,6 @@ export default function WalletPage({ profile, notify }) {
   const [payoutDateRange, setPayoutDateRange] = useState("all");
   const PAYOUT_PAGE_SIZE = 8;
   const [connectStatus, setConnectStatus] = useState(null);
-  const [connectLoading, setConnectLoading] = useState(true);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   // Fetch wallet data
@@ -212,7 +211,6 @@ export default function WalletPage({ profile, notify }) {
   // Fetch Stripe Connect status (mentor only)
   useEffect(() => {
     if (profile?.role !== "MENTOR") {
-      setConnectLoading(false);
       return;
     }
     let mounted = true;
@@ -223,8 +221,6 @@ export default function WalletPage({ profile, notify }) {
       } catch {
         // Not onboarded yet — that's fine
         if (mounted) setConnectStatus(null);
-      } finally {
-        if (mounted) setConnectLoading(false);
       }
     };
     loadConnectStatus();
@@ -357,7 +353,6 @@ export default function WalletPage({ profile, notify }) {
 
   const isMentor = profile?.role === "MENTOR";
   const payoutsEnabled = isMentor && connectStatus?.payoutsEnabled === true;
-  const onboardingPending = isMentor && connectStatus && !connectStatus.payoutsEnabled;
 
   const handleRefresh = async () => {
     setRefreshing(true);
