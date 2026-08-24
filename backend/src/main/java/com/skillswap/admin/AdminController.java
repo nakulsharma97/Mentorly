@@ -30,6 +30,8 @@ import com.skillswap.wallet.WalletService;
 import com.skillswap.booking.Booking;
 import com.skillswap.booking.BookingRepository;
 import com.skillswap.booking.BookingStatus;
+import com.skillswap.booking.CompletionReviewStatus;
+import com.skillswap.booking.ConfirmationStatus;
 import com.skillswap.chat.ChatMessage;
 import com.skillswap.chat.ChatMessageRepository;
 import com.skillswap.messaging.DirectConversation;
@@ -131,6 +133,9 @@ public class AdminController {
     private final SystemHealthService systemHealthService;
     private final AdminNotificationService adminNotificationService;
     private final com.skillswap.config.MaintenanceModeFilter maintenanceModeFilter;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    @org.springframework.context.annotation.Lazy
+    private com.skillswap.booking.BookingLifecycleService bookingLifecycleService;
 
     @GetMapping("/summary")
     public ApiResponse<AdminSummary> summary(@AuthenticationPrincipal User currentUser) {
@@ -797,6 +802,193 @@ public class AdminController {
                 .collect(Collectors.toList());
 
         return new ApiResponse<>("Messages fetched", dtos);
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Session Completion Evidence
+    // ════════════════════════════════════════════════
+
+    /**
+     * Returns all evidence an admin needs to resolve a session completion
+     * dispute: join timestamps, confirmation statuses, dispute reasons,
+     * chat history during the session window, and historical dispute counts.
+     */
+    @GetMapping("/bookings/{id}/completion-evidence")
+    @Transactional(readOnly = true)
+    public ApiResponse<CompletionEvidenceDto> getCompletionEvidence(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long id) {
+        ensureAdmin(currentUser);
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        SkillSession session = booking.getSession();
+
+        // Fetch chat messages during the session window (±30 min around the session)
+        OffsetDateTime windowStart = session.getStartTime() != null
+                ? session.getStartTime().minusMinutes(30)
+                : booking.getCreatedAt();
+        OffsetDateTime windowEnd = session.getEndTime() != null
+                ? session.getEndTime()
+                : OffsetDateTime.now();
+
+        List<com.skillswap.chat.ChatMessage> chatMessages = chatMessageRepository
+                .findByBookingIdOrderByCreatedAtAsc(booking.getId());
+
+        List<CompletionEvidenceDto.ChatMessageSnapshot> sessionChat = chatMessages.stream()
+                .filter(m -> {
+                    OffsetDateTime sent = m.getCreatedAt();
+                    return sent != null && !sent.isBefore(windowStart) && !sent.isAfter(windowEnd);
+                })
+                .map(m -> new CompletionEvidenceDto.ChatMessageSnapshot(
+                        m.getId(),
+                        m.getSender().getFullName(),
+                        m.getSender().getRole().name(),
+                        m.getContent(),
+                        m.getCreatedAt()))
+                .toList();
+
+        // Historical dispute counts for both participants
+        java.util.Collection<com.skillswap.booking.CompletionReviewStatus> disputeStatuses =
+                java.util.List.of(
+                        com.skillswap.booking.CompletionReviewStatus.DISPUTED,
+                        com.skillswap.booking.CompletionReviewStatus.REVIEW_REQUIRED);
+
+        long learnerDisputes = bookingRepository
+                .countByLearnerIdAndCompletionReviewStatusIn(booking.getLearner().getId(), disputeStatuses);
+        long mentorDisputes = bookingRepository
+                .countByMentorIdAndCompletionReviewStatusIn(
+                        session.getMentor().getId(), disputeStatuses);
+
+        CompletionEvidenceDto dto = new CompletionEvidenceDto(
+                booking.getId(),
+                session.getTitle(),
+                session.getStartTime(),
+                session.getEndTime(),
+                booking.getLearner().getFullName(),
+                booking.getLearner().getEmail(),
+                session.getMentor().getFullName(),
+                session.getMentor().getEmail(),
+                booking.getLearnerJoinLinkRequestedAt(),
+                booking.getMentorJoinLinkRequestedAt(),
+                booking.getLearnerJoinLinkRequestedAt() == null,
+                booking.getMentorJoinLinkRequestedAt() == null,
+                booking.getLearnerConfirmationStatus(),
+                booking.getMentorConfirmationStatus(),
+                booking.getLearnerConfirmedAt(),
+                booking.getMentorConfirmedAt(),
+                booking.getLearnerDisputeReason(),
+                booking.getMentorDisputeReason(),
+                booking.getCompletionReviewStatus(),
+                sessionChat,
+                learnerDisputes,
+                mentorDisputes);
+
+        return new ApiResponse<>("Completion evidence fetched", dto);
+    }
+
+    /**
+     * Admin resolution for disputed/required-review session completions.
+     * - RELEASE_TO_MENTOR: complete the booking and release escrow to mentor
+     * - REFUND_LEARNER: refund the payment back to the learner
+     * - REQUEST_MORE_INFO: leave in REVIEW_REQUIRED and notify both parties
+     */
+    @PostMapping("/bookings/{id}/resolve-completion")
+    @Transactional
+    public ApiResponse<Booking> resolveCompletion(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long id,
+            @Valid @RequestBody ResolveCompletionRequest request) {
+        ensureAdmin(currentUser);
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+
+        if (booking.getCompletionReviewStatus() != CompletionReviewStatus.DISPUTED
+                && booking.getCompletionReviewStatus() != CompletionReviewStatus.REVIEW_REQUIRED) {
+            throw new IllegalArgumentException(
+                    "This booking is not in a state that can be resolved. Current status: "
+                            + booking.getCompletionReviewStatus());
+        }
+
+        switch (request.action()) {
+            case RELEASE_TO_MENTOR -> {
+                // Complete the booking and release escrow to mentor
+                booking.setBookingStatus(BookingStatus.COMPLETED);
+                booking.setCompletionReviewStatus(CompletionReviewStatus.RESOLVED);
+                bookingRepository.save(booking);
+
+                bookingLifecycleService.completeBooking(booking.getId(), currentUser);
+                bookingLifecycleService.releaseEscrowForCompletedBooking(booking);
+
+                // Notify both parties
+                notificationService.notifyUser(
+                        booking.getLearner().getId(),
+                        "SESSION_RESOLVED",
+                        "Session resolved",
+                        "Admin has resolved the session \"" + sessionTitle(booking)
+                                + "\" in favor of the mentor. Payment has been released.",
+                        booking.getId());
+                notificationService.notifyUser(
+                        booking.getSession().getMentor().getId(),
+                        "SESSION_RESOLVED",
+                        "Session resolved",
+                        "Admin has resolved the session \"" + sessionTitle(booking)
+                                + "\" in your favor. Payment has been released.",
+                        booking.getId());
+            }
+            case REFUND_LEARNER -> {
+                // Refund the payment back to learner
+                booking.setBookingStatus(BookingStatus.CANCELLED);
+                booking.setCompletionReviewStatus(CompletionReviewStatus.RESOLVED);
+                bookingRepository.save(booking);
+
+                Payment payment = booking.getPayment();
+                if (payment != null && (payment.getStatus() == PaymentStatus.ESCROWED
+                        || payment.getStatus() == PaymentStatus.INITIATED)) {
+                    adminService.refundPayment(currentUser, payment.getId(),
+                            request.adminNote() != null ? request.adminNote() : "Admin refund after dispute");
+                }
+
+                // Notify both parties
+                notificationService.notifyUser(
+                        booking.getLearner().getId(),
+                        "SESSION_RESOLVED",
+                        "Session resolved",
+                        "Admin has resolved the session \"" + sessionTitle(booking)
+                                + "\" in your favor. Payment has been refunded.",
+                        booking.getId());
+                notificationService.notifyUser(
+                        booking.getSession().getMentor().getId(),
+                        "SESSION_RESOLVED",
+                        "Session resolved",
+                        "Admin has resolved the session \"" + sessionTitle(booking)
+                                + "\" in favor of the learner. Payment has been refunded.",
+                        booking.getId());
+            }
+            case REQUEST_MORE_INFO -> {
+                // Leave in REVIEW_REQUIRED and notify both parties
+                booking.setCompletionReviewStatus(CompletionReviewStatus.REVIEW_REQUIRED);
+                bookingRepository.save(booking);
+
+                notificationService.notifyUser(
+                        booking.getLearner().getId(),
+                        "SESSION_REVIEW_NEEDED",
+                        "More information needed",
+                        "Admin needs more information about session \"" + sessionTitle(booking)
+                                + "\". Please provide additional details.",
+                        booking.getId());
+                notificationService.notifyUser(
+                        booking.getSession().getMentor().getId(),
+                        "SESSION_REVIEW_NEEDED",
+                        "More information needed",
+                        "Admin needs more information about session \"" + sessionTitle(booking)
+                                + "\". Please provide additional details.",
+                        booking.getId());
+            }
+        }
+
+        return new ApiResponse<>("Session completion resolved", booking);
     }
 
     // ════════════════════════════════════════════════
@@ -2277,6 +2469,12 @@ public class AdminController {
         AdminUtils.ensureAdmin(currentUser, requiredSubRole);
     }
 
+    /** Returns the session title for a booking, or a fallback string if unavailable. */
+    private static String sessionTitle(Booking booking) {
+        com.skillswap.session.SkillSession session = booking.getSession();
+        return session == null || session.getTitle() == null ? "your session" : session.getTitle();
+    }
+
     // ════════════════════════════════════════════════
     //  Helper methods
     // ════════════════════════════════════════════════
@@ -2677,4 +2875,16 @@ public class AdminController {
     public record AdminBulkRoleRequest(
             @jakarta.validation.constraints.NotEmpty List<Long> ids,
             @NotBlank String role) { }
+
+    // ── Session Completion Resolution DTOs ──
+
+    public enum CompletionResolutionAction {
+        RELEASE_TO_MENTOR,
+        REFUND_LEARNER,
+        REQUEST_MORE_INFO
+    }
+
+    public record ResolveCompletionRequest(
+            @NotNull CompletionResolutionAction action,
+            String adminNote) { }
 }

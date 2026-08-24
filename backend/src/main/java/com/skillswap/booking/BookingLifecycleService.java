@@ -529,6 +529,232 @@ public class BookingLifecycleService {
         bookingRepository.save(booking);
     }
 
+    // ══════════════════════════════════════════════════════════════
+    //  Dual-confirmation session completion flow
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Record the mentor's join signal — lightweight timestamp, not heartbeat tracking.
+     */
+    @Transactional
+    public Booking recordMentorJoin(Long bookingId, User currentUser) {
+        Booking booking = loadBooking(bookingId);
+        if (currentUser.getRole() != UserRole.MENTOR
+                || !booking.getSession().getMentor().getId().equals(currentUser.getId())) {
+            throw new IllegalArgumentException("Only the session mentor can confirm joining");
+        }
+        if (booking.getMentorJoinLinkRequestedAt() == null) {
+            booking.setMentorJoinLinkRequestedAt(OffsetDateTime.now());
+        }
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Called when a session's scheduled end time passes. Transitions IN_PROGRESS
+     * bookings to the dual-confirmation flow by setting
+     * completion_review_status = AWAITING_CONFIRMATION and notifying both parties.
+     */
+    @Transactional
+    public int initiateCompletionConfirmations() {
+        List<Booking> inProgressBookings = bookingRepository
+                .findByBookingStatusIn(List.of(BookingStatus.IN_PROGRESS));
+
+        OffsetDateTime now = OffsetDateTime.now();
+        int initiated = 0;
+
+        for (Booking booking : inProgressBookings) {
+            OffsetDateTime endTime = booking.getSession().getEndTime();
+            if (endTime == null || now.isBefore(endTime)) {
+                continue; // Session hasn't ended yet
+            }
+            if (booking.getCompletionReviewStatus() != CompletionReviewStatus.NOT_APPLICABLE) {
+                continue; // Already in a review flow
+            }
+
+            booking.setCompletionReviewStatus(CompletionReviewStatus.AWAITING_CONFIRMATION);
+            bookingRepository.save(booking);
+
+            // Notify both parties to confirm
+            String sessionName = sessionTitle(booking);
+            notificationService.notifyUser(
+                    booking.getLearner().getId(),
+                    "SESSION_CONFIRMATION_NEEDED",
+                    "Did this session happen?",
+                    "Your session \"" + sessionName + "\" has ended. Please confirm whether it took place.",
+                    booking.getId());
+            notificationService.notifyUser(
+                    booking.getSession().getMentor().getId(),
+                    "SESSION_CONFIRMATION_NEEDED",
+                    "Did this session happen?",
+                    "Your session \"" + sessionName + "\" has ended. Please confirm whether it took place.",
+                    booking.getId());
+
+            initiated++;
+        }
+        return initiated;
+    }
+
+    /**
+     * Learner or mentor confirms the session happened. When both confirm,
+     * the booking transitions to COMPLETED and escrow is released.
+     */
+    @Transactional
+    public Booking confirmSessionCompletion(Long bookingId, User currentUser) {
+        Booking booking = loadBooking(bookingId);
+        requireParticipant(currentUser, booking,
+                "Only the learner or mentor can confirm session completion");
+
+        if (booking.getCompletionReviewStatus() != CompletionReviewStatus.AWAITING_CONFIRMATION
+                && booking.getCompletionReviewStatus() != CompletionReviewStatus.REVIEW_REQUIRED) {
+                throw new IllegalArgumentException(
+                        "This booking is not awaiting confirmation. Current status: "
+                                + booking.getCompletionReviewStatus());
+        }
+
+        boolean isLearner = currentUser.getId().equals(booking.getLearner().getId());
+        OffsetDateTime now = OffsetDateTime.now();
+
+        if (isLearner) {
+            if (booking.getLearnerConfirmationStatus() == ConfirmationStatus.CONFIRMED) {
+                throw new IllegalArgumentException("You have already confirmed this session");
+            }
+            booking.setLearnerConfirmationStatus(ConfirmationStatus.CONFIRMED);
+            booking.setLearnerConfirmedAt(now);
+        } else {
+            if (booking.getMentorConfirmationStatus() == ConfirmationStatus.CONFIRMED) {
+                throw new IllegalArgumentException("You have already confirmed this session");
+            }
+            booking.setMentorConfirmationStatus(ConfirmationStatus.CONFIRMED);
+            booking.setMentorConfirmedAt(now);
+        }
+
+        // Check if BOTH have now confirmed
+        if (booking.getLearnerConfirmationStatus() == ConfirmationStatus.CONFIRMED
+                && booking.getMentorConfirmationStatus() == ConfirmationStatus.CONFIRMED) {
+            // Both confirmed — complete the booking and release escrow
+            booking.setBookingStatus(BookingStatus.COMPLETED);
+            booking.setCompletionReviewStatus(CompletionReviewStatus.RESOLVED);
+            bookingRepository.save(booking);
+
+            certificationService.evaluateAndAward(booking.getLearner());
+            certificationService.evaluateAndAward(booking.getSession().getMentor());
+
+            releaseEscrowForCompletedBooking(booking);
+
+            notificationService.notifyUser(
+                    booking.getLearner().getId(),
+                    "BOOKING_COMPLETED",
+                    "Session completed",
+                    "Your session \"" + sessionTitle(booking) + "\" has been mutually confirmed as completed.",
+                    booking.getId());
+            notificationService.notifyUser(
+                    booking.getSession().getMentor().getId(),
+                    "BOOKING_COMPLETED",
+                    "Session completed",
+                    "Your session \"" + sessionTitle(booking) + "\" has been mutually confirmed as completed.",
+                    booking.getId());
+        } else {
+            // Only one side confirmed — notify the other party
+            Long pendingUserId = isLearner
+                    ? booking.getSession().getMentor().getId()
+                    : booking.getLearner().getId();
+            notificationService.notifyUser(
+                    pendingUserId,
+                    "SESSION_CONFIRMATION_NEEDED",
+                    "Confirmation received",
+                    isLearner ? "The learner has confirmed this session. Please confirm as well."
+                            : "The mentor has confirmed this session. Please confirm as well.",
+                    booking.getId());
+        }
+
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Learner or mentor disputes the session. Sets the dispute reason and
+     * transitions to DISPUTED for admin review.
+     */
+    @Transactional
+    public Booking disputeSessionCompletion(Long bookingId, User currentUser, String reason) {
+        Booking booking = loadBooking(bookingId);
+        requireParticipant(currentUser, booking,
+                "Only the learner or mentor can dispute a session");
+
+        if (booking.getCompletionReviewStatus() != CompletionReviewStatus.AWAITING_CONFIRMATION
+                && booking.getCompletionReviewStatus() != CompletionReviewStatus.REVIEW_REQUIRED) {
+                throw new IllegalArgumentException(
+                        "This booking is not in a state that can be disputed. Current status: "
+                                + booking.getCompletionReviewStatus());
+        }
+
+        if (reason == null || reason.isBlank() || reason.trim().length() < 10) {
+                throw new IllegalArgumentException(
+                        "A dispute reason is required (minimum 10 characters)");
+        }
+
+        boolean isLearner = currentUser.getId().equals(booking.getLearner().getId());
+
+        if (isLearner) {
+                booking.setLearnerConfirmationStatus(ConfirmationStatus.DISPUTED);
+                booking.setLearnerDisputeReason(reason.trim());
+        } else {
+                booking.setMentorConfirmationStatus(ConfirmationStatus.DISPUTED);
+                booking.setMentorDisputeReason(reason.trim());
+        }
+
+        booking.setCompletionReviewStatus(CompletionReviewStatus.DISPUTED);
+        booking.setBookingStatus(BookingStatus.REVIEW_REQUIRED);
+
+        // Notify admin of the dispute (reuse existing admin notification pattern)
+        notificationService.notifyAdmins(
+                "SESSION_DISPUTE",
+                "Session dispute filed",
+                currentUser.getFullName() + " disputed session \"" + sessionTitle(booking)
+                        + "\" (booking #" + booking.getId() + "). Reason: " + reason.trim(),
+                booking.getId());
+
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Timeout check for AWAITING_CONFIRMATION bookings. If the configurable
+     * timeout (default 24 hours) has elapsed since the session end and only
+     * one or zero sides have confirmed, escalate to REVIEW_REQUIRED.
+     */
+    @Transactional
+    public int checkAwaitingConfirmations(long timeoutHours) {
+        List<Booking> awaitingBookings = bookingRepository
+                .findByCompletionReviewStatus(CompletionReviewStatus.AWAITING_CONFIRMATION);
+
+        OffsetDateTime cutoff = OffsetDateTime.now().minusHours(timeoutHours);
+        int escalated = 0;
+
+        for (Booking booking : awaitingBookings) {
+            OffsetDateTime endTime = booking.getSession().getEndTime();
+            if (endTime == null || endTime.isAfter(cutoff)) {
+                continue; // Not enough time has passed
+            }
+
+            boolean learnerConfirmed = booking.getLearnerConfirmationStatus() == ConfirmationStatus.CONFIRMED;
+            boolean mentorConfirmed = booking.getMentorConfirmationStatus() == ConfirmationStatus.CONFIRMED;
+
+            if (!learnerConfirmed || !mentorConfirmed) {
+                booking.setCompletionReviewStatus(CompletionReviewStatus.REVIEW_REQUIRED);
+                bookingRepository.save(booking);
+
+                notificationService.notifyAdmins(
+                        "SESSION_REVIEW_NEEDED",
+                        "Session completion requires review",
+                        "Booking #" + booking.getId() + " (\"" + sessionTitle(booking)
+                                + "\") has not been mutually confirmed after " + timeoutHours + " hours.",
+                        booking.getId());
+
+                escalated++;
+            }
+        }
+        return escalated;
+    }
+
     public void releaseEscrowForCompletedBooking(Booking booking) {
         Payment payment = booking.getPayment();
         if (payment == null || payment.getStatus() != PaymentStatus.ESCROWED) {

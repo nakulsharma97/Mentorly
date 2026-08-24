@@ -390,6 +390,8 @@ public class LearningDashboardService {
                     "COMPLETED", "Completed a session", titleOf(booking), effectiveTime(booking));
             case CANCELLED, REJECTED -> new LearningDashboardDtos.ActivityItemDto(
                     "CANCELLED", "Cancelled a session", titleOf(booking), timeOrCreated(booking));
+            case REVIEW_REQUIRED -> new LearningDashboardDtos.ActivityItemDto(
+                    "REVIEW_REQUIRED", "Session requires review", titleOf(booking), timeOrCreated(booking));
         };
     }
 

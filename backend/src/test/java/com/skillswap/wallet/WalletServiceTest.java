@@ -1,7 +1,9 @@
 package com.skillswap.wallet;
 
+import com.skillswap.payout.StripeConnectService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
+import com.skillswap.wallet.PayoutStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,9 @@ class WalletServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private StripeConnectService stripeConnectService;
 
     @InjectMocks
     private WalletService walletService;
@@ -138,12 +143,14 @@ class WalletServiceTest {
         seedBalance(initialBalance);
         setupUserFound();
 
-        WalletLedgerEntry savedEntry = new WalletLedgerEntry();
         when(ledgerRepository.save(any())).thenAnswer(invocation -> {
             WalletLedgerEntry e = invocation.getArgument(0);
             e.setId(100L);
             return e;
         });
+        // Mock the Stripe Connect transfer to return the entry
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
                 new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
@@ -151,16 +158,13 @@ class WalletServiceTest {
         WalletLedgerEntry result = walletService.withdraw(user, req);
 
         assertNotNull(result);
-        verify(ledgerRepository).save(entryCaptor.capture());
-        WalletLedgerEntry captured = entryCaptor.getValue();
-
-        assertEquals(WalletTransactionType.WITHDRAWAL, captured.getType());
-        assertEquals(new BigDecimal("-30.00"), captured.getAmount());
-        assertEquals(new BigDecimal("70.00"), captured.getBalanceAfter());
-        assertEquals("INR", captured.getCurrency());
-        assertEquals("Test withdrawal", captured.getDescription());
-        assertEquals("WITHDRAWAL", captured.getReferenceType());
-        assertNull(captured.getReferenceId());
+        assertEquals(WalletTransactionType.WITHDRAWAL, result.getType());
+        assertEquals(new BigDecimal("-30.00"), result.getAmount());
+        assertEquals(new BigDecimal("70.00"), result.getBalanceAfter());
+        assertEquals("INR", result.getCurrency());
+        assertEquals("Test withdrawal", result.getDescription());
+        assertEquals("WITHDRAWAL", result.getReferenceType());
+        assertNull(result.getReferenceId());
     }
 
     @Test
@@ -169,12 +173,14 @@ class WalletServiceTest {
         setupUserFound();
 
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
                 new BigDecimal("20.00"), null, "PayPal"));
 
-        verify(ledgerRepository).save(entryCaptor.capture());
-        assertEquals("Wallet withdrawal to PayPal", entryCaptor.getValue().getDescription());
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
+        assertEquals("Wallet withdrawal to bank account", entryCaptor.getValue().getDescription());
     }
 
     @Test
@@ -183,11 +189,13 @@ class WalletServiceTest {
         setupUserFound();
 
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
                 new BigDecimal("20.00"), null, null));
 
-        verify(ledgerRepository).save(entryCaptor.capture());
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals("Wallet withdrawal to bank account", entryCaptor.getValue().getDescription());
     }
 
@@ -201,11 +209,13 @@ class WalletServiceTest {
             e.setId(101L);
             return e;
         });
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletLedgerEntry result = walletService.withdraw(user,
                 new WalletService.WithdrawRequest(new BigDecimal("100.00"), "Full withdrawal", "UPI"));
 
-        verify(ledgerRepository).save(entryCaptor.capture());
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(0, BigDecimal.ZERO.compareTo(entryCaptor.getValue().getBalanceAfter()));
         assertEquals(new BigDecimal("-100.00"), entryCaptor.getValue().getAmount());
         assertNotNull(result);
@@ -217,16 +227,43 @@ class WalletServiceTest {
         setupUserFound();
 
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user,
                 new WalletService.WithdrawRequest(new BigDecimal("10.00"), "Minimum withdrawal", "Bank Transfer"));
 
-        verify(ledgerRepository).save(entryCaptor.capture());
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(new BigDecimal("-10.00"), entryCaptor.getValue().getAmount());
         assertEquals(new BigDecimal("90.00"), entryCaptor.getValue().getBalanceAfter());
     }
 
     // ── addEntry() ───────────────────────────────────────
+
+    @Test
+    void withdrawFailsGracefullyWhenStripeTransferThrows() {
+        seedBalance(initialBalance);
+        setupUserFound();
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> {
+            WalletLedgerEntry e = invocation.getArgument(0);
+            e.setId(100L);
+            return e;
+        });
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenThrow(new IllegalStateException("Payout transfer failed: insufficient funds"));
+
+        WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
+                new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
+
+        // Should throw because the Stripe transfer failed
+        assertThrows(IllegalStateException.class, () -> walletService.withdraw(user, req));
+
+        // Verify the ledger entry was saved with FAILED status (3 saves: addEntry, payout PENDING, payout FAILED)
+        verify(ledgerRepository, times(3)).save(entryCaptor.capture());
+        List<WalletLedgerEntry> savedEntries = entryCaptor.getAllValues();
+        assertEquals(PayoutStatus.FAILED, savedEntries.get(2).getPayoutStatus());
+    }
 
     @Test
     void addEntryRejectsNonExistentUser() {

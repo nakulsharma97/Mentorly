@@ -61,6 +61,40 @@ public class Booking {
     @Column(name = "joined_at")
     private OffsetDateTime joinedAt;
 
+    // ── Dual-confirmation session completion ──
+
+    /** Lightweight signal: when the learner requested the join link. */
+    @Column(name = "learner_join_link_requested_at")
+    private OffsetDateTime learnerJoinLinkRequestedAt;
+
+    /** Lightweight signal: when the mentor confirmed joining. */
+    @Column(name = "mentor_join_link_requested_at")
+    private OffsetDateTime mentorJoinLinkRequestedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "learner_confirmation_status", nullable = false, length = 32)
+    private ConfirmationStatus learnerConfirmationStatus = ConfirmationStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mentor_confirmation_status", nullable = false, length = 32)
+    private ConfirmationStatus mentorConfirmationStatus = ConfirmationStatus.PENDING;
+
+    @Column(name = "learner_confirmed_at")
+    private OffsetDateTime learnerConfirmedAt;
+
+    @Column(name = "mentor_confirmed_at")
+    private OffsetDateTime mentorConfirmedAt;
+
+    @Column(name = "learner_dispute_reason", columnDefinition = "TEXT")
+    private String learnerDisputeReason;
+
+    @Column(name = "mentor_dispute_reason", columnDefinition = "TEXT")
+    private String mentorDisputeReason;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "completion_review_status", nullable = false, length = 32)
+    private CompletionReviewStatus completionReviewStatus = CompletionReviewStatus.NOT_APPLICABLE;
+
     // Payment Status
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status")

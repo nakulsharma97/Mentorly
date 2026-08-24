@@ -56,6 +56,15 @@ public class WalletLedgerEntry {
     @Column(name = "reference_id")
     private Long referenceId;
 
+    /** Status of an outgoing payout (null for non-withdrawal entries). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payout_status", length = 32)
+    private PayoutStatus payoutStatus;
+
+    /** Stripe Transfer ID when a real payout was initiated via Stripe Connect. */
+    @Column(name = "stripe_transfer_id", length = 255)
+    private String stripeTransferId;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 }

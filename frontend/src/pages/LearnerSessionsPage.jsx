@@ -380,7 +380,7 @@ function MiniCalendar({ sessions }) {
    Premium Session Card
    ══════════════════════════════════════════════════════════════════════════ */
 
-function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
+function PremiumSessionCard({ booking, onCancel, onPayNow, onChat, onConfirmCompletion, onDisputeCompletion }) {
   const session = booking?.session || {};
   const mentor = session?.mentor || {};
 
@@ -392,6 +392,10 @@ function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
   const isCancelled = bookingStatus === "CANCELLED" || bookingStatus === "REJECTED";
   const isCompleted = bookingStatus === "COMPLETED";
   const isOngoing = liveStatus === "LIVE" || bookingStatus === "IN_PROGRESS";
+  const completionReviewStatus = String(booking?.completionReviewStatus || "").toUpperCase();
+  const awaitingConfirmation = completionReviewStatus === "AWAITING_CONFIRMATION";
+  const needsReview = completionReviewStatus === "REVIEW_REQUIRED";
+  const isDisputed = completionReviewStatus === "DISPUTED";
   const priceAmount = Number(session?.priceAmount || 0);
   const isPaid =
     paymentStatus === "COMPLETED" ||
@@ -405,6 +409,9 @@ function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
 
   let statusKey = "PENDING";
   if (isCancelled) statusKey = bookingStatus === "REJECTED" ? "REJECTED" : "CANCELLED";
+  else if (isDisputed) statusKey = "DISPUTED";
+  else if (needsReview) statusKey = "REVIEW_REQUIRED";
+  else if (awaitingConfirmation) statusKey = "AWAITING_CONFIRMATION";
   else if (isCompleted) statusKey = "COMPLETED";
   else if (isOngoing) statusKey = "ONGOING";
   else if (isPaid && liveStatus === "SCHEDULED") statusKey = "SCHEDULED";
@@ -419,6 +426,9 @@ function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
     COMPLETED: { label: "Completed", class: "ls-badge--completed", icon: "task_alt" },
     CANCELLED: { label: "Cancelled", class: "ls-badge--cancelled", icon: "cancel" },
     REJECTED: { label: "Rejected", class: "ls-badge--cancelled", icon: "cancel" },
+    AWAITING_CONFIRMATION: { label: "Confirm session", class: "ls-badge--scheduled", icon: "help_outline" },
+    REVIEW_REQUIRED: { label: "Under review", class: "ls-badge--pending", icon: "rate_review" },
+    DISPUTED: { label: "Disputed", class: "ls-badge--cancelled", icon: "gavel" },
     PENDING: { label: "Pending", class: "ls-badge--pending", icon: "hourglass_top" },
   }[statusKey] || { label: statusKey, class: "ls-badge--pending", icon: "schedule" };
 
@@ -535,8 +545,39 @@ function PremiumSessionCard({ booking, onCancel, onPayNow, onChat }) {
           </div>
 
           <div className="ls-session-card__actions">
-            {/* Cancelled / Rejected — actions disabled, rebook only */}
-            {isCancelled ? (
+            {/* Disputed / Under Review — show status */}
+            {isDisputed ? (
+              <>
+                <span className="ls-btn ls-btn--ghost ls-btn--disabled" title="This session is under admin review">
+                  <Icon name="gavel" /> Disputed — Under Review
+                </span>
+              </>
+            ) : needsReview ? (
+              <>
+                <span className="ls-btn ls-btn--ghost ls-btn--disabled" title="Admin needs more information">
+                  <Icon name="rate_review" /> Under Review
+                </span>
+              </>
+            ) : awaitingConfirmation ? (
+              <>
+                <button
+                  type="button"
+                  className="ls-btn ls-btn--primary"
+                  onClick={() => onConfirmCompletion?.(booking)}
+                >
+                  <Icon name="check_circle" /> Confirm Session
+                </button>
+                <button
+                  type="button"
+                  className="ls-btn ls-btn--ghost ls-btn--danger"
+                  onClick={() => onDisputeCompletion?.(booking)}
+                >
+                  <Icon name="report_problem" /> Report Problem
+                </button>
+              </>
+            )
+            /* Cancelled / Rejected — actions disabled, rebook only */
+            : isCancelled ? (
               <>
                 <Link to="/learner/mentors" className="ls-btn ls-btn--primary">
                   <Icon name="person_search" /> Book Again
@@ -1191,6 +1232,40 @@ export default function LearnerSessionsPage() {
     }
   }
 
+  /* ── Dual-confirmation: confirm session completion ── */
+  async function confirmSessionCompletion(booking) {
+    try {
+      await client.post(`/api/v1/bookings/${booking.id}/confirm-completion`);
+      notify({ type: "success", title: "Session confirmed", message: "Thank you for confirming this session." });
+      // Refresh the bookings list
+      const res = await client.get("/api/v1/bookings");
+      setAllBookings(res?.data?.data?.content || []);
+    } catch (err) {
+      const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to confirm session.";
+      notify({ type: "error", title: "Confirmation failed", message: msg });
+    }
+  }
+
+  /* ── Dual-confirmation: dispute session completion ── */
+  async function disputeSessionCompletion(booking) {
+    const reason = window.prompt("Please describe the problem with this session (minimum 10 characters):", "");
+    if (reason == null) return; // User cancelled
+    if (reason.trim().length < 10) {
+      notify({ type: "error", title: "Reason too short", message: "Please provide at least 10 characters." });
+      return;
+    }
+    try {
+      await client.post(`/api/v1/bookings/${booking.id}/dispute-completion`, { reason: reason.trim() });
+      notify({ type: "success", title: "Dispute filed", message: "Your dispute has been submitted. Admin will review it." });
+      // Refresh the bookings list
+      const res = await client.get("/api/v1/bookings");
+      setAllBookings(res?.data?.data?.content || []);
+    } catch (err) {
+      const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to file dispute.";
+      notify({ type: "error", title: "Dispute failed", message: msg });
+    }
+  }
+
   const tabCounts = useMemo(
     () => ({
       all: allBookings.length,
@@ -1534,6 +1609,8 @@ export default function LearnerSessionsPage() {
                   onCancel={cancelBooking}
                   onPayNow={setPayingBooking}
                   onChat={openChat}
+                  onConfirmCompletion={confirmSessionCompletion}
+                  onDisputeCompletion={disputeSessionCompletion}
                 />
               ))}
             </div>

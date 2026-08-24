@@ -54,6 +54,18 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         List<Booking> findByBookingStatusInAndSessionStartTimeLessThanEqual(Collection<BookingStatus> statuses,
                         OffsetDateTime startTime);
 
+        List<Booking> findByBookingStatusIn(Collection<BookingStatus> statuses);
+
+        List<Booking> findByCompletionReviewStatus(CompletionReviewStatus status);
+
+        @Query("SELECT COUNT(b) FROM Booking b WHERE b.learner.id = :userId AND b.completionReviewStatus IN :statuses")
+        long countByLearnerIdAndCompletionReviewStatusIn(@Param("userId") Long userId,
+                        @Param("statuses") Collection<CompletionReviewStatus> statuses);
+
+        @Query("SELECT COUNT(b) FROM Booking b WHERE b.session.mentor.id = :mentorId AND b.completionReviewStatus IN :statuses")
+        long countByMentorIdAndCompletionReviewStatusIn(@Param("mentorId") Long mentorId,
+                        @Param("statuses") Collection<CompletionReviewStatus> statuses);
+
         List<Booking> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);
 
         /**

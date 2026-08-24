@@ -455,6 +455,43 @@ export default function MentorDashboard({ profile, notify }) {
     }
   };
 
+  // ── Dual-confirmation: confirm session completion (mentor side) ──
+  const confirmSessionCompletion = async (booking) => {
+    const id = booking?.id || booking?.bookingId;
+    if (!id) return;
+    try {
+      await client.post(`/api/v1/bookings/${id}/confirm-completion`);
+      notify?.({ type: "success", title: "Session confirmed", message: "Thank you for confirming this session." });
+      // Refresh bookings
+      const res = await client.get("/api/v1/bookings");
+      setBookings(res?.data?.data?.content || []);
+    } catch (err) {
+      const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to confirm session.";
+      notify?.({ type: "error", title: "Confirmation failed", message: msg });
+    }
+  };
+
+  // ── Dual-confirmation: dispute session completion (mentor side) ──
+  const disputeSessionCompletion = async (booking) => {
+    const id = booking?.id || booking?.bookingId;
+    if (!id) return;
+    const reason = window.prompt("Please describe the problem with this session (minimum 10 characters):", "");
+    if (reason == null) return;
+    if (reason.trim().length < 10) {
+      notify?.({ type: "error", title: "Reason too short", message: "Please provide at least 10 characters." });
+      return;
+    }
+    try {
+      await client.post(`/api/v1/bookings/${id}/dispute-completion`, { reason: reason.trim() });
+      notify?.({ type: "success", title: "Dispute filed", message: "Your dispute has been submitted. Admin will review it." });
+      const res = await client.get("/api/v1/bookings");
+      setBookings(res?.data?.data?.content || []);
+    } catch (err) {
+      const msg = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to file dispute.";
+      notify?.({ type: "error", title: "Dispute failed", message: msg });
+    }
+  };
+
   // ── Profile-incomplete warning banner (dismissible) ──
   const [incompleteBannerDismissed, setIncompleteBannerDismissed] = useState(false);
   const profileIncomplete =
@@ -892,6 +929,31 @@ export default function MentorDashboard({ profile, notify }) {
                       <div className="md3-upcoming__status">
                         <SsBadge status={statusOf(b)} />
                       </div>
+                      {/* Dual-confirmation actions for sessions awaiting confirmation */}
+                      {(b.completionReviewStatus === "AWAITING_CONFIRMATION" ||
+                        b.completionReviewStatus === "REVIEW_REQUIRED") && (
+                        <div className="md3-upcoming__actions" style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+                          <button
+                            type="button"
+                            className="ss-btn ss-btn--primary ss-btn--xs"
+                            onClick={() => confirmSessionCompletion(b)}
+                          >
+                            <SsIcon name="check_circle" size={14} /> Confirm
+                          </button>
+                          <button
+                            type="button"
+                            className="ss-btn ss-btn--ghost ss-btn--xs"
+                            onClick={() => disputeSessionCompletion(b)}
+                          >
+                            <SsIcon name="report_problem" size={14} /> Dispute
+                          </button>
+                        </div>
+                      )}
+                      {b.completionReviewStatus === "DISPUTED" && (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--ss-danger)', marginLeft: 8 }}>
+                          <SsIcon name="gavel" size={14} /> Disputed
+                        </span>
+                      )}
                     </div>
                   );
                 })}

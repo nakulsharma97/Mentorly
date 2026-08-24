@@ -168,7 +168,11 @@ export default function WalletPage({ profile, notify }) {
   const [payoutSearch, setPayoutSearch] = useState("");
   const [payoutDateRange, setPayoutDateRange] = useState("all");
   const PAYOUT_PAGE_SIZE = 8;
+  const [connectStatus, setConnectStatus] = useState(null);
+  const [connectLoading, setConnectLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
+  // Fetch wallet data
   useEffect(() => {
     let mounted = true;
 
@@ -204,6 +208,57 @@ export default function WalletPage({ profile, notify }) {
       mounted = false;
     };
   }, [notify]);
+
+  // Fetch Stripe Connect status (mentor only)
+  useEffect(() => {
+    if (profile?.role !== "MENTOR") {
+      setConnectLoading(false);
+      return;
+    }
+    let mounted = true;
+    const loadConnectStatus = async () => {
+      try {
+        const res = await client.get("/api/v1/mentor/connect/status");
+        if (mounted) setConnectStatus(res?.data?.data || null);
+      } catch {
+        // Not onboarded yet — that's fine
+        if (mounted) setConnectStatus(null);
+      } finally {
+        if (mounted) setConnectLoading(false);
+      }
+    };
+    loadConnectStatus();
+    return () => { mounted = false; };
+  }, [profile?.role]);
+
+  // Handle onboarding redirect return
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("onboarding") === "complete") {
+      // Refresh connect status after returning from Stripe
+      client.get("/api/v1/mentor/connect/status")
+        .then((res) => setConnectStatus(res?.data?.data || null))
+        .catch(() => {});
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleStartOnboarding = async () => {
+    setOnboardingLoading(true);
+    try {
+      const res = await client.post("/api/v1/mentor/connect/onboard");
+      const url = res?.data?.data?.url;
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (err) {
+      const detail = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to start onboarding";
+      notify?.({ type: "error", title: "Onboarding failed", message: detail });
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
 
   const metrics = useMemo(() => {
     return ledger.reduce(
@@ -299,6 +354,10 @@ export default function WalletPage({ profile, notify }) {
     safePayoutPage * PAYOUT_PAGE_SIZE,
     (safePayoutPage + 1) * PAYOUT_PAGE_SIZE,
   );
+
+  const isMentor = profile?.role === "MENTOR";
+  const payoutsEnabled = isMentor && connectStatus?.payoutsEnabled === true;
+  const onboardingPending = isMentor && connectStatus && !connectStatus.payoutsEnabled;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -908,6 +967,47 @@ export default function WalletPage({ profile, notify }) {
             />
           </div>
 
+          {/* ── Payout Setup Banner (mentor only) ── */}
+          {isMentor && (
+            <div className="wallet-connect-banner" style={{
+              padding: '20px 24px',
+              borderRadius: 'var(--ss-card-radius)',
+              border: payoutsEnabled ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(245,158,11,0.3)',
+              background: payoutsEnabled ? 'rgba(16,185,129,0.06)' : 'rgba(245,158,11,0.06)',
+              marginBottom: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              flexWrap: 'wrap',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <SsIcon name={payoutsEnabled ? 'check_circle' : 'warning'} size={22} style={{ color: payoutsEnabled ? 'var(--ss-success)' : 'var(--ss-warning)', flexShrink: 0 }} />
+                <div>
+                  <strong style={{ fontSize: 'var(--ss-font-base)', color: 'var(--ss-text)' }}>
+                    {payoutsEnabled ? 'Payouts Enabled' : 'Complete Verification to Enable Payouts'}
+                  </strong>
+                  <p style={{ margin: 0, fontSize: 'var(--ss-font-sm)', color: 'var(--ss-text-muted)' }}>
+                    {payoutsEnabled
+                      ? 'Your Stripe Connect account is verified. You can withdraw funds to your bank account.'
+                      : 'Set up your Stripe Connect account to receive real payouts directly to your bank account.'}
+                  </p>
+                </div>
+              </div>
+              {!payoutsEnabled && (
+                <button
+                  type="button"
+                  className="ss-btn ss-btn--primary ss-btn--sm"
+                  onClick={handleStartOnboarding}
+                  disabled={onboardingLoading}
+                >
+                  <SsIcon name="account_balance" size={16} />
+                  {onboardingLoading ? 'Redirecting…' : 'Set Up Payouts'}
+                </button>
+              )}
+            </div>
+          )}
+
           {/* ── Withdrawal Card ── */}
           <div className="wallet-withdraw-card">
             <div className="wallet-withdraw-card__head">
@@ -969,18 +1069,24 @@ export default function WalletPage({ profile, notify }) {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className="ss-btn ss-btn--primary wallet-withdraw-card__submit"
-                onClick={handleWithdraw}
-                disabled={
-                  withdrawProcessing || !withdrawAmount || Number(withdrawAmount) <= 0
-                }
-              >
-                {withdrawProcessing
-                  ? "Processing..."
-                  : `Withdraw ${withdrawAmount ? formatCurrency(Number(withdrawAmount)) : "₹0.00"}`}
-              </button>
+              {isMentor && !payoutsEnabled ? (
+                <div style={{ padding: '12px 16px', borderRadius: 'var(--ss-radius)', background: 'var(--ss-bg)', color: 'var(--ss-text-muted)', fontSize: 'var(--ss-font-sm)', textAlign: 'center' }}>
+                  Complete your payout account setup above before withdrawing.
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="ss-btn ss-btn--primary wallet-withdraw-card__submit"
+                  onClick={handleWithdraw}
+                  disabled={
+                    withdrawProcessing || !withdrawAmount || Number(withdrawAmount) <= 0
+                  }
+                >
+                  {withdrawProcessing
+                    ? "Processing..."
+                    : `Withdraw ${withdrawAmount ? formatCurrency(Number(withdrawAmount)) : "₹0.00"}`}
+                </button>
+              )}
             </div>
           </div>
 

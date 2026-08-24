@@ -42,6 +42,7 @@ const AdminNotificationsPage = lazy(() => import("../pages/AdminNotificationsPag
 const SystemSettingsPage = lazy(() => import("../pages/SystemSettingsPage"));
 const AuditLogPage = lazy(() => import("../pages/AuditLogPage"));
 const AdminPaymentsPage = lazy(() => import("../pages/AdminPaymentsPage"));
+const AdminSessionDisputesPage = lazy(() => import("../pages/AdminSessionDisputesPage"));
 const ContentModerationPage = lazy(() => import("../pages/ContentModerationPage"));
 const PlatformHealthPage = lazy(() => import("../pages/PlatformHealthPage"));
 const SkillManagementPage = lazy(() => import("../pages/SkillManagementPage"));
@@ -425,6 +426,7 @@ export default function AppRoutes({
         <Route path="users" element={rc("admin-users", <UserManagementPage notify={notify} />)} />
         <Route path="sessions" element={rc("admin-sessions", <SessionManagementPage notify={notify} />)} />
         <Route path="analytics" element={rc("admin-analytics", <AdminAnalyticsPage notify={notify} />)} />
+        <Route path="disputes" element={rc("admin-disputes", <AdminSessionDisputesPage notify={notify} />)} />
         <Route path="notifications" element={rc("admin-notifications", <NotificationBroadcastPage notify={notify} />)} />
         <Route path="notification-center" element={rc("admin-notification-center", <AdminNotificationsPage notify={notify} />)} />
         <Route path="settings" element={rc("admin-settings", <SystemSettingsPage notify={notify} />)} />

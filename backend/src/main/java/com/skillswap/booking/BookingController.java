@@ -126,6 +126,31 @@ public class BookingController {
                 return new ApiResponse<>("Booking started", saved);
         }
 
+        @PostMapping("/{id}/mentor-join")
+        public ApiResponse<Booking> mentorJoin(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.recordMentorJoin(id, currentUser);
+                return new ApiResponse<>("Mentor join recorded", saved);
+        }
+
+        @PostMapping("/{id}/confirm-completion")
+        public ApiResponse<Booking> confirmCompletion(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id) {
+                Booking saved = bookingLifecycleService.confirmSessionCompletion(id, currentUser);
+                return new ApiResponse<>("Completion confirmed", saved);
+        }
+
+        @PostMapping("/{id}/dispute-completion")
+        public ApiResponse<Booking> disputeCompletion(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id,
+                        @Valid @RequestBody DisputeCompletionRequest req) {
+                Booking saved = bookingLifecycleService.disputeSessionCompletion(id, currentUser, req.reason());
+                return new ApiResponse<>("Dispute filed", saved);
+        }
+
         @PostMapping("/{id}/complete")
         public ApiResponse<Booking> completeBooking(
             @AuthenticationPrincipal User currentUser,
@@ -194,5 +219,13 @@ public class BookingController {
                 }
                 int limit = Math.min(18, key.length());
                 return key.substring(0, limit);
+        }
+
+        // ── Request DTOs ──
+
+        public record DisputeCompletionRequest(
+                @NotBlank(message = "A dispute reason is required")
+                @jakarta.validation.constraints.Size(min = 10, max = 2000, message = "Reason must be 10-2000 characters")
+                String reason) {
         }
 }

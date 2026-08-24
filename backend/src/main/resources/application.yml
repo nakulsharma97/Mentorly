@@ -116,6 +116,9 @@ app:
       max-per-minute: ${APP_RATE_LIMIT_SEARCH_PER_MINUTE:60}
   oauth2:
     redirect-url: ${OAUTH2_REDIRECT_URL:http://localhost:5174/oauth/callback}
+  booking:
+    completion-confirm-timeout-hours: ${BOOKING_COMPLETION_CONFIRM_TIMEOUT_HOURS:24}
+    completion-check-poll-ms: ${BOOKING_COMPLETION_CHECK_POLL_MS:120000}
   payment:
     stripe:
       # REAL Stripe integration (test mode). Keys come from the Stripe dashboard
@@ -124,6 +127,7 @@ app:
       # API call fails with a clear Stripe error — nothing is fabricated.
       secret-key: ${STRIPE_SECRET_KEY:sk_test_xxxxxxxxxxxx}
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_secret}
+      connect-webhook-secret: ${STRIPE_CONNECT_WEBHOOK_SECRET:whsec_test_connect_secret}
   admin:
     email: ${APP_ADMIN_EMAIL:}
     password: ${APP_ADMIN_PASSWORD:}

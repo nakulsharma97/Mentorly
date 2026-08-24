@@ -26,6 +26,7 @@ const GROUPS = [
     label: "Tools",
     links: [
       { to: "/admin/analytics", label: "Analytics", icon: "insights" },
+      { to: "/admin/disputes", label: "Disputes", icon: "gavel" },
       { to: "/admin/health", label: "Health", icon: "monitor_heart" },
       { to: "/admin/notifications", label: "Broadcast", icon: "campaign" },
       { to: "/admin/audit-log", label: "Timeline", icon: "history" },

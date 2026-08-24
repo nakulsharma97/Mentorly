@@ -1,8 +1,10 @@
 package com.skillswap.wallet;
 
+import com.skillswap.payout.StripeConnectService;
 import com.skillswap.user.User;
 import com.skillswap.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ public class WalletService {
 
     private final WalletLedgerEntryRepository ledgerRepository;
     private final UserRepository userRepository;
+    @Lazy
+    private final StripeConnectService stripeConnectService;
 
     public List<WalletLedgerEntry> history(User user) {
         return ledgerRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
@@ -77,16 +81,34 @@ public class WalletService {
             throw new IllegalArgumentException("Minimum withdrawal amount is ₹10.00");
         }
 
-        return addEntry(currentUser, new WalletEntryRequest(
+        // ── Stripe Connect payout path ──
+        // Create the ledger entry first (sets payout_status = PENDING), then
+        // initiate the real Stripe Transfer. If the transfer fails, the entry
+        // is rolled back by the transactional boundary.
+        WalletLedgerEntry entry = addEntry(currentUser, new WalletEntryRequest(
                 WalletTransactionType.WITHDRAWAL,
                 request.amount(),
                 "INR",
                 request.description() != null && !request.description().isBlank()
                         ? request.description()
-                        : "Wallet withdrawal to "
-                                + (request.paymentMethod() != null ? request.paymentMethod() : "bank account"),
+                        : "Wallet withdrawal to bank account",
                 "WITHDRAWAL",
                 null));
+
+        // Attempt real payout via Stripe Connect (if available for this mentor)
+        try {
+            entry.setPayoutStatus(PayoutStatus.PENDING);
+            entry = ledgerRepository.save(entry);
+            entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
+        } catch (Exception e) {
+            // Stripe not configured or transfer failed — mark as failed but
+            // keep the ledger entry so the withdrawal is still recorded.
+            entry.setPayoutStatus(PayoutStatus.FAILED);
+            ledgerRepository.save(entry);
+            throw new IllegalStateException("Payout transfer failed: " + e.getMessage(), e);
+        }
+
+        return entry;
     }
 
 /**

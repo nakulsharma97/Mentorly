@@ -66,6 +66,19 @@ public class NotificationService {
         userIds.stream().distinct().forEach(userId -> notifyUser(userId, type, title, message, referenceId));
     }
 
+    /**
+     * Sends a notification to all enabled admin users.
+     */
+    public void notifyAdmins(String type, String title, String message, Long referenceId) {
+        java.util.List<Long> adminIds = userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(
+                        UserRole.ADMIN).stream()
+                .map(User::getId)
+                .toList();
+        if (!adminIds.isEmpty()) {
+            notifyUsers(adminIds, type, title, message, referenceId);
+        }
+    }
+
     public NotificationPreference getOrCreatePreference(User user) {
         return preferenceRepository.findByUserId(user.getId()).orElseGet(() -> {
             NotificationPreference preference = new NotificationPreference();

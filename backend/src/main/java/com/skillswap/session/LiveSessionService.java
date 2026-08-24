@@ -159,6 +159,11 @@ public class LiveSessionService {
 
         // All checks passed - return the meeting link
         booking.setJoinedAt(OffsetDateTime.now());
+        // Record the lightweight join-link-request signal for the dual-confirmation flow.
+        // Only set once — don't overwrite on repeat requests.
+        if (booking.getLearnerJoinLinkRequestedAt() == null) {
+            booking.setLearnerJoinLinkRequestedAt(OffsetDateTime.now());
+        }
         bookingRepository.save(booking);
 
         log.info("Learner {} approved to join session {}. Meeting link provided.", learnerId, sessionId);
