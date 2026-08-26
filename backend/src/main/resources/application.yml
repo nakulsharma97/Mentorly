@@ -2,6 +2,17 @@ server:
   port: 8080
 
 spring:
+  autoconfigure:
+    # Exclude Redis auto-configuration by default so CI/tests work without a
+    # running Redis instance.  Our custom RedisConfig (activated by
+    # app.redis.enabled=true) creates its own RedisTemplate and CacheManager;
+    # the auto-configured ones conflict when Redis is absent.  Production
+    # profiles (prod, staging) override this list to re-enable Redis auto-config
+    # or — more precisely — our RedisConfig takes over and the exclude becomes
+    # a no-op.
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   config:
     # Load backend/.env (or the project-root .env) automatically so the app
     # works with plain `mvn spring-boot:run`, IDE launches, and `java -jar`
