@@ -32,7 +32,6 @@ This repository contains:
 - `frontend/` — React + Vite SPA (learner / mentor / admin workspaces)
 - `backend/` — Spring Boot modular-monolith REST API (Java 21)
 - `docs/` — architecture, API contracts, security, deployment, and workflow docs
-- `k8s/` — Kubernetes manifests for production deployment
 
 ---
 
@@ -126,7 +125,6 @@ This repository contains:
 
 ### Infrastructure
 - Docker Compose: MySQL 8.4, backend, nginx-served frontend, certbot (SSL profile)
-- Kubernetes manifests under `k8s/` (namespace, ingress, deployments, configmap)
 - GitHub Actions CI/CD (`.github/workflows/backend-ci.yml`, `frontend-ci.yml`, `deploy.yml`)
 
 ---
@@ -185,7 +183,7 @@ This repository contains:
 ```
 Mentorly/
 ├── backend/                          # Spring Boot modular monolith (Java 21)
-│   ├── src/main/java/com/skillswap/  #   domain packages (see below)
+│   ├── src/main/java/com/mentorly/  #   domain packages (see below)
 │   ├── src/main/resources/
 │   │   ├── application*.yml          #   profile-based config (dev/prod/staging…)
 │   │   └── db/migration/             #   Flyway migrations (V1…V64)
@@ -226,9 +224,6 @@ Mentorly/
 │   ├── PROJECT_STRUCTURE.md          #   repo map + change-organization rules
 │   ├── DEPLOYMENT.md                 #   deployment guide
 │   └── …                             #   security, runbooks, checklists
-├── k8s/                              # Kubernetes manifests
-│   ├── namespace.yaml, ingress.yaml, configmap.yaml
-│   ├── backend-deployment.yaml, frontend-deployment.yaml
 │   └── README.md
 ├── scripts/                          # ops helpers
 │   ├── deploy.sh, db-backup.sh, env-setup.sh, setup-ssl.sh, validate-deploy.sh
@@ -255,7 +250,7 @@ Mentorly/
 
 ## Backend architecture
 
-Root package: `backend/src/main/java/com/skillswap` — each domain folder owns its business area and follows the pattern:
+Root package: `backend/src/main/java/com/mentorly` — each domain folder owns its business area and follows the pattern:
 
 ```
 <Domain>Controller → <Domain>Service → <Domain>Repository → <Domain>Entity
@@ -534,12 +529,12 @@ Demo accounts and sample data are seeded **only** on `dev`/`local` profiles by `
 
 | Variable | Default | Notes |
 |---|---|---|
-| `MYSQL_DATABASE` | `skill_swap` | DB name |
+| `MYSQL_DATABASE` | `mentorly` | DB name |
 | `MYSQL_ROOT_PASSWORD` | `rootpassword` | Root password |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | `skill_swap` | App DB user |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | `mentorly` | App DB user |
 | `SPRING_PROFILES_ACTIVE` | `prod` (compose) / `dev` (local) | Runtime profile |
-| `SPRING_DATASOURCE_URL` | `jdbc:mysql://mysql:3306/skill_swap?...` | JDBC URL |
-| `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | `skill_swap` | DB credentials |
+| `SPRING_DATASOURCE_URL` | `jdbc:mysql://mysql:3306/mentorly?...` | JDBC URL |
+| `SPRING_DATASOURCE_USERNAME` / `PASSWORD` | `mentorly` | DB credentials |
 | `JWT_SECRET` | — | **Required**; used to sign tokens |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:5174,http://127.0.0.1:5174` | Allowed CORS origins |
 | `VITE_API_BASE_URL` | `http://backend:8080` (compose) | Frontend API base URL |
@@ -618,7 +613,6 @@ Quality gates on `mvn verify`: **JaCoCo line coverage ≥ 40%** (enforced by `ja
 ### Deployment targets
 
 - **Docker Compose** — local / staging stack (`docker-compose.yml`)
-- **Kubernetes** — production manifests in `k8s/` (namespace, ingress, deployments, configmap)
 - **HTTPS** — nginx + certbot (Let's Encrypt) via `scripts/setup-ssl.sh`; compose `ssl` profile for manual issuance/renewal
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md), [docs/STAGING_PROD_RUNBOOK.md](docs/STAGING_PROD_RUNBOOK.md), and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).

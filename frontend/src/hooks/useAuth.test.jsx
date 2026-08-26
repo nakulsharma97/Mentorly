@@ -956,11 +956,11 @@ describe("useAuthProfile – route protection", () => {
       role: "MENTOR",
     });
 
-    sessionStorage.setItem("skillswap:onboarding_dismissed", "1");
+    sessionStorage.setItem("mentorly:onboarding_dismissed", "1");
     renderAt("/mentor/dashboard");
     await tick(100);
 
     expect(mockNavigate).not.toHaveBeenCalled();
-    sessionStorage.removeItem("skillswap:onboarding_dismissed");
+    sessionStorage.removeItem("mentorly:onboarding_dismissed");
   });
 });

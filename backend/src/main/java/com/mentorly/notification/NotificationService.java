@@ -1,0 +1,130 @@
+package com.mentorly.notification;
+
+import com.mentorly.user.User;
+import com.mentorly.user.UserRepository;
+import com.mentorly.user.UserRole;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.Collection;
+
+/**
+ * Service implementing notification business logic.
+ */
+@Service
+@RequiredArgsConstructor
+public class NotificationService {
+
+    private final AppNotificationRepository notificationRepository;
+    private final UserRepository userRepository;
+    private final NotificationPreferenceRepository preferenceRepository;
+    private final EmailNotificationService emailNotificationService;
+    private final NotificationWebSocketHandler webSocketHandler;
+
+    /**
+     * Sends a single notification through the full pipeline (DB persist +
+     * WebSocket push + preference-gated email). Overload used by broadcast
+     * campaigns passes delivery metadata (priority, action button, expiry,
+     * broadcast id) through to the persisted row.
+     */
+    public void notifyUser(Long userId, String type, String title, String message, Long referenceId) {
+        notifyUser(userId, type, title, message, referenceId, null, null, null, null, null);
+    }
+
+    public void notifyUser(Long userId, String type, String title, String message, Long referenceId,
+            Long broadcastId, String priority, String actionUrl, String actionButtonText,
+            java.time.OffsetDateTime expiresAt) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        AppNotification notification = new AppNotification();
+        notification.setUser(user);
+        notification.setType(type);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setReferenceId(referenceId);
+        notification.setBroadcastId(broadcastId);
+        notification.setPriority(priority == null || priority.isBlank() ? "MEDIUM" : priority);
+        notification.setActionUrl(actionUrl);
+        notification.setActionButtonText(actionButtonText);
+        notification.setExpiresAt(expiresAt);
+        notificationRepository.save(notification);
+
+        // Push real-time notification via WebSocket
+        webSocketHandler.broadcastToUser(userId, notification);
+
+        NotificationPreference preference = getOrCreatePreference(user);
+        if (shouldSendEmail(preference, user.getRole(), type)) {
+            emailNotificationService.sendNotificationEmail(
+                    user,
+                    "Mentorly: " + title,
+                    message + "\n\nType: " + type + "\nReference: " + (referenceId == null ? "n/a" : referenceId));
+        }
+    }
+
+    public void notifyUsers(Collection<Long> userIds, String type, String title, String message, Long referenceId) {
+        userIds.stream().distinct().forEach(userId -> notifyUser(userId, type, title, message, referenceId));
+    }
+
+    /**
+     * Sends a notification to all enabled admin users.
+     */
+    public void notifyAdmins(String type, String title, String message, Long referenceId) {
+        java.util.List<Long> adminIds = userRepository.findByRoleAndEnabledTrueOrderByLastActiveAtDesc(
+                        UserRole.ADMIN).stream()
+                .map(User::getId)
+                .toList();
+        if (!adminIds.isEmpty()) {
+            notifyUsers(adminIds, type, title, message, referenceId);
+        }
+    }
+
+    public NotificationPreference getOrCreatePreference(User user) {
+        return preferenceRepository.findByUserId(user.getId()).orElseGet(() -> {
+            NotificationPreference preference = new NotificationPreference();
+            preference.setUser(user);
+            return preferenceRepository.save(preference);
+        });
+    }
+
+    public NotificationPreference updatePreference(
+            User user,
+            boolean emailEnabled,
+            boolean bookingUpdates,
+            boolean sessionAnnouncements,
+            boolean reviewAlerts,
+            boolean certificationAlerts,
+            boolean roleChangeAlerts) {
+        NotificationPreference preference = getOrCreatePreference(user);
+        preference.setEmailEnabled(emailEnabled);
+        preference.setBookingUpdates(bookingUpdates);
+        preference.setSessionAnnouncements(sessionAnnouncements);
+        preference.setReviewAlerts(reviewAlerts);
+        preference.setCertificationAlerts(certificationAlerts);
+        preference.setRoleChangeAlerts(roleChangeAlerts);
+        return preferenceRepository.save(preference);
+    }
+
+    private static boolean shouldSendEmail(NotificationPreference preference, UserRole role, String type) {
+        if (!preference.isEmailEnabled()) {
+            return false;
+        }
+
+        if ("BOOKING_CREATED".equals(type) || "BOOKING_STATUS".equals(type) || "WAITLIST_PROMOTION".equals(type)) {
+            return preference.isBookingUpdates();
+        }
+        if ("NEW_SESSION".equals(type) && role == UserRole.LEARNER) {
+            return preference.isSessionAnnouncements();
+        }
+        if (("REVIEW_SUBMITTED".equals(type) || "NEW_REVIEW".equals(type)) && role == UserRole.MENTOR) {
+            return preference.isReviewAlerts();
+        }
+        if ("CERTIFICATION_EARNED".equals(type)) {
+            return preference.isCertificationAlerts();
+        }
+        if ("ROLE_SWITCHED".equals(type)) {
+            return preference.isRoleChangeAlerts();
+        }
+        return true;
+    }
+}

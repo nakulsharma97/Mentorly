@@ -15,7 +15,7 @@ export const PROFILE_ONBOARDING_PATH = "/complete-profile";
  * so a new login always re-triggers onboarding while the profile is
  * incomplete).
  */
-export const ONBOARDING_DISMISS_KEY = "skillswap:onboarding_dismissed";
+export const ONBOARDING_DISMISS_KEY = "mentorly:onboarding_dismissed";
 
 export function isOnboardingDismissed() {
   try {
@@ -75,7 +75,7 @@ export function needsOnboarding(profile, profileChecked) {
    on the onboarding form, so a mentor sees their percentage update as they
    type — it mirrors the backend formula exactly (same sections, same
    weights) and must be kept in sync with
-   com.skillswap.common.ProfileCompletionService.
+   com.mentorly.common.ProfileCompletionService.
 
    Mentor: 5 sections × 20% — Basic · Skills & Pricing · Experience ·
    Portfolio & Links · Contact.

@@ -4,9 +4,9 @@ services:
     command:
       - --default-authentication-plugin=mysql_native_password
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-skill_swap}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mentorly}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER:-skill_swap}
+      MYSQL_USER: ${MYSQL_USER:-mentorly}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
@@ -27,9 +27,9 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-skill_swap}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-skill_swap}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-skill_swap}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-mentorly}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-mentorly}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-mentorly}
       JWT_SECRET: ${JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5174,http://127.0.0.1:5174}
       # Admin bootstrap — AdminDataInitializer seeds a single admin on startup

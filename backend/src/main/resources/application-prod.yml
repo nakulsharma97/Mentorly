@@ -1,13 +1,13 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://prod-db:3306/skill_swap?useSSL=true&requireSSL=true&serverTimezone=UTC}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://prod-db:3306/mentorly?useSSL=true&requireSSL=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD}
 
 logging:
   level:
     root: WARN
-    com.skillswap: INFO
+    com.mentorly: INFO
 
 app:
   jwt:

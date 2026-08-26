@@ -22,7 +22,7 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/skill?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/mentorly?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     # No default secret: the dev profile supplies a local default
     # (application-dev.yml / application-local.yml) and staging/prod override
@@ -167,6 +167,13 @@ app:
     # Uploaded files are inaccessible after this many days and then purged.
     expiration-days: ${APP_FILES_EXPIRATION_DAYS:30}
     cleanup-cron: ${APP_FILES_CLEANUP_CRON:0 30 3 * * *}
+  redis:
+    # Enable Redis distributed caching. Set APP_REDIS_ENABLED=true in
+    # production with a running Redis instance. When false (default),
+    # an in-memory ConcurrentMapCacheManager is used as fallback.
+    # Redis connection details are read via environment variables:
+    # REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD.
+    enabled: ${APP_REDIS_ENABLED:false}
 
 sentry:
   dsn: ${SENTRY_DSN:}
@@ -177,7 +184,7 @@ sentry:
 
 logging:
   level:
-    com.skillswap: INFO
+    com.mentorly: INFO
     org.springframework.security: DEBUG
   pattern:
     level: "%5p [traceId=%X{traceId:-na}]"
@@ -224,6 +231,6 @@ management:
         enabled: true
   info:
     app:
-      name: Skill Swapping Platform Backend
-      description: Backend API for the Skill Swapping Platform
+      name: Mentorly Backend
+      description: Backend API for the Mentorly Platform
       version: 0.0.1

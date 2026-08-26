@@ -1,0 +1,404 @@
+package com.mentorly.admin;
+
+import com.mentorly.common.AuditLog;
+import com.mentorly.common.AuditLogRepository;
+import com.mentorly.common.AuditLogService;
+import com.mentorly.booking.BookingRepository;
+import com.mentorly.notification.NotificationService;
+import com.mentorly.notification.EmailNotificationService;
+import com.mentorly.payment.Payment;
+import com.mentorly.payment.PaymentRepository;
+import com.mentorly.payment.PaymentStatus;
+import com.mentorly.payment.PaymentService;
+import com.mentorly.session.SessionRepository;
+import com.mentorly.safety.UserReportRepository;
+import com.mentorly.user.User;
+import com.mentorly.user.UserRepository;
+import com.mentorly.user.UserRole;
+import com.mentorly.verification.MentorVerificationRequestRepository;
+import com.mentorly.waitlist.SessionWaitlistRepository;
+import com.mentorly.wallet.WalletService;
+import com.mentorly.session.SkillSession;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+/**
+ * Service layer for admin operations.
+ * All transaction boundaries are defined here rather than in AdminController.
+ */
+@Service
+@RequiredArgsConstructor
+public class AdminService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AdminService.class);
+
+    private final UserRepository userRepository;
+    private final BookingRepository bookingRepository;
+    private final PaymentRepository paymentRepository;
+    private final PaymentService paymentService;
+    private final WalletService walletService;
+    private final NotificationService notificationService;
+    private final EmailNotificationService emailNotificationService;
+    private final AuditLogRepository auditLogRepository;
+    private final SessionRepository sessionRepository;
+    private final AdminSettingRepository adminSettingRepository;
+    private final AdminNotifPreferenceRepository adminNotifPreferenceRepository;
+    private final UserReportRepository reportRepository;
+    private final MentorVerificationRequestRepository mentorVerificationRepository;
+    private final SessionWaitlistRepository waitlistRepository;
+
+    // ════════════════════════════════════════════════
+    //  Admin — User Deletion
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public void deleteUser(User currentUser, Long userId, String email, String name) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setEnabled(false);
+        user.setFullName("[Deleted User]");
+        user.setEmail("deleted-" + user.getId() + "@mentorly.local");
+        user.setPasswordHash("[DELETED]");
+        user.setAboutMe(null);
+        user.setSkills(null);
+        user.setGithubUrl(null);
+        user.setLinkedinUrl(null);
+        user.setProfileImageUrl(null);
+        user.setWalletAddress(null);
+        userRepository.save(user);
+
+        saveAuditLog(currentUser, "DELETE_USER", "User", userId,
+                "Deleted user \"" + name + "\" (" + email + ")");
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Session Deletion
+    // ════════════════════════════════════════════════
+
+    /**
+     * Permanently deletes an inappropriate session (admin moderation action).
+     *
+     * To protect booking/payment integrity, deletion is refused when the
+     * session has any bookings — the admin should cancel such sessions instead
+     * (existing cancel flow leaves the booking record intact). For sessions
+     * with no bookings, waitlist entries are removed and the session is deleted.
+     * This deliberately does not touch any mentor booking logic.
+     */
+    @Transactional
+    public void deleteSession(User currentUser, Long sessionId) {
+        SkillSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found"));
+
+        long bookingCount = bookingRepository.countBySessionId(sessionId);
+        if (bookingCount > 0) {
+            throw new IllegalArgumentException(
+                    "Cannot delete a session that has bookings. Cancel the session instead.");
+        }
+
+        waitlistRepository.deleteBySessionId(sessionId);
+        sessionRepository.delete(session);
+
+        saveAuditLog(currentUser, "DELETE_SESSION", "Session", sessionId,
+                "Deleted session \"" + session.getTitle() + "\" (" + sessionId + ")");
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Notifications
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public void sendTestNotification(User currentUser) {
+        emailNotificationService.sendNotificationEmail(
+                currentUser,
+                "Mentorly: Admin test notification",
+                "This is a test notification from the Mentorly admin panel.\n\n"
+                        + "If you're receiving this, email notifications are configured correctly.\n\n"
+                        + "Timestamp: " + OffsetDateTime.now());
+
+        saveAuditLog(currentUser, "SEND_TEST_NOTIFICATION", null, null,
+                "Sent test notification to " + currentUser.getEmail());
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Report Schedule
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public void updateReportSchedule(String frequency) {
+        AdminSetting setting = adminSettingRepository.findBySettingKey("report_schedule_frequency")
+                .orElseGet(() -> {
+                    AdminSetting s = new AdminSetting();
+                    s.setSettingKey("report_schedule_frequency");
+                    return s;
+                });
+        setting.setSettingValue(frequency);
+        adminSettingRepository.save(setting);
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Payments
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public Payment refundPayment(User currentUser, Long paymentId, String reason) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.ESCROWED) {
+            throw new IllegalArgumentException(
+                    "Only escrowed payments can be refunded. Current status: " + payment.getStatus());
+        }
+
+        // Gateway-first refund — the external gateway is called before the DB
+        // status flips; a gateway failure propagates and rolls back the wallet
+        // credit and status change below (transaction consistency).
+        Payment saved = paymentService.refundForCancellation(paymentId, payment.getAmount(), reason);
+
+        // Wallet-gateway escrow is internal money — refund it into the learner's
+        // wallet. External-gateway payments were charged at the gateway, so the
+        // money goes back to the payer there; no wallet credit is issued.
+        if ("wallet".equalsIgnoreCase(payment.getGateway())) {
+            walletService.addEntryForUser(payment.getLearnerId(), new WalletService.WalletEntryRequest(
+                    com.mentorly.wallet.WalletTransactionType.REFUND,
+                    payment.getAmount(), payment.getCurrency(),
+                    "Admin refund: " + reason + " (payment #" + payment.getId() + ")",
+                    "PAYMENT", payment.getId()));
+        }
+
+        saveAuditLog(currentUser, "REFUND_PAYMENT", "Payment", paymentId,
+                "Refunded " + payment.getAmount() + ": " + reason);
+        return saved;
+    }
+
+    @Transactional
+    public Payment releasePayment(User currentUser, Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+
+        if (payment.getStatus() != PaymentStatus.ESCROWED) {
+            throw new IllegalArgumentException(
+                    "Only escrowed payments can be released. Current status: " + payment.getStatus());
+        }
+
+        BigDecimal grossAmount = payment.getAmount() != null ? payment.getAmount() : BigDecimal.ZERO;
+        BigDecimal platformFee = grossAmount.multiply(BigDecimal.valueOf(0.10))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal netToMentor = grossAmount.subtract(platformFee);
+
+        walletService.addEntryForUser(payment.getMentorId(), new WalletService.WalletEntryRequest(
+                com.mentorly.wallet.WalletTransactionType.EARNING,
+                netToMentor, payment.getCurrency(),
+                "Session payout for payment #" + payment.getId()
+                        + " (" + netToMentor + " after " + platformFee + " platform fee)",
+                "PAYMENT", payment.getId()));
+
+        notificationService.notifyUser(
+                payment.getMentorId(),
+                "PAYOUT_RELEASED",
+                "Payout released",
+                "A payout has been released to your wallet.\n\n"
+                        + "• Gross amount: " + grossAmount + "\n"
+                        + "• Platform fee (10%): " + platformFee + "\n"
+                        + "• Net amount credited: " + netToMentor + "\n\n"
+                        + "You can withdraw the funds from your wallet dashboard.",
+                payment.getId());
+
+        payment.setStatus(PaymentStatus.RELEASED);
+        Payment saved = paymentRepository.save(payment);
+
+        saveAuditLog(currentUser, "RELEASE_PAYMENT", "Payment", paymentId,
+                "Released " + grossAmount + " to mentor #" + payment.getMentorId()
+                        + " (net: " + netToMentor + ", fee: " + platformFee + ")");
+        return saved;
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Settings
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public void updateSettings(Map<String, String> settings) {
+        persistSettings(settings);
+    }
+
+    /**
+     * Persists a batch of settings (the full configuration-center save). Returns
+     * the set of keys actually written so the controller can build the audit trail.
+     */
+    @Transactional
+    public java.util.Set<String> persistSettings(Map<String, String> settings) {
+        java.util.Set<String> written = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, String> entry : settings.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            // Input validation — only catalog-known keys may be written so an
+            // arbitrary key can never be injected through the settings API.
+            if (!PlatformSettingsCatalog.isKnown(entry.getKey())) {
+                throw new IllegalArgumentException("Unknown setting key: " + entry.getKey());
+            }
+            AdminSetting setting = adminSettingRepository.findBySettingKey(entry.getKey())
+                    .orElseGet(() -> {
+                        AdminSetting s = new AdminSetting();
+                        s.setSettingKey(entry.getKey());
+                        return s;
+                    });
+            setting.setSettingValue(entry.getValue());
+            adminSettingRepository.save(setting);
+            written.add(entry.getKey());
+        }
+        return written;
+    }
+
+    /**
+     * Resets every known setting in a category back to its catalog default.
+     * Returns the number of persisted rows that were removed (defaults are not
+     * stored — the GET response synthesizes them).
+     */
+    @Transactional
+    public int resetSettingsSection(String category) {
+        List<String> keys = PlatformSettingsCatalog.groupedByCategory()
+                .getOrDefault(category, List.of())
+                .stream()
+                .map(PlatformSettingsCatalog.SettingDef::key)
+                .toList();
+        if (keys.isEmpty()) {
+            throw new IllegalArgumentException("Unknown settings category: " + category);
+        }
+        // Restore defaults by deleting stored rows — the GET layer re-seeds defaults.
+        adminSettingRepository.deleteBySettingKeyIn(keys);
+        return keys.size();
+    }
+
+    /** Resets every known platform setting to its catalog default. */
+    @Transactional
+    public int resetAllSettings() {
+        List<String> keys = PlatformSettingsCatalog.DEFINITIONS.stream()
+                .map(PlatformSettingsCatalog.SettingDef::key)
+                .toList();
+        adminSettingRepository.deleteBySettingKeyIn(keys);
+        // A full reset also restores every notification preference to its default.
+        adminNotifPreferenceRepository.deleteByPrefKeyIn(
+                PlatformSettingsCatalog.NOTIFICATION_PREFS.keySet());
+        return keys.size() + PlatformSettingsCatalog.NOTIFICATION_PREFS.size();
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Notification Broadcast
+    // ════════════════════════════════════════════════
+
+    /**
+     * Broadcasts an in-app notification to all enabled users (or a role-scoped
+     * subset). {@code type} is one of the admin notification kinds
+     * (ANNOUNCEMENT / MAINTENANCE / PLATFORM_UPDATE) and is persisted on every
+     * delivered {@code AppNotification} so the notification center can badge
+     * and categorize each message.
+     */
+    @Transactional
+    public int broadcastNotification(String title, String message, String targetRole, String type) {
+        List<User> targets;
+        if (targetRole != null && !targetRole.isBlank()) {
+            UserRole role = UserRole.valueOf(targetRole.toUpperCase());
+            targets = new java.util.ArrayList<>();
+            org.springframework.data.domain.PageRequest batchReq =
+                    org.springframework.data.domain.PageRequest.of(0, 1000);
+            org.springframework.data.domain.Page<User> batch;
+            do {
+                batch = userRepository.findByRole(role, batchReq);
+                targets.addAll(batch.getContent());
+                batchReq = batchReq.next();
+            } while (batch.hasNext() && targets.size() < 10000);
+        } else {
+            targets = userRepository.findAll(org.springframework.data.domain.PageRequest.of(0, 5000)).getContent();
+        }
+
+        List<Long> enabledUserIds = targets.stream()
+                .filter(User::isEnabled)
+                .map(User::getId)
+                .collect(Collectors.toList());
+
+        notificationService.notifyUsers(enabledUserIds, type,
+                title, message, null);
+
+        return enabledUserIds.size();
+    }
+
+    // ════════════════════════════════════════════════
+    //  Admin — Bulk User Actions
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public int bulkEnableUsers(List<Long> targetIds) {
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
+        return userRepository.updateEnabledBatch(targetIds, true);
+    }
+
+    @Transactional
+    public int bulkDisableUsers(List<Long> targetIds) {
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
+        return userRepository.updateEnabledBatch(targetIds, false);
+    }
+
+    @Transactional
+    public int bulkUpdateRole(List<Long> targetIds, UserRole targetRole) {
+        if (targetIds.isEmpty()) {
+            return 0;
+        }
+        int updated = userRepository.updateRoleBatch(targetIds, targetRole);
+        if (targetRole != UserRole.MENTOR) {
+            userRepository.resetMentorVerifiedBatch(targetIds);
+        }
+        return updated;
+    }
+
+    // ════════════════════════════════════════════════
+    //  Audit helper
+    // ════════════════════════════════════════════════
+
+    @Transactional
+    public void updateNotificationPreferences(Map<String, Boolean> prefs) {
+        for (Map.Entry<String, Boolean> entry : prefs.entrySet()) {
+            if (entry.getValue() == null) {
+                continue;
+            }
+            AdminNotifPreference pref = adminNotifPreferenceRepository.findByPrefKey(entry.getKey())
+                    .orElseGet(() -> {
+                        AdminNotifPreference p = new AdminNotifPreference();
+                        p.setPrefKey(entry.getKey());
+                        return p;
+                    });
+            pref.setPrefValue(entry.getValue());
+            adminNotifPreferenceRepository.save(pref);
+        }
+    }
+
+    private void saveAuditLog(User admin, String action, String entityType, Long entityId, String details) {
+        try {
+            AuditLog auditLog = new AuditLog();
+            auditLog.setAdminId(admin.getId());
+            auditLog.setAdminEmail(admin.getEmail());
+            auditLog.setAction(action);
+            auditLog.setEntityType(entityType);
+            auditLog.setEntityId(entityId);
+            auditLog.setDetails(details);
+            auditLog.setIpAddress(AuditLogService.extractClientIp());
+            auditLogRepository.save(auditLog);
+        } catch (Exception ignored) {
+            LOG.warn("Failed to save audit log", ignored);
+        }
+    }
+}

@@ -5,7 +5,7 @@ import { reportError, reportPerformance } from "../utils/monitoring";
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 // ── Maintenance Mode Event System ──
-const MAINTENANCE_EVENT = "skillswap:maintenance-mode";
+const MAINTENANCE_EVENT = "mentorly:maintenance-mode";
 
 /**
  * Subscribe to maintenance mode activation events.

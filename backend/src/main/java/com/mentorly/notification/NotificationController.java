@@ -1,0 +1,190 @@
+package com.mentorly.notification;
+
+import com.mentorly.common.ApiResponse;
+import com.mentorly.user.User;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * REST controller exposing notification endpoints.
+ */
+@RestController
+@RequestMapping("/api/v1/notifications")
+@RequiredArgsConstructor
+public class NotificationController {
+
+    private final AppNotificationRepository notificationRepository;
+    private final NotificationService notificationService;
+
+    @GetMapping
+    public ApiResponse<Page<AppNotification>> list(
+            @AuthenticationPrincipal User user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "false") boolean unreadOnly) {
+        PageRequest pr = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        if (unreadOnly) {
+            return new ApiResponse<>("Unread notifications fetched",
+                    notificationRepository.findByUserIdAndReadFalseOrderByCreatedAtDesc(user.getId(), pr));
+        }
+        return new ApiResponse<>("Notifications fetched",
+                notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pr));
+    }
+
+    @GetMapping("/unread-count")
+    public ApiResponse<Long> unreadCount(@AuthenticationPrincipal User user) {
+        return new ApiResponse<>("Unread count fetched",
+                notificationRepository.countByUserIdAndReadFalse(user.getId()));
+    }
+
+    @PatchMapping("/{id}/read")
+    public ApiResponse<AppNotification> markRead(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's notification");
+        }
+
+        if (!notification.isRead()) {
+            notification.setRead(true);
+            notification.setReadAt(java.time.OffsetDateTime.now());
+        }
+        return new ApiResponse<>("Notification marked as read", notificationRepository.save(notification));
+    }
+
+    @PatchMapping("/read-all")
+    public ApiResponse<Integer> markAllRead(@AuthenticationPrincipal User user) {
+        List<AppNotification> notifications = notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        int updated = 0;
+        for (AppNotification notification : notifications) {
+            if (!notification.isRead()) {
+                notification.setRead(true);
+                updated++;
+            }
+        }
+        notificationRepository.saveAll(notifications);
+        return new ApiResponse<>("All notifications marked as read", updated);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot delete another user's notification");
+        }
+
+        notificationRepository.delete(notification);
+        return new ApiResponse<>("Notification deleted", null);
+    }
+
+    /**
+     * Records that the user clicked a notification's action button. Used by
+     * the admin Notification Center for click-rate analytics on broadcasts.
+     * Idempotent — repeated clicks keep the original timestamp.
+     */
+    @PostMapping("/{id}/click")
+    public ApiResponse<AppNotification> recordClick(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's notification");
+        }
+
+        if (!notification.isRead()) {
+            notification.setRead(true);
+            notification.setReadAt(java.time.OffsetDateTime.now());
+        }
+        if (notification.getClickedAt() == null) {
+            notification.setClickedAt(java.time.OffsetDateTime.now());
+        }
+        return new ApiResponse<>("Click recorded", notificationRepository.save(notification));
+    }
+
+    /** Marks a notification as dismissed (removed from the tray but kept for analytics). */
+    @PostMapping("/{id}/dismiss")
+    public ApiResponse<AppNotification> dismiss(@AuthenticationPrincipal User user, @PathVariable Long id) {
+        AppNotification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+
+        if (!notification.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Cannot update another user's notification");
+        }
+
+        notification.setDismissedAt(java.time.OffsetDateTime.now());
+        notification.setDeliveryStatus("DISMISSED");
+        return new ApiResponse<>("Notification dismissed", notificationRepository.save(notification));
+    }
+
+    @GetMapping("/preferences")
+    public ApiResponse<NotificationPreferencesResponse> preferences(@AuthenticationPrincipal User user) {
+        NotificationPreference preference = notificationService.getOrCreatePreference(user);
+        return new ApiResponse<>("Notification preferences fetched", NotificationPreferencesResponse.from(preference));
+    }
+
+    @PutMapping("/preferences")
+    public ApiResponse<NotificationPreferencesResponse> updatePreferences(
+            @AuthenticationPrincipal User user,
+            @RequestBody UpdateNotificationPreferencesRequest request) {
+        NotificationPreference preference = notificationService.updatePreference(
+                user,
+                request.emailEnabled(),
+                request.bookingUpdates(),
+                request.sessionAnnouncements(),
+                request.reviewAlerts(),
+                request.certificationAlerts(),
+                request.roleChangeAlerts());
+        return new ApiResponse<>("Notification preferences updated", NotificationPreferencesResponse.from(preference));
+    }
+
+/**
+ * Immutable data carrier for update notification preferences request.
+ */
+    public record UpdateNotificationPreferencesRequest(
+            boolean emailEnabled,
+            boolean bookingUpdates,
+            boolean sessionAnnouncements,
+            boolean reviewAlerts,
+            boolean certificationAlerts,
+            boolean roleChangeAlerts) {
+    }
+
+/**
+ * Immutable data carrier for notification preferences response.
+ */
+    public record NotificationPreferencesResponse(
+            boolean emailEnabled,
+            boolean bookingUpdates,
+            boolean sessionAnnouncements,
+            boolean reviewAlerts,
+            boolean certificationAlerts,
+            boolean roleChangeAlerts) {
+        static NotificationPreferencesResponse from(NotificationPreference preference) {
+            return new NotificationPreferencesResponse(
+                    preference.isEmailEnabled(),
+                    preference.isBookingUpdates(),
+                    preference.isSessionAnnouncements(),
+                    preference.isReviewAlerts(),
+                    preference.isCertificationAlerts(),
+                    preference.isRoleChangeAlerts());
+        }
+    }
+}
