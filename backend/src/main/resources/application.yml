@@ -120,6 +120,12 @@ app:
     completion-confirm-timeout-hours: ${BOOKING_COMPLETION_CONFIRM_TIMEOUT_HOURS:24}
     completion-check-poll-ms: ${BOOKING_COMPLETION_CHECK_POLL_MS:120000}
   payment:
+    razorpay:
+      # Razorpay keys from dashboard.razorpay.com → Settings → API Keys.
+      # Placeholders trigger a startup warning; real API calls fail clearly.
+      key-id: ${APP_PAYMENT_RAZORPAY_KEY_ID:rzp_test_xxxxxxxxxxxx}
+      key-secret: ${APP_PAYMENT_RAZORPAY_KEY_SECRET:rzp_test_secret}
+      fail-on-placeholder: ${APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER:false}
     stripe:
       # REAL Stripe integration (test mode). Keys come from the Stripe dashboard
       # (toggle "Test mode" → Developers > API keys) or `stripe listen`.

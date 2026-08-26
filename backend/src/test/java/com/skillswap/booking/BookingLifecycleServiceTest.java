@@ -665,4 +665,125 @@ class BookingLifecycleServiceTest {
         verify(emailNotificationService, times(2)).sendNotificationEmail(any(), anyString(), anyString());
     }
 
+    // ── recordMentorJoin → SCHEDULED → LIVE ──────────────────────────────
+
+    @Test
+    void recordMentorJoinTransitionsScheduledToLive() {
+        com.skillswap.session.LiveSessionStatus originalStatus = com.skillswap.session.LiveSessionStatus.SCHEDULED;
+        session.setLiveSessionStatus(originalStatus);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(sessionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        bookingLifecycleService.recordMentorJoin(100L, mentor);
+
+        assertEquals(com.skillswap.session.LiveSessionStatus.LIVE, session.getLiveSessionStatus());
+        verify(sessionRepository).save(session);
+    }
+
+    @Test
+    void recordMentorJoinDoesNotDowngradeLiveToScheduled() {
+        session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.LIVE);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        bookingLifecycleService.recordMentorJoin(100L, mentor);
+
+        assertEquals(com.skillswap.session.LiveSessionStatus.LIVE, session.getLiveSessionStatus());
+        verify(sessionRepository, never()).save(session);
+    }
+
+    // ── initiateCompletionConfirmations → LIVE → ENDED ──────────────────
+
+    @Test
+    void initiateCompletionConfirmationsTransitionsLiveToEnded() {
+        session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.LIVE);
+        session.setEndTime(OffsetDateTime.now().minusHours(1)); // session already ended
+        booking.setBookingStatus(BookingStatus.IN_PROGRESS);
+        booking.setCompletionReviewStatus(CompletionReviewStatus.NOT_APPLICABLE);
+        booking.setSession(session);
+
+        when(bookingRepository.findByBookingStatusIn(List.of(BookingStatus.IN_PROGRESS)))
+                .thenReturn(List.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        int initiated = bookingLifecycleService.initiateCompletionConfirmations();
+
+        assertEquals(1, initiated);
+        assertEquals(com.skillswap.session.LiveSessionStatus.ENDED, session.getLiveSessionStatus());
+        assertEquals(CompletionReviewStatus.AWAITING_CONFIRMATION, booking.getCompletionReviewStatus());
+        verify(sessionRepository).save(session);
+    }
+
+    @Test
+    void initiateCompletionConfirmationsDoesNotEndScheduledSession() {
+        session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.SCHEDULED);
+        session.setEndTime(OffsetDateTime.now().minusHours(1)); // session already ended
+        booking.setBookingStatus(BookingStatus.IN_PROGRESS);
+        booking.setCompletionReviewStatus(CompletionReviewStatus.NOT_APPLICABLE);
+        booking.setSession(session);
+
+        when(bookingRepository.findByBookingStatusIn(List.of(BookingStatus.IN_PROGRESS)))
+                .thenReturn(List.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        int initiated = bookingLifecycleService.initiateCompletionConfirmations();
+
+        assertEquals(1, initiated);
+        assertEquals(com.skillswap.session.LiveSessionStatus.SCHEDULED, session.getLiveSessionStatus());
+        verify(sessionRepository, never()).save(session);
+    }
+
+    // ── requestReschedule → RESCHEDULE_REQUESTED / RESCHEDULED ───────────
+
+    @Test
+    void requestRescheduleTransitionsBookingAndSession() {
+        session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.SCHEDULED);
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        OffsetDateTime newStart = OffsetDateTime.now().plusDays(3);
+        OffsetDateTime newEnd = newStart.plusHours(1);
+        Booking result = bookingLifecycleService.requestReschedule(
+                100L, mentor, newStart, newEnd, "Conflict on original date");
+
+        assertEquals(BookingStatus.RESCHEDULE_REQUESTED, result.getBookingStatus());
+        assertEquals(com.skillswap.session.LiveSessionStatus.RESCHEDULED, session.getLiveSessionStatus());
+        verify(notificationService).notifyUser(
+                eq(learner.getId()),
+                eq("SESSION_RESCHEDULED"),
+                anyString(),
+                anyString(),
+                anyLong());
+    }
+
+    @Test
+    void requestRescheduleRejectsInProgressBooking() {
+        booking.setBookingStatus(BookingStatus.IN_PROGRESS);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        OffsetDateTime newStart = OffsetDateTime.now().plusDays(3);
+        OffsetDateTime newEnd = newStart.plusHours(1);
+        assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.requestReschedule(
+                        100L, mentor, newStart, newEnd, "Need to change time"));
+    }
+
+    @Test
+    void requestRescheduleRejectsCompletedBooking() {
+        booking.setBookingStatus(BookingStatus.COMPLETED);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+
+        OffsetDateTime newStart = OffsetDateTime.now().plusDays(3);
+        OffsetDateTime newEnd = newStart.plusHours(1);
+        assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.requestReschedule(
+                        100L, mentor, newStart, newEnd, "Need to change time"));
+    }
+
 }

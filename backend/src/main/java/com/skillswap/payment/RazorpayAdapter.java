@@ -1,6 +1,10 @@
 package com.skillswap.payment;
 
+import com.razorpay.RazorpayClient;
+import com.razorpay.RazorpayException;
+import com.razorpay.Refund;
 import jakarta.annotation.PostConstruct;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,9 +18,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Adapter for Razorpay payment gateway.
- * In production, this would use the Razorpay Java SDK.
- * The current implementation simulates API calls for development/testing.
+ * Adapter for Razorpay payment gateway — REAL integration.
+ *
+ * <p>Unlike the previous simulation, this adapter makes live Razorpay API
+ * calls using the official Razorpay Java SDK. It is intended to run against
+ * Razorpay test mode keys: {@code Payments.refund()} creates a real refund
+ * on Razorpay's test infrastructure and {@link #verifyWebhookSignature}
+ * performs genuine webhook signature verification.
+ *
+ * <p>No key is hardcoded: the key ID and key secret come from
+ * {@code APP_PAYMENT_RAZORPAY_KEY_ID} / {@code APP_PAYMENT_RAZORPAY_KEY_SECRET}
+ * (see {@code app.payment.razorpay.*} in application.yml and .env.example).
  */
 @Component
 public class RazorpayAdapter implements PaymentGateway {
@@ -28,6 +40,8 @@ public class RazorpayAdapter implements PaymentGateway {
 
     @Value("${app.payment.razorpay.key-secret:rzp_test_secret}")
     private String keySecret;
+
+    private RazorpayClient razorpayClient;
 
     /**
      * When true (default off, must be enabled explicitly in prod/staging via
@@ -60,6 +74,23 @@ public class RazorpayAdapter implements PaymentGateway {
         if (secretIsPlaceholder) {
             LOG.warn("⚠ Razorpay key-secret is using the default/test placeholder! "
                     + "Set APP_PAYMENT_RAZORPAY_KEY_SECRET in production.");
+        }
+
+        // Initialize the real Razorpay client only with real keys.
+        // Placeholder keys mean the SDK would fail on every call, so skip
+        // initialization — the adapter will throw a clear error if anyone
+        // tries to use it without real credentials.
+        if (!idIsPlaceholder && !secretIsPlaceholder) {
+            try {
+                razorpayClient = new RazorpayClient(keyId, keySecret);
+                LOG.info("Razorpay SDK initialized successfully");
+            } catch (RazorpayException e) {
+                LOG.error("Failed to initialize Razorpay SDK", e);
+                throw new IllegalStateException("Razorpay SDK initialization failed: " + e.getMessage(), e);
+            }
+        } else {
+            LOG.warn("Razorpay SDK NOT initialized — using placeholder keys. "
+                    + "Refund API calls will fail.");
         }
     }
 
@@ -122,20 +153,52 @@ public class RazorpayAdapter implements PaymentGateway {
 
     @Override
     public String processRefund(String paymentId, BigDecimal amount, String reason) {
-        // In production: use RazorpayClient.Payments.refund()
-        String refundId = "rfnd_" + paymentId + "_" + System.currentTimeMillis();
+        if (razorpayClient == null) {
+            throw new IllegalStateException(
+                    "Razorpay SDK not initialized — set real APP_PAYMENT_RAZORPAY_KEY_ID "
+                            + "and APP_PAYMENT_RAZORPAY_KEY_SECRET environment variables.");
+        }
 
-        LOG.info("Razorpay refund processed: paymentId={}, amount={}, refundId={}, reason={}",
-                paymentId, amount, refundId, reason);
+        try {
+            // Razorpay expects amount in paise (smallest currency unit).
+            int amountPaise = amount.multiply(BigDecimal.valueOf(100)).intValue();
 
-        return refundId;
+            JSONObject refundRequest = new JSONObject();
+            refundRequest.put("payment_id", paymentId);
+            refundRequest.put("amount", amountPaise);
+            if (reason != null && !reason.isBlank()) {
+                refundRequest.put("notes", new JSONObject().put("reason", reason));
+            }
+
+            // Real API call — creates an actual refund on Razorpay.
+            Refund refund = razorpayClient.payments.refund(refundRequest);
+            String refundId = refund.get("id");
+
+            LOG.info("Razorpay refund created: paymentId={}, refundId={}, amount={} paise, reason={}",
+                    paymentId, refundId, amountPaise, reason);
+
+            return refundId;
+        } catch (RazorpayException e) {
+            LOG.error("Razorpay refund failed for paymentId={}: {}", paymentId, e.getMessage(), e);
+            throw new IllegalStateException("Razorpay refund failed: " + e.getMessage(), e);
+        }
     }
 
     @Override
     public String fetchPaymentStatus(String paymentId) {
-        // In production: use RazorpayClient.Payments.fetch()
-        LOG.info("Razorpay payment status fetched: paymentId={}", paymentId);
-        return "captured";
+        if (razorpayClient == null) {
+            LOG.warn("Razorpay SDK not initialized — cannot fetch payment status");
+            return null;
+        }
+        try {
+            com.razorpay.Payment payment = razorpayClient.payments.fetch(paymentId);
+            String status = payment.get("status");
+            LOG.info("Razorpay payment status fetched: paymentId={}, status={}", paymentId, status);
+            return status;
+        } catch (RazorpayException e) {
+            LOG.error("Razorpay payment status fetch failed for paymentId={}: {}", paymentId, e.getMessage());
+            return null;
+        }
     }
 
     @Override

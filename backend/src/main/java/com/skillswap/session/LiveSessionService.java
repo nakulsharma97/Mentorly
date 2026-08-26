@@ -166,6 +166,12 @@ public class LiveSessionService {
         }
         bookingRepository.save(booking);
 
+        // Transition SCHEDULED → LIVE when the first participant requests the join link.
+        if (session.getLiveSessionStatus() == LiveSessionStatus.SCHEDULED) {
+            session.setLiveSessionStatus(LiveSessionStatus.LIVE);
+            sessionRepository.save(session);
+        }
+
         log.info("Learner {} approved to join session {}. Meeting link provided.", learnerId, sessionId);
 
         return SecureJoinSessionResponse.builder()

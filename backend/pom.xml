@@ -137,6 +137,12 @@
             <artifactId>stripe-java</artifactId>
             <version>33.2.0</version>
         </dependency>
+        <!-- Razorpay Java SDK for payment processing and refunds -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.10</version>
+        </dependency>
         <!-- Google Calendar API for automatic Google Meet link generation -->
         <dependency>
             <groupId>com.google.api-client</groupId>

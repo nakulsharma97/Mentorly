@@ -105,6 +105,14 @@ public class BookingLifecycleService {
 
         booking.setBookingStatus(BookingStatus.COMPLETED);
         Booking saved = bookingRepository.save(booking);
+
+        // Transition LIVE → ENDED on the session when booking is completed directly.
+        com.skillswap.session.SkillSession session = saved.getSession();
+        if (session.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.LIVE) {
+            session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.ENDED);
+            sessionRepository.save(session);
+        }
+
         certificationService.evaluateAndAward(saved.getLearner());
         certificationService.evaluateAndAward(saved.getSession().getMentor());
         notificationService.notifyUser(
@@ -433,6 +441,8 @@ public class BookingLifecycleService {
                         refundPercent);
                 yield booking;
             }
+            case RESCHEDULE_REQUESTED -> throw new IllegalArgumentException(
+                    "Use POST /bookings/{id}/reschedule to request a reschedule");
             default -> throw new IllegalArgumentException(
                     "Use the dedicated booking lifecycle endpoints for state transitions");
         };
@@ -535,6 +545,8 @@ public class BookingLifecycleService {
 
     /**
      * Record the mentor's join signal — lightweight timestamp, not heartbeat tracking.
+     * Also transitions the session from SCHEDULED → LIVE if this is the first
+     * participant to request the join link.
      */
     @Transactional
     public Booking recordMentorJoin(Long bookingId, User currentUser) {
@@ -546,6 +558,14 @@ public class BookingLifecycleService {
         if (booking.getMentorJoinLinkRequestedAt() == null) {
             booking.setMentorJoinLinkRequestedAt(OffsetDateTime.now());
         }
+
+        // Transition SCHEDULED → LIVE when the mentor first requests the join link.
+        com.skillswap.session.SkillSession session = booking.getSession();
+        if (session.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.SCHEDULED) {
+            session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.LIVE);
+            sessionRepository.save(session);
+        }
+
         return bookingRepository.save(booking);
     }
 
@@ -573,6 +593,13 @@ public class BookingLifecycleService {
 
             booking.setCompletionReviewStatus(CompletionReviewStatus.AWAITING_CONFIRMATION);
             bookingRepository.save(booking);
+
+            // Transition LIVE → ENDED on the session when its scheduled end time passes.
+            com.skillswap.session.SkillSession session = booking.getSession();
+            if (session.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.LIVE) {
+                session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.ENDED);
+                sessionRepository.save(session);
+            }
 
             // Notify both parties to confirm
             String sessionName = sessionTitle(booking);
@@ -635,6 +662,13 @@ public class BookingLifecycleService {
             booking.setBookingStatus(BookingStatus.COMPLETED);
             booking.setCompletionReviewStatus(CompletionReviewStatus.RESOLVED);
             bookingRepository.save(booking);
+
+            // Transition LIVE → ENDED on the session when both parties confirm completion.
+            com.skillswap.session.SkillSession sess = booking.getSession();
+            if (sess.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.LIVE) {
+                sess.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.ENDED);
+                sessionRepository.save(sess);
+            }
 
             certificationService.evaluateAndAward(booking.getLearner());
             certificationService.evaluateAndAward(booking.getSession().getMentor());
@@ -753,6 +787,70 @@ public class BookingLifecycleService {
             }
         }
         return escalated;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Reschedule flow
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Learner or mentor requests a reschedule. Transitions the booking to
+     * RESCHEDULE_REQUESTED and the session to RESCHEDULED. Only allowed for
+     * bookings that haven't started yet (PENDING, ACCEPTED, CONFIRMED).
+     */
+    @Transactional
+    public Booking requestReschedule(Long bookingId, User currentUser,
+            java.time.OffsetDateTime newStartTime, java.time.OffsetDateTime newEndTime, String reason) {
+        Booking booking = loadBooking(bookingId);
+        requireParticipant(currentUser, booking,
+                "Only the learner or mentor can request a reschedule");
+
+        if (booking.getBookingStatus() != BookingStatus.PENDING
+                && booking.getBookingStatus() != BookingStatus.ACCEPTED
+                && booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            throw new IllegalArgumentException(
+                    "Can only reschedule bookings that have not started. Current status: "
+                            + booking.getBookingStatus());
+        }
+
+        if (newStartTime == null || newEndTime == null) {
+            throw new IllegalArgumentException("New start and end times are required");
+        }
+        if (!newEndTime.isAfter(newStartTime)) {
+            throw new IllegalArgumentException("New end time must be after new start time");
+        }
+        if (newStartTime.isBefore(java.time.OffsetDateTime.now())) {
+            throw new IllegalArgumentException("New start time must be in the future");
+        }
+
+        booking.setBookingStatus(BookingStatus.RESCHEDULE_REQUESTED);
+
+        // Transition the session to RESCHEDULED if currently SCHEDULED or LIVE.
+        com.skillswap.session.SkillSession session = booking.getSession();
+        if (session.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.SCHEDULED
+                || session.getLiveSessionStatus() == com.skillswap.session.LiveSessionStatus.LIVE) {
+            session.setLiveSessionStatus(com.skillswap.session.LiveSessionStatus.RESCHEDULED);
+            sessionRepository.save(session);
+        }
+
+        Booking saved = bookingRepository.save(booking);
+
+        // Notify the other party
+        boolean requestedByMentor = currentUser.getId().equals(session.getMentor().getId());
+        Long notifyUserId = requestedByMentor
+                ? booking.getLearner().getId()
+                : session.getMentor().getId();
+        String notifierName = requestedByMentor ? session.getMentor().getFullName() : booking.getLearner().getFullName();
+        notificationService.notifyUser(
+                notifyUserId,
+                "SESSION_RESCHEDULED",
+                "Reschedule requested",
+                notifierName + " requested to reschedule \"" + sessionTitle(booking)
+                        + "\" to " + newStartTime + " – " + newEndTime
+                        + (reason != null && !reason.isBlank() ? ". Reason: " + reason : "."),
+                saved.getId());
+
+        return saved;
     }
 
     public void releaseEscrowForCompletedBooking(Booking booking) {

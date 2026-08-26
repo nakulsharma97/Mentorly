@@ -179,6 +179,17 @@ public class BookingController {
                 return new ApiResponse<>("Booking cancelled", saved);
         }
 
+        @PostMapping("/{id}/reschedule")
+        public ApiResponse<Booking> requestReschedule(
+                        @AuthenticationPrincipal User currentUser,
+                        @PathVariable @NotNull @Min(1) Long id,
+                        @Valid @RequestBody RescheduleRequest req) {
+                profileCompletionGuard.requireProfileCompleted(currentUser,
+                                "Please complete your profile before managing bookings.");
+                Booking saved = bookingLifecycleService.requestReschedule(id, currentUser, req.newStartTime(), req.newEndTime(), req.reason());
+                return new ApiResponse<>("Reschedule requested", saved);
+        }
+
         @PatchMapping("/{id}/status")
         public ApiResponse<Booking> updateStatus(
                         @AuthenticationPrincipal User currentUser,
@@ -222,6 +233,15 @@ public class BookingController {
         }
 
         // ── Request DTOs ──
+
+        public record RescheduleRequest(
+                @NotNull(message = "New start time is required")
+                java.time.OffsetDateTime newStartTime,
+                @NotNull(message = "New end time is required")
+                java.time.OffsetDateTime newEndTime,
+                @jakarta.validation.constraints.Size(min = 1, max = 500, message = "Reason must be 1-500 characters")
+                String reason) {
+        }
 
         public record DisputeCompletionRequest(
                 @NotBlank(message = "A dispute reason is required")
