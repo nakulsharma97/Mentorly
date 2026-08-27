@@ -1,10 +1,14 @@
 package com.mentorly.wallet;
 
+import com.mentorly.payout.RazorpayLinkedAccountRepository;
+import com.mentorly.payout.RazorpayRouteService;
 import com.mentorly.payout.StripeConnectService;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -25,11 +29,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WalletService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(WalletService.class);
+
     private final WalletLedgerEntryRepository ledgerRepository;
     private final UserRepository userRepository;
     private final WalletWithdrawalIdempotencyKeyRepository idempotencyKeyRepository;
     @Lazy
     private final StripeConnectService stripeConnectService;
+    @Lazy
+    private final RazorpayRouteService razorpayRouteService;
+    private final RazorpayLinkedAccountRepository razorpayLinkedAccountRepository;
 
     public List<WalletLedgerEntry> history(User user) {
         return ledgerRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
@@ -138,14 +147,27 @@ public class WalletService {
                 "WITHDRAWAL",
                 null));
 
-        // Attempt real payout via Stripe Connect (if available for this user)
+        // Attempt real payout — try Razorpay Route first, then Stripe Connect
         try {
             entry.setPayoutStatus(PayoutStatus.PENDING);
             entry = ledgerRepository.save(entry);
-            entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
+
+            // Check if mentor has a Razorpay Linked Account with payouts enabled
+            boolean hasRazorpayAccount = razorpayLinkedAccountRepository
+                    .findByMentorId(currentUser.getId())
+                    .filter(a -> a.isPayoutsEnabled() && a.isActivated())
+                    .isPresent();
+
+            if (hasRazorpayAccount) {
+                entry = razorpayRouteService.processPayout(currentUser, request.amount(), entry);
+                LOG.info("Withdrawal routed to Razorpay: userId={}, amount={}", currentUser.getId(), request.amount());
+            } else {
+                entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
+                LOG.info("Withdrawal routed to Stripe Connect: userId={}, amount={}", currentUser.getId(), request.amount());
+            }
         } catch (Exception e) {
-            // Stripe not configured or transfer failed — mark as failed in a
-            // REQUIRES_NEW transaction so it survives the outer rollback.
+            // Payout failed — mark as failed in a REQUIRES_NEW transaction
+            // so it survives the outer rollback.
             markPayoutFailed(entry.getId());
             throw new IllegalStateException("Payout transfer failed: " + e.getMessage(), e);
         }

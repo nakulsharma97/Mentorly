@@ -165,14 +165,17 @@ public class PaymentController {
             @PathVariable @NotBlank String gateway,
             @RequestHeader(value = "X-Webhook-Signature", required = false, defaultValue = "") String signatureHeader,
             @RequestHeader(value = "Stripe-Signature", required = false, defaultValue = "") String stripeSignatureHeader,
+            @RequestHeader(value = "x-razorpay-signature", required = false, defaultValue = "") String razorpaySignatureHeader,
             @RequestBody String rawBody) {
 
-        // Stripe sends its signature in the Stripe-Signature header and the raw
-        // body must be verified byte-for-byte with Webhook.constructEvent (real
-        // HMAC + timestamp-tolerance check inside StripeAdapter). The other
-        // gateways use X-Webhook-Signature with their own adapter scheme.
+        // Each gateway sends its signature in a different header:
+        // - Stripe: Stripe-Signature
+        // - Razorpay: x-razorpay-signature
+        // - Others: X-Webhook-Signature
         boolean isStripe = "stripe".equalsIgnoreCase(gateway);
-        String effectiveSignature = isStripe ? stripeSignatureHeader : signatureHeader;
+        boolean isRazorpay = "razorpay".equalsIgnoreCase(gateway);
+        String effectiveSignature = isStripe ? stripeSignatureHeader
+                : isRazorpay ? razorpaySignatureHeader : signatureHeader;
 
         // Resolve the gateway adapter for this webhook
         PaymentGateway gatewayAdapter = paymentService.resolveGateway(gateway);

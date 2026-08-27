@@ -96,26 +96,45 @@ public class RazorpayAdapter implements PaymentGateway {
 
     @Override
     public Map<String, Object> createOrder(String orderId, BigDecimal amount, String currency) {
-        // In production: use RazorpayClient.Orders.create()
-        // Razorpay expects amount in paise (smallest currency unit)
-        int amountPaise = amount.multiply(BigDecimal.valueOf(100)).intValue();
+        if (razorpayClient == null) {
+            throw new IllegalStateException(
+                    "Razorpay SDK not initialized — set real APP_PAYMENT_RAZORPAY_KEY_ID "
+                            + "and APP_PAYMENT_RAZORPAY_KEY_SECRET environment variables.");
+        }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", "order_" + orderId);
-        response.put("entity", "order");
-        response.put("amount", amountPaise);
-        response.put("amount_paid", 0);
-        response.put("amount_due", amountPaise);
-        response.put("currency", currency);
-        response.put("receipt", orderId);
-        response.put("status", "created");
-        response.put("attempts", 0);
-        response.put("notes", Map.of("internal_order_id", orderId));
+        try {
+            // Razorpay expects amount in paise (smallest currency unit)
+            int amountPaise = amount.multiply(BigDecimal.valueOf(100)).intValue();
 
-        LOG.info("Razorpay order created: orderId={}, razorpayOrderId={}, amount={} {}",
-                orderId, response.get("id"), amount, currency);
+            // Build the real Razorpay Orders API request
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amountPaise);
+            orderRequest.put("currency", currency);
+            orderRequest.put("receipt", orderId);
+            orderRequest.put("notes", new JSONObject().put("internal_order_id", orderId));
 
-        return response;
+            // Real API call — creates an actual Razorpay Order
+            com.razorpay.Order order = razorpayClient.orders.create(orderRequest);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", order.get("id"));           // e.g. order_PAblzC2xcNwKA2
+            response.put("entity", "order");
+            response.put("amount", order.get("amount"));
+            response.put("amount_paid", order.get("amount_paid"));
+            response.put("amount_due", order.get("amount_due"));
+            response.put("currency", order.get("currency"));
+            response.put("receipt", order.get("receipt"));
+            response.put("status", order.get("status"));
+            response.put("attempts", order.get("attempts"));
+
+            LOG.info("Razorpay order created: internalOrderId={}, razorpayOrderId={}, amount={} {}",
+                    orderId, response.get("id"), amount, currency);
+
+            return response;
+        } catch (RazorpayException e) {
+            LOG.error("Razorpay order creation failed for orderId={}: {}", orderId, e.getMessage(), e);
+            throw new IllegalStateException("Razorpay order creation failed: " + e.getMessage(), e);
+        }
     }
 
     @Override

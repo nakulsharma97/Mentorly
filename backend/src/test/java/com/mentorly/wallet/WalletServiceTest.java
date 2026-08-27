@@ -1,5 +1,7 @@
 package com.mentorly.wallet;
 
+import com.mentorly.payout.RazorpayLinkedAccountRepository;
+import com.mentorly.payout.RazorpayRouteService;
 import com.mentorly.payout.StripeConnectService;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
@@ -37,6 +39,12 @@ class WalletServiceTest {
     @Mock
     private StripeConnectService stripeConnectService;
 
+    @Mock
+    private RazorpayRouteService razorpayRouteService;
+
+    @Mock
+    private RazorpayLinkedAccountRepository razorpayLinkedAccountRepository;
+
     @InjectMocks
     private WalletService walletService;
 
@@ -51,6 +59,8 @@ class WalletServiceTest {
     void setUp() {
         user = new User();
         user.setId(userId);
+        // Default: no Razorpay linked account — tests fall through to Stripe Connect
+        lenient().when(razorpayLinkedAccountRepository.findByMentorId(userId)).thenReturn(Optional.empty());
     }
 
     // ── balance() ────────────────────────────────────────
