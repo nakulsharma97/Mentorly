@@ -28,7 +28,6 @@ import java.util.UUID;
 public class WalletTopUpService {
 
     private static final BigDecimal MIN_TOPUP_AMOUNT = new BigDecimal("10.00");
-    private static final String TOPUP_GATEWAY = "stripe";
 
     private final WalletTopUpRepository topUpRepository;
     private final WalletService walletService;
@@ -42,7 +41,7 @@ public class WalletTopUpService {
      * @return the top-up record with Stripe client_secret for frontend
      */
     @Transactional
-    public WalletTopUp createTopUpIntent(User currentUser, BigDecimal amount) {
+    public WalletTopUp createTopUpIntent(User currentUser, BigDecimal amount, String gatewaySlug) {
         if (currentUser.getRole() != UserRole.LEARNER && currentUser.getRole() != UserRole.ADMIN) {
             throw new IllegalArgumentException("Only learners can top up their wallet");
         }
@@ -52,10 +51,13 @@ public class WalletTopUpService {
         if (amount.compareTo(MIN_TOPUP_AMOUNT) < 0) {
             throw new IllegalArgumentException("Minimum top-up amount is ₹" + MIN_TOPUP_AMOUNT);
         }
+        if (gatewaySlug == null || gatewaySlug.isBlank()) {
+            gatewaySlug = "stripe";
+        }
 
         String orderId = "TOPUP_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
 
-        PaymentGateway gateway = paymentService.resolveGateway(TOPUP_GATEWAY);
+        PaymentGateway gateway = paymentService.resolveGateway(gatewaySlug);
         Map<String, Object> gatewayResponse = gateway.createOrder(orderId, amount, "INR");
 
         WalletTopUp topUp = WalletTopUp.builder()
@@ -65,6 +67,7 @@ public class WalletTopUpService {
                 .currency("INR")
                 .status(WalletTopUpStatus.INITIATED)
                 .walletCredited(false)
+                .gateway(gatewaySlug)
                 .build();
         topUp.setGatewayResponse(gatewayResponse);
 
@@ -108,8 +111,8 @@ public class WalletTopUpService {
             throw new IllegalStateException("This top-up has failed and cannot be verified");
         }
 
-        // Verify with Stripe
-        PaymentGateway gateway = paymentService.resolveGateway(TOPUP_GATEWAY);
+        // Verify with the gateway used for this top-up
+        PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
         boolean verified = gateway.verifyPayment(stripePaymentIntentId, orderId, null, null);
 
         if (!verified) {

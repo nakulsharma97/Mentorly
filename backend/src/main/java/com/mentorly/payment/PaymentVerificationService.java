@@ -32,6 +32,7 @@ public class PaymentVerificationService {
 
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
+    private final WebhookEventRepository webhookEventRepository;
     private final NotificationService notificationService;
     @Lazy
     private final WalletTopUpService walletTopUpService;
@@ -82,14 +83,26 @@ public class PaymentVerificationService {
         LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}, eventId={}",
                 gatewaySlug, eventType, gatewayPaymentId, eventId);
 
-        // Idempotent: if we already processed this exact event, skip
+        // Idempotent: DB-backed deduplication survives server restarts
         if (eventId != null && !eventId.isBlank()) {
-            // Simple in-memory dedup via the processed event store
-            if (processedEvents.contains(eventId)) {
-                LOG.info("Duplicate webhook event ignored: eventId={}", eventId);
+            if (webhookEventRepository.existsByGatewayAndEventId(gatewaySlug, eventId)) {
+                LOG.info("Duplicate webhook event ignored (DB): gateway={}, eventId={}", gatewaySlug, eventId);
                 return null;
             }
-            processedEvents.add(eventId);
+            // Record the event as processing — if the same event arrives
+            // again before this transaction commits, the unique constraint
+            // will cause a DataIntegrityViolationException which we handle.
+            WebhookEvent webhookEvent = new WebhookEvent();
+            webhookEvent.setGateway(gatewaySlug);
+            webhookEvent.setEventId(eventId);
+            webhookEvent.setEventType(eventType);
+            webhookEvent.setReceivedAt(java.time.OffsetDateTime.now());
+            try {
+                webhookEventRepository.save(webhookEvent);
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                LOG.info("Duplicate webhook event (race condition): gateway={}, eventId={}", gatewaySlug, eventId);
+                return null;
+            }
         }
 
         // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix
@@ -210,13 +223,7 @@ public class PaymentVerificationService {
         return null;
     }
 
-    /**
-     * In-memory set of processed event IDs for webhook deduplication.
-     * In production, replace with a database-backed or Redis-backed set
-     * with TTL to survive restarts.
-     */
-    private final java.util.Set<String> processedEvents =
-            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
 
     /**
      * Fetch the current status of a payment from its gateway adapter.

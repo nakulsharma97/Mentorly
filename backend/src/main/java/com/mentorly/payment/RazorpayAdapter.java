@@ -41,6 +41,9 @@ public class RazorpayAdapter implements PaymentGateway {
     @Value("${app.payment.razorpay.key-secret:rzp_test_secret}")
     private String keySecret;
 
+    @Value("${app.payment.razorpay.webhook-secret:rzp_test_webhook_secret}")
+    private String webhookSecret;
+
     private RazorpayClient razorpayClient;
 
     /**
@@ -223,14 +226,22 @@ public class RazorpayAdapter implements PaymentGateway {
     @Override
     public boolean verifyWebhookSignature(String rawPayload, String signatureHeader) {
         // Razorpay sends the signature in the "x-razorpay-signature" header.
-        // The HMAC is computed over the raw request body using the key secret.
+        // The HMAC is computed over the raw request body using the webhook secret
+        // (which may differ from the API key secret in production).
         if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
             LOG.warn("Razorpay webhook signature header missing or empty");
             return false;
         }
+
+        // Use webhook secret for webhook verification, fall back to key secret
+        String secretForVerification = (webhookSecret != null && !webhookSecret.isBlank()
+                && !"rzp_test_webhook_secret".equals(webhookSecret))
+                ? webhookSecret : keySecret;
+
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(keySecret.getBytes("UTF-8"), "HmacSHA256");
+            SecretKeySpec secretKey = new SecretKeySpec(
+                    secretForVerification.getBytes("UTF-8"), "HmacSHA256");
             mac.init(secretKey);
             byte[] hmacBytes = mac.doFinal(rawPayload.getBytes("UTF-8"));
 
@@ -244,12 +255,7 @@ public class RazorpayAdapter implements PaymentGateway {
             }
 
             String expectedSignature = hexString.toString();
-            // Razorpay sends base64-encoded signatures, while our simulation uses hex.
-            // Compare against both formats for compatibility.
-            boolean verified = expectedSignature.equals(signatureHeader)
-                    || java.util.Base64.getEncoder().encodeToString(
-                            java.util.HexFormat.of().parseHex(expectedSignature))
-                            .equals(signatureHeader);
+            boolean verified = expectedSignature.equals(signatureHeader);
 
             LOG.info("Razorpay webhook signature verification: {}", verified ? "PASSED" : "FAILED");
             return verified;

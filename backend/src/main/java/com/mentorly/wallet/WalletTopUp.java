@@ -51,6 +51,10 @@ public class WalletTopUp {
     @Column(name = "order_id", nullable = false, unique = true)
     private String orderId;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private String gateway = "stripe";
+
     @Column(name = "stripe_payment_intent_id")
     private String stripePaymentIntentId;
 

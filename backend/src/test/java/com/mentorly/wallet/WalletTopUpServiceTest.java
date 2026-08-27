@@ -78,7 +78,7 @@ class WalletTopUpServiceTest {
             return t;
         });
 
-        WalletTopUp result = topUpService.createTopUpIntent(learner, new BigDecimal("50.00"));
+        WalletTopUp result = topUpService.createTopUpIntent(learner, new BigDecimal("50.00"), "stripe");
 
         assertNotNull(result);
         assertEquals(new BigDecimal("50.00"), result.getAmount());
@@ -92,28 +92,28 @@ class WalletTopUpServiceTest {
     @Test
     void createTopUpIntentRejectsMentor() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> topUpService.createTopUpIntent(mentor, new BigDecimal("50.00")));
+                () -> topUpService.createTopUpIntent(mentor, new BigDecimal("50.00"), "stripe"));
         assertEquals("Only learners can top up their wallet", ex.getMessage());
     }
 
     @Test
     void createTopUpIntentRejectsNullAmount() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> topUpService.createTopUpIntent(learner, null));
+                () -> topUpService.createTopUpIntent(learner, null, "stripe"));
         assertEquals("Amount must be greater than zero", ex.getMessage());
     }
 
     @Test
     void createTopUpIntentRejectsZeroAmount() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> topUpService.createTopUpIntent(learner, BigDecimal.ZERO));
+                () -> topUpService.createTopUpIntent(learner, BigDecimal.ZERO, "stripe"));
         assertEquals("Amount must be greater than zero", ex.getMessage());
     }
 
     @Test
     void createTopUpIntentRejectsBelowMinimum() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> topUpService.createTopUpIntent(learner, new BigDecimal("5.00")));
+                () -> topUpService.createTopUpIntent(learner, new BigDecimal("5.00"), "stripe"));
         assertTrue(ex.getMessage().contains("Minimum top-up amount"));
     }
 
@@ -128,7 +128,7 @@ class WalletTopUpServiceTest {
             return t;
         });
 
-        WalletTopUp result = topUpService.createTopUpIntent(learner, new BigDecimal("10.00"));
+        WalletTopUp result = topUpService.createTopUpIntent(learner, new BigDecimal("10.00"), "stripe");
 
         assertNotNull(result);
         assertEquals(new BigDecimal("10.00"), result.getAmount());

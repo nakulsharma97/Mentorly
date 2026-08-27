@@ -172,6 +172,7 @@ export default function WalletPage({ profile, notify }) {
   const [onboardingLoading, setOnboardingLoading] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupProcessing, setTopupProcessing] = useState(false);
+  const [topupGateway, setTopupGateway] = useState("stripe");
 
   // Fetch wallet data
   useEffect(() => {
@@ -442,13 +443,8 @@ export default function WalletPage({ profile, notify }) {
     try {
       const res = await client.post("/api/v1/wallet/withdraw", {
         amount,
-        description: `Withdrawal via ${withdrawMethod === "bank" ? "Bank Transfer" : withdrawMethod === "paypal" ? "PayPal" : "UPI"}`,
-        paymentMethod:
-          withdrawMethod === "bank"
-            ? "Bank Transfer"
-            : withdrawMethod === "paypal"
-              ? "PayPal"
-              : "UPI",
+        description: `Withdrawal via ${withdrawMethod === "razorpay" ? "Razorpay" : "Stripe"}`,
+        paymentMethod: withdrawMethod === "razorpay" ? "razorpay" : "stripe",
       });
       const entry = res?.data?.data;
       setLedger((prev) => [entry, ...prev]);
@@ -505,46 +501,91 @@ export default function WalletPage({ profile, notify }) {
     setTopupProcessing(true);
     try {
       const idempotencyKey = `topup-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const res = await client.post("/api/v1/wallet/topup/intent", { amount }, {
+      const res = await client.post("/api/v1/wallet/topup/intent", { amount, gateway: topupGateway }, {
         headers: { "Idempotency-Key": idempotencyKey },
       });
       const topUp = res?.data?.data;
-      const clientSecret = topUp?.gatewayResponse?.client_secret;
-      if (!clientSecret) {
-        throw new Error("Missing Stripe client secret");
-      }
+      if (topupGateway === "razorpay") {
+        // Razorpay checkout flow
+        const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+        if (!razorpayKeyId || razorpayKeyId === "rzp_test_xxxxxxxxxxxx") {
+          throw new Error("Razorpay key not configured. Set VITE_RAZORPAY_KEY_ID.");
+        }
 
-      const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
-      if (!stripePublishableKey || stripePublishableKey === "pk_test_xxxxxxxxxxxx") {
-        throw new Error("Stripe publishable key not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.");
-      }
-
-      const Stripe = await loadStripeJs();
-      const stripe = Stripe(stripePublishableKey);
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: {} },
-      });
-
-      if (error) {
-        throw new Error(error.message || "Payment failed");
-      }
-
-      if (paymentIntent?.status === "succeeded") {
-        await client.post("/api/v1/wallet/topup/verify", {
-          orderId: topUp.orderId,
-          stripePaymentIntentId: paymentIntent.id,
+        // Load Razorpay script
+        await new Promise((resolve, reject) => {
+          if (window.Razorpay) { resolve(); return; }
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Failed to load Razorpay script"));
+          document.body.appendChild(script);
         });
 
-        // Refresh wallet data
-        const [balanceResponse, ledgerResponse] = await Promise.all([
-          client.get("/api/v1/wallet/balance"),
-          client.get("/api/v1/wallet/ledger"),
-        ]);
-        setBalance(balanceResponse.data.data);
-        setLedger(ledgerResponse.data.data || []);
-        setTopupAmount("");
-        notify?.({ type: "success", title: "Wallet topped up", message: `${formatCurrency(amount)} has been added to your wallet.` });
+        const razorpayOrderId = topUp?.gatewayResponse?.id;
+        const amountPaise = topUp?.gatewayResponse?.amount || Number(amount) * 100;
+
+        await new Promise((resolve, reject) => {
+          const rzp = new window.Razorpay({
+            key: razorpayKeyId,
+            amount: amountPaise,
+            currency: "INR",
+            name: "Mentorly",
+            description: `Wallet top-up ₹${amount}`,
+            order_id: razorpayOrderId,
+            handler: async (response) => {
+              try {
+                await client.post("/api/v1/wallet/topup/verify", {
+                  orderId: topUp.orderId,
+                  stripePaymentIntentId: response.razorpay_payment_id,
+                });
+                resolve();
+              } catch (e) { reject(e); }
+            },
+            modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+          });
+          rzp.on("payment.failed", (response) => reject(new Error(response.error?.description || "Payment failed")));
+          rzp.open();
+        });
+      } else {
+        // Stripe checkout flow
+        const clientSecret = topUp?.gatewayResponse?.client_secret;
+        if (!clientSecret) {
+          throw new Error("Missing Stripe client secret");
+        }
+
+        const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
+        if (!stripePublishableKey || stripePublishableKey === "pk_test_xxxxxxxxxxxx") {
+          throw new Error("Stripe publishable key not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.");
+        }
+
+        const Stripe = await loadStripeJs();
+        const stripe = Stripe(stripePublishableKey);
+        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: { card: {} },
+        });
+
+        if (error) {
+          throw new Error(error.message || "Payment failed");
+        }
+
+        if (paymentIntent?.status === "succeeded") {
+          await client.post("/api/v1/wallet/topup/verify", {
+            orderId: topUp.orderId,
+            stripePaymentIntentId: paymentIntent.id,
+          });
+        }
       }
+
+      // Refresh wallet data
+      const [balanceResponse, ledgerResponse] = await Promise.all([
+        client.get("/api/v1/wallet/balance"),
+        client.get("/api/v1/wallet/ledger"),
+      ]);
+      setBalance(balanceResponse.data.data);
+      setLedger(ledgerResponse.data.data || []);
+      setTopupAmount("");
+      notify?.({ type: "success", title: "Wallet topped up", message: `${formatCurrency(amount)} has been added to your wallet.` });
     } catch (err) {
       const detail = err?.response?.data?.data?.message || err?.response?.data?.message || err?.message || "Top-up failed";
       notify?.({ type: "error", title: "Top-up failed", message: detail });
@@ -697,7 +738,7 @@ export default function WalletPage({ profile, notify }) {
           {/* ── Wallet Top-up Card (Learners only) ── */}
           {profile?.role !== "MENTOR" && (
             <section style={{ marginBottom: 24 }}>
-              <SsCard title="Add Money to Wallet" subtitle="Top up your wallet with a card payment via Stripe">
+              <SsCard title="Add Money to Wallet" subtitle="Top up your wallet with a card payment">
                 <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 200 }}>
                     <span style={{ fontSize: "var(--ss-font-xl)", fontWeight: 700, color: "var(--ss-text-muted)" }}>₹</span>
@@ -722,6 +763,31 @@ export default function WalletPage({ profile, notify }) {
                     <SsIcon name="add" size={16} />
                     {topupProcessing ? "Processing..." : `Add ${topupAmount ? formatCurrency(Number(topupAmount)) : "Money"}`}
                   </button>
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                  {[
+                    { id: 'stripe', label: 'Stripe', icon: '💳', desc: 'Card' },
+                    { id: 'razorpay', label: 'Razorpay', icon: '💳', desc: 'Card / UPI' },
+                  ].map((gw) => (
+                    <button
+                      key={gw.id}
+                      type="button"
+                      onClick={() => setTopupGateway(gw.id)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        border: `2px solid ${topupGateway === gw.id ? 'var(--ss-primary)' : 'var(--line)'}`,
+                        background: topupGateway === gw.id ? 'rgba(15,157,138,0.08)' : 'var(--card-bg, #fff)',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        fontSize: 13,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {gw.icon} {gw.label}
+                    </button>
+                  ))}
                 </div>
               </SsCard>
             </section>
@@ -1157,9 +1223,8 @@ export default function WalletPage({ profile, notify }) {
               </div>
               <div className="wallet-withdraw-card__method-row">
                 {[
-                  { value: "bank", label: "Bank Transfer", icon: "wallet" },
-                  { value: "paypal", label: "PayPal", icon: "payments" },
-                  { value: "upi", label: "UPI", icon: "zap" },
+                  { value: "razorpay", label: "Razorpay", icon: "account_balance", desc: "Bank/UPI via Razorpay Route" },
+                  { value: "stripe", label: "Stripe", icon: "account_balance", desc: "Bank via Stripe Connect" },
                 ].map((method) => (
                   <button
                     key={method.value}
@@ -1169,7 +1234,10 @@ export default function WalletPage({ profile, notify }) {
                     disabled={withdrawProcessing}
                   >
                     <SsIcon name={method.icon} size={18} />
-                    {method.label}
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{method.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ss-text-muted)' }}>{method.desc}</div>
+                    </div>
                   </button>
                 ))}
               </div>

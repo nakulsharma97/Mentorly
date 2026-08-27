@@ -72,7 +72,7 @@ public class WalletController {
             @RequestHeader("Idempotency-Key") @NotBlank String idempotencyKey,
             @Valid @RequestBody TopUpRequestDTO req) {
         IdempotencyKeySupport.validate(idempotencyKey);
-        WalletTopUp topUp = walletTopUpService.createTopUpIntent(currentUser, req.amount());
+        WalletTopUp topUp = walletTopUpService.createTopUpIntent(currentUser, req.amount(), req.gateway());
         return new ApiResponse<>("Top-up intent created", topUp);
     }
 
@@ -95,7 +95,8 @@ public class WalletController {
             @NotNull(message = "Amount is required")
             @DecimalMin(value = "10.00", message = "Minimum top-up amount is ₹10.00")
             @Digits(integer = 10, fraction = 2)
-            BigDecimal amount) {
+            BigDecimal amount,
+            String gateway) {
     }
 
 /**
