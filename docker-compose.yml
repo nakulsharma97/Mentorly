@@ -19,6 +19,7 @@ services:
       retries: 10
 
   backend:
+    image: ${BACKEND_IMAGE:-ghcr.io/nakulsharma97/mentorly-backend:${IMAGE_TAG:-latest}}
     build:
       context: ./backend
       dockerfile: Dockerfile

@@ -116,7 +116,7 @@ log_ok "All required commands available"
 # ── Step 1: Pull the latest image ────────────────────────
 log_step "Pulling Docker images"
 
-BACKEND_IMAGE="${BACKEND_IMAGE:-${REGISTRY}/skillswap/backend:${IMAGE_TAG}}"
+BACKEND_IMAGE="${BACKEND_IMAGE:-${REGISTRY}/${GITHUB_REPOSITORY:-nakulsharma97/Mentorly}-backend:${IMAGE_TAG}}"
 log_info "Pulling backend: $BACKEND_IMAGE"
 
 # Save the current image digest for rollback

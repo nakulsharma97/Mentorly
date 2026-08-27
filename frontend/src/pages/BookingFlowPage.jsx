@@ -191,11 +191,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
             if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
               await initiateRazorpayCheckout(payment);
             } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
-              // Stripe checkout is handled via redirect or Stripe Elements
-              // For now, show success message as Stripe handles via webhook
-              setBookingSuccessMessage(
-                `Payment initiated via Stripe. Your session with ${session?.mentor?.fullName || 'your mentor'} will be confirmed once payment is processed.`,
-              );
+              await initiateStripeCheckout(payment);
             }
           }
         } catch (paymentError) {
@@ -274,12 +270,9 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       if (payment) {
         setCreatedPayment(payment);
         if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
-          await initiateRazorpayCheckout(payment);
-        } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
-          setBookingSuccessMessage(
-            `Payment initiated via Stripe. Your session will be confirmed once payment is processed.`,
-          );
-        }
+          await initiateRazorpayCheckout(payment);            } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
+              await initiateStripeCheckout(payment);
+            }
       }
     } catch (retryError) {
       const msg = retryError?.response?.data?.data?.message || retryError?.response?.data?.message || 'Retry failed. Please contact support.';
@@ -360,6 +353,69 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       rzp.open();
     } catch (error) {
       // Payment UI failed, but booking was already created
+    }
+  };
+
+  /**
+   * Initiate Stripe payment via Stripe Elements (embedded card form).
+   */
+  const initiateStripeCheckout = async (payment) => {
+    try {
+      const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+      if (!stripePublishableKey || stripePublishableKey === 'pk_test_xxxxxxxxxxxx') {
+        setBookingError('Stripe publishable key not configured. Please contact support.');
+        return;
+      }
+
+      // Load Stripe.js
+      await new Promise((resolve, reject) => {
+        if (window.Stripe) { resolve(); return; }
+        const script = document.createElement('script');
+        script.src = 'https://js.stripe.com/v3/';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Failed to load Stripe.js'));
+        document.body.appendChild(script);
+      });
+
+      const stripe = window.Stripe(stripePublishableKey);
+      const clientSecret = payment.gatewayResponse?.client_secret;
+      if (!clientSecret) {
+        setBookingError('Missing Stripe client secret. Please retry.');
+        return;
+      }
+
+      // Use Stripe's confirmCardPayment with a card element
+      // This opens a minimal card input via Stripe's built-in UI
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: {} },
+      });
+
+      if (error) {
+        setBookingError(error.message || 'Payment failed. Please try again.');
+        return;
+      }
+
+      if (paymentIntent?.status === 'succeeded') {
+        // Verify on backend
+        try {
+          await client.post('/api/v1/payments/verify', {
+            paymentId: payment.id,
+            gatewayPaymentId: paymentIntent.id,
+            signature: paymentIntent.id,
+            extraParams: { stripe_payment_intent_id: paymentIntent.id },
+          });
+          setBookingSuccessMessage(
+            `Payment successful! Your session with ${session?.mentor?.fullName || 'your mentor'} is confirmed.`,
+          );
+        } catch (verifyError) {
+          console.warn('Payment verification error:', verifyError?.response?.data || verifyError.message);
+          setBookingSuccessMessage(
+            `Booking confirmed! Payment verification pending. Your session is scheduled for ${formatDateTime(session?.startTime)}.`,
+          );
+        }
+      }
+    } catch (error) {
+      setBookingError('Stripe payment failed. Please try again.');
     }
   };
 

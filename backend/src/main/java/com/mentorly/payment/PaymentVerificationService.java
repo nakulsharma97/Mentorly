@@ -105,10 +105,13 @@ public class PaymentVerificationService {
             }
         }
 
-        // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix
-        // in the metadata. Stripe webhooks carry the internal_order_id in metadata.
-        // Razorpay webhooks carry it in notes.
+        // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix.
+        // Stripe: data.object.metadata.internal_order_id
+        // Razorpay: data.payment.entity.notes.internal_order_id
         String orderId = extractOrderIdFromMetadata(eventData);
+        if (orderId == null || !orderId.startsWith("TOPUP_")) {
+            orderId = extractOrderIdFromRazorpayNotes(eventData);
+        }
         if (orderId != null && orderId.startsWith("TOPUP_")) {
             try {
                 walletTopUpService.handleWebhook(orderId);
@@ -216,6 +219,30 @@ public class PaymentVerificationService {
                     Object orderIdObj = entityMap.get("order_id");
                     if (orderIdObj instanceof String s) {
                         return s;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract internal_order_id from Razorpay webhook notes.
+     * Razorpay: data.payment.entity.notes.internal_order_id
+     */
+    private String extractOrderIdFromRazorpayNotes(Map<String, Object> eventData) {
+        Object dataObj = eventData.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object paymentObj = dataMap.get("payment");
+            if (paymentObj instanceof Map<?, ?> paymentMap) {
+                Object entityObj = paymentMap.get("entity");
+                if (entityObj instanceof Map<?, ?> entityMap) {
+                    Object notesObj = entityMap.get("notes");
+                    if (notesObj instanceof Map<?, ?> notesMap) {
+                        Object orderIdObj = notesMap.get("internal_order_id");
+                        if (orderIdObj instanceof String s) {
+                            return s;
+                        }
                     }
                 }
             }
