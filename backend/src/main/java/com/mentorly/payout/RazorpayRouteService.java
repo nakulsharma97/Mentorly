@@ -118,12 +118,14 @@ public class RazorpayRouteService {
             // call below creates a Linked Account, but the mentor must still complete
             // KYC/stakeholder onboarding via the generated onboarding link before
             // payouts are enabled. Do NOT assume this call alone enables payouts.
+            // Reference: https://razorpay.com/docs/api/payments/route/create-linked-account/
             JSONObject accountRequest = new JSONObject();
             accountRequest.put("email", mentor.getEmail());
             accountRequest.put("type", "route");       // Route-linked account for marketplace payouts
             accountRequest.put("legal_business_name", mentor.getFullName() != null ? mentor.getFullName() : mentor.getEmail());
             accountRequest.put("business_type", "individual");
             accountRequest.put("country", "IN");
+            accountRequest.put("reference_id", "mentorly_mentor_" + mentor.getId());
 
             // Enable payouts for this linked account
             accountRequest.put("features", new JSONObject()
@@ -134,13 +136,16 @@ public class RazorpayRouteService {
 
             com.razorpay.Account result = razorpayClient.account.create(accountRequest);
             String razorpayAccountId = result.get("id");
+            String referenceId = result.get("reference_id");
 
             RazorpayLinkedAccount linkedAccount = new RazorpayLinkedAccount();
             linkedAccount.setMentor(mentor);
             linkedAccount.setRazorpayAccountId(razorpayAccountId);
+            linkedAccount.setReferenceId(referenceId);
             linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.PENDING);
             linkedAccount.setPayoutsEnabled(false);
             linkedAccount.setActivated(false);
+            linkedAccount.setProductConfigStatus("NOT_CONFIGURED");
             linkedAccount.setLastSyncedAt(OffsetDateTime.now());
 
             linkedAccount = linkedAccountRepository.save(linkedAccount);
@@ -200,7 +205,65 @@ public class RazorpayRouteService {
     }
 
     /**
-     * Checks the mentor's payout eligibility.
+     * Fetches the current onboarding/payout status from Razorpay and syncs locally.
+     * This is the authoritative source — do not rely solely on cached local status.
+     */
+    @Transactional
+    public RazorpayLinkedAccount getAccountStatus(User mentor) {
+        RazorpayLinkedAccount linkedAccount = linkedAccountRepository.findByMentorId(mentor.getId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No Razorpay payout account found. Please set up payouts first."));
+
+        if (razorpayClient == null) {
+            LOG.warn("Razorpay SDK not initialized — returning cached status for accountId={}",
+                    linkedAccount.getRazorpayAccountId());
+            return linkedAccount;
+        }
+
+        try {
+            // Fetch live account status from Razorpay Route API
+            com.razorpay.Account account = razorpayClient.account.fetch(linkedAccount.getRazorpayAccountId());
+
+            // Sync Razorpay's authoritative status to our local record
+            Boolean payoutsEnabled = (Boolean) account.get("payouts_enabled");
+            if (payoutsEnabled != null) {
+                linkedAccount.setPayoutsEnabled(payoutsEnabled);
+            }
+
+            // Determine onboarding status from Razorpay response
+            if (Boolean.TRUE.equals(payoutsEnabled)) {
+                linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.COMPLETE);
+                linkedAccount.setActivated(true);
+            } else {
+                // Check requirements to determine status
+                Object requirements = account.get("requirements");
+                if (requirements instanceof java.util.List<?> list && !list.isEmpty()) {
+                    linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.RESTRICTED);
+                } else {
+                    // Check product configuration status
+                    String configStatus = linkedAccount.getProductConfigStatus();
+                    if ("NOT_CONFIGURED".equals(configStatus) || "PENDING".equals(configStatus)) {
+                        linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.CONFIGURATION_PENDING);
+                    } else {
+                        linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.PENDING);
+                    }
+                }
+            }
+
+            linkedAccount.setLastSyncedAt(OffsetDateTime.now());
+            linkedAccount.setUpdatedAt(OffsetDateTime.now());
+            return linkedAccountRepository.save(linkedAccount);
+        } catch (RazorpayException e) {
+            LOG.error("Failed to fetch Razorpay account status for mentorId={}: {}",
+                    mentor.getId(), e.getMessage(), e);
+            // Return the locally cached status rather than failing
+            return linkedAccount;
+        }
+    }
+
+    /**
+     * Checks the mentor's payout eligibility against the live Razorpay account state.
+     * Returns true only when Razorpay confirms payouts are enabled and the account is active.
      */
     public boolean isPayoutEligible(User mentor) {
         RazorpayLinkedAccount account = linkedAccountRepository.findByMentorId(mentor.getId())
@@ -212,7 +275,12 @@ public class RazorpayRouteService {
 
     /**
      * Processes a payout transfer from the platform to the mentor's Linked Account.
-     * This creates a real Razorpay Transfer.
+     * This creates a real Razorpay Route transfer.
+     *
+     * IMPORTANT: Before going live, verify the correct Razorpay Route transfer endpoint
+     * for your account type. The Direct Transfer API (POST /v1/transfers) requires
+     * the linked account to have payouts enabled and product configuration completed.
+     * Reference: https://razorpay.com/docs/payments/route/integration-guide/
      */
     @Transactional
     public WalletLedgerEntry processPayout(User mentor, BigDecimal amount, WalletLedgerEntry ledgerEntry) {
@@ -220,9 +288,18 @@ public class RazorpayRouteService {
                 .orElseThrow(() -> new IllegalStateException(
                         "Complete your payout account setup before withdrawing."));
 
+        // Verify live payout eligibility — do not rely solely on cached local status
         if (!linkedAccount.isPayoutsEnabled() || !linkedAccount.isActivated()) {
-            throw new IllegalStateException(
-                    "Payouts are not enabled on your account. Please complete onboarding first.");
+            // Try to refresh status from Razorpay before rejecting
+            try {
+                linkedAccount = getAccountStatus(mentor);
+            } catch (Exception e) {
+                LOG.warn("Failed to refresh Razorpay account status: {}", e.getMessage());
+            }
+            if (!linkedAccount.isPayoutsEnabled() || !linkedAccount.isActivated()) {
+                throw new IllegalStateException(
+                        "Payouts are not enabled on your account. Please complete onboarding first.");
+            }
         }
 
         if (razorpayClient == null) {
@@ -232,14 +309,19 @@ public class RazorpayRouteService {
         try {
             long amountPaise = amount.movePointRight(2).longValueExact();
 
+            // Direct Transfer to Linked Account — uses the current Razorpay Route API.
+            // Reference: https://razorpay.com/docs/api/payments/route/create-transfer/
+            // The transfer destination is the mentor's Linked Account, NOT a hardcoded UPI ID.
+            // Do NOT include a "mode" field — the payout mechanism is determined by
+            // the linked account's configured payout settings, not by this API call.
             JSONObject transferRequest = new JSONObject();
             transferRequest.put("account", linkedAccount.getRazorpayAccountId());
             transferRequest.put("amount", amountPaise);
             transferRequest.put("currency", "INR");
-            transferRequest.put("mode", "UPI");  // or NEFT/RTGS
             transferRequest.put("notes", new JSONObject()
                     .put("ledger_entry_id", String.valueOf(ledgerEntry.getId()))
-                    .put("mentor_id", String.valueOf(mentor.getId())));
+                    .put("mentor_id", String.valueOf(mentor.getId()))
+                    .put("mentorly_withdrawal", "true"));
 
             com.razorpay.Transfer transfer = razorpayClient.transfers.create(transferRequest);
             String transferId = transfer.get("id");

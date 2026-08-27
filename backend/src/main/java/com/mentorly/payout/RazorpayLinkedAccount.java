@@ -38,6 +38,10 @@ public class RazorpayLinkedAccount {
     @Column(name = "razorpay_account_id", nullable = false, unique = true, length = 100)
     private String razorpayAccountId;
 
+    /** Razorpay reference ID — unique business identifier for the linked account */
+    @Column(name = "reference_id", length = 255)
+    private String referenceId;
+
     /** Onboarding status on Razorpay */
     @Enumerated(EnumType.STRING)
     @Column(name = "onboarding_status", nullable = false, length = 32)
@@ -50,6 +54,10 @@ public class RazorpayLinkedAccount {
     /** Whether the account is activated for transfers */
     @Column(name = "activated", nullable = false)
     private boolean activated = false;
+
+    /** Product configuration status — Razorpay Route requires product config */
+    @Column(name = "product_config_status", length = 32)
+    private String productConfigStatus = "NOT_CONFIGURED";
 
     /** Timestamp of last status sync from Razorpay */
     @Column(name = "last_synced_at")

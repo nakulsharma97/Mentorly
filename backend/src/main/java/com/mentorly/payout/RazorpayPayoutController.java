@@ -47,17 +47,30 @@ public class RazorpayPayoutController {
     }
 
     /**
-     * Get current onboarding/payout status for the logged-in mentor via Razorpay.
+     * Get current onboarding/payout status for the logged-in mentor.
+     * Fetches live status from Razorpay Route API and syncs locally.
      */
     @GetMapping("/status")
     public ApiResponse<Map<String, Object>> getStatus(@AuthenticationPrincipal User currentUser) {
-        RazorpayLinkedAccount account = razorpayRouteService.createLinkedAccount(currentUser);
-        return new ApiResponse<>("Razorpay payout status fetched", Map.of(
-                "razorpayAccountId", account.getRazorpayAccountId(),
-                "onboardingStatus", account.getOnboardingStatus().name(),
-                "payoutsEnabled", account.isPayoutsEnabled(),
-                "activated", account.isActivated()
-        ));
+        try {
+            RazorpayLinkedAccount account = razorpayRouteService.getAccountStatus(currentUser);
+            return new ApiResponse<>("Razorpay payout status fetched", Map.of(
+                    "razorpayAccountId", account.getRazorpayAccountId(),
+                    "referenceId", account.getReferenceId() != null ? account.getReferenceId() : "",
+                    "onboardingStatus", account.getOnboardingStatus().name(),
+                    "payoutsEnabled", account.isPayoutsEnabled(),
+                    "activated", account.isActivated(),
+                    "productConfigStatus", account.getProductConfigStatus() != null ? account.getProductConfigStatus() : "UNKNOWN",
+                    "lastSyncedAt", account.getLastSyncedAt() != null ? account.getLastSyncedAt().toString() : null
+            ));
+        } catch (IllegalArgumentException e) {
+            // No account exists yet — return ONBOARDING_REQUIRED state
+            return new ApiResponse<>("No Razorpay payout account", Map.of(
+                    "onboardingStatus", "ONBOARDING_REQUIRED",
+                    "payoutsEnabled", false,
+                    "activated", false
+            ));
+        }
     }
 
     /**

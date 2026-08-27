@@ -163,14 +163,16 @@ export default function WalletPage({ profile, notify }) {
   const [activeTab, setActiveTab] = useState("overview");
   const [exporting, setExporting] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [withdrawMethod, setWithdrawMethod] = useState("bank");
+  const [withdrawMethod, setWithdrawMethod] = useState("razorpay");
   const [withdrawProcessing, setWithdrawProcessing] = useState(false);
   const [payoutPage, setPayoutPage] = useState(0);
   const [payoutSearch, setPayoutSearch] = useState("");
   const [payoutDateRange, setPayoutDateRange] = useState("all");
   const PAYOUT_PAGE_SIZE = 8;
   const [connectStatus, setConnectStatus] = useState(null);
+  const [razorpayPayoutStatus, setRazorpayPayoutStatus] = useState(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [razorpayOnboardingLoading, setRazorpayOnboardingLoading] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupProcessing, setTopupProcessing] = useState(false);
   const [topupGateway, setTopupGateway] = useState("stripe");
@@ -213,22 +215,29 @@ export default function WalletPage({ profile, notify }) {
     };
   }, [notify]);
 
-  // Fetch Stripe Connect status (mentor only)
+  // Fetch payout statuses for both gateways (mentor only)
   useEffect(() => {
     if (profile?.role !== "MENTOR") {
       return;
     }
     let mounted = true;
-    const loadConnectStatus = async () => {
+    const loadPayoutStatuses = async () => {
+      // Fetch Stripe Connect status
       try {
         const res = await client.get("/api/v1/mentor/connect/status");
         if (mounted) setConnectStatus(res?.data?.data || null);
       } catch {
-        // Not onboarded yet — that's fine
         if (mounted) setConnectStatus(null);
       }
+      // Fetch Razorpay payout status
+      try {
+        const res = await client.get("/api/v1/mentor/razorpay-payout/status");
+        if (mounted) setRazorpayPayoutStatus(res?.data?.data || null);
+      } catch {
+        if (mounted) setRazorpayPayoutStatus(null);
+      }
     };
-    loadConnectStatus();
+    loadPayoutStatuses();
     return () => { mounted = false; };
   }, [profile?.role]);
 
@@ -236,9 +245,12 @@ export default function WalletPage({ profile, notify }) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("onboarding") === "complete") {
-      // Refresh connect status after returning from Stripe
+      // Refresh both payout statuses after returning from onboarding
       client.get("/api/v1/mentor/connect/status")
         .then((res) => setConnectStatus(res?.data?.data || null))
+        .catch(() => {});
+      client.get("/api/v1/mentor/razorpay-payout/status")
+        .then((res) => setRazorpayPayoutStatus(res?.data?.data || null))
         .catch(() => {});
       // Clean up URL
       window.history.replaceState({}, "", window.location.pathname);
@@ -258,6 +270,22 @@ export default function WalletPage({ profile, notify }) {
       notify?.({ type: "error", title: "Onboarding failed", message: detail });
     } finally {
       setOnboardingLoading(false);
+    }
+  };
+
+  const handleStartRazorpayOnboarding = async () => {
+    setRazorpayOnboardingLoading(true);
+    try {
+      const res = await client.post("/api/v1/mentor/razorpay-payout/onboard");
+      const url = res?.data?.data?.url;
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (err) {
+      const detail = err?.response?.data?.data?.message || err?.response?.data?.message || "Failed to start Razorpay onboarding";
+      notify?.({ type: "error", title: "Razorpay onboarding failed", message: detail });
+    } finally {
+      setRazorpayOnboardingLoading(false);
     }
   };
 
@@ -1155,45 +1183,77 @@ export default function WalletPage({ profile, notify }) {
           </div>
 
           {/* ── Payout Setup Banner (mentor only) ── */}
-          {isMentor && (
-            <div className="wallet-connect-banner" style={{
-              padding: '20px 24px',
-              borderRadius: 'var(--ss-card-radius)',
-              border: payoutsEnabled ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(245,158,11,0.3)',
-              background: payoutsEnabled ? 'rgba(16,185,129,0.06)' : 'rgba(245,158,11,0.06)',
-              marginBottom: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 16,
-              flexWrap: 'wrap',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <SsIcon name={payoutsEnabled ? 'check_circle' : 'warning'} size={22} style={{ color: payoutsEnabled ? 'var(--ss-success)' : 'var(--ss-warning)', flexShrink: 0 }} />
-                <div>
-                  <strong style={{ fontSize: 'var(--ss-font-base)', color: 'var(--ss-text)' }}>
-                    {payoutsEnabled ? 'Payouts Enabled' : 'Complete Verification to Enable Payouts'}
-                  </strong>
-                  <p style={{ margin: 0, fontSize: 'var(--ss-font-sm)', color: 'var(--ss-text-muted)' }}>
-                    {payoutsEnabled
-                      ? 'Your Stripe Connect account is verified. You can withdraw funds to your bank account.'
-                      : 'Set up your Stripe Connect account to receive real payouts directly to your bank account.'}
-                  </p>
+          {isMentor && (() => {
+            const razorpayEnabled = razorpayPayoutStatus?.payoutsEnabled === true;
+            const stripeEnabled = payoutsEnabled;
+            const anyEnabled = razorpayEnabled || stripeEnabled;
+            return (
+              <div className="wallet-connect-banner" style={{
+                padding: '20px 24px',
+                borderRadius: 'var(--ss-card-radius)',
+                border: anyEnabled ? '1px solid rgba(16,185,129,0.3)' : '1px solid rgba(245,158,11,0.3)',
+                background: anyEnabled ? 'rgba(16,185,129,0.06)' : 'rgba(245,158,11,0.06)',
+                marginBottom: 24,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap' }}>
+                  {/* Razorpay status */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 280 }}>
+                    <SsIcon name={razorpayEnabled ? 'check_circle' : 'warning'} size={22}
+                      style={{ color: razorpayEnabled ? 'var(--ss-success)' : 'var(--ss-warning)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ fontSize: 'var(--ss-font-base)', color: 'var(--ss-text)' }}>
+                        Razorpay {razorpayEnabled ? 'Payouts Enabled' : 'Payout Setup'}
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 'var(--ss-font-sm)', color: 'var(--ss-text-muted)' }}>
+                        {razorpayEnabled
+                          ? 'Your Razorpay account is verified. You can withdraw funds via Razorpay Route.'
+                          : razorpayPayoutStatus?.onboardingStatus === 'ONBOARDING_REQUIRED'
+                            ? 'Set up your Razorpay Linked Account to receive payouts via Route.'
+                            : 'Complete your Razorpay payout account setup to enable withdrawals.'}
+                      </p>
+                    </div>
+                    {!razorpayEnabled && (
+                      <button
+                        type="button"
+                        className="ss-btn ss-btn--primary ss-btn--sm"
+                        onClick={handleStartRazorpayOnboarding}
+                        disabled={razorpayOnboardingLoading}
+                      >
+                        <SsIcon name="account_balance" size={16} />
+                        {razorpayOnboardingLoading ? 'Redirecting…' : 'Set Up Razorpay'}
+                      </button>
+                    )}
+                  </div>
+                  {/* Stripe status */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 280 }}>
+                    <SsIcon name={stripeEnabled ? 'check_circle' : 'warning'} size={22}
+                      style={{ color: stripeEnabled ? 'var(--ss-success)' : 'var(--ss-warning)', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ fontSize: 'var(--ss-font-base)', color: 'var(--ss-text)' }}>
+                        Stripe {stripeEnabled ? 'Payouts Enabled' : 'Payout Setup'}
+                      </strong>
+                      <p style={{ margin: 0, fontSize: 'var(--ss-font-sm)', color: 'var(--ss-text-muted)' }}>
+                        {stripeEnabled
+                          ? 'Your Stripe Connect account is verified. You can withdraw funds to your bank account.'
+                          : 'Set up your Stripe Connect account to receive real payouts directly to your bank account.'}
+                      </p>
+                    </div>
+                    {!stripeEnabled && (
+                      <button
+                        type="button"
+                        className="ss-btn ss-btn--secondary ss-btn--sm"
+                        onClick={handleStartOnboarding}
+                        disabled={onboardingLoading}
+                      >
+                        <SsIcon name="account_balance" size={16} />
+                        {onboardingLoading ? 'Redirecting…' : 'Set Up Stripe'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              {!payoutsEnabled && (
-                <button
-                  type="button"
-                  className="ss-btn ss-btn--primary ss-btn--sm"
-                  onClick={handleStartOnboarding}
-                  disabled={onboardingLoading}
-                >
-                  <SsIcon name="account_balance" size={16} />
-                  {onboardingLoading ? 'Redirecting…' : 'Set Up Payouts'}
-                </button>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* ── Withdrawal Card ── */}
           <div className="wallet-withdraw-card">
@@ -1258,24 +1318,37 @@ export default function WalletPage({ profile, notify }) {
                   </button>
                 ))}
               </div>
-              {isMentor && !payoutsEnabled ? (
-                <div style={{ padding: '12px 16px', borderRadius: 'var(--ss-radius)', background: 'var(--ss-bg)', color: 'var(--ss-text-muted)', fontSize: 'var(--ss-font-sm)', textAlign: 'center' }}>
-                  Complete your payout account setup above before withdrawing.
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="ss-btn ss-btn--primary wallet-withdraw-card__submit"
-                  onClick={handleWithdraw}
-                  disabled={
-                    withdrawProcessing || !withdrawAmount || Number(withdrawAmount) <= 0
-                  }
-                >
-                  {withdrawProcessing
-                    ? "Processing..."
-                    : `Withdraw ${withdrawAmount ? formatCurrency(Number(withdrawAmount)) : "₹0.00"}`}
-                </button>
-              )}
+              {(() => {
+                const isRazorpaySelected = withdrawMethod === 'razorpay';
+                const selectedEnabled = isRazorpaySelected
+                  ? razorpayPayoutStatus?.payoutsEnabled === true
+                  : payoutsEnabled;
+                if (isMentor && !selectedEnabled) {
+                  return (
+                    <div style={{ padding: '12px 16px', borderRadius: 'var(--ss-radius)', background: 'var(--ss-bg)', color: 'var(--ss-text-muted)', fontSize: 'var(--ss-font-sm)', textAlign: 'center' }}>
+                      {isRazorpaySelected
+                        ? (razorpayPayoutStatus?.onboardingStatus === 'ONBOARDING_REQUIRED'
+                          ? 'Set up your Razorpay payout account above before withdrawing.'
+                          : 'Complete your Razorpay payout setup above before withdrawing.')
+                        : 'Complete your Stripe payout account setup above before withdrawing.'}
+                    </div>
+                  );
+                }
+                return (
+                  <button
+                    type="button"
+                    className="ss-btn ss-btn--primary wallet-withdraw-card__submit"
+                    onClick={handleWithdraw}
+                    disabled={
+                      withdrawProcessing || !withdrawAmount || Number(withdrawAmount) <= 0
+                    }
+                  >
+                    {withdrawProcessing
+                      ? "Processing..."
+                      : `Withdraw ${withdrawAmount ? formatCurrency(Number(withdrawAmount)) : "₹0.00"}`}
+                  </button>
+                );
+              })()}
             </div>
           </div>
 
