@@ -140,12 +140,14 @@ class WalletTopUpServiceTest {
     void verifyTopUpSuccess() {
         WalletTopUp topUp = WalletTopUp.builder()
                 .id(1L).user(learner).orderId("TOPUP_TEST123")
+                .gatewayOrderId("pi_test_123")
                 .amount(new BigDecimal("100.00")).status(WalletTopUpStatus.INITIATED)
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("stripe")).thenReturn(stripeGateway);
-        when(stripeGateway.verifyPayment("pi_test_123", "TOPUP_TEST123", null, null)).thenReturn(true);
+        // Must pass gatewayOrderId ("pi_test_123"), NOT the internal TOPUP_TEST123
+        when(stripeGateway.verifyPayment("pi_test_123", "pi_test_123", null, null)).thenReturn(true);
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(walletService.addEntryForUser(eq(1L), any())).thenReturn(null);
 
@@ -196,12 +198,14 @@ class WalletTopUpServiceTest {
     void verifyTopUpFailsOnStripeVerificationFailure() {
         WalletTopUp topUp = WalletTopUp.builder()
                 .id(1L).user(learner).orderId("TOPUP_TEST123")
+                .gatewayOrderId("pi_test_123")
                 .amount(new BigDecimal("100.00")).status(WalletTopUpStatus.INITIATED)
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("stripe")).thenReturn(stripeGateway);
-        when(stripeGateway.verifyPayment("pi_test_123", "TOPUP_TEST123", null, null)).thenReturn(false);
+        // Must pass gatewayOrderId ("pi_test_123"), NOT the internal TOPUP_TEST123
+        when(stripeGateway.verifyPayment("pi_test_123", "pi_test_123", null, null)).thenReturn(false);
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThrows(IllegalStateException.class,

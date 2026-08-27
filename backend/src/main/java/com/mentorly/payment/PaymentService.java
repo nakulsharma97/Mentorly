@@ -102,6 +102,7 @@ public class PaymentService {
                 .currency("INR")
                 .status(PaymentStatus.INITIATED)
                 .gateway(gatewaySlug)
+                .gatewayOrderId(gatewayResponse.get("id") != null ? gatewayResponse.get("id").toString() : null)
                 .createdAt(OffsetDateTime.now())
                 .build();
 
@@ -163,7 +164,19 @@ public class PaymentService {
         verificationParams.put("expectedAmountMinor",
                 String.valueOf(payment.getAmount().movePointRight(2).longValueExact()));
 
-        boolean verified = gateway.verifyPayment(paymentGatewayId, payment.getOrderId(), signature, verificationParams);
+        // Use the real gateway order ID for signature verification.
+        // For Razorpay: HMAC = HMAC(order_id + "|" + payment_id, key_secret)
+        // where order_id is the REAL Razorpay order ID (order_xxx), NOT the
+        // internal ORDER_xxxx synthetic id. Falls back to internal orderId
+        // for legacy rows created before V77 migration.
+        String orderIdForVerification = payment.getGatewayOrderId() != null
+                ? payment.getGatewayOrderId() : payment.getOrderId();
+        if (payment.getGatewayOrderId() == null) {
+            LOG.warn("Payment {} has no gatewayOrderId — falling back to internal orderId. "
+                    + "This is expected for legacy rows before V77 migration.", paymentId);
+        }
+
+        boolean verified = gateway.verifyPayment(paymentGatewayId, orderIdForVerification, signature, verificationParams);
 
         if (!verified) {
             payment.setStatus(PaymentStatus.FAILED);

@@ -74,7 +74,20 @@ public class RazorpayRouteService {
                 LOG.error("Failed to initialize Razorpay Route SDK", e);
             }
         } else {
-            LOG.warn("⚠ Razorpay keys are placeholders — Route features will not work");
+            LOG.warn("⚠ ⚠ ⚠ RAZORPAY ROUTE SDK NOT INITIALIZED — placeholder keys detected! "
+                    + "Mentor payout via Razorpay Route will FAIL silently. "
+                    + "Set APP_PAYMENT_RAZORPAY_KEY_ID and APP_PAYMENT_RAZORPAY_KEY_SECRET "
+                    + "to real credentials before going live. "
+                    + "Onboarding, linked-account creation, and transfers will all fail.");
+        }
+
+        // Also warn if the payout webhook secret is still the default —
+        // without a real secret, payout webhooks cannot be verified.
+        if (payoutWebhookSecret == null || payoutWebhookSecret.isBlank()
+                || "rzp_test_webhook_secret".equals(payoutWebhookSecret)) {
+            LOG.warn("⚠ RAZORPAY PAYOUT WEBHOOK SECRET is a placeholder! "
+                    + "Transfer status webhooks (transfer.processed, transfer.failed) "
+                    + "will be rejected. Set APP_PAYOUT_RAZORPAY_WEBHOOK_SECRET.");
         }
     }
 
@@ -98,7 +111,13 @@ public class RazorpayRouteService {
         }
 
         try {
-            // Create a Razorpay Linked Account for the mentor
+            // Create a Razorpay Linked Account for the mentor.
+            // IMPORTANT: This flow must be validated against the current Razorpay Route
+            // dashboard/API docs before going live. Stakeholder details, product
+            // configuration, and activation requirements can change. The account.create()
+            // call below creates a Linked Account, but the mentor must still complete
+            // KYC/stakeholder onboarding via the generated onboarding link before
+            // payouts are enabled. Do NOT assume this call alone enables payouts.
             JSONObject accountRequest = new JSONObject();
             accountRequest.put("email", mentor.getEmail());
             accountRequest.put("type", "route");       // Route-linked account for marketplace payouts
@@ -151,8 +170,13 @@ public class RazorpayRouteService {
             String refreshUrl = frontendBaseUrl + "/mentor/wallet?onboarding=refresh";
             String returnUrl = frontendBaseUrl + "/mentor/wallet?onboarding=complete";
 
-            // Generate onboarding link via Razorpay Account API
-            // POST /accounts/{account_id}/onboarding
+            // Generate onboarding link via Razorpay Account API.
+            // IMPORTANT: The onboarding URL returned by Razorpay must be opened by the
+            // mentor in their browser. After completing KYC/stakeholder details on
+            // Razorpay's hosted page, Razorpay sends an account.updated webhook with
+            // payouts_enabled=true. Until that webhook fires, the linked account
+            // CANNOT receive transfers. Verify this flow end-to-end with Razorpay test
+            // mode keys before deploying to production.
             JSONObject onboardingRequest = new JSONObject();
             onboardingRequest.put("refresh_url", refreshUrl);
             onboardingRequest.put("redirect_url", returnUrl);

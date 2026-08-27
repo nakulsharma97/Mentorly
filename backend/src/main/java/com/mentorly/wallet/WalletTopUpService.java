@@ -130,9 +130,13 @@ public class WalletTopUpService {
             throw new IllegalArgumentException("Payment ID does not match this top-up");
         }
 
-        // Verify with the gateway used for this top-up
+        // Verify with the gateway used for this top-up.
+        // Razorpay HMAC = HMAC(order_id + "|" + payment_id, key_secret) where order_id
+        // is the REAL Razorpay order ID (e.g. order_xxx), NOT the internal TOPUP_xxx id.
+        String orderIdForVerification = topUp.getGatewayOrderId() != null
+                ? topUp.getGatewayOrderId() : orderId;
         PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
-        boolean verified = gateway.verifyPayment(gatewayPaymentId, orderId, signature, null);
+        boolean verified = gateway.verifyPayment(gatewayPaymentId, orderIdForVerification, signature, null);
 
         if (!verified) {
             topUp.setStatus(WalletTopUpStatus.FAILED);

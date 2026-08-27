@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mentorly.common.ApiResponse;
 import com.mentorly.payment.WebhookEventRepository;
 import com.mentorly.payment.WebhookEvent;
+import com.mentorly.payment.WebhookEventIdResolver;
 import com.mentorly.user.User;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -87,18 +88,9 @@ public class RazorpayPayoutController {
             throw new IllegalArgumentException("Invalid webhook payload format");
         }
 
-        // Extract event ID for deduplication.
-        // Razorpay sends the event ID in the X-Razorpay-Event-Id header.
-        // Fall back to the top-level "id" field in the payload.
-        String eventId = null;
-        if (razorpayEventIdHeader != null && !razorpayEventIdHeader.isBlank()) {
-            eventId = razorpayEventIdHeader.trim();
-        } else {
-            Object idObj = payload.get("id");
-            if (idObj instanceof String s && !s.isBlank()) {
-                eventId = s;
-            }
-        }
+        // Extract event ID for deduplication using the shared resolver.
+        // Razorpay sends the canonical event ID in the X-Razorpay-Event-Id header.
+        String eventId = WebhookEventIdResolver.resolve(razorpayEventIdHeader, payload);
 
         // DB-backed deduplication — uses "razorpay" as gateway name for consistency
         if (eventId != null && !eventId.isBlank()) {

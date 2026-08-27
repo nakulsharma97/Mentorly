@@ -40,6 +40,14 @@ public class Payment {
     @Column(name = "order_id", nullable = false, unique = true)
     private String orderId;
 
+    /**
+     * Real gateway order ID (e.g. Razorpay order_xxx, Stripe pi_xxx).
+     * Set from gateway.createOrder() response. Used for HMAC/signature
+     * verification where the real gateway order ID is required.
+     */
+    @Column(name = "gateway_order_id")
+    private String gatewayOrderId;
+
     @Column(name = "payment_id")
     private String paymentId;
 

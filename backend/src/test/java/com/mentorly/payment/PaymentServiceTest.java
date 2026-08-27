@@ -267,6 +267,7 @@ class PaymentServiceTest {
     @Test
     void verifyAndCompletePaymentSuccess() {
         payment.setStatus(PaymentStatus.INITIATED);
+        payment.setGatewayOrderId("stripe_order_123");
         when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -276,6 +277,24 @@ class PaymentServiceTest {
         assertEquals(PaymentStatus.ESCROWED, result.getStatus());
         assertEquals("pi_test_123", result.getPaymentId());
         assertEquals("sig_123", result.getSignature());
+        // Verify gatewayOrderId was passed to gateway, not the internal ORDER_TEST123
+        verify(stripeGateway).verifyPayment(eq("pi_test_123"), eq("stripe_order_123"), eq("sig_123"), any());
+    }
+
+    @Test
+    void verifyAndCompletePaymentFallsBackToInternalOrderIdWhenGatewayOrderIdIsNull() {
+        // Legacy row before V77 migration — gatewayOrderId is null
+        payment.setStatus(PaymentStatus.INITIATED);
+        payment.setGatewayOrderId(null);
+        when(paymentRepository.findByIdWithLock(1000L)).thenReturn(Optional.of(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Payment result = paymentService.verifyAndCompletePayment(1000L, "pi_test_123",
+                "sig_123", Map.of());
+
+        assertEquals(PaymentStatus.ESCROWED, result.getStatus());
+        // Falls back to internal orderId for legacy rows
+        verify(stripeGateway).verifyPayment(eq("pi_test_123"), eq("ORDER_TEST123"), eq("sig_123"), any());
     }
 
     @Test

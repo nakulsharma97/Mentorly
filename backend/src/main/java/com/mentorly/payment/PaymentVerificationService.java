@@ -84,9 +84,9 @@ public class PaymentVerificationService {
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
             Map<String, Object> eventData, String headerEventId) {
-        // Use header-provided event ID first (most reliable), fall back to payload
-        String eventId = (headerEventId != null && !headerEventId.isBlank())
-                ? headerEventId.trim() : extractEventId(eventData, gatewaySlug);
+        // Use shared resolver for consistent event ID extraction across
+        // payment and payout webhooks.
+        String eventId = WebhookEventIdResolver.resolve(headerEventId, eventData);
         LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}, eventId={}",
                 gatewaySlug, eventType, gatewayPaymentId, eventId);
 
