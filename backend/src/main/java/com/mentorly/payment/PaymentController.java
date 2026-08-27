@@ -226,24 +226,49 @@ public class PaymentController {
 
     /**
      * Extract a gateway payment ID from the webhook payload.
-     * Different gateways place it at different locations.
+     * Different gateways nest it differently:
+     * - Stripe: data.object.id (e.g. pi_xxx)
+     * - Razorpay: data.payment.entity.id (e.g. pay_xxx)
+     * - Razorpay refunds: data.refund.entity.payment_id
+     * - PayPal: resource.id
      */
     private static String extractGatewayPaymentId(Map<String, Object> payload) {
-        // Check common locations: data.payment_id, payment_id, data.object.id
         Object dataObj = payload.get("data");
         if (dataObj instanceof Map<?, ?> dataMap) {
-            // Direct key lookup instead of iterating all entries
-            Object paymentIdVal = dataMap.get("payment_id");
-            if (paymentIdVal instanceof String s) {
-                return s;
+            // Razorpay: data.payment.entity.id
+            Object paymentObj = dataMap.get("payment");
+            if (paymentObj instanceof Map<?, ?> paymentMap) {
+                Object entityObj = paymentMap.get("entity");
+                if (entityObj instanceof Map<?, ?> entityMap) {
+                    Object idVal = entityMap.get("id");
+                    if (idVal instanceof String s && s.startsWith("pay_")) {
+                        return s;
+                    }
+                }
             }
-            // Check data.object.id (common in Stripe webhooks)
+            // Razorpay refund: data.refund.entity.payment_id
+            Object refundObj = dataMap.get("refund");
+            if (refundObj instanceof Map<?, ?> refundMap) {
+                Object refundEntity = refundMap.get("entity");
+                if (refundEntity instanceof Map<?, ?> refundEntityMap) {
+                    Object paymentIdVal = refundEntityMap.get("payment_id");
+                    if (paymentIdVal instanceof String s) {
+                        return s;
+                    }
+                }
+            }
+            // Stripe: data.object.id
             Object objectObj = dataMap.get("object");
             if (objectObj instanceof Map<?, ?> objectMap) {
                 Object idVal = objectMap.get("id");
                 if (idVal instanceof String s) {
                     return s;
                 }
+            }
+            // Razorpay direct: data.payment_id
+            Object paymentIdVal = dataMap.get("payment_id");
+            if (paymentIdVal instanceof String s) {
+                return s;
             }
         }
         // Fallback to top-level payment_id

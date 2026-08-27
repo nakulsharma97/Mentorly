@@ -64,6 +64,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [createdBookingId, setCreatedBookingId] = useState(null);
   const [createdPayment, setCreatedPayment] = useState(null);
   const [showReport, setShowReport] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState('razorpay');
   const razorpayLoadedRef = useRef(false);
 
   const mentorSkills = useMemo(
@@ -178,7 +179,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
           const paymentResponse = await client.post('/api/v1/payments/intent', {
             bookingId,
             amount: priceAmount,
-            gateway: 'razorpay',
+            gateway: selectedGateway,
           }, {
             headers: { 'Idempotency-Key': idempotencyKey },
           });
@@ -186,9 +187,15 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
           if (payment) {
             setCreatedPayment(payment);
 
-            // Step 3: Initiate Razorpay checkout if the gateway response has order details
+            // Step 3: Initiate checkout if the gateway response has order details
             if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
               await initiateRazorpayCheckout(payment);
+            } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
+              // Stripe checkout is handled via redirect or Stripe Elements
+              // For now, show success message as Stripe handles via webhook
+              setBookingSuccessMessage(
+                `Payment initiated via Stripe. Your session with ${session?.mentor?.fullName || 'your mentor'} will be confirmed once payment is processed.`,
+              );
             }
           }
         } catch (paymentError) {
@@ -259,7 +266,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       const paymentResponse = await client.post('/api/v1/payments/intent', {
         bookingId: createdBookingId,
         amount: priceAmount,
-        gateway: 'razorpay',
+        gateway: selectedGateway,
       }, {
         headers: { 'Idempotency-Key': idempotencyKey },
       });
@@ -268,6 +275,10 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
         setCreatedPayment(payment);
         if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
           await initiateRazorpayCheckout(payment);
+        } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
+          setBookingSuccessMessage(
+            `Payment initiated via Stripe. Your session will be confirmed once payment is processed.`,
+          );
         }
       }
     } catch (retryError) {
@@ -535,10 +546,39 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
                 ) : null}
                 {!loadingWallet && !hasSufficientBalance ? (
                   <p style={{ color: 'var(--error)', marginTop: 8 }}>
-                    ✗ Insufficient balance — you can still pay via Razorpay (card/UPI/net banking).
+                    ✗ Insufficient balance — pay via card/UPI below.
                   </p>
                 ) : null}
                 {bookingError ? <p style={{ color: 'var(--error)', marginTop: 8 }}>{bookingError}</p> : null}
+              </div>
+
+              {/* Gateway selection */}
+              <div style={{ marginTop: 16 }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 600, fontSize: 14 }}>Payment Method</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { id: 'razorpay', label: 'Razorpay', icon: '💳', desc: 'Card / UPI / Net Banking' },
+                    { id: 'stripe', label: 'Stripe', icon: '💳', desc: 'Card payments' },
+                  ].map((gw) => (
+                    <button
+                      key={gw.id}
+                      type="button"
+                      onClick={() => setSelectedGateway(gw.id)}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border: `2px solid ${selectedGateway === gw.id ? 'var(--accent)' : 'var(--line)'}`,
+                        background: selectedGateway === gw.id ? 'var(--accent-soft, rgba(15,157,138,0.08))' : 'var(--card-bg, #fff)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{gw.icon} {gw.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{gw.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           ) : (

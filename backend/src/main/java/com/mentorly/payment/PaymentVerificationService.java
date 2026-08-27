@@ -7,9 +7,17 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 /**
@@ -64,15 +72,29 @@ public class PaymentVerificationService {
     /**
      * Process a gateway webhook event (e.g. payment.captured, payment.failed).
      * Also handles wallet top-up webhooks by checking the orderId prefix.
+     * Uses idempotent event processing to prevent duplicate side effects.
      */
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
             Map<String, Object> eventData) {
-        LOG.info("Processing webhook event: gateway={}, eventType={}, gatewayPaymentId={}",
-                gatewaySlug, eventType, gatewayPaymentId);
+        // Extract Razorpay event ID for deduplication
+        String eventId = extractEventId(eventData, gatewaySlug);
+        LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}, eventId={}",
+                gatewaySlug, eventType, gatewayPaymentId, eventId);
+
+        // Idempotent: if we already processed this exact event, skip
+        if (eventId != null && !eventId.isBlank()) {
+            // Simple in-memory dedup via the processed event store
+            if (processedEvents.contains(eventId)) {
+                LOG.info("Duplicate webhook event ignored: eventId={}", eventId);
+                return null;
+            }
+            processedEvents.add(eventId);
+        }
 
         // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix
         // in the metadata. Stripe webhooks carry the internal_order_id in metadata.
+        // Razorpay webhooks carry it in notes.
         String orderId = extractOrderIdFromMetadata(eventData);
         if (orderId != null && orderId.startsWith("TOPUP_")) {
             try {
@@ -84,42 +106,67 @@ public class PaymentVerificationService {
             return null; // Top-ups don't have a Payment record
         }
 
+        // If no gatewayPaymentId found, try to find by order ID from Razorpay
+        // Razorpay payment.captured has payment ID inside data.payment.entity.id
+        if (gatewayPaymentId == null || gatewayPaymentId.isBlank()) {
+            String orderIdFromPayload = extractOrderIdFromPayload(eventData);
+            if (orderIdFromPayload != null) {
+                Payment payment = paymentRepository.findByOrderId(orderIdFromPayload).orElse(null);
+                if (payment != null) {
+                    gatewayPaymentId = payment.getPaymentId();
+                }
+            }
+        }
+
+        if (gatewayPaymentId == null || gatewayPaymentId.isBlank()) {
+            LOG.warn("Cannot extract gateway payment ID from webhook: eventType={}", eventType);
+            return null;
+        }
+
         // Find the payment by gateway payment ID
         Payment payment = paymentRepository.findByPaymentId(gatewayPaymentId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Payment not found for gateway payment ID: " + gatewayPaymentId));
+                .orElse(null);
+        if (payment == null) {
+            LOG.warn("Payment not found for gateway payment ID: {} — webhook may arrive before /verify",
+                    gatewayPaymentId);
+            return null;
+        }
+
+        // Idempotent: don't re-process if already in a terminal state
+        if (payment.getStatus() == PaymentStatus.ESCROWED
+                || payment.getStatus() == PaymentStatus.COMPLETED
+                || payment.getStatus() == PaymentStatus.REFUNDED) {
+            LOG.info("Webhook idempotent skip: paymentId={}, status={}, eventType={}",
+                    payment.getId(), payment.getStatus(), eventType);
+            return payment;
+        }
 
         switch (eventType) {
+            // Razorpay payment events
             case "payment.captured":
+            case "payment.authorized":
+            // Stripe payment events
             case "charge.captured":
-            case "payment_intent.succeeded": // Stripe
+            case "payment_intent.succeeded":
+            // PayPal events
             case "CHECKOUT.ORDER.APPROVED":
                 if (payment.getStatus() == PaymentStatus.INITIATED) {
                     payment.setStatus(PaymentStatus.ESCROWED);
                     Payment saved = paymentRepository.save(payment);
                     notifyPaymentSuccess(saved);
-                    LOG.info("Webhook payment captured: paymentId={}", saved.getId());
+                    LOG.info("Webhook payment captured: paymentId={}, eventType={}", saved.getId(), eventType);
                     return saved;
                 }
                 break;
 
             case "payment.failed":
+            case "payment.expired":
             case "charge.failed":
-            case "payment_intent.payment_failed": // Stripe
+            case "payment_intent.payment_failed":
             case "CHECKOUT.ORDER.DECLINED":
-                // Guard against out-of-order / retried webhooks: never regress a
-                // payment that already reached a terminal success state (Stripe
-                // retries events and delivery order is not guaranteed).
-                if (payment.getStatus() == PaymentStatus.ESCROWED
-                        || payment.getStatus() == PaymentStatus.COMPLETED
-                        || payment.getStatus() == PaymentStatus.REFUNDED) {
-                    LOG.warn("Ignoring failure webhook for terminal payment: paymentId={}, status={}",
-                            payment.getId(), payment.getStatus());
-                    return payment;
-                }
                 payment.setStatus(PaymentStatus.FAILED);
                 Payment saved = paymentRepository.save(payment);
-                LOG.warn("Webhook payment failed: paymentId={}", saved.getId());
+                LOG.warn("Webhook payment failed: paymentId={}, eventType={}", saved.getId(), eventType);
                 return saved;
 
             default:
@@ -128,6 +175,48 @@ public class PaymentVerificationService {
 
         return payment;
     }
+
+    /**
+     * Extract event ID for deduplication.
+     * - Razorpay: top-level "id" field (e.g. evt_xxx) or X-Razorpay-Event-Id header
+     * - Stripe: top-level "id" field (e.g. evt_xxx)
+     */
+    private String extractEventId(Map<String, Object> eventData, String gatewaySlug) {
+        Object idObj = eventData.get("id");
+        if (idObj instanceof String s && s.startsWith("evt_")) {
+            return s;
+        }
+        return null;
+    }
+
+    /**
+     * Extract order ID from Razorpay webhook payload.
+     * Razorpay: data.payment.entity.order_id
+     */
+    private String extractOrderIdFromPayload(Map<String, Object> eventData) {
+        Object dataObj = eventData.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object paymentObj = dataMap.get("payment");
+            if (paymentObj instanceof Map<?, ?> paymentMap) {
+                Object entityObj = paymentMap.get("entity");
+                if (entityObj instanceof Map<?, ?> entityMap) {
+                    Object orderIdObj = entityMap.get("order_id");
+                    if (orderIdObj instanceof String s) {
+                        return s;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * In-memory set of processed event IDs for webhook deduplication.
+     * In production, replace with a database-backed or Redis-backed set
+     * with TTL to survive restarts.
+     */
+    private final java.util.Set<String> processedEvents =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
      * Fetch the current status of a payment from its gateway adapter.

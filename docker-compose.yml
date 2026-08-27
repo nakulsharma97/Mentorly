@@ -43,6 +43,13 @@ services:
       OAUTH2_REDIRECT_URL: ${OAUTH2_REDIRECT_URL:-http://localhost:5174/oauth/callback}
       APP_RATE_LIMIT_AUTH_PER_MINUTE: ${APP_RATE_LIMIT_AUTH_PER_MINUTE:-20}
       APP_RATE_LIMIT_PAYMENT_PER_MINUTE: ${APP_RATE_LIMIT_PAYMENT_PER_MINUTE:-30}
+      # Payment gateway credentials (NEVER expose to frontend)
+      APP_PAYMENT_RAZORPAY_KEY_ID: ${APP_PAYMENT_RAZORPAY_KEY_ID:-}
+      APP_PAYMENT_RAZORPAY_KEY_SECRET: ${APP_PAYMENT_RAZORPAY_KEY_SECRET:-}
+      APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER: ${APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER:-false}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CONNECT_WEBHOOK_SECRET: ${STRIPE_CONNECT_WEBHOOK_SECRET:-}
     ports:
       - "8080:8080"
     restart: unless-stopped
@@ -56,6 +63,9 @@ services:
         # backend:8080, so browsers only ever talk to the frontend host.
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
         VITE_APP_ENV: ${VITE_APP_ENV:-production}
+        # Public payment keys (safe to expose in browser bundle)
+        VITE_RAZORPAY_KEY_ID: ${VITE_RAZORPAY_KEY_ID:-}
+        VITE_STRIPE_PUBLISHABLE_KEY: ${VITE_STRIPE_PUBLISHABLE_KEY:-}
     depends_on:
       - backend
     ports:
