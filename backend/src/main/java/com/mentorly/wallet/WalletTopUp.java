@@ -58,6 +58,9 @@ public class WalletTopUp {
     @Column(name = "gateway_payment_id")
     private String gatewayPaymentId;
 
+    @Column(name = "gateway_order_id")
+    private String gatewayOrderId;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 

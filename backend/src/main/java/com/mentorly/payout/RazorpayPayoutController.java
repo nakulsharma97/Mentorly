@@ -67,6 +67,8 @@ public class RazorpayPayoutController {
     public ApiResponse<String> handlePayoutWebhook(
             @RequestHeader(value = "x-razorpay-signature", required = false, defaultValue = "")
             String razorpaySignatureHeader,
+            @RequestHeader(value = "X-Razorpay-Event-Id", required = false, defaultValue = "")
+            String razorpayEventIdHeader,
             @RequestBody String rawBody) {
 
         // Verify signature with the payout webhook secret
@@ -85,22 +87,29 @@ public class RazorpayPayoutController {
             throw new IllegalArgumentException("Invalid webhook payload format");
         }
 
-        // Extract event ID for deduplication
+        // Extract event ID for deduplication.
+        // Razorpay sends the event ID in the X-Razorpay-Event-Id header.
+        // Fall back to the top-level "id" field in the payload.
         String eventId = null;
-        Object idObj = payload.get("id");
-        if (idObj instanceof String s && s.startsWith("evt_")) {
-            eventId = s;
+        if (razorpayEventIdHeader != null && !razorpayEventIdHeader.isBlank()) {
+            eventId = razorpayEventIdHeader.trim();
+        } else {
+            Object idObj = payload.get("id");
+            if (idObj instanceof String s && !s.isBlank()) {
+                eventId = s;
+            }
         }
 
-        // DB-backed deduplication
+        // DB-backed deduplication — uses "razorpay" as gateway name for consistency
         if (eventId != null && !eventId.isBlank()) {
-            if (webhookEventRepository.existsByGatewayAndEventId("razorpay-payout", eventId)) {
+            if (webhookEventRepository.existsByGatewayAndEventId("razorpay", eventId)) {
                 LOG.info("Duplicate payout webhook event ignored: eventId={}", eventId);
                 return new ApiResponse<>("Duplicate event acknowledged", "duplicate");
             }
             WebhookEvent event = new WebhookEvent();
-            event.setGateway("razorpay-payout");
+            event.setGateway("razorpay");
             event.setEventId(eventId);
+            event.setEventType(payload.get("event") instanceof String s ? s : "unknown");
             event.setReceivedAt(OffsetDateTime.now());
             try {
                 webhookEventRepository.save(event);

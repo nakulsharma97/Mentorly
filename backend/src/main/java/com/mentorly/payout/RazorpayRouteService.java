@@ -220,7 +220,7 @@ public class RazorpayRouteService {
             com.razorpay.Transfer transfer = razorpayClient.transfers.create(transferRequest);
             String transferId = transfer.get("id");
 
-            ledgerEntry.setStripeTransferId(transferId); // Reuse the field for Razorpay transfer ID
+            ledgerEntry.setGatewayTransferId(transferId);
             ledgerEntry.setPayoutStatus(PayoutStatus.PROCESSING);
             ledgerEntry = ledgerRepository.save(ledgerEntry);
 
@@ -287,10 +287,12 @@ public class RazorpayRouteService {
         String transferId = extractString(eventData, "id");
         if (transferId == null) return;
 
-        ledgerRepository.findAll().stream()
-                .filter(e -> transferId.equals(e.getStripeTransferId()))
-                .findFirst()
+        ledgerRepository.findByGatewayTransferId(transferId)
                 .ifPresent(entry -> {
+                    if (entry.getPayoutStatus() == PayoutStatus.COMPLETED) {
+                        LOG.info("Razorpay payout already completed: transferId={}", transferId);
+                        return;
+                    }
                     entry.setPayoutStatus(PayoutStatus.COMPLETED);
                     ledgerRepository.save(entry);
                     LOG.info("Razorpay payout completed via webhook: transferId={}, ledgerEntryId={}",
@@ -306,10 +308,14 @@ public class RazorpayRouteService {
         String transferId = extractString(eventData, "id");
         if (transferId == null) return;
 
-        ledgerRepository.findAll().stream()
-                .filter(e -> transferId.equals(e.getStripeTransferId()))
-                .findFirst()
+        ledgerRepository.findByGatewayTransferId(transferId)
                 .ifPresent(entry -> {
+                    if (entry.getPayoutStatus() == PayoutStatus.COMPLETED
+                            || entry.getPayoutStatus() == PayoutStatus.FAILED) {
+                        LOG.info("Razorpay payout already in terminal state: transferId={}, status={}",
+                                transferId, entry.getPayoutStatus());
+                        return;
+                    }
                     entry.setPayoutStatus(PayoutStatus.FAILED);
                     ledgerRepository.save(entry);
                     LOG.warn("Razorpay payout failed via webhook: transferId={}, ledgerEntryId={}",

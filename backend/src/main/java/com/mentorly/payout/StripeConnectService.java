@@ -197,7 +197,7 @@ public class StripeConnectService {
      * @param mentor        the mentor receiving the payout
      * @param amount        payout amount in INR
      * @param ledgerEntry   the ledger entry to annotate with the transfer ID
-     * @return the ledger entry (with stripeTransferId and payoutStatus set)
+     * @return the ledger entry (with gatewayTransferId and payoutStatus set)
      */
     @Transactional
     public WalletLedgerEntry transferToMentor(User mentor, BigDecimal amount, WalletLedgerEntry ledgerEntry) {
@@ -223,7 +223,7 @@ public class StripeConnectService {
 
             Transfer transfer = Transfer.create(params);
 
-            ledgerEntry.setStripeTransferId(transfer.getId());
+            ledgerEntry.setGatewayTransferId(transfer.getId());
             ledgerEntry.setPayoutStatus(PayoutStatus.PROCESSING);
             ledgerEntry = ledgerRepository.save(ledgerEntry);
 
@@ -314,7 +314,7 @@ public class StripeConnectService {
         if (transferId == null) return;
 
         ledgerRepository.findAll().stream()
-                .filter(e -> transferId.equals(e.getStripeTransferId()))
+                .filter(e -> transferId.equals(e.getGatewayTransferId()))
                 .findFirst()
                 .ifPresent(entry -> {
                     entry.setPayoutStatus(PayoutStatus.COMPLETED);
@@ -333,7 +333,7 @@ public class StripeConnectService {
         if (transferId == null) return;
 
         ledgerRepository.findAll().stream()
-                .filter(e -> transferId.equals(e.getStripeTransferId()))
+                .filter(e -> transferId.equals(e.getGatewayTransferId()))
                 .findFirst()
                 .ifPresent(entry -> {
                     entry.setPayoutStatus(PayoutStatus.FAILED);

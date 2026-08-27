@@ -74,12 +74,19 @@ public class PaymentVerificationService {
      * Process a gateway webhook event (e.g. payment.captured, payment.failed).
      * Also handles wallet top-up webhooks by checking the orderId prefix.
      * Uses idempotent event processing to prevent duplicate side effects.
+     *
+     * @param gatewaySlug        gateway identifier ("razorpay", "stripe")
+     * @param eventType          event type string
+     * @param gatewayPaymentId   gateway payment ID from the webhook payload
+     * @param eventData          parsed webhook payload
+     * @param headerEventId      event ID from X-Razorpay-Event-Id header (nullable)
      */
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
-            Map<String, Object> eventData) {
-        // Extract Razorpay event ID for deduplication
-        String eventId = extractEventId(eventData, gatewaySlug);
+            Map<String, Object> eventData, String headerEventId) {
+        // Use header-provided event ID first (most reliable), fall back to payload
+        String eventId = (headerEventId != null && !headerEventId.isBlank())
+                ? headerEventId.trim() : extractEventId(eventData, gatewaySlug);
         LOG.info("Processing webhook: gateway={}, eventType={}, gatewayPaymentId={}, eventId={}",
                 gatewaySlug, eventType, gatewayPaymentId, eventId);
 
@@ -114,7 +121,10 @@ public class PaymentVerificationService {
         }
         if (orderId != null && orderId.startsWith("TOPUP_")) {
             try {
-                walletTopUpService.handleWebhook(orderId);
+                // Extract payment ID and amount from the webhook payload for validation
+                String webhookPaymentId = extractWebhookPaymentId(eventData);
+                java.math.BigDecimal webhookAmount = extractWebhookAmount(eventData);
+                walletTopUpService.handleWebhook(orderId, webhookPaymentId, webhookAmount);
                 LOG.info("Webhook handled as wallet top-up: orderId={}", orderId);
             } catch (Exception e) {
                 LOG.warn("Failed to process wallet top-up webhook: orderId={}", orderId, e);
@@ -290,6 +300,48 @@ public class PaymentVerificationService {
                     Object orderId = metaMap.get("internal_order_id");
                     if (orderId instanceof String s) {
                         return s;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract the gateway payment ID from a Razorpay webhook payload.
+     * Razorpay: data.payment.entity.id
+     */
+    private String extractWebhookPaymentId(Map<String, Object> eventData) {
+        Object dataObj = eventData.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object paymentObj = dataMap.get("payment");
+            if (paymentObj instanceof Map<?, ?> paymentMap) {
+                Object entityObj = paymentMap.get("entity");
+                if (entityObj instanceof Map<?, ?> entityMap) {
+                    Object idVal = entityMap.get("id");
+                    if (idVal instanceof String s) return s;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extract the payment amount (in paise) from a Razorpay webhook payload
+     * and convert to BigDecimal in rupees.
+     * Razorpay: data.payment.entity.amount (in paise)
+     */
+    private java.math.BigDecimal extractWebhookAmount(Map<String, Object> eventData) {
+        Object dataObj = eventData.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object paymentObj = dataMap.get("payment");
+            if (paymentObj instanceof Map<?, ?> paymentMap) {
+                Object entityObj = paymentMap.get("entity");
+                if (entityObj instanceof Map<?, ?> entityMap) {
+                    Object amountVal = entityMap.get("amount");
+                    if (amountVal instanceof Number n) {
+                        return new java.math.BigDecimal(n.toString())
+                                .movePointLeft(2); // Convert paise to rupees
                     }
                 }
             }

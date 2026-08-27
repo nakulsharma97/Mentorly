@@ -213,7 +213,7 @@ class StripeConnectServiceTest {
             WalletLedgerEntry result = stripeConnectService.transferToMentor(
                     mentor, new BigDecimal("50.00"), ledgerEntry);
 
-            assertEquals("tr_test_transfer_123", result.getStripeTransferId());
+            assertEquals("tr_test_transfer_123", result.getGatewayTransferId());
             assertEquals(PayoutStatus.PROCESSING, result.getPayoutStatus());
         }
     }
@@ -311,7 +311,7 @@ class StripeConnectServiceTest {
     void handleTransferPaidMarksEntryCompleted() {
         WalletLedgerEntry entry = new WalletLedgerEntry();
         entry.setId(200L);
-        entry.setStripeTransferId("tr_paid_123");
+        entry.setGatewayTransferId("tr_paid_123");
         entry.setPayoutStatus(PayoutStatus.PROCESSING);
 
         when(ledgerRepository.findAll()).thenReturn(List.of(entry));
@@ -333,7 +333,7 @@ class StripeConnectServiceTest {
 
         WalletLedgerEntry failedEntry = new WalletLedgerEntry();
         failedEntry.setId(300L);
-        failedEntry.setStripeTransferId("tr_failed_456");
+        failedEntry.setGatewayTransferId("tr_failed_456");
         failedEntry.setPayoutStatus(PayoutStatus.PROCESSING);
         failedEntry.setAmount(new BigDecimal("-50.00"));
         failedEntry.setCurrency("INR");

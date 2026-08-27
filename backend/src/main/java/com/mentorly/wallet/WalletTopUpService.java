@@ -71,10 +71,13 @@ public class WalletTopUpService {
                 .build();
         topUp.setGatewayResponse(gatewayResponse);
 
-        // Store the gateway payment ID (Stripe PaymentIntent ID or Razorpay order ID) for later verification
+        // Store gateway identifiers for later verification
+        // For Razorpay: "id" is the order ID; the payment ID comes from checkout
+        // For Stripe: "id" is the PaymentIntent ID
         Object gatewayId = gatewayResponse.get("id");
         if (gatewayId != null) {
             topUp.setGatewayPaymentId(gatewayId.toString());
+            topUp.setGatewayOrderId(gatewayId.toString());
         }
 
         WalletTopUp saved = topUpRepository.save(topUp);
@@ -108,8 +111,23 @@ public class WalletTopUpService {
             return topUp;
         }
 
+        // Also handle VERIFIED state (gateway confirmed, wallet not yet credited)
+        if (topUp.getStatus() == WalletTopUpStatus.VERIFIED && !topUp.isWalletCredited()) {
+            // Gateway already confirmed — just credit the wallet
+            creditWallet(topUp, currentUser.getId());
+            return topUp;
+        }
+
         if (topUp.getStatus() == WalletTopUpStatus.FAILED) {
             throw new IllegalStateException("This top-up has failed and cannot be verified");
+        }
+
+        // Validate that the gateway payment ID matches what we expect
+        if (topUp.getGatewayPaymentId() != null && !topUp.getGatewayPaymentId().isBlank()
+                && !topUp.getGatewayPaymentId().equals(gatewayPaymentId)) {
+            log.warn("Gateway payment ID mismatch: expected={}, got={}",
+                    topUp.getGatewayPaymentId(), gatewayPaymentId);
+            throw new IllegalArgumentException("Payment ID does not match this top-up");
         }
 
         // Verify with the gateway used for this top-up
@@ -123,60 +141,82 @@ public class WalletTopUpService {
             throw new IllegalStateException("Payment verification failed. Please try again.");
         }
 
-        // Payment succeeded — credit the wallet
-        topUp.setStatus(WalletTopUpStatus.SUCCEEDED);
+        // Payment verified by gateway — mark as VERIFIED and credit the wallet
+        topUp.setStatus(WalletTopUpStatus.VERIFIED);
         topUp.setGatewayPaymentId(gatewayPaymentId);
         topUpRepository.save(topUp);
 
-        if (!topUp.isWalletCredited()) {
-            walletService.addEntryForUser(currentUser.getId(), new WalletService.WalletEntryRequest(
-                    WalletTransactionType.CREDIT,
-                    topUp.getAmount(),
-                    "INR",
-                    "Wallet top-up via card payment",
-                    "WALLET_TOPUP",
-                    topUp.getId()));
-            topUp.setWalletCredited(true);
-            topUpRepository.save(topUp);
-            log.info("Wallet credited for top-up: userId={}, orderId={}, amount={}",
-                    currentUser.getId(), orderId, topUp.getAmount());
-        }
+        creditWallet(topUp, currentUser.getId());
 
         return topUp;
     }
 
     /**
-     * Handle Stripe webhook for a wallet top-up. Called when the webhook
-     * path detects a top-up order ID prefix.
+     * Handle webhook for a wallet top-up. Called when the webhook path detects
+     * a top-up order ID prefix. Validates the payment belongs to the correct
+     * internal top-up before crediting.
      */
     @Transactional
-    public WalletTopUp handleWebhook(String orderId) {
+    public WalletTopUp handleWebhook(String orderId, String gatewayPaymentId, BigDecimal gatewayAmount) {
         WalletTopUp topUp = topUpRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Top-up not found for webhook: " + orderId));
 
+        // Idempotent: already processed — do nothing
         if (topUp.getStatus() == WalletTopUpStatus.SUCCEEDED && topUp.isWalletCredited()) {
             log.info("Webhook top-up already processed: orderId={}", orderId);
             return topUp;
         }
 
-        // Credit the wallet from the webhook path
-        topUp.setStatus(WalletTopUpStatus.SUCCEEDED);
-        topUpRepository.save(topUp);
-
-        if (!topUp.isWalletCredited()) {
-            walletService.addEntryForUser(topUp.getUser().getId(), new WalletService.WalletEntryRequest(
-                    WalletTransactionType.CREDIT,
-                    topUp.getAmount(),
-                    "INR",
-                    "Wallet top-up via card payment",
-                    "WALLET_TOPUP",
-                    topUp.getId()));
-            topUp.setWalletCredited(true);
-            topUpRepository.save(topUp);
-            log.info("Webhook wallet credited: orderId={}, userId={}, amount={}",
-                    orderId, topUp.getUser().getId(), topUp.getAmount());
+        // Validate the webhook payment belongs to this top-up
+        if (gatewayPaymentId != null && topUp.getGatewayPaymentId() != null
+                && !topUp.getGatewayPaymentId().equals(gatewayPaymentId)) {
+            log.warn("Webhook payment ID mismatch: top-up expects={}, webhook sent={}",
+                    topUp.getGatewayPaymentId(), gatewayPaymentId);
+            return topUp;
         }
 
+        // Validate the amount matches
+        if (gatewayAmount != null && topUp.getAmount().compareTo(gatewayAmount) != 0) {
+            log.warn("Webhook amount mismatch: top-up expects={}, webhook sent={}",
+                    topUp.getAmount(), gatewayAmount);
+            topUp.setStatus(WalletTopUpStatus.FAILED);
+            topUpRepository.save(topUp);
+            return topUp;
+        }
+
+        // Mark as VERIFIED and credit the wallet
+        topUp.setStatus(WalletTopUpStatus.VERIFIED);
+        if (gatewayPaymentId != null) {
+            topUp.setGatewayPaymentId(gatewayPaymentId);
+        }
+        topUpRepository.save(topUp);
+
+        creditWallet(topUp, topUp.getUser().getId());
+
+        log.info("Webhook wallet credited: orderId={}, userId={}, amount={}",
+                orderId, topUp.getUser().getId(), topUp.getAmount());
+
         return topUp;
+    }
+
+    /**
+     * Credit the wallet for a verified top-up. Idempotent — only credits once.
+     */
+    private void creditWallet(WalletTopUp topUp, Long userId) {
+        if (topUp.isWalletCredited()) {
+            log.info("Wallet already credited for top-up: orderId={}", topUp.getOrderId());
+            return;
+        }
+        walletService.addEntryForUser(userId, new WalletService.WalletEntryRequest(
+                WalletTransactionType.CREDIT,
+                topUp.getAmount(),
+                "INR",
+                "Wallet top-up via card payment",
+                "WALLET_TOPUP",
+                topUp.getId()));
+        topUp.setWalletCredited(true);
+        topUpRepository.save(topUp);
+        log.info("Wallet credited for top-up: userId={}, orderId={}, amount={}",
+                userId, topUp.getOrderId(), topUp.getAmount());
     }
 }

@@ -151,7 +151,7 @@ class WalletTopUpServiceTest {
 
         WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null);
 
-        assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
+        assertEquals(WalletTopUpStatus.VERIFIED, result.getStatus());
         assertTrue(result.isWalletCredited());
         verify(walletService).addEntryForUser(eq(1L), entryCaptor.capture());
         assertEquals(WalletTransactionType.CREDIT, entryCaptor.getValue().type());
@@ -245,9 +245,9 @@ class WalletTopUpServiceTest {
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(walletService.addEntryForUser(eq(1L), any())).thenReturn(null);
 
-        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123");
+        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "pay_test_123", new BigDecimal("200.00"));
 
-        assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
+        assertEquals(WalletTopUpStatus.VERIFIED, result.getStatus());
         assertTrue(result.isWalletCredited());
         verify(walletService).addEntryForUser(eq(1L), entryCaptor.capture());
         assertEquals(WalletTransactionType.CREDIT, entryCaptor.getValue().type());
@@ -262,7 +262,7 @@ class WalletTopUpServiceTest {
 
         when(topUpRepository.findByOrderId("TOPUP_WEBHOOK123")).thenReturn(Optional.of(topUp));
 
-        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123");
+        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "pay_test_123", new BigDecimal("200.00"));
 
         assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
         verify(walletService, never()).addEntryForUser(any(), any());

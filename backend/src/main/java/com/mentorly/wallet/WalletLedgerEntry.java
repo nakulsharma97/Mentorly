@@ -61,9 +61,9 @@ public class WalletLedgerEntry {
     @Column(name = "payout_status", length = 32)
     private PayoutStatus payoutStatus;
 
-    /** Stripe Transfer ID when a real payout was initiated via Stripe Connect. */
-    @Column(name = "stripe_transfer_id", length = 255)
-    private String stripeTransferId;
+    /** Gateway transfer ID (Stripe Transfer ID or Razorpay Transfer ID). */
+    @Column(name = "gateway_transfer_id", length = 255)
+    private String gatewayTransferId;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();

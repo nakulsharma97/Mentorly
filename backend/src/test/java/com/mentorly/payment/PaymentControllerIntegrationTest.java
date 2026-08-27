@@ -260,7 +260,7 @@ class PaymentControllerIntegrationTest {
         payment.setId(900L);
         payment.setStatus(PaymentStatus.ESCROWED);
         when(paymentVerificationService.processWebhookEvent(
-                eq("stripe"), eq("payment_intent.succeeded"), eq("pi_123"), any()))
+                eq("stripe"), eq("payment_intent.succeeded"), eq("pi_123"), any(), any()))
                 .thenReturn(payment);
 
         mockMvc.perform(post("/api/v1/payments/webhook/stripe")
@@ -299,7 +299,7 @@ class PaymentControllerIntegrationTest {
         // reach payment processing. Stripe retries a failed webhook, so a
         // forged event must not accidentally mark a payment captured.
         verify(paymentVerificationService, never())
-                .processWebhookEvent(anyString(), anyString(), anyString(), any());
+                .processWebhookEvent(anyString(), anyString(), anyString(), any(), any());
     }
 
     @Test

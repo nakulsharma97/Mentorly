@@ -166,6 +166,7 @@ public class PaymentController {
             @RequestHeader(value = "X-Webhook-Signature", required = false, defaultValue = "") String signatureHeader,
             @RequestHeader(value = "Stripe-Signature", required = false, defaultValue = "") String stripeSignatureHeader,
             @RequestHeader(value = "x-razorpay-signature", required = false, defaultValue = "") String razorpaySignatureHeader,
+            @RequestHeader(value = "X-Razorpay-Event-Id", required = false, defaultValue = "") String razorpayEventIdHeader,
             @RequestBody String rawBody) {
 
         // Each gateway sends its signature in a different header:
@@ -209,7 +210,7 @@ public class PaymentController {
                 gateway, eventType, gatewayPaymentId);
 
         Payment processed = paymentVerificationService.processWebhookEvent(
-                gateway, eventType, gatewayPaymentId, webhookPayload);
+                gateway, eventType, gatewayPaymentId, webhookPayload, razorpayEventIdHeader);
         return new ApiResponse<>("Webhook processed", processed);
     }
 

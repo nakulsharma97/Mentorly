@@ -12,4 +12,7 @@ public interface WalletLedgerEntryRepository extends JpaRepository<WalletLedgerE
     List<WalletLedgerEntry> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     Optional<WalletLedgerEntry> findFirstByUserIdOrderByCreatedAtDesc(Long userId);
+
+    /** Find a withdrawal entry by its gateway transfer ID (Stripe or Razorpay). */
+    Optional<WalletLedgerEntry> findByGatewayTransferId(String gatewayTransferId);
 }
