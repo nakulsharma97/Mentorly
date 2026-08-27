@@ -11,6 +11,7 @@ import {
   SsActivityItem,
 } from "../components/ui/SsCard";
 import TrendChart from "../modules/common/dashboard/TrendChart";
+import StripePaymentForm from "../components/StripePaymentForm";
 import "./WalletPage.css";
 
 const TRANSACTION_TYPES = [
@@ -173,6 +174,7 @@ export default function WalletPage({ profile, notify }) {
   const [topupAmount, setTopupAmount] = useState("");
   const [topupProcessing, setTopupProcessing] = useState(false);
   const [topupGateway, setTopupGateway] = useState("stripe");
+  const [stripeTopUpData, setStripeTopUpData] = useState(null);
 
   // Fetch wallet data
   useEffect(() => {
@@ -475,19 +477,7 @@ export default function WalletPage({ profile, notify }) {
     }
   };
 
-  // ── Wallet Top-up via Stripe ──
-  const loadStripeJs = () => new Promise((resolve, reject) => {
-    if (window.Stripe) {
-      resolve(window.Stripe);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://js.stripe.com/v3/";
-    script.onload = () => resolve(window.Stripe);
-    script.onerror = () => reject(new Error("Failed to load Stripe"));
-    document.body.appendChild(script);
-  });
-
+  // ── Wallet Top-up ──
   const handleTopUp = async () => {
     const amount = Number(topupAmount);
     if (!amount || amount <= 0) {
@@ -537,7 +527,8 @@ export default function WalletPage({ profile, notify }) {
               try {
                 await client.post("/api/v1/wallet/topup/verify", {
                   orderId: topUp.orderId,
-                  stripePaymentIntentId: response.razorpay_payment_id,
+                  gatewayPaymentId: response.razorpay_payment_id,
+                  signature: response.razorpay_signature,
                 });
                 resolve();
               } catch (e) { reject(e); }
@@ -559,22 +550,10 @@ export default function WalletPage({ profile, notify }) {
           throw new Error("Stripe publishable key not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.");
         }
 
-        const Stripe = await loadStripeJs();
-        const stripe = Stripe(stripePublishableKey);
-        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card: {} },
-        });
-
-        if (error) {
-          throw new Error(error.message || "Payment failed");
-        }
-
-        if (paymentIntent?.status === "succeeded") {
-          await client.post("/api/v1/wallet/topup/verify", {
-            orderId: topUp.orderId,
-            stripePaymentIntentId: paymentIntent.id,
-          });
-        }
+        // Show Stripe card form — store data so StripePaymentForm can render inline
+        setStripeTopUpData({ topUp, amount });
+        setTopupProcessing(false);
+        return;
       }
 
       // Refresh wallet data
@@ -789,6 +768,44 @@ export default function WalletPage({ profile, notify }) {
                     </button>
                   ))}
                 </div>
+                {/* Stripe card form for wallet top-up */}
+                {stripeTopUpData && (
+                  <div style={{ marginTop: 16, border: '1px solid var(--line)', borderRadius: 12, padding: 16, background: 'var(--card-bg, #fff)' }}>
+                    <p style={{ margin: '0 0 10px 0', fontSize: 14, fontWeight: 600 }}>
+                      Enter card details for {formatCurrency(stripeTopUpData.amount)} top-up
+                    </p>
+                    <StripePaymentForm
+                      clientSecret={stripeTopUpData.topUp?.gatewayResponse?.client_secret}
+                      onPaymentSuccess={async (paymentIntent) => {
+                        try {
+                          await client.post('/api/v1/wallet/topup/verify', {
+                            orderId: stripeTopUpData.topUp.orderId,
+                            gatewayPaymentId: paymentIntent.id,
+                            signature: null,
+                          });
+                          // Refresh wallet data
+                          const [balanceResponse, ledgerResponse] = await Promise.all([
+                            client.get('/api/v1/wallet/balance'),
+                            client.get('/api/v1/wallet/ledger'),
+                          ]);
+                          setBalance(balanceResponse.data.data);
+                          setLedger(ledgerResponse.data.data || []);
+                          setTopupAmount('');
+                          setStripeTopUpData(null);
+                          notify?.({ type: 'success', title: 'Wallet topped up', message: `${formatCurrency(stripeTopUpData.amount)} has been added to your wallet.` });
+                        } catch (e) {
+                          const detail = e?.response?.data?.data?.message || e?.response?.data?.message || e?.message || 'Verification failed';
+                          notify?.({ type: 'error', title: 'Top-up verification failed', message: detail });
+                          setStripeTopUpData(null);
+                        }
+                      }}
+                      onPaymentError={(msg) => {
+                        notify?.({ type: 'error', title: 'Payment failed', message: msg });
+                        setStripeTopUpData(null);
+                      }}
+                    />
+                  </div>
+                )}
               </SsCard>
             </section>
           )}

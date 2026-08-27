@@ -127,10 +127,37 @@ public class StripeAdapter implements PaymentGateway {
         try {
             // Real API call — retrieve the PaymentIntent and check its status.
             PaymentIntent intent = PaymentIntent.retrieve(paymentId);
-            boolean verified = "succeeded".equals(intent.getStatus());
-            LOG.info("Stripe payment verification: paymentId={}, orderId={}, status={}, verified={}",
-                    paymentId, orderId, intent.getStatus(), verified);
-            return verified;
+            if (!"succeeded".equals(intent.getStatus())) {
+                LOG.warn("Stripe verification failed: paymentId={}, status={}", paymentId, intent.getStatus());
+                return false;
+            }
+
+            // SECURITY: Verify this PaymentIntent actually belongs to the expected order.
+            // Without this check, a client could supply a PaymentIntent ID from a
+            // different order/amount and pass verification.
+            String intentOrderId = intent.getMetadata() != null
+                    ? intent.getMetadata().get("internal_order_id") : null;
+            if (orderId != null && !orderId.equals(intentOrderId)) {
+                LOG.warn("Stripe verification REJECTED: paymentId={}, expected orderId={},"
+                        + " but PaymentIntent belongs to orderId={}",
+                        paymentId, orderId, intentOrderId);
+                return false;
+            }
+
+            // SECURITY: Verify the payment amount matches the expected amount.
+            // Prevents accepting a succeeded PaymentIntent for a different amount.
+            if (extraParams != null && extraParams.containsKey("expectedAmountMinor")) {
+                long expectedAmount = Long.parseLong(extraParams.get("expectedAmountMinor"));
+                if (intent.getAmount() != expectedAmount) {
+                    LOG.warn("Stripe verification REJECTED: paymentId={}, expected amount={},"
+                            + " got amount={}", paymentId, expectedAmount, intent.getAmount());
+                    return false;
+                }
+            }
+
+            LOG.info("Stripe payment verification PASSED: paymentId={}, orderId={}, status={}",
+                    paymentId, orderId, intent.getStatus());
+            return true;
         } catch (StripeException e) {
             LOG.error("Stripe payment verification failed for paymentId={}", paymentId, e);
             return false;

@@ -153,18 +153,21 @@ public class WalletService {
             entry = ledgerRepository.save(entry);
 
             // Check if mentor has a Razorpay Linked Account with payouts enabled
-            boolean hasRazorpayAccount = razorpayLinkedAccountRepository
-                    .findByMentorId(currentUser.getId())
-                    .filter(a -> a.isPayoutsEnabled() && a.isActivated())
-                    .isPresent();
+           // Route to the user-selected gateway explicitly. Default to Razorpay
+// only when no explicit preference was given.
+String selectedGateway = request.paymentMethod() != null && !request.paymentMethod().isBlank()
+        ? request.paymentMethod()
+        : "razorpay";
 
-            if (hasRazorpayAccount) {
-                entry = razorpayRouteService.processPayout(currentUser, request.amount(), entry);
-                LOG.info("Withdrawal routed to Razorpay: userId={}, amount={}", currentUser.getId(), request.amount());
-            } else {
-                entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
-                LOG.info("Withdrawal routed to Stripe Connect: userId={}, amount={}", currentUser.getId(), request.amount());
-            }
+if ("razorpay".equalsIgnoreCase(selectedGateway)) {
+    entry = razorpayRouteService.processPayout(currentUser, request.amount(), entry);
+    LOG.info("Withdrawal routed to Razorpay (user-selected): userId={}, amount={}", currentUser.getId(), request.amount());
+} else if ("stripe".equalsIgnoreCase(selectedGateway)) {
+    entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
+    LOG.info("Withdrawal routed to Stripe Connect (user-selected): userId={}, amount={}", currentUser.getId(), request.amount());
+} else {
+    throw new IllegalArgumentException("Unsupported payout method: " + selectedGateway);
+}
         } catch (Exception e) {
             // Payout failed — mark as failed in a REQUIRES_NEW transaction
             // so it survives the outer rollback.

@@ -128,6 +128,9 @@ public class SecurityConfig {
                                                                 // PaymentController.handleWebhook) before processing any event.
                                                                 .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook/**")
                                                                 .permitAll()
+                                                                // Razorpay payout webhook (Route/transfer events)
+                                                                .requestMatchers(HttpMethod.POST, "/api/v1/mentor/razorpay-payout/webhook")
+                                                                .permitAll()
                                                 .requestMatchers("/api/v1/health", "/actuator/health",
                                                                 "/actuator/prometheus", "/ws/**")
                                                 .permitAll()

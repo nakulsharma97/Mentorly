@@ -144,7 +144,13 @@ public class RazorpayAdapter implements PaymentGateway {
     public boolean verifyPayment(String paymentId, String orderId, String signature,
             Map<String, String> extraParams) {
         try {
+            if (signature == null || signature.isBlank()) {
+                LOG.warn("Razorpay verification rejected: no signature provided for paymentId={}", paymentId);
+                return false;
+            }
+
             // Razorpay signature verification: HMAC_SHA256(order_id + "|" + payment_id, key_secret)
+            // This binds the payment to the specific order — a forged paymentId won't match.
             String payload = orderId + "|" + paymentId;
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKey = new SecretKeySpec(keySecret.getBytes("UTF-8"), "HmacSHA256");
@@ -163,8 +169,12 @@ public class RazorpayAdapter implements PaymentGateway {
             String expectedSignature = hexString.toString();
             boolean verified = expectedSignature.equals(signature);
 
-            LOG.info("Razorpay payment verification: paymentId={}, orderId={}, verified={}",
-                    paymentId, orderId, verified);
+            if (!verified) {
+                LOG.warn("Razorpay signature MISMATCH: paymentId={}, orderId={}", paymentId, orderId);
+            } else {
+                LOG.info("Razorpay payment verification PASSED: paymentId={}, orderId={}",
+                        paymentId, orderId);
+            }
 
             return verified;
         } catch (GeneralSecurityException | java.io.UnsupportedEncodingException e) {

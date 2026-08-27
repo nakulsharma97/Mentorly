@@ -42,6 +42,9 @@ public class RazorpayRouteService {
     @Value("${app.payment.razorpay.key-secret:" + DEFAULT_SECRET_PLACEHOLDER + "}")
     private String keySecret;
 
+    @Value("${app.payment.razorpay.payout-webhook-secret:rzp_test_webhook_secret}")
+    private String payoutWebhookSecret;
+
     @Value("${app.oauth2.redirect-url:http://localhost:5174}")
     private String frontendBaseUrl;
 
@@ -340,5 +343,43 @@ public class RazorpayRouteService {
     private static String extractString(Map<String, Object> map, String key) {
         Object val = map.get(key);
         return val instanceof String s ? s : null;
+    }
+
+    /**
+     * Verify Razorpay payout webhook signature using HMAC-SHA256.
+     * Uses the dedicated payout webhook secret (separate from the payment webhook secret).
+     */
+    public boolean verifyWebhookSignature(String rawPayload, String signatureHeader) {
+        if (rawPayload == null || signatureHeader == null || signatureHeader.isBlank()) {
+            LOG.warn("Razorpay payout webhook signature header missing or empty");
+            return false;
+        }
+
+        String secretForVerification = (payoutWebhookSecret != null && !payoutWebhookSecret.isBlank()
+                && !"rzp_test_webhook_secret".equals(payoutWebhookSecret))
+                ? payoutWebhookSecret : keySecret;
+
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(
+                    secretForVerification.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] hmacBytes = mac.doFinal(rawPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hmacBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+
+            String expectedSignature = hexString.toString();
+            boolean verified = expectedSignature.equals(signatureHeader);
+            LOG.info("Razorpay payout webhook signature verification: {}", verified ? "PASSED" : "FAILED");
+            return verified;
+        } catch (java.security.GeneralSecurityException e) {
+            LOG.error("Razorpay payout webhook signature verification failed", e);
+            return false;
+        }
     }
 }

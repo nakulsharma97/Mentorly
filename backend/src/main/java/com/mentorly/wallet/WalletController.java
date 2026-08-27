@@ -84,7 +84,7 @@ public class WalletController {
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody VerifyTopUpRequestDTO req) {
         WalletTopUp topUp = walletTopUpService.verifyTopUp(
-                currentUser, req.orderId(), req.stripePaymentIntentId());
+                currentUser, req.orderId(), req.gatewayPaymentId(), req.signature());
         return new ApiResponse<>("Top-up verified and wallet credited", topUp);
     }
 
@@ -105,10 +105,10 @@ public class WalletController {
     public record VerifyTopUpRequestDTO(
             @NotBlank(message = "Order ID is required")
             String orderId,
-            @NotBlank(message = "Stripe PaymentIntent ID is required")
-            String stripePaymentIntentId) {
+            @NotBlank(message = "Gateway payment ID is required")
+            String gatewayPaymentId,
+            String signature) {
     }
-
 /**
  * Immutable data carrier for withdraw request.
  */

@@ -97,8 +97,12 @@ class StripeAdapterTest {
 
     @Test
     void verifyPaymentRetrievesIntentAndChecksSucceededStatus() throws Exception {
+        // Mock succeeded intent with matching metadata
         PaymentIntent succeeded = mock(PaymentIntent.class);
         when(succeeded.getStatus()).thenReturn("succeeded");
+        when(succeeded.getAmount()).thenReturn(10000L);
+        when(succeeded.getMetadata()).thenReturn(Map.of("internal_order_id", "ORDER_X"));
+
         PaymentIntent pending = mock(PaymentIntent.class);
         when(pending.getStatus()).thenReturn("requires_payment_method");
 

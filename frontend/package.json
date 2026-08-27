@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@sentry/react": "^8.55.2",
+    "@stripe/react-stripe-js": "^6.8.2",
+    "@stripe/stripe-js": "^9.14.0",
     "axios": "^1.7.7",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.43.0",

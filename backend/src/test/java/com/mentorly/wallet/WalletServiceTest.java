@@ -167,7 +167,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
-                new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
+                new BigDecimal("30.00"), "Test withdrawal", "stripe");
 
         WalletLedgerEntry result = walletService.withdraw(user, req, "idem-key-1");
 
@@ -191,7 +191,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
-                new BigDecimal("20.00"), null, "PayPal"), "idem-key-2");
+                new BigDecimal("20.00"), null, "stripe"), "idem-key-2");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals("Wallet withdrawal to bank account", entryCaptor.getValue().getDescription());
@@ -203,7 +203,8 @@ class WalletServiceTest {
         setupUserFound();
 
         when(ledgerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+        // Default paymentMethod is null → defaults to "razorpay" → uses RazorpayRouteService
+        when(razorpayRouteService.processPayout(eq(user), any(), any()))
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
@@ -227,7 +228,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletLedgerEntry result = walletService.withdraw(user,
-                new WalletService.WithdrawRequest(new BigDecimal("100.00"), "Full withdrawal", "UPI"), "idem-key-4");
+                new WalletService.WithdrawRequest(new BigDecimal("100.00"), "Full withdrawal", "stripe"), "idem-key-4");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(0, BigDecimal.ZERO.compareTo(entryCaptor.getValue().getBalanceAfter()));
@@ -245,7 +246,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user,
-                new WalletService.WithdrawRequest(new BigDecimal("10.00"), "Minimum withdrawal", "Bank Transfer"), "idem-key-5");
+                new WalletService.WithdrawRequest(new BigDecimal("10.00"), "Minimum withdrawal", "stripe"), "idem-key-5");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(new BigDecimal("-10.00"), entryCaptor.getValue().getAmount());
@@ -277,7 +278,7 @@ class WalletServiceTest {
                 .thenThrow(new IllegalStateException("Payout transfer failed: insufficient funds"));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
-                new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
+                new BigDecimal("30.00"), "Test withdrawal", "stripe");
 
         // Should throw because the Stripe transfer failed
         assertThrows(IllegalStateException.class, () -> walletService.withdraw(user, req, "idem-key-6"));
@@ -486,7 +487,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
-                new BigDecimal("30.00"), "First withdrawal", "UPI");
+                new BigDecimal("30.00"), "First withdrawal", "stripe");
 
         // First call — should create the entry and call Stripe
         WalletLedgerEntry result1 = walletService.withdraw(user, req, "idem-test-key");
@@ -533,7 +534,7 @@ class WalletServiceTest {
                 .thenReturn(Optional.of(storedKey));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
-                new BigDecimal("30.00"), "Different amount", "UPI");
+                new BigDecimal("30.00"), "Different amount", "stripe");
 
         // Should reject because the request hash doesn't match
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -569,7 +570,7 @@ class WalletServiceTest {
                 .thenThrow(new IllegalStateException("Stripe connection failed"));
 
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
-                new BigDecimal("30.00"), "Failing withdrawal", "Bank Transfer");
+                new BigDecimal("30.00"), "Failing withdrawal", "stripe");
 
         // Should throw because payout failed
         assertThrows(IllegalStateException.class,

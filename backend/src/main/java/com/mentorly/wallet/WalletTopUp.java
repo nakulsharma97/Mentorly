@@ -55,8 +55,8 @@ public class WalletTopUp {
     @Column(nullable = false)
     private String gateway = "stripe";
 
-    @Column(name = "stripe_payment_intent_id")
-    private String stripePaymentIntentId;
+    @Column(name = "gateway_payment_id")
+    private String gatewayPaymentId;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;

@@ -71,15 +71,15 @@ public class WalletTopUpService {
                 .build();
         topUp.setGatewayResponse(gatewayResponse);
 
-        // Store the Stripe PaymentIntent ID for later verification
-        Object stripeId = gatewayResponse.get("id");
-        if (stripeId != null) {
-            topUp.setStripePaymentIntentId(stripeId.toString());
+        // Store the gateway payment ID (Stripe PaymentIntent ID or Razorpay order ID) for later verification
+        Object gatewayId = gatewayResponse.get("id");
+        if (gatewayId != null) {
+            topUp.setGatewayPaymentId(gatewayId.toString());
         }
 
         WalletTopUp saved = topUpRepository.save(topUp);
-        log.info("Wallet top-up intent created: userId={}, orderId={}, stripePiId={}, amount={}",
-                currentUser.getId(), orderId, topUp.getStripePaymentIntentId(), amount);
+        log.info("Wallet top-up intent created: userId={}, orderId={}, gatewayPaymentId={}, amount={}",
+                currentUser.getId(), orderId, topUp.getGatewayPaymentId(), amount);
         return saved;
     }
 
@@ -87,13 +87,14 @@ public class WalletTopUpService {
      * Verify a wallet top-up payment and credit the wallet on success.
      * Idempotent: if already credited, returns the existing record.
      *
-     * @param currentUser          authenticated learner
-     * @param orderId              internal order ID
-     * @param stripePaymentIntentId Stripe PaymentIntent ID from the frontend
+     * @param currentUser        authenticated learner
+     * @param orderId            internal order ID
+     * @param gatewayPaymentId   gateway payment ID (Stripe PaymentIntent ID or Razorpay payment_id)
+     * @param signature          gateway signature (Razorpay HMAC or null for Stripe)
      * @return the top-up record
      */
     @Transactional
-    public WalletTopUp verifyTopUp(User currentUser, String orderId, String stripePaymentIntentId) {
+    public WalletTopUp verifyTopUp(User currentUser, String orderId, String gatewayPaymentId, String signature) {
         WalletTopUp topUp = topUpRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Top-up not found: " + orderId));
 
@@ -113,18 +114,18 @@ public class WalletTopUpService {
 
         // Verify with the gateway used for this top-up
         PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
-        boolean verified = gateway.verifyPayment(stripePaymentIntentId, orderId, null, null);
+        boolean verified = gateway.verifyPayment(gatewayPaymentId, orderId, signature, null);
 
         if (!verified) {
             topUp.setStatus(WalletTopUpStatus.FAILED);
             topUpRepository.save(topUp);
-            log.warn("Wallet top-up verification failed: orderId={}, stripePiId={}", orderId, stripePaymentIntentId);
+            log.warn("Wallet top-up verification failed: orderId={}, gatewayPaymentId={}", orderId, gatewayPaymentId);
             throw new IllegalStateException("Payment verification failed. Please try again.");
         }
 
         // Payment succeeded — credit the wallet
         topUp.setStatus(WalletTopUpStatus.SUCCEEDED);
-        topUp.setStripePaymentIntentId(stripePaymentIntentId);
+        topUp.setGatewayPaymentId(gatewayPaymentId);
         topUpRepository.save(topUp);
 
         if (!topUp.isWalletCredited()) {

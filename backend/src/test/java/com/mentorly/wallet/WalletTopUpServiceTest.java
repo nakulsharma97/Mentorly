@@ -84,7 +84,7 @@ class WalletTopUpServiceTest {
         assertEquals(new BigDecimal("50.00"), result.getAmount());
         assertEquals(WalletTopUpStatus.INITIATED, result.getStatus());
         assertFalse(result.isWalletCredited());
-        assertEquals("pi_test_123", result.getStripePaymentIntentId());
+        assertEquals("pi_test_123", result.getGatewayPaymentId());
         assertTrue(result.getOrderId().startsWith("TOPUP_"));
         verify(topUpRepository).save(any());
     }
@@ -149,7 +149,7 @@ class WalletTopUpServiceTest {
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(walletService.addEntryForUser(eq(1L), any())).thenReturn(null);
 
-        WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123");
+        WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null);
 
         assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
         assertTrue(result.isWalletCredited());
@@ -167,7 +167,7 @@ class WalletTopUpServiceTest {
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
 
-        WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123");
+        WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null);
 
         assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
         // Should NOT call wallet service again
@@ -188,7 +188,7 @@ class WalletTopUpServiceTest {
         otherUser.setRole(UserRole.LEARNER);
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> topUpService.verifyTopUp(otherUser, "TOPUP_TEST123", "pi_test_123"));
+                () -> topUpService.verifyTopUp(otherUser, "TOPUP_TEST123", "pi_test_123", null));
         assertEquals("You can only verify your own top-up", ex.getMessage());
     }
 
@@ -205,7 +205,7 @@ class WalletTopUpServiceTest {
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         assertThrows(IllegalStateException.class,
-                () -> topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123"));
+                () -> topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null));
 
         // Wallet should NOT be credited
         verify(walletService, never()).addEntryForUser(any(), any());
@@ -221,7 +221,7 @@ class WalletTopUpServiceTest {
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
 
         assertThrows(IllegalStateException.class,
-                () -> topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123"));
+                () -> topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null));
     }
 
     @Test
@@ -229,7 +229,7 @@ class WalletTopUpServiceTest {
         when(topUpRepository.findByOrderId("NONEXISTENT")).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class,
-                () -> topUpService.verifyTopUp(learner, "NONEXISTENT", "pi_test"));
+                () -> topUpService.verifyTopUp(learner, "NONEXISTENT", "pi_test", null));
     }
 
     // ── handleWebhook() ─────────────────────────────────

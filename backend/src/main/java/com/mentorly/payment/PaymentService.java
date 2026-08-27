@@ -140,12 +140,30 @@ public class PaymentService {
     @Transactional
     public Payment verifyAndCompletePayment(Long paymentId, String paymentGatewayId, String signature,
             Map<String, String> extraParams) {
-        Payment payment = paymentRepository.findById(paymentId)
+        // Pessimistic lock: both /verify and webhook may arrive simultaneously
+        // for the same payment. The lock serializes them so only one can proceed
+        // past the status check, preventing duplicate escrow release.
+        Payment payment = paymentRepository.findByIdWithLock(paymentId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+
+        // Idempotent: if already in a terminal state, skip reprocessing
+        if (payment.getStatus() == PaymentStatus.ESCROWED
+                || payment.getStatus() == PaymentStatus.COMPLETED
+                || payment.getStatus() == PaymentStatus.REFUNDED) {
+            LOG.info("Payment already in terminal state: id={}, status={}", paymentId, payment.getStatus());
+            return payment;
+        }
 
         PaymentGateway gateway = resolveGateway(payment.getGateway());
 
-        boolean verified = gateway.verifyPayment(paymentGatewayId, payment.getOrderId(), signature, extraParams);
+        // Thread the expected amount through extraParams so adapters can verify
+        // the payment amount matches, preventing acceptance of a succeeded
+        // PaymentIntent for a different amount.
+        Map<String, String> verificationParams = extraParams != null ? new java.util.HashMap<>(extraParams) : new java.util.HashMap<>();
+        verificationParams.put("expectedAmountMinor",
+                String.valueOf(payment.getAmount().movePointRight(2).longValueExact()));
+
+        boolean verified = gateway.verifyPayment(paymentGatewayId, payment.getOrderId(), signature, verificationParams);
 
         if (!verified) {
             payment.setStatus(PaymentStatus.FAILED);

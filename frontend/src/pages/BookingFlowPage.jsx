@@ -3,6 +3,7 @@ import client from '../api/client';
 import { normalizeSkills } from '../utils/skills';
 import { formatPrice } from '../utils/price';
 import ReportModal from '../components/ReportModal';
+import StripePaymentForm from '../components/StripePaymentForm';
 
 const formatDateTime = (value) => {
   if (!value) {
@@ -65,6 +66,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
   const [createdPayment, setCreatedPayment] = useState(null);
   const [showReport, setShowReport] = useState(false);
   const [selectedGateway, setSelectedGateway] = useState('razorpay');
+  const [stripeClientSecret, setStripeClientSecret] = useState(null);
   const razorpayLoadedRef = useRef(false);
 
   const mentorSkills = useMemo(
@@ -190,7 +192,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
             // Step 3: Initiate checkout if the gateway response has order details
             if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
               await initiateRazorpayCheckout(payment);
-            } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
+            } else if (payment.gateway === 'stripe') {
               await initiateStripeCheckout(payment);
             }
           }
@@ -270,9 +272,10 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
       if (payment) {
         setCreatedPayment(payment);
         if (payment.gateway === 'razorpay' && payment.gatewayResponse?.id) {
-          await initiateRazorpayCheckout(payment);            } else if (payment.gateway === 'stripe' && payment.gatewayResponse?.client_secret) {
-              await initiateStripeCheckout(payment);
-            }
+          await initiateRazorpayCheckout(payment);
+        } else if (payment.gateway === 'stripe') {
+          await initiateStripeCheckout(payment);
+        }
       }
     } catch (retryError) {
       const msg = retryError?.response?.data?.data?.message || retryError?.response?.data?.message || 'Retry failed. Please contact support.';
@@ -358,65 +361,16 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
 
   /**
    * Initiate Stripe payment via Stripe Elements (embedded card form).
+   * Stores the client_secret so the <StripePaymentForm> component renders a real card input.
    */
   const initiateStripeCheckout = async (payment) => {
-    try {
-      const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
-      if (!stripePublishableKey || stripePublishableKey === 'pk_test_xxxxxxxxxxxx') {
-        setBookingError('Stripe publishable key not configured. Please contact support.');
-        return;
-      }
-
-      // Load Stripe.js
-      await new Promise((resolve, reject) => {
-        if (window.Stripe) { resolve(); return; }
-        const script = document.createElement('script');
-        script.src = 'https://js.stripe.com/v3/';
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Stripe.js'));
-        document.body.appendChild(script);
-      });
-
-      const stripe = window.Stripe(stripePublishableKey);
-      const clientSecret = payment.gatewayResponse?.client_secret;
-      if (!clientSecret) {
-        setBookingError('Missing Stripe client secret. Please retry.');
-        return;
-      }
-
-      // Use Stripe's confirmCardPayment with a card element
-      // This opens a minimal card input via Stripe's built-in UI
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card: {} },
-      });
-
-      if (error) {
-        setBookingError(error.message || 'Payment failed. Please try again.');
-        return;
-      }
-
-      if (paymentIntent?.status === 'succeeded') {
-        // Verify on backend
-        try {
-          await client.post('/api/v1/payments/verify', {
-            paymentId: payment.id,
-            gatewayPaymentId: paymentIntent.id,
-            signature: paymentIntent.id,
-            extraParams: { stripe_payment_intent_id: paymentIntent.id },
-          });
-          setBookingSuccessMessage(
-            `Payment successful! Your session with ${session?.mentor?.fullName || 'your mentor'} is confirmed.`,
-          );
-        } catch (verifyError) {
-          console.warn('Payment verification error:', verifyError?.response?.data || verifyError.message);
-          setBookingSuccessMessage(
-            `Booking confirmed! Payment verification pending. Your session is scheduled for ${formatDateTime(session?.startTime)}.`,
-          );
-        }
-      }
-    } catch (error) {
-      setBookingError('Stripe payment failed. Please try again.');
+    const clientSecret = payment.gatewayResponse?.client_secret;
+    if (!clientSecret) {
+      setBookingError('Missing Stripe client secret. Please retry.');
+      return;
     }
+    // Store the client_secret — StripePaymentForm renders the card input
+    setStripeClientSecret(clientSecret);
   };
 
   const stepIndicator = (
@@ -684,8 +638,38 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
 
       {step === 3 && (
         <div>
-          <h2 style={{ marginTop: 0 }}>Booking Status</h2>
-          {bookingLoading ? (
+          <h2 style={{ marginTop: 0 }}>{stripeClientSecret ? 'Enter Card Details' : 'Booking Status'}</h2>
+          {stripeClientSecret ? (
+            <div style={{ border: '1px solid var(--line)', borderRadius: 14, padding: 16, background: 'var(--card-bg)' }}>
+              <p style={{ margin: '0 0 12px 0', fontSize: 14, color: 'var(--muted)' }}>
+                Complete your payment for the session with {session?.mentor?.fullName || 'your mentor'}.
+              </p>
+              <StripePaymentForm
+                clientSecret={stripeClientSecret}
+                onPaymentSuccess={async (paymentIntent) => {
+                  try {
+                    await client.post('/api/v1/payments/verify', {
+                      paymentId: createdPayment?.id,
+                      gatewayPaymentId: paymentIntent.id,
+                      signature: paymentIntent.id,
+                      extraParams: { stripe_payment_intent_id: paymentIntent.id },
+                    });
+                  } catch (verifyError) {
+                    console.warn('Payment verification error:', verifyError?.response?.data || verifyError.message);
+                  }
+                  setStripeClientSecret(null);
+                  setBookingSuccessMessage(
+                    `Payment successful! Your session with ${session?.mentor?.fullName || 'your mentor'} is confirmed.`,
+                  );
+                }}
+                onPaymentError={(msg) => {
+                  setBookingError(msg);
+                  setStripeClientSecret(null);
+                  setStep(2);
+                }}
+              />
+            </div>
+          ) : bookingLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span className="material-symbols-outlined" style={{ animation: 'spin 1s linear infinite' }}>progress_activity</span>
               <span>Processing your booking...</span>

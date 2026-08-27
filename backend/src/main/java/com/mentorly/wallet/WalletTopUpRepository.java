@@ -12,7 +12,7 @@ public interface WalletTopUpRepository extends JpaRepository<WalletTopUp, Long> 
 
     Optional<WalletTopUp> findByOrderId(String orderId);
 
-    Optional<WalletTopUp> findByStripePaymentIntentId(String stripePaymentIntentId);
+    Optional<WalletTopUp> findByGatewayPaymentId(String gatewayPaymentId);
 
     @Query("SELECT w FROM WalletTopUp w WHERE w.user.id = :userId AND w.orderId = :orderId")
     Optional<WalletTopUp> findByUserIdAndOrderId(
