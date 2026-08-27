@@ -71,13 +71,20 @@ public class WalletTopUpService {
                 .build();
         topUp.setGatewayResponse(gatewayResponse);
 
-        // Store gateway identifiers for later verification
-        // For Razorpay: "id" is the order ID; the payment ID comes from checkout
-        // For Stripe: "id" is the PaymentIntent ID
+        // Store gateway identifiers for later verification.
+        // For Razorpay: gatewayResponse.get("id") is the Razorpay order ID (order_xxx).
+        //   gatewayOrderId = order_xxx, gatewayPaymentId = null (payment ID comes
+        //   AFTER checkout completes — the frontend sends pay_xxx + signature).
+        // For Stripe: gatewayResponse.get("id") is the PaymentIntent ID (pi_xxx).
+        //   gatewayOrderId = pi_xxx, gatewayPaymentId = pi_xxx (same value for Stripe).
         Object gatewayId = gatewayResponse.get("id");
         if (gatewayId != null) {
-            topUp.setGatewayPaymentId(gatewayId.toString());
             topUp.setGatewayOrderId(gatewayId.toString());
+            if ("stripe".equalsIgnoreCase(gatewaySlug)) {
+                topUp.setGatewayPaymentId(gatewayId.toString());
+            }
+            // For Razorpay: gatewayPaymentId stays null — populated later
+            // from Razorpay Checkout response (pay_xxx) during /verify or webhook.
         }
 
         WalletTopUp saved = topUpRepository.save(topUp);
