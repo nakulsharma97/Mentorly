@@ -2,9 +2,11 @@ package com.mentorly.payment;
 
 import com.mentorly.notification.NotificationService;
 import com.mentorly.user.User;
+import com.mentorly.wallet.WalletTopUpService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,8 @@ public class PaymentVerificationService {
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
+    @Lazy
+    private final WalletTopUpService walletTopUpService;
 
     /**
      * Process a payment verification callback (from frontend redirect or webhook).
@@ -59,12 +63,26 @@ public class PaymentVerificationService {
 
     /**
      * Process a gateway webhook event (e.g. payment.captured, payment.failed).
+     * Also handles wallet top-up webhooks by checking the orderId prefix.
      */
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
             Map<String, Object> eventData) {
         LOG.info("Processing webhook event: gateway={}, eventType={}, gatewayPaymentId={}",
                 gatewaySlug, eventType, gatewayPaymentId);
+
+        // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix
+        // in the metadata. Stripe webhooks carry the internal_order_id in metadata.
+        String orderId = extractOrderIdFromMetadata(eventData);
+        if (orderId != null && orderId.startsWith("TOPUP_")) {
+            try {
+                walletTopUpService.handleWebhook(orderId);
+                LOG.info("Webhook handled as wallet top-up: orderId={}", orderId);
+            } catch (Exception e) {
+                LOG.warn("Failed to process wallet top-up webhook: orderId={}", orderId, e);
+            }
+            return null; // Top-ups don't have a Payment record
+        }
 
         // Find the payment by gateway payment ID
         Payment payment = paymentRepository.findByPaymentId(gatewayPaymentId)
@@ -133,5 +151,26 @@ public class PaymentVerificationService {
 
     private void notifyPaymentSuccess(Payment payment) {
         LOG.debug("Payment succeeded: id={}, orderId={}", payment.getId(), payment.getOrderId());
+    }
+
+    /**
+     * Extract internal_order_id from Stripe webhook event metadata.
+     * Stripe events carry metadata at data.object.metadata.internal_order_id.
+     */
+    private String extractOrderIdFromMetadata(Map<String, Object> eventData) {
+        Object dataObj = eventData.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object objectObj = dataMap.get("object");
+            if (objectObj instanceof Map<?, ?> objectMap) {
+                Object metaObj = objectMap.get("metadata");
+                if (metaObj instanceof Map<?, ?> metaMap) {
+                    Object orderId = metaMap.get("internal_order_id");
+                    if (orderId instanceof String s) {
+                        return s;
+                    }
+                }
+            }
+        }
+        return null;
     }
 }

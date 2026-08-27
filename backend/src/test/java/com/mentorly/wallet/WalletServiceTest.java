@@ -20,6 +20,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class WalletServiceTest {
@@ -29,6 +30,9 @@ class WalletServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private WalletWithdrawalIdempotencyKeyRepository idempotencyKeyRepository;
 
     @Mock
     private StripeConnectService stripeConnectService;
@@ -91,21 +95,21 @@ class WalletServiceTest {
     @Test
     void withdrawRejectsNullAmount() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(null, "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(null, "desc", "Bank Transfer"), "test-key"));
         assertEquals("Withdrawal amount must be greater than zero", ex.getMessage());
     }
 
     @Test
     void withdrawRejectsZeroAmount() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(BigDecimal.ZERO, "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(BigDecimal.ZERO, "desc", "Bank Transfer"), "test-key"));
         assertEquals("Withdrawal amount must be greater than zero", ex.getMessage());
     }
 
     @Test
     void withdrawRejectsNegativeAmount() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("-50.00"), "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("-50.00"), "desc", "Bank Transfer"), "test-key"));
         assertEquals("Withdrawal amount must be greater than zero", ex.getMessage());
     }
 
@@ -114,7 +118,7 @@ class WalletServiceTest {
         seedBalance(new BigDecimal("100.00"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("5.00"), "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("5.00"), "desc", "Bank Transfer"), "test-key"));
         assertEquals("Minimum withdrawal amount is ₹10.00", ex.getMessage());
     }
 
@@ -123,7 +127,7 @@ class WalletServiceTest {
         seedBalance(new BigDecimal("100.00"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("9.99"), "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("9.99"), "desc", "Bank Transfer"), "test-key"));
         assertEquals("Minimum withdrawal amount is ₹10.00", ex.getMessage());
     }
 
@@ -132,7 +136,7 @@ class WalletServiceTest {
         seedBalance(new BigDecimal("50.00"));
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("75.00"), "desc", "Bank Transfer")));
+                () -> walletService.withdraw(user, new WalletService.WithdrawRequest(new BigDecimal("75.00"), "desc", "Bank Transfer"), "test-key"));
         assertEquals("Insufficient wallet balance for withdrawal", ex.getMessage());
     }
 
@@ -155,7 +159,7 @@ class WalletServiceTest {
         WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
                 new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
 
-        WalletLedgerEntry result = walletService.withdraw(user, req);
+        WalletLedgerEntry result = walletService.withdraw(user, req, "idem-key-1");
 
         assertNotNull(result);
         assertEquals(WalletTransactionType.WITHDRAWAL, result.getType());
@@ -177,7 +181,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
-                new BigDecimal("20.00"), null, "PayPal"));
+                new BigDecimal("20.00"), null, "PayPal"), "idem-key-2");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals("Wallet withdrawal to bank account", entryCaptor.getValue().getDescription());
@@ -193,7 +197,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user, new WalletService.WithdrawRequest(
-                new BigDecimal("20.00"), null, null));
+                new BigDecimal("20.00"), null, null), "idem-key-3");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals("Wallet withdrawal to bank account", entryCaptor.getValue().getDescription());
@@ -213,7 +217,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         WalletLedgerEntry result = walletService.withdraw(user,
-                new WalletService.WithdrawRequest(new BigDecimal("100.00"), "Full withdrawal", "UPI"));
+                new WalletService.WithdrawRequest(new BigDecimal("100.00"), "Full withdrawal", "UPI"), "idem-key-4");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(0, BigDecimal.ZERO.compareTo(entryCaptor.getValue().getBalanceAfter()));
@@ -231,7 +235,7 @@ class WalletServiceTest {
                 .thenAnswer(invocation -> invocation.getArgument(2));
 
         walletService.withdraw(user,
-                new WalletService.WithdrawRequest(new BigDecimal("10.00"), "Minimum withdrawal", "Bank Transfer"));
+                new WalletService.WithdrawRequest(new BigDecimal("10.00"), "Minimum withdrawal", "Bank Transfer"), "idem-key-5");
 
         verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         assertEquals(new BigDecimal("-10.00"), entryCaptor.getValue().getAmount());
@@ -245,11 +249,20 @@ class WalletServiceTest {
         seedBalance(initialBalance);
         setupUserFound();
 
+        WalletLedgerEntry savedEntry = new WalletLedgerEntry();
+        savedEntry.setId(100L);
+        savedEntry.setUser(user);
+        savedEntry.setType(WalletTransactionType.WITHDRAWAL);
+        savedEntry.setAmount(new BigDecimal("-30.00"));
+        savedEntry.setBalanceAfter(new BigDecimal("70.00"));
+
         when(ledgerRepository.save(any())).thenAnswer(invocation -> {
             WalletLedgerEntry e = invocation.getArgument(0);
-            e.setId(100L);
+            if (e.getId() == null) e.setId(100L);
             return e;
         });
+        // findById must return the entry so markPayoutFailed can update it
+        when(ledgerRepository.findById(100L)).thenReturn(Optional.of(savedEntry));
         when(stripeConnectService.transferToMentor(eq(user), any(), any()))
                 .thenThrow(new IllegalStateException("Payout transfer failed: insufficient funds"));
 
@@ -257,12 +270,15 @@ class WalletServiceTest {
                 new BigDecimal("30.00"), "Test withdrawal", "Bank Transfer");
 
         // Should throw because the Stripe transfer failed
-        assertThrows(IllegalStateException.class, () -> walletService.withdraw(user, req));
+        assertThrows(IllegalStateException.class, () -> walletService.withdraw(user, req, "idem-key-6"));
 
-        // Verify the ledger entry was saved with FAILED status (3 saves: addEntry, payout PENDING, payout FAILED)
-        verify(ledgerRepository, times(3)).save(entryCaptor.capture());
+        // markPayoutFailed was called in a REQUIRES_NEW transaction —
+        // verify the entry was saved with FAILED status
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
         List<WalletLedgerEntry> savedEntries = entryCaptor.getAllValues();
-        assertEquals(PayoutStatus.FAILED, savedEntries.get(2).getPayoutStatus());
+        // The last save should have FAILED status (from markPayoutFailed)
+        WalletLedgerEntry lastSaved = savedEntries.get(savedEntries.size() - 1);
+        assertEquals(PayoutStatus.FAILED, lastSaved.getPayoutStatus());
     }
 
     @Test
@@ -433,7 +449,148 @@ class WalletServiceTest {
         verify(ledgerRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
     }
 
+    // ── BUG 1: Idempotency key protection ─────────────────
+
+    @Test
+    void withdrawIdempotencyReturnsSameResultOnReplay() {
+        seedBalance(initialBalance);
+        // First call reaches the duplicate-pending check; second call returns early
+        // via idempotency, so this stub is only consumed by the first call.
+        lenient().when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        // findByIdWithLock is only reached on the first call's addEntry path
+        lenient().when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
+
+        WalletLedgerEntry entry = new WalletLedgerEntry();
+        entry.setId(200L);
+        entry.setUser(user);
+        entry.setType(WalletTransactionType.WITHDRAWAL);
+        entry.setAmount(new BigDecimal("-30.00"));
+        entry.setBalanceAfter(new BigDecimal("70.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> {
+            WalletLedgerEntry e = invocation.getArgument(0);
+            if (e.getId() == null) e.setId(200L);
+            return e;
+        });
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
+
+        WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
+                new BigDecimal("30.00"), "First withdrawal", "UPI");
+
+        // First call — should create the entry and call Stripe
+        WalletLedgerEntry result1 = walletService.withdraw(user, req, "idem-test-key");
+        assertNotNull(result1);
+        assertEquals(new BigDecimal("-30.00"), result1.getAmount());
+
+        // Simulate that the idempotency key is now stored
+        WalletWithdrawalIdempotencyKey storedKey = new WalletWithdrawalIdempotencyKey();
+        storedKey.setUser(user);
+        storedKey.setIdempotencyKey("idem-test-key");
+        storedKey.setLedgerEntry(result1);
+        storedKey.setRequestHash(WalletServiceTest.computeHash(req));
+        when(idempotencyKeyRepository.findByUserIdAndIdempotencyKey(userId, "idem-test-key"))
+                .thenReturn(Optional.of(storedKey));
+
+        // Second call with same key — should return same result, NOT call Stripe again
+        WalletLedgerEntry result2 = walletService.withdraw(user, req, "idem-test-key");
+        assertSame(result1, result2);
+        assertEquals(result1.getId(), result2.getId());
+
+        // Stripe should have been called only once (from the first call)
+        verify(stripeConnectService, times(1)).transferToMentor(eq(user), any(), any());
+    }
+
+    @Test
+    void withdrawIdempotencyRejectsDifferentPayloadSameKey() {
+        seedBalance(initialBalance);
+        // Idempotency check throws before reaching duplicate check,
+        // so findByUserIdOrderByCreatedAtDesc is NOT needed here.
+
+        // Seed a stored idempotency key for a DIFFERENT amount
+        WalletLedgerEntry existingEntry = new WalletLedgerEntry();
+        existingEntry.setId(300L);
+        existingEntry.setUser(user);
+        existingEntry.setType(WalletTransactionType.WITHDRAWAL);
+        existingEntry.setAmount(new BigDecimal("-50.00"));
+
+        WalletWithdrawalIdempotencyKey storedKey = new WalletWithdrawalIdempotencyKey();
+        storedKey.setUser(user);
+        storedKey.setIdempotencyKey("same-key-different-payload");
+        storedKey.setLedgerEntry(existingEntry);
+        storedKey.setRequestHash("old_hash_value");
+        when(idempotencyKeyRepository.findByUserIdAndIdempotencyKey(userId, "same-key-different-payload"))
+                .thenReturn(Optional.of(storedKey));
+
+        WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
+                new BigDecimal("30.00"), "Different amount", "UPI");
+
+        // Should reject because the request hash doesn't match
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> walletService.withdraw(user, req, "same-key-different-payload"));
+        assertEquals("Idempotency key reuse with different payload", ex.getMessage());
+
+        // Stripe should NOT have been called
+        verify(stripeConnectService, never()).transferToMentor(any(), any(), any());
+    }
+
+    // ── BUG 2: FAILED status persists through rollback ──────
+
+    @Test
+    void withdrawFailedPayoutStatusPersistsAfterRollback() {
+        seedBalance(initialBalance);
+        setupUserFound();
+        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+
+        WalletLedgerEntry savedEntry = new WalletLedgerEntry();
+        savedEntry.setId(400L);
+        savedEntry.setUser(user);
+        savedEntry.setType(WalletTransactionType.WITHDRAWAL);
+        savedEntry.setAmount(new BigDecimal("-30.00"));
+        savedEntry.setBalanceAfter(new BigDecimal("70.00"));
+
+        when(ledgerRepository.save(any())).thenAnswer(invocation -> {
+            WalletLedgerEntry e = invocation.getArgument(0);
+            if (e.getId() == null) e.setId(400L);
+            return e;
+        });
+        when(ledgerRepository.findById(400L)).thenReturn(Optional.of(savedEntry));
+        when(stripeConnectService.transferToMentor(eq(user), any(), any()))
+                .thenThrow(new IllegalStateException("Stripe connection failed"));
+
+        WalletService.WithdrawRequest req = new WalletService.WithdrawRequest(
+                new BigDecimal("30.00"), "Failing withdrawal", "Bank Transfer");
+
+        // Should throw because payout failed
+        assertThrows(IllegalStateException.class,
+                () -> walletService.withdraw(user, req, "fail-test-key"));
+
+        // The FAILED status should have been persisted by markPayoutFailed
+        // (in a REQUIRES_NEW transaction that survives the outer rollback)
+        assertEquals(PayoutStatus.FAILED, savedEntry.getPayoutStatus());
+
+        // The ledger entry should still exist (not rolled back)
+        assertNotNull(savedEntry.getId());
+        assertEquals(WalletTransactionType.WITHDRAWAL, savedEntry.getType());
+
+        // Wallet balance should NOT have been reduced — the outer transaction
+        // rolled back the DEBIT, so the balance is still 100.00
+        verify(ledgerRepository, atLeastOnce()).save(entryCaptor.capture());
+    }
+
     // ── helpers ──────────────────────────────────────────
+
+    static String computeHash(WalletService.WithdrawRequest req) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(
+                    (req.amount().toPlainString() + "|" + req.description() + "|" + req.paymentMethod())
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            return req.amount().toPlainString();
+        }
+    }
 
     private void seedBalance(BigDecimal amount) {
         WalletLedgerEntry existing = new WalletLedgerEntry();

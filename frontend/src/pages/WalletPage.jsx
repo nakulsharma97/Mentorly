@@ -18,7 +18,7 @@ const TRANSACTION_TYPES = [
   { value: "EARNING", label: "Earnings" },
   { value: "WITHDRAWAL", label: "Withdrawals" },
   { value: "REFUND", label: "Refunds" },
-  { value: "CREDIT", label: "Credit" },
+  { value: "CREDIT", label: "Top-up / Credit" },
   { value: "DEBIT", label: "Debit" },
 ];
 
@@ -170,6 +170,8 @@ export default function WalletPage({ profile, notify }) {
   const PAYOUT_PAGE_SIZE = 8;
   const [connectStatus, setConnectStatus] = useState(null);
   const [onboardingLoading, setOnboardingLoading] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupProcessing, setTopupProcessing] = useState(false);
 
   // Fetch wallet data
   useEffect(() => {
@@ -477,6 +479,80 @@ export default function WalletPage({ profile, notify }) {
     }
   };
 
+  // ── Wallet Top-up via Stripe ──
+  const loadStripeJs = () => new Promise((resolve, reject) => {
+    if (window.Stripe) {
+      resolve(window.Stripe);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://js.stripe.com/v3/";
+    script.onload = () => resolve(window.Stripe);
+    script.onerror = () => reject(new Error("Failed to load Stripe"));
+    document.body.appendChild(script);
+  });
+
+  const handleTopUp = async () => {
+    const amount = Number(topupAmount);
+    if (!amount || amount <= 0) {
+      notify?.({ type: "error", title: "Invalid amount", message: "Please enter a valid top-up amount." });
+      return;
+    }
+    if (amount < 10) {
+      notify?.({ type: "error", title: "Minimum amount", message: "Minimum top-up amount is ₹10.00." });
+      return;
+    }
+    setTopupProcessing(true);
+    try {
+      const idempotencyKey = `topup-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const res = await client.post("/api/v1/wallet/topup/intent", { amount }, {
+        headers: { "Idempotency-Key": idempotencyKey },
+      });
+      const topUp = res?.data?.data;
+      const clientSecret = topUp?.gatewayResponse?.client_secret;
+      if (!clientSecret) {
+        throw new Error("Missing Stripe client secret");
+      }
+
+      const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
+      if (!stripePublishableKey || stripePublishableKey === "pk_test_xxxxxxxxxxxx") {
+        throw new Error("Stripe publishable key not configured. Set VITE_STRIPE_PUBLISHABLE_KEY.");
+      }
+
+      const Stripe = await loadStripeJs();
+      const stripe = Stripe(stripePublishableKey);
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: {} },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Payment failed");
+      }
+
+      if (paymentIntent?.status === "succeeded") {
+        await client.post("/api/v1/wallet/topup/verify", {
+          orderId: topUp.orderId,
+          stripePaymentIntentId: paymentIntent.id,
+        });
+
+        // Refresh wallet data
+        const [balanceResponse, ledgerResponse] = await Promise.all([
+          client.get("/api/v1/wallet/balance"),
+          client.get("/api/v1/wallet/ledger"),
+        ]);
+        setBalance(balanceResponse.data.data);
+        setLedger(ledgerResponse.data.data || []);
+        setTopupAmount("");
+        notify?.({ type: "success", title: "Wallet topped up", message: `${formatCurrency(amount)} has been added to your wallet.` });
+      }
+    } catch (err) {
+      const detail = err?.response?.data?.data?.message || err?.response?.data?.message || err?.message || "Top-up failed";
+      notify?.({ type: "error", title: "Top-up failed", message: detail });
+    } finally {
+      setTopupProcessing(false);
+    }
+  };
+
   const pageTitle = profile?.role === "MENTOR" ? "Earnings" : "Payments";
 
   return (
@@ -617,6 +693,39 @@ export default function WalletPage({ profile, notify }) {
               />
             </div>
           </section>
+
+          {/* ── Wallet Top-up Card (Learners only) ── */}
+          {profile?.role !== "MENTOR" && (
+            <section style={{ marginBottom: 24 }}>
+              <SsCard title="Add Money to Wallet" subtitle="Top up your wallet with a card payment via Stripe">
+                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 200 }}>
+                    <span style={{ fontSize: "var(--ss-font-xl)", fontWeight: 700, color: "var(--ss-text-muted)" }}>₹</span>
+                    <input
+                      type="number"
+                      className="wallet-withdraw-card__input"
+                      placeholder="0.00"
+                      min="10"
+                      step="0.01"
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      disabled={topupProcessing}
+                      style={{ flex: 1 }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="ss-btn ss-btn--primary"
+                    onClick={handleTopUp}
+                    disabled={topupProcessing || !topupAmount || Number(topupAmount) <= 0}
+                  >
+                    <SsIcon name="add" size={16} />
+                    {topupProcessing ? "Processing..." : `Add ${topupAmount ? formatCurrency(Number(topupAmount)) : "Money"}`}
+                  </button>
+                </div>
+              </SsCard>
+            </section>
+          )}
 
           {/* ── Monthly Earnings Chart + Activity Timeline ── */}
           <div className="wallet-overview-grid">

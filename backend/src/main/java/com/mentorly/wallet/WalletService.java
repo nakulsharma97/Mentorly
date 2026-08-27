@@ -4,22 +4,30 @@ import com.mentorly.payout.StripeConnectService;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 
 /**
  * Service implementing wallet business logic.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WalletService {
 
     private final WalletLedgerEntryRepository ledgerRepository;
     private final UserRepository userRepository;
+    private final WalletWithdrawalIdempotencyKeyRepository idempotencyKeyRepository;
     @Lazy
     private final StripeConnectService stripeConnectService;
 
@@ -67,8 +75,14 @@ public class WalletService {
         return ledgerRepository.save(entry);
     }
 
+    /**
+     * Withdraw funds from the user's wallet balance.
+     * Uses idempotency-key protection to prevent duplicate Stripe transfers.
+     * Failed payout status is persisted via a nested REQUIRES_NEW transaction
+     * so it survives the outer rollback on failure.
+     */
     @Transactional
-    public WalletLedgerEntry withdraw(User currentUser, WithdrawRequest request) {
+    public WalletLedgerEntry withdraw(User currentUser, WithdrawRequest request, String idempotencyKey) {
         if (request.amount() == null || request.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Withdrawal amount must be greater than zero");
         }
@@ -79,6 +93,21 @@ public class WalletService {
 
         if (request.amount().compareTo(new BigDecimal("10.00")) < 0) {
             throw new IllegalArgumentException("Minimum withdrawal amount is ₹10.00");
+        }
+
+        // Idempotency: if this exact key was already used, return the original result.
+        // This MUST be checked before the duplicate-pending check, because a replayed
+        // idempotency key will look like a duplicate pending withdrawal to the check below.
+        String requestHash = computeRequestHash(request);
+        WalletWithdrawalIdempotencyKey existingKey =
+                idempotencyKeyRepository.findByUserIdAndIdempotencyKey(currentUser.getId(), idempotencyKey)
+                        .orElse(null);
+        if (existingKey != null && existingKey.getLedgerEntry() != null) {
+            if (!existingKey.getRequestHash().equals(requestHash)) {
+                throw new IllegalArgumentException("Idempotency key reuse with different payload");
+            }
+            log.info("Withdrawal idempotency replay: userId={}, key={}", currentUser.getId(), idempotencyKey);
+            return existingKey.getLedgerEntry();
         }
 
         // Duplicate withdrawal protection: check for recent pending withdrawal
@@ -97,7 +126,8 @@ public class WalletService {
 
         // Create the ledger entry first (sets payout_status = PENDING), then
         // initiate the payout. If the payout fails, the entry is rolled back
-        // by the transactional boundary.
+        // by the transactional boundary, but the FAILED status is persisted
+        // via a nested REQUIRES_NEW transaction.
         WalletLedgerEntry entry = addEntry(currentUser, new WalletEntryRequest(
                 WalletTransactionType.WITHDRAWAL,
                 request.amount(),
@@ -114,14 +144,55 @@ public class WalletService {
             entry = ledgerRepository.save(entry);
             entry = stripeConnectService.transferToMentor(currentUser, request.amount(), entry);
         } catch (Exception e) {
-            // Stripe not configured or transfer failed — mark as failed but
-            // keep the ledger entry so the withdrawal is still recorded.
-            entry.setPayoutStatus(PayoutStatus.FAILED);
-            ledgerRepository.save(entry);
+            // Stripe not configured or transfer failed — mark as failed in a
+            // REQUIRES_NEW transaction so it survives the outer rollback.
+            markPayoutFailed(entry.getId());
             throw new IllegalStateException("Payout transfer failed: " + e.getMessage(), e);
         }
 
+        // Persist the idempotency key so replays return the same result.
+        saveIdempotencyKey(currentUser, idempotencyKey, requestHash, entry);
+
         return entry;
+    }
+
+    /**
+     * Mark a ledger entry's payout status as FAILED in a separate transaction.
+     * This survives the outer @Transactional rollback when a Stripe transfer fails,
+     * ensuring the withdrawal attempt is still recorded in the ledger.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markPayoutFailed(Long ledgerEntryId) {
+        ledgerRepository.findById(ledgerEntryId).ifPresent(entry -> {
+            entry.setPayoutStatus(PayoutStatus.FAILED);
+            ledgerRepository.save(entry);
+        });
+    }
+
+    private void saveIdempotencyKey(User user, String idempotencyKey,
+            String requestHash, WalletLedgerEntry ledgerEntry) {
+        try {
+            WalletWithdrawalIdempotencyKey key = new WalletWithdrawalIdempotencyKey();
+            key.setUser(user);
+            key.setIdempotencyKey(idempotencyKey);
+            key.setRequestHash(requestHash);
+            key.setLedgerEntry(ledgerEntry);
+            idempotencyKeyRepository.save(key);
+        } catch (DataIntegrityViolationException ex) {
+            log.warn("Idempotency key race condition: userId={}, key={}", user.getId(), idempotencyKey);
+        }
+    }
+
+    private static String computeRequestHash(WithdrawRequest request) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(
+                    (request.amount().toPlainString() + "|" + request.description() + "|" + request.paymentMethod())
+                            .getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            return request.amount().toPlainString();
+        }
     }
 
 /**

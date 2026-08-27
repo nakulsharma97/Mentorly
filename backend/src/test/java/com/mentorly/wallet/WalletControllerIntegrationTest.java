@@ -41,6 +41,9 @@ class WalletControllerIntegrationTest {
     private WalletService walletService;
 
     @MockitoBean
+    private WalletTopUpService walletTopUpService;
+
+    @MockitoBean
     private ProfileCompletionGuard profileCompletionGuard;
 
     @MockitoBean
@@ -163,6 +166,7 @@ class WalletControllerIntegrationTest {
         // DTO validation should reject before reaching the service
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-validation-key-01")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -184,6 +188,7 @@ class WalletControllerIntegrationTest {
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-validation-key-02")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -205,6 +210,7 @@ class WalletControllerIntegrationTest {
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-validation-key-03")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -226,6 +232,7 @@ class WalletControllerIntegrationTest {
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-validation-key-04")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -246,11 +253,12 @@ class WalletControllerIntegrationTest {
         User learner = createUser(30L, UserRole.LEARNER);
         setSecurityContext(learner);
 
-        when(walletService.withdraw(any(User.class), any()))
+        when(walletService.withdraw(any(User.class), any(), any()))
                 .thenThrow(new IllegalArgumentException("Insufficient wallet balance for withdrawal"));
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-withdrawal-key-123")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -282,11 +290,12 @@ class WalletControllerIntegrationTest {
         entry.setCurrency("INR");
         entry.setDescription("Withdrawal via Bank Transfer");
 
-        when(walletService.withdraw(any(User.class), any()))
+        when(walletService.withdraw(any(User.class), any(), any()))
                 .thenReturn(entry);
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-withdrawal-key-456")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -321,11 +330,12 @@ class WalletControllerIntegrationTest {
         entry.setCurrency("INR");
         entry.setDescription("Minimum withdrawal");
 
-        when(walletService.withdraw(any(User.class), any()))
+        when(walletService.withdraw(any(User.class), any(), any()))
                 .thenReturn(entry);
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-withdrawal-key-789")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
@@ -359,11 +369,12 @@ class WalletControllerIntegrationTest {
         entry.setCurrency("INR");
         entry.setDescription("Wallet withdrawal to bank account");
 
-        when(walletService.withdraw(any(User.class), any()))
+        when(walletService.withdraw(any(User.class), any(), any()))
                 .thenReturn(entry);
 
         try {
             mockMvc.perform(post("/api/v1/wallet/withdraw")
+                            .header("Idempotency-Key", "test-withdrawal-key-012")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {
