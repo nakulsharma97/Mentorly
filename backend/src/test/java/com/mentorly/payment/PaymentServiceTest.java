@@ -244,18 +244,6 @@ class PaymentServiceTest {
     @Test
     void createPaymentOrderRejectsUnsupportedGateway() {
         when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
-        // @InjectMocks may not auto-populate List<PaymentGateway> from a single @Mock,
-        // so manually inject the list to enable gateway resolution testing
-        PaymentGateway paypalGateway = mock(PaymentGateway.class);
-        when(paypalGateway.getGatewaySlug()).thenReturn("paypal");
-        try {
-            java.lang.reflect.Field field = PaymentService.class.getDeclaredField("gateways");
-            field.setAccessible(true);
-            field.set(paymentService, List.of(paypalGateway));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> paymentService.createPaymentOrder(learner, IDEM_KEY, 100L,
                         new BigDecimal("100.00"), "bitcoin"));

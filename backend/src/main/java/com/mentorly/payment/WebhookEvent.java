@@ -42,7 +42,7 @@ public class WebhookEvent {
     private String payloadHash;
 
     @Column(name = "processing_status", nullable = false, length = 32)
-    private String processingStatus = "PROCESSED";
+    private String processingStatus = "PROCESSING";
 
     @Column(name = "received_at", nullable = false)
     private OffsetDateTime receivedAt = OffsetDateTime.now();

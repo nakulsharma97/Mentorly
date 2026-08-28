@@ -71,12 +71,12 @@ This repository contains:
 
 ### Booking, payments & sessions
 - Session booking lifecycle (`PENDING → APPROVED → JOINED / CANCELLED`) with admin approval, payment gating, and idempotency keys.
-- Payments via a **pluggable payment-gateway abstraction using the Strategy pattern** (`PaymentGateway` interface) with three adapters — the **Stripe adapter performs real test-mode Stripe API calls** (PaymentIntent creation, refunds, status retrieval) and **real webhook signature verification** via `Webhook.constructEvent`; **PayPal and Razorpay remain simulated reference implementations** of the same interface. All flows are idempotency-keyed (`POST /payments/intent`).
+- Payments via a **pluggable payment-gateway abstraction using the Strategy pattern** (`PaymentGateway` interface) with two adapters — **Stripe** (real test-mode API calls) and **Razorpay** (simulated reference implementation). All flows are idempotency-keyed (`POST /payments/intent`).
 - Automatic **Google Meet** link generation through the Google Calendar API.
 - Session requests (learner-initiated proposals with preferred date/time/budget), session waitlists, and live-session join flows.
 - Mentor **wallets** with ledger entries and payouts.
 
-> **Current limitations — payments.** Only the **Stripe** adapter performs real (**test-mode**) Stripe API calls. **PayPal and Razorpay adapters are still simulated** reference implementations (locally-generated responses, local HMAC checks) and are not connected to live accounts — no real money moves through those two gateways. To run Stripe end-to-end you must supply test-mode keys — see [Stripe payments (local test mode)](#stripe-payments-local-test-mode). The **idempotency-key layer is fully implemented** (DB-backed unique keys per user + endpoint, replay-safe, request-hash mismatch → `400`) and functions regardless of gateway mode.
+> **Current limitations — payments.** Only the **Stripe** adapter performs real (**test-mode**) Stripe API calls. The **Razorpay adapter remains a simulated** reference implementation. To run Stripe end-to-end you must supply test-mode keys — see [Stripe payments (local test mode)](#stripe-payments-local-test-mode). The **idempotency-key layer is fully implemented** (DB-backed unique keys per user + endpoint, replay-safe, request-hash mismatch → `400`) and functions regardless of gateway mode.
 
 ### Communication & learning
 - Real-time chat (WebSocket) for booking-centric conversations and direct messaging, with message requests, read receipts, reactions, and privacy settings.
@@ -116,7 +116,7 @@ This repository contains:
 | Security | Spring Security, JWT (jjwt 0.12.6), OAuth2 client, Spring AOP, spring-retry |
 | Persistence | Spring Data JPA (Hibernate), MySQL 8, Flyway migrations |
 | Real-time | Spring WebSocket (booking chat, direct chat, notification streams) |
-| Payments | `PaymentGateway` **Strategy pattern** — **Stripe (live test-mode, Stripe Java SDK)** / PayPal + Razorpay (simulated) |
+| Payments | `PaymentGateway` **Strategy pattern** — **Stripe (live test-mode, Stripe Java SDK)** / Razorpay (simulated) |
 | Meeting | Google Calendar API (automatic Meet links) |
 | Email | Spring Mail (JavaMail) |
 | API docs | springdoc-openapi (Swagger UI, dev profile) |
@@ -162,8 +162,7 @@ This repository contains:
 │   MySQL    │  │ Google       │ │ Payment      │ │ External: Email,     │
 │  (JPA +    │  │ Calendar API │ │ gateways     │ │ Sentry, WebSocket    │
 │  Flyway)   │  │ (Meet links) │ │ Stripe live │ │ clients, monitoring  │
-│            │  │              │ │  PayPal +   │ │ (Stripe: live SDK)   │
-│            │  │              │ │  Razorpay   │ │                      │
+│            │  │              │ │  Razorpay   │ │ (Stripe: live SDK)   │
 │            │  │              │ │  simulated) │ │                      │
 └────────────┘  └──────────────┘ └──────────────┘ └──────────────────────┘
 ```
@@ -266,7 +265,7 @@ Root package: `backend/src/main/java/com/mentorly` — each domain folder owns i
 | `session` | Skill sessions, live sessions, auto-creation, meeting providers |
 | `sessionrequest` | Learner session requests & mentor replies |
 | `booking` | Booking lifecycle, status transitions, idempotency |
-| `payment` | Payments, gateway **Strategy pattern** (Stripe — live test-mode; Razorpay/PayPal — simulated), verification, idempotency keys |
+| `payment` | Payments, gateway **Strategy pattern** (Stripe — live test-mode; Razorpay — simulated), verification, idempotency keys |
 | `wallet` | Mentor wallets + ledger entries |
 | `review` | Mentor/learner reviews, replies, moderation |
 | `chat` | Booking-centric chat (WebSocket) |

@@ -109,7 +109,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ### Stripe API Keys
 
-> **Note:** the **Stripe adapter now makes real (test-mode) Stripe API calls** — store a test secret key (`sk_test_...`) and webhook signing secret (`whsec_...`) in GitHub Secrets for CI/deployments that run against Stripe test mode. **PayPal and Razorpay adapters remain simulated**; their keys are reserved for future live wiring. Never store live (`sk_live_...`) keys.
+> **Note:** the **Stripe adapter now makes real (test-mode) Stripe API calls** — store a test secret key (`sk_test_...`) and webhook signing secret (`whsec_...`) in GitHub Secrets for CI/deployments that run against Stripe test mode. **Razorpay adapter remains simulated**. Never store live (`sk_live_...`) keys.
 
 1. Sign in to Stripe Dashboard → Developers → API Keys
 2. Copy the Secret Key (starts with `sk_test_` or `sk_live_`)

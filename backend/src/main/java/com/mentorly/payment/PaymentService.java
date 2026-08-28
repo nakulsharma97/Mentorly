@@ -29,7 +29,7 @@ import java.util.UUID;
 
 /**
  * Orchestrates payment operations using the PaymentGateway strategy pattern.
- * Supports Razorpay, Stripe, and PayPal gateways.
+ * Supports Razorpay and Stripe gateways.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,11 +49,8 @@ public class PaymentService {
      * Retries up to 3 times with exponential backoff if the gateway call fails
      * (e.g. network timeout, temporary gateway outage).
      */
-    @Retryable(
-        retryFor = Exception.class,
-        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
-        backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000)
-    )
+    @Retryable(retryFor = Exception.class, noRetryFor = { IllegalArgumentException.class,
+            IllegalStateException.class }, backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000))
     @Transactional
     public Payment createPaymentOrder(User currentUser, String idempotencyKey, Long bookingId,
             BigDecimal amount, String gatewaySlug) {
@@ -65,8 +62,8 @@ public class PaymentService {
                 String.valueOf(bookingId), String.valueOf(amount), gatewaySlug);
 
         // Check for idempotency replay
-        PaymentIdempotencyKey existingKey =
-                checkIdempotency(currentUser.getId(), endpoint, idempotencyKey, requestHash);
+        PaymentIdempotencyKey existingKey = checkIdempotency(currentUser.getId(), endpoint, idempotencyKey,
+                requestHash);
         if (existingKey != null && existingKey.getPayment() != null) {
             incrementCounter("payment.intent.replay");
             return existingKey.getPayment();
@@ -133,11 +130,8 @@ public class PaymentService {
      * Retries up to 3 times with exponential backoff if signature verification
      * or gateway lookup fails transiently.
      */
-    @Retryable(
-        retryFor = Exception.class,
-        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class},
-        backoff = @Backoff(delay = 500, multiplier = 2.0, maxDelay = 5000)
-    )
+    @Retryable(retryFor = Exception.class, noRetryFor = { IllegalArgumentException.class,
+            IllegalStateException.class }, backoff = @Backoff(delay = 500, multiplier = 2.0, maxDelay = 5000))
     @Transactional
     public Payment verifyAndCompletePayment(Long paymentId, String paymentGatewayId, String signature,
             Map<String, String> extraParams) {
@@ -160,7 +154,8 @@ public class PaymentService {
         // Thread the expected amount through extraParams so adapters can verify
         // the payment amount matches, preventing acceptance of a succeeded
         // PaymentIntent for a different amount.
-        Map<String, String> verificationParams = extraParams != null ? new java.util.HashMap<>(extraParams) : new java.util.HashMap<>();
+        Map<String, String> verificationParams = extraParams != null ? new java.util.HashMap<>(extraParams)
+                : new java.util.HashMap<>();
         verificationParams.put("expectedAmountMinor",
                 String.valueOf(payment.getAmount().movePointRight(2).longValueExact()));
 
@@ -169,14 +164,17 @@ public class PaymentService {
         // where order_id is the REAL Razorpay order ID (order_xxx), NOT the
         // internal ORDER_xxxx synthetic id. Falls back to internal orderId
         // for legacy rows created before V77 migration.
-        String orderIdForVerification = payment.getGatewayOrderId() != null
-                ? payment.getGatewayOrderId() : payment.getOrderId();
-        if (payment.getGatewayOrderId() == null) {
-            LOG.warn("Payment {} has no gatewayOrderId — falling back to internal orderId. "
-                    + "This is expected for legacy rows before V77 migration.", paymentId);
-        }
+        String orderIdForVerification = payment.getGatewayOrderId();
 
-        boolean verified = gateway.verifyPayment(paymentGatewayId, orderIdForVerification, signature, verificationParams);
+        if (orderIdForVerification == null || orderIdForVerification.isBlank()) {
+            orderIdForVerification = payment.getOrderId();
+            LOG.warn("Gateway order ID missing for payment {}, falling back to internal orderId",
+                    paymentId);
+        }
+        
+
+        boolean verified = gateway.verifyPayment(paymentGatewayId, orderIdForVerification, signature,
+                verificationParams);
 
         if (!verified) {
             payment.setStatus(PaymentStatus.FAILED);
@@ -205,13 +203,11 @@ public class PaymentService {
 
     /**
      * Process a refund for the given payment.
-     * Retries up to 3 times with exponential backoff if the refund API call fails transiently.
+     * Retries up to 3 times with exponential backoff if the refund API call fails
+     * transiently.
      */
-    @Retryable(
-        retryFor = Exception.class,
-        noRetryFor = {IllegalArgumentException.class, IllegalStateException.class, UnauthorizedException.class},
-        backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000)
-    )
+    @Retryable(retryFor = Exception.class, noRetryFor = { IllegalArgumentException.class, IllegalStateException.class,
+            UnauthorizedException.class }, backoff = @Backoff(delay = 1000, multiplier = 2.0, maxDelay = 10000))
     @Transactional
     public Payment refundPayment(Long paymentId, BigDecimal amount, String reason, User currentUser) {
         Payment payment = paymentRepository.findByIdWithLock(paymentId)
@@ -260,7 +256,8 @@ public class PaymentService {
      * concurrent refund attempts serialize — only one ever reaches the gateway
      * (duplicate-refund prevention).
      *
-     * <p>Wallet-gateway escrow is internal money held inside the platform, so
+     * <p>
+     * Wallet-gateway escrow is internal money held inside the platform, so
      * there is no external charge to reverse; the caller performs the wallet
      * credit and this method only flips the status. The same applies to
      * {@code INITIATED} intents that were never captured — nothing was charged,

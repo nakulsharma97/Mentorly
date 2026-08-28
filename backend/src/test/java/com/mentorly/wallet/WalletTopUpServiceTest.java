@@ -175,6 +175,7 @@ class WalletTopUpServiceTest {
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("stripe")).thenReturn(stripeGateway);
         // Must pass gatewayOrderId ("pi_test_123"), NOT the internal TOPUP_TEST123
         when(stripeGateway.verifyPayment("pi_test_123", "pi_test_123", null, null)).thenReturn(true);
@@ -205,6 +206,7 @@ class WalletTopUpServiceTest {
         PaymentGateway razorpayGateway = mock(PaymentGateway.class);
 
         when(topUpRepository.findByOrderId("TOPUP_RAZORPAY1")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("razorpay")).thenReturn(razorpayGateway);
 
         // The HMAC verification must use the REAL Razorpay order ID (order_xxx),
@@ -252,6 +254,7 @@ class WalletTopUpServiceTest {
         PaymentGateway razorpayGateway = mock(PaymentGateway.class);
 
         when(topUpRepository.findByOrderId("TOPUP_RAZORPAY2")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("razorpay")).thenReturn(razorpayGateway);
 
         // verifyPayment uses stored gatewayOrderId (order_real_123)
@@ -276,6 +279,7 @@ class WalletTopUpServiceTest {
                 .walletCredited(true).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
 
         WalletTopUp result = topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null);
 
@@ -292,6 +296,7 @@ class WalletTopUpServiceTest {
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
 
         User otherUser = new User();
         otherUser.setId(99L);
@@ -311,6 +316,7 @@ class WalletTopUpServiceTest {
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
         when(paymentService.resolveGateway("stripe")).thenReturn(stripeGateway);
         // Must pass gatewayOrderId ("pi_test_123"), NOT the internal TOPUP_TEST123
         when(stripeGateway.verifyPayment("pi_test_123", "pi_test_123", null, null)).thenReturn(false);
@@ -331,6 +337,7 @@ class WalletTopUpServiceTest {
                 .walletCredited(false).build();
 
         when(topUpRepository.findByOrderId("TOPUP_TEST123")).thenReturn(Optional.of(topUp));
+        when(topUpRepository.findByIdWithLock(1L)).thenReturn(Optional.of(topUp));
 
         assertThrows(IllegalStateException.class,
                 () -> topUpService.verifyTopUp(learner, "TOPUP_TEST123", "pi_test_123", null));
@@ -357,7 +364,7 @@ class WalletTopUpServiceTest {
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(walletService.addEntryForUser(eq(1L), any())).thenReturn(null);
 
-        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "pay_test_123", new BigDecimal("200.00"));
+        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "order_test_456", "pay_test_123", new BigDecimal("200.00"));
 
         assertEquals(WalletTopUpStatus.VERIFIED, result.getStatus());
         assertTrue(result.isWalletCredited());
@@ -383,8 +390,13 @@ class WalletTopUpServiceTest {
         when(topUpRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(walletService.addEntryForUser(eq(1L), any())).thenReturn(null);
 
+        // Mock gateway for Razorpay webhook status check
+        PaymentGateway razorpayGw = mock(PaymentGateway.class);
+        when(paymentService.resolveGateway("razorpay")).thenReturn(razorpayGw);
+        when(razorpayGw.fetchPaymentStatus("pay_abc123xyz")).thenReturn("captured");
+
         WalletTopUp result = topUpService.handleWebhook(
-                "TOPUP_WEBHOOK_RZ1", "pay_abc123xyz", new BigDecimal("1000.00"));
+                "TOPUP_WEBHOOK_RZ1", "order_PAblzC2xcNwKA2", "pay_abc123xyz", new BigDecimal("1000.00"));
 
         assertEquals(WalletTopUpStatus.VERIFIED, result.getStatus());
         assertTrue(result.isWalletCredited());
@@ -403,7 +415,7 @@ class WalletTopUpServiceTest {
 
         when(topUpRepository.findByOrderId("TOPUP_WEBHOOK123")).thenReturn(Optional.of(topUp));
 
-        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "pay_test_123", new BigDecimal("200.00"));
+        WalletTopUp result = topUpService.handleWebhook("TOPUP_WEBHOOK123", "order_test_789", "pay_test_123", new BigDecimal("200.00"));
 
         assertEquals(WalletTopUpStatus.SUCCEEDED, result.getStatus());
         verify(walletService, never()).addEntryForUser(any(), any());

@@ -17,4 +17,11 @@ public interface WalletTopUpRepository extends JpaRepository<WalletTopUp, Long> 
     @Query("SELECT w FROM WalletTopUp w WHERE w.user.id = :userId AND w.orderId = :orderId")
     Optional<WalletTopUp> findByUserIdAndOrderId(
             @Param("userId") Long userId, @Param("orderId") String orderId);
+
+    @org.springframework.data.jpa.repository.Lock(
+            jakarta.persistence.LockModeType.PESSIMISTIC_WRITE
+    )
+    @Query("SELECT w FROM WalletTopUp w WHERE w.id = :id")
+    Optional<WalletTopUp> findByIdWithLock(
+            @Param("id") Long id);
 }

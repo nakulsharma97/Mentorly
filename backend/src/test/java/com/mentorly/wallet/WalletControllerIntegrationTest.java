@@ -216,7 +216,7 @@ class WalletControllerIntegrationTest {
                                     {
                                       "amount": -50.00,
                                       "description": "Negative test",
-                                      "paymentMethod": "PayPal"
+                                      "paymentMethod": "razorpay"
                                     }
                                     """))
                     .andExpect(status().isBadRequest());

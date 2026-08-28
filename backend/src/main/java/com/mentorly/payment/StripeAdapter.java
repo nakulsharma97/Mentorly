@@ -23,8 +23,7 @@ import java.util.Map;
 /**
  * Adapter for the Stripe payment gateway — REAL integration.
  *
- * <p>Unlike {@link PayPalAdapter} and {@link RazorpayAdapter} (which remain
- * simulated reference implementations), this adapter makes live Stripe API
+ * <p>Unlike the simulated Razorpay reference implementation, this adapter makes live Stripe API
  * calls using the official Stripe Java SDK. It is intended to run against
  * Stripe <b>test mode</b> keys: {@code PaymentIntent.create(...)} creates a
  * real PaymentIntent on Stripe's test infrastructure and

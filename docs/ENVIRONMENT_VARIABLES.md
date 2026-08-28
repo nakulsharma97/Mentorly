@@ -58,7 +58,7 @@ SMTP configured still report a green health endpoint. If you enable email,
 | `PAYMENT_SUCCESS_URL`   | Success redirect after payment | `/payment-success` | `https://app.example.com/payment-success` |
 | `PAYMENT_CANCEL_URL`    | Cancel redirect after payment  | `/payment-cancel`  | `https://app.example.com/payment-cancel`  |
 
-> **Note — payment adapters:** the `PaymentGateway` Strategy pattern has three adapters. **Stripe is a real integration** — `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are used to call Stripe's test-mode API (`PaymentIntent.create`, refunds) and to verify webhook signatures via `Webhook.constructEvent`; if they are left unset the adapter only warns, and any real call fails with a clean Stripe API error. **PayPal and Razorpay remain simulated** reference implementations (locally-generated responses, local HMAC checks) — no live gateway API is called for those two. `PAYMENT_SUCCESS_URL` / `PAYMENT_CANCEL_URL` drive the checkout redirect flow regardless.
+> **Note — payment adapters:** the `PaymentGateway` Strategy pattern has two adapters. **Stripe is a real integration** — `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are used to call Stripe's test-mode API (`PaymentIntent.create`, refunds) and to verify webhook signatures via `Webhook.constructEvent`; if they are left unset the adapter only warns, and any real call fails with a clean Stripe API error. **Razorpay remains a simulated** reference implementation. `PAYMENT_SUCCESS_URL` / `PAYMENT_CANCEL_URL` drive the checkout redirect flow regardless.
 
 ### Rate Limiting
 

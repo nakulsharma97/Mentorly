@@ -40,13 +40,14 @@ public class PaymentVerificationService {
     /**
      * Process a payment verification callback (from frontend redirect or webhook).
      *
-     * @param paymentId     Internal payment ID
-     * @param gatewayPaymentId  Payment ID from the gateway (e.g. Razorpay payment_id)
-     * @param signature     Signature/hmac from gateway for verification
-     * @param extraParams   Additional gateway-specific parameters
-     * @param currentUser   Authenticated caller — must be the learner who paid
-     *                      (or an admin), otherwise access is denied (IDOR
-     *                      prevention).
+     * @param paymentId        Internal payment ID
+     * @param gatewayPaymentId Payment ID from the gateway (e.g. Razorpay
+     *                         payment_id)
+     * @param signature        Signature/hmac from gateway for verification
+     * @param extraParams      Additional gateway-specific parameters
+     * @param currentUser      Authenticated caller — must be the learner who paid
+     *                         (or an admin), otherwise access is denied (IDOR
+     *                         prevention).
      * @return Verified payment entity
      */
     @Transactional
@@ -75,11 +76,11 @@ public class PaymentVerificationService {
      * Also handles wallet top-up webhooks by checking the orderId prefix.
      * Uses idempotent event processing to prevent duplicate side effects.
      *
-     * @param gatewaySlug        gateway identifier ("razorpay", "stripe")
-     * @param eventType          event type string
-     * @param gatewayPaymentId   gateway payment ID from the webhook payload
-     * @param eventData          parsed webhook payload
-     * @param headerEventId      event ID from X-Razorpay-Event-Id header (nullable)
+     * @param gatewaySlug      gateway identifier ("razorpay", "stripe")
+     * @param eventType        event type string
+     * @param gatewayPaymentId gateway payment ID from the webhook payload
+     * @param eventData        parsed webhook payload
+     * @param headerEventId    event ID from X-Razorpay-Event-Id header (nullable)
      */
     @Transactional
     public Payment processWebhookEvent(String gatewaySlug, String eventType, String gatewayPaymentId,
@@ -92,24 +93,21 @@ public class PaymentVerificationService {
 
         // Idempotent: DB-backed deduplication survives server restarts
         if (eventId != null && !eventId.isBlank()) {
-            if (webhookEventRepository.existsByGatewayAndEventId(gatewaySlug, eventId)) {
-                LOG.info("Duplicate webhook event ignored (DB): gateway={}, eventId={}", gatewaySlug, eventId);
+            int inserted = webhookEventRepository.insertIfAbsent(
+                    gatewaySlug,
+                    eventId,
+                    eventType,
+                    java.time.OffsetDateTime.now()
+            );
+
+            if (inserted == 0) {
+                LOG.info("Duplicate webhook event ignored (DB): gateway={}, eventId={}",
+                        gatewaySlug, eventId);
                 return null;
             }
-            // Record the event as processing — if the same event arrives
-            // again before this transaction commits, the unique constraint
-            // will cause a DataIntegrityViolationException which we handle.
-            WebhookEvent webhookEvent = new WebhookEvent();
-            webhookEvent.setGateway(gatewaySlug);
-            webhookEvent.setEventId(eventId);
-            webhookEvent.setEventType(eventType);
-            webhookEvent.setReceivedAt(java.time.OffsetDateTime.now());
-            try {
-                webhookEventRepository.save(webhookEvent);
-            } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                LOG.info("Duplicate webhook event (race condition): gateway={}, eventId={}", gatewaySlug, eventId);
-                return null;
-            }
+
+            LOG.info("Webhook event registered for processing: gateway={}, eventId={}",
+                    gatewaySlug, eventId);
         }
 
         // Check if this is a wallet top-up webhook by looking for TOPUP_ prefix.
@@ -123,9 +121,16 @@ public class PaymentVerificationService {
             try {
                 // Extract payment ID and amount from the webhook payload for validation
                 String webhookPaymentId = extractWebhookPaymentId(eventData);
+                String webhookOrderId = extractOrderIdFromPayload(eventData);
                 java.math.BigDecimal webhookAmount = extractWebhookAmount(eventData);
-                walletTopUpService.handleWebhook(orderId, webhookPaymentId, webhookAmount);
+
+                walletTopUpService.handleWebhook(
+                        orderId,
+                        webhookOrderId,
+                        webhookPaymentId,
+                        webhookAmount);
                 LOG.info("Webhook handled as wallet top-up: orderId={}", orderId);
+                markWebhookProcessed(gatewaySlug, eventId);
             } catch (Exception e) {
                 LOG.warn("Failed to process wallet top-up webhook: orderId={}", orderId, e);
             }
@@ -171,16 +176,16 @@ public class PaymentVerificationService {
             // Razorpay payment events
             case "payment.captured":
             case "payment.authorized":
-            // Stripe payment events
+                // Stripe payment events
             case "charge.captured":
             case "payment_intent.succeeded":
-            // PayPal events
-            case "CHECKOUT.ORDER.APPROVED":
                 if (payment.getStatus() == PaymentStatus.INITIATED) {
                     payment.setStatus(PaymentStatus.ESCROWED);
                     Payment saved = paymentRepository.save(payment);
                     notifyPaymentSuccess(saved);
-                    LOG.info("Webhook payment captured: paymentId={}, eventType={}", saved.getId(), eventType);
+                    markWebhookProcessed(gatewaySlug, eventId);
+                    LOG.info("Webhook payment captured: paymentId={}, eventType={}",
+                            saved.getId(), eventType);
                     return saved;
                 }
                 break;
@@ -189,10 +194,11 @@ public class PaymentVerificationService {
             case "payment.expired":
             case "charge.failed":
             case "payment_intent.payment_failed":
-            case "CHECKOUT.ORDER.DECLINED":
                 payment.setStatus(PaymentStatus.FAILED);
                 Payment saved = paymentRepository.save(payment);
-                LOG.warn("Webhook payment failed: paymentId={}, eventType={}", saved.getId(), eventType);
+                markWebhookProcessed(gatewaySlug, eventId);
+                LOG.warn("Webhook payment failed: paymentId={}, eventType={}",
+                        saved.getId(), eventType);
                 return saved;
 
             default:
@@ -200,6 +206,21 @@ public class PaymentVerificationService {
         }
 
         return payment;
+    }
+
+    /**
+     * Mark a webhook event as processed in the database.
+     */
+    private void markWebhookProcessed(String gateway, String eventId) {
+        if (eventId == null || eventId.isBlank()) {
+            return;
+        }
+        webhookEventRepository.findByGatewayAndEventId(gateway, eventId)
+                .ifPresent(event -> {
+                    event.setProcessingStatus("PROCESSED");
+                    event.setProcessedAt(OffsetDateTime.now());
+                    webhookEventRepository.save(event);
+                });
     }
 
     /**
@@ -260,8 +281,6 @@ public class PaymentVerificationService {
         return null;
     }
 
-
-
     /**
      * Fetch the current status of a payment from its gateway adapter.
      * Used for status polling / retry when a previous callback may have timed out.
@@ -319,7 +338,8 @@ public class PaymentVerificationService {
                 Object entityObj = paymentMap.get("entity");
                 if (entityObj instanceof Map<?, ?> entityMap) {
                     Object idVal = entityMap.get("id");
-                    if (idVal instanceof String s) return s;
+                    if (idVal instanceof String s)
+                        return s;
                 }
             }
         }

@@ -13,7 +13,7 @@ const faqItems = [
   },
   {
     q: "What payment methods are supported?",
-    a: "We support multiple payment methods including credit/debit cards (via Stripe), UPI (via Razorpay), and PayPal. All prices are in Indian Rupees (\u20b9). Payments are held in escrow and released to mentors after the session is completed to ensure trust on both sides."
+    a: "We support multiple payment methods including credit/debit cards (via Stripe) and UPI (via Razorpay). All prices are in Indian Rupees (\u20b9). Payments are held in escrow and released to mentors after the session is completed to ensure trust on both sides."
   },
   {
     q: "Can I get a refund if I\u2019m not satisfied?",

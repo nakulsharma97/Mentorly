@@ -1,7 +1,7 @@
 # OWASP Security Audit — Mentorly
 
 **Audit date:** 2026-08-03
-**Scope:** Full stack — Spring Boot 3.5 (Java 21) backend, React 18 (Vite) frontend, nginx proxy, WebSockets, JWT auth, OAuth2 (Google/GitHub), payments (Razorpay/Stripe/PayPal), wallet, bookings, uploads, admin panel.
+**Scope:** Full stack — Spring Boot 3.5 (Java 21) backend, React 18 (Vite) frontend, nginx proxy, WebSockets, JWT auth, OAuth2 (Google/GitHub), payments (Razorpay/Stripe), wallet, bookings, uploads, admin panel.
 **Method:** Manual source review of authentication, authorization, payments, bookings, wallet, notifications, reports, admin, uploads, OAuth, WebSocket, sessions, rate limiting, input validation, CSRF, CORS, SQL injection, XSS, IDOR, SSRF, open redirect, access control, sensitive data, security headers + dependency audit + regression test runs.
 
 ---

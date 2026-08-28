@@ -555,7 +555,6 @@ export default function AdminOperationsPage({ notify }) {
           <option value="">All gateways</option>
           <option value="razorpay">Razorpay</option>
           <option value="stripe">Stripe</option>
-          <option value="paypal">PayPal</option>
           <option value="wallet">Wallet</option>
         </select>
         <button type="button" className="admin-refresh-btn" onClick={loadPayments} disabled={paymentsLoading}>

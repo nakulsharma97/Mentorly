@@ -57,7 +57,6 @@ const GATEWAY_OPTIONS = [
   { value: '', label: 'All gateways' },
   { value: 'razorpay', label: 'Razorpay' },
   { value: 'stripe', label: 'Stripe' },
-  { value: 'paypal', label: 'PayPal' },
   { value: 'wallet', label: 'Wallet' },
 ];
 

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * Strategy interface for payment gateway adapters.
- * Each implementation (Razorpay, Stripe, PayPal) provides its own
+ * Each implementation (Razorpay, Stripe) provides its own
  * logic for creating orders, verifying payments, and processing refunds.
  */
 public interface PaymentGateway {
@@ -55,7 +55,7 @@ public interface PaymentGateway {
     String getGatewayName();
 
     /**
-     * Unique slug identifier for this gateway (e.g. "razorpay", "stripe", "paypal").
+     * Unique slug identifier for this gateway (e.g. "razorpay", "stripe").
      */
     String getGatewaySlug();
 
@@ -67,7 +67,7 @@ public interface PaymentGateway {
      * <ul>
      *   <li><b>Stripe:</b> HMAC-SHA256 over the raw payload using the webhook secret</li>
      *   <li><b>Razorpay:</b> HMAC-SHA256 of {@code order_id|payment_id} using the key secret</li>
-     *   <li><b>PayPal:</b> HMAC-SHA256 over the raw payload using the client secret</li>
+
      * </ul>
      *
      * @param rawPayload     The raw request body as received from the gateway

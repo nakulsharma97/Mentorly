@@ -77,7 +77,7 @@ For each module:
 - Responsibility: payment records, status updates, and payment queries.
 - Main entry points: `PaymentController`, `Payment`, `PaymentRepository`, `PaymentStatus`.
 - Typical changes: payment state transitions, audit fields, repository filters.
-- **Note:** gateways are a `PaymentGateway` Strategy pattern; the **Stripe adapter makes real test-mode API calls** (PaymentIntent + `Webhook.constructEvent` signature verification), while the PayPal/Razorpay adapters **simulate** gateway calls (see README → Current limitations). Idempotency handling is fully real.
+- **Note:** gateways are a `PaymentGateway` Strategy pattern; the **Stripe adapter makes real test-mode API calls** (PaymentIntent + `Webhook.constructEvent` signature verification), while the Razorpay adapter **simulates** gateway calls (see README → Current limitations). Idempotency handling is fully real.
 - API contract notes:
   - `POST /api/v1/payments/intent` and `PATCH /api/v1/payments/{id}/status` require `Idempotency-Key`.
   - Payment idempotency validation uses the same shared rules as booking.

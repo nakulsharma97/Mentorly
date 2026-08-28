@@ -36,8 +36,8 @@ public class WalletTopUpService {
     /**
      * Create a Stripe PaymentIntent for a wallet top-up.
      *
-     * @param currentUser  authenticated learner
-     * @param amount       top-up amount (must be >= ₹10)
+     * @param currentUser authenticated learner
+     * @param amount      top-up amount (must be >= ₹10)
      * @return the top-up record with Stripe client_secret for frontend
      */
     @Transactional
@@ -73,10 +73,10 @@ public class WalletTopUpService {
 
         // Store gateway identifiers for later verification.
         // For Razorpay: gatewayResponse.get("id") is the Razorpay order ID (order_xxx).
-        //   gatewayOrderId = order_xxx, gatewayPaymentId = null (payment ID comes
-        //   AFTER checkout completes — the frontend sends pay_xxx + signature).
+        // gatewayOrderId = order_xxx, gatewayPaymentId = null (payment ID comes
+        // AFTER checkout completes — the frontend sends pay_xxx + signature).
         // For Stripe: gatewayResponse.get("id") is the PaymentIntent ID (pi_xxx).
-        //   gatewayOrderId = pi_xxx, gatewayPaymentId = pi_xxx (same value for Stripe).
+        // gatewayOrderId = pi_xxx, gatewayPaymentId = pi_xxx (same value for Stripe).
         Object gatewayId = gatewayResponse.get("id");
         if (gatewayId != null) {
             topUp.setGatewayOrderId(gatewayId.toString());
@@ -97,16 +97,22 @@ public class WalletTopUpService {
      * Verify a wallet top-up payment and credit the wallet on success.
      * Idempotent: if already credited, returns the existing record.
      *
-     * @param currentUser        authenticated learner
-     * @param orderId            internal order ID
-     * @param gatewayPaymentId   gateway payment ID (Stripe PaymentIntent ID or Razorpay payment_id)
-     * @param signature          gateway signature (Razorpay HMAC or null for Stripe)
+     * @param currentUser      authenticated learner
+     * @param orderId          internal order ID
+     * @param gatewayPaymentId gateway payment ID (Stripe PaymentIntent ID or
+     *                         Razorpay payment_id)
+     * @param signature        gateway signature (Razorpay HMAC or null for Stripe)
      * @return the top-up record
      */
     @Transactional
     public WalletTopUp verifyTopUp(User currentUser, String orderId, String gatewayPaymentId, String signature) {
-        WalletTopUp topUp = topUpRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Top-up not found: " + orderId));
+       WalletTopUp topUp = topUpRepository.findByOrderId(orderId)
+        .orElseThrow(() -> new IllegalArgumentException("Top-up not found: " + orderId));
+
+// Re-load the row with a database lock before processing.
+// This prevents /verify and webhook from crediting the same top-up concurrently.
+topUp = topUpRepository.findByIdWithLock(topUp.getId())
+        .orElseThrow(() -> new IllegalArgumentException("Top-up not found: " + orderId));
 
         if (!topUp.getUser().getId().equals(currentUser.getId())) {
             throw new IllegalArgumentException("You can only verify your own top-up");
@@ -139,12 +145,24 @@ public class WalletTopUpService {
 
         // Verify with the gateway used for this top-up.
         // Razorpay HMAC = HMAC(order_id + "|" + payment_id, key_secret) where order_id
-        // is the REAL Razorpay order ID (e.g. order_xxx), NOT the internal TOPUP_xxx id.
-        String orderIdForVerification = topUp.getGatewayOrderId() != null
-                ? topUp.getGatewayOrderId() : orderId;
-        PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
-        boolean verified = gateway.verifyPayment(gatewayPaymentId, orderIdForVerification, signature, null);
+        // is the REAL Razorpay order ID (e.g. order_xxx), NOT the internal TOPUP_xxx
+        // id.
+        // Verify using the REAL gateway order ID.
+        // Never fall back to the internal Mentorly TOPUP_xxx ID.
+        String orderIdForVerification = topUp.getGatewayOrderId();
 
+        if (orderIdForVerification == null || orderIdForVerification.isBlank()) {
+            throw new IllegalStateException(
+                    "Gateway order ID is missing for top-up verification");
+        }
+
+        PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
+
+        boolean verified = gateway.verifyPayment(
+                gatewayPaymentId,
+                orderIdForVerification,
+                signature,
+                null);
         if (!verified) {
             topUp.setStatus(WalletTopUpStatus.FAILED);
             topUpRepository.save(topUp);
@@ -168,44 +186,103 @@ public class WalletTopUpService {
      * internal top-up before crediting.
      */
     @Transactional
-    public WalletTopUp handleWebhook(String orderId, String gatewayPaymentId, BigDecimal gatewayAmount) {
+    public WalletTopUp handleWebhook(
+            String orderId,
+            String gatewayOrderId,
+            String gatewayPaymentId,
+            BigDecimal gatewayAmount) {
+
         WalletTopUp topUp = topUpRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Top-up not found for webhook: " + orderId));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Top-up not found for webhook: " + orderId));
 
-        // Idempotent: already processed — do nothing
-        if (topUp.getStatus() == WalletTopUpStatus.SUCCEEDED && topUp.isWalletCredited()) {
-            log.info("Webhook top-up already processed: orderId={}", orderId);
+        // Already credited -> do nothing.
+        if (topUp.getStatus() == WalletTopUpStatus.SUCCEEDED
+                && topUp.isWalletCredited()) {
+
+            log.info(
+                    "Webhook top-up already processed: orderId={}",
+                    orderId);
+
             return topUp;
         }
 
-        // Validate the webhook payment belongs to this top-up
-        if (gatewayPaymentId != null && topUp.getGatewayPaymentId() != null
-                && !topUp.getGatewayPaymentId().equals(gatewayPaymentId)) {
-            log.warn("Webhook payment ID mismatch: top-up expects={}, webhook sent={}",
-                    topUp.getGatewayPaymentId(), gatewayPaymentId);
-            return topUp;
+        // A gateway payment ID must be present.
+        if (gatewayPaymentId == null || gatewayPaymentId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Gateway payment ID is missing");
         }
+        if ("razorpay".equalsIgnoreCase(topUp.getGateway())) {
 
-        // Validate the amount matches
-        if (gatewayAmount != null && topUp.getAmount().compareTo(gatewayAmount) != 0) {
-            log.warn("Webhook amount mismatch: top-up expects={}, webhook sent={}",
-                    topUp.getAmount(), gatewayAmount);
+            String expectedGatewayOrderId = topUp.getGatewayOrderId();
+
+            if (expectedGatewayOrderId == null
+                    || expectedGatewayOrderId.isBlank()) {
+                throw new IllegalStateException(
+                        "Gateway order ID is missing for Razorpay top-up");
+            }
+
+            if (gatewayOrderId == null
+                    || !expectedGatewayOrderId.equals(gatewayOrderId)) {
+
+                throw new IllegalArgumentException(
+                        "Razorpay order ID does not match this top-up");
+            }
+
+            PaymentGateway gateway = paymentService.resolveGateway(topUp.getGateway());
+
+            String gatewayStatus = gateway.fetchPaymentStatus(gatewayPaymentId);
+
+            if (gatewayStatus == null
+                    || !("captured".equalsIgnoreCase(gatewayStatus)
+                            || "completed".equalsIgnoreCase(gatewayStatus))) {
+
+                log.warn(
+                        "Razorpay top-up webhook payment is not successful: "
+                                + "paymentId={}, status={}",
+                        gatewayPaymentId,
+                        gatewayStatus);
+
+                return topUp;
+            }
+        }
+        // For Razorpay, make sure the webhook payment matches
+        // the order that created this top-up.
+        
+
+        // Validate amount.
+        if (gatewayAmount != null
+                && topUp.getAmount().compareTo(gatewayAmount) != 0) {
+
+            log.warn(
+                    "Webhook amount mismatch: top-up expects={}, webhook sent={}",
+                    topUp.getAmount(),
+                    gatewayAmount);
+
             topUp.setStatus(WalletTopUpStatus.FAILED);
             topUpRepository.save(topUp);
+
             return topUp;
         }
 
-        // Mark as VERIFIED and credit the wallet
+        // Store the real gateway payment ID.
+        topUp.setGatewayPaymentId(gatewayPaymentId);
+
+        // Mark gateway confirmation.
         topUp.setStatus(WalletTopUpStatus.VERIFIED);
-        if (gatewayPaymentId != null) {
-            topUp.setGatewayPaymentId(gatewayPaymentId);
-        }
+
         topUpRepository.save(topUp);
 
-        creditWallet(topUp, topUp.getUser().getId());
+        // Credit wallet exactly once.
+        creditWallet(
+                topUp,
+                topUp.getUser().getId());
 
-        log.info("Webhook wallet credited: orderId={}, userId={}, amount={}",
-                orderId, topUp.getUser().getId(), topUp.getAmount());
+        log.info(
+                "Webhook wallet credited: orderId={}, userId={}, amount={}",
+                orderId,
+                topUp.getUser().getId(),
+                topUp.getAmount());
 
         return topUp;
     }

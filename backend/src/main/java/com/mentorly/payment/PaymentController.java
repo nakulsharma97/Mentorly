@@ -75,7 +75,7 @@ public class PaymentController {
 
     /**
      * Create a payment order/intent via the specified gateway adapter.
-     * Body can include: { "bookingId": Long, "amount": BigDecimal, "gateway": "razorpay"|"stripe"|"paypal" }
+     * Body can include: { "bookingId": Long, "amount": BigDecimal, "gateway": "razorpay"|"stripe" }
      */
     @PostMapping("/intent")
     public ApiResponse<Payment> createIntent(@AuthenticationPrincipal User currentUser,
@@ -200,7 +200,7 @@ public class PaymentController {
         }
 
         // Stripe events carry the type at top level ("payment_intent.succeeded");
-        // Razorpay/PayPal send it under "event".
+        // Razorpay sends it under "event".
         String eventType = isStripe
                 ? safeStringCast(webhookPayload.get("type"), "unknown")
                 : safeStringCast(webhookPayload.get("event"), "unknown");
@@ -231,7 +231,7 @@ public class PaymentController {
      * - Stripe: data.object.id (e.g. pi_xxx)
      * - Razorpay: data.payment.entity.id (e.g. pay_xxx)
      * - Razorpay refunds: data.refund.entity.payment_id
-     * - PayPal: resource.id
+
      */
     private static String extractGatewayPaymentId(Map<String, Object> payload) {
         Object dataObj = payload.get("data");
