@@ -153,6 +153,24 @@ public class RazorpayRouteService {
             LOG.info("Razorpay Linked Account created: mentorId={}, razorpayAccountId={}",
                     mentor.getId(), razorpayAccountId);
 
+            // Best-effort: create stakeholder and configure product on the linked account.
+            // These are required for live-mode Route payouts but may be deferred in Test Mode.
+            // If these fail, the account still exists — the mentor can complete setup via
+            // the onboarding link or these can be retried later.
+            try {
+                createStakeholder(razorpayAccountId, mentor);
+                linkedAccount.setOnboardingStatus(RazorpayOnboardingStatus.IN_PROGRESS);
+            } catch (Exception e) {
+                LOG.warn("Stakeholder creation deferred for mentorId={}: {}", mentor.getId(), e.getMessage());
+            }
+            try {
+                configureRouteProduct(razorpayAccountId);
+                linkedAccount.setProductConfigStatus("CONFIGURED");
+            } catch (Exception e) {
+                LOG.warn("Product configuration deferred for mentorId={}: {}", mentor.getId(), e.getMessage());
+            }
+            linkedAccount = linkedAccountRepository.save(linkedAccount);
+
             return linkedAccount;
         } catch (RazorpayException e) {
             LOG.error("Failed to create Razorpay Linked Account for mentorId={}: {}",
@@ -341,6 +359,47 @@ public class RazorpayRouteService {
                     mentor.getId(), amount, e.getMessage(), e);
             throw new IllegalStateException("Payout transfer failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Creates a stakeholder on the Razorpay Linked Account.
+     * Razorpay Route requires at least one stakeholder before the account
+     * can receive payouts in live mode.
+     *
+     * Reference: https://razorpay.com/docs/api/payments/route/create-linked-account/
+     */
+    private void createStakeholder(String razorpayAccountId, User mentor) throws RazorpayException {
+        JSONObject stakeholderRequest = new JSONObject();
+        stakeholderRequest.put("name", mentor.getFullName() != null ? mentor.getFullName() : "Mentor");
+        stakeholderRequest.put("email", mentor.getEmail());
+        stakeholderRequest.put("relationship", "owner");
+
+        razorpayClient.account.post(
+                "/accounts/" + razorpayAccountId + "/stakeholders",
+                null, stakeholderRequest, null);
+
+        LOG.info("Razorpay stakeholder created: accountId={}, mentorId={}", razorpayAccountId, mentor.getId());
+    }
+
+    /**
+     * Configures the Route product on the Razorpay Linked Account.
+     * Razorpay Route requires product configuration before the account
+     * can process payouts in live mode.
+     *
+     * Reference: https://razorpay.com/docs/api/partners/product-configuration/
+     */
+    private void configureRouteProduct(String razorpayAccountId) throws RazorpayException {
+        JSONObject configRequest = new JSONObject();
+        configRequest.put("product_name", "route");
+        configRequest.put("activies", new JSONObject()
+                .put("category", "education")
+                .put("subcategory", "online_platform"));
+
+        razorpayClient.account.post(
+                "/accounts/" + razorpayAccountId + "/product_configuration/route",
+                null, configRequest, null);
+
+        LOG.info("Razorpay Route product configured: accountId={}", razorpayAccountId);
     }
 
     /**

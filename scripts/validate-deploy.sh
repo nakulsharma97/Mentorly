@@ -310,7 +310,7 @@ if [ "$MODE" != "k8s-only" ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════
-#  4. KUBERNETES CONFIGURATION
+#  4. KUBERNETES CONFIGURATION (optional — only if k8s/ exists)
 # ═══════════════════════════════════════════════════════════════
 
 header "Kubernetes Configuration"
@@ -336,7 +336,8 @@ if [ -d "$K8S_DIR" ]; then
     fi
   fi
 else
-  fail "Kubernetes directory not found: $K8S_DIR"
+  info "Kubernetes directory not found ($K8S_DIR) — skipping k8s checks"
+  info "This project uses Docker Compose for deployment"
 fi
 
 # ═══════════════════════════════════════════════════════════════

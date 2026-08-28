@@ -273,16 +273,20 @@ topUp = topUpRepository.findByIdWithLock(topUp.getId())
 
         topUpRepository.save(topUp);
 
-        // Credit wallet exactly once.
-        creditWallet(
-                topUp,
-                topUp.getUser().getId());
-
-        log.info(
-                "Webhook wallet credited: orderId={}, userId={}, amount={}",
-                orderId,
-                topUp.getUser().getId(),
-                topUp.getAmount());
+        // Credit wallet exactly once. Wrap in try-catch so that a wallet
+        // write failure marks the top-up as FAILED rather than rolling back
+        // the entire transaction — which would lose the webhook event and
+        // leave the top-up permanently stuck (the next webhook delivery
+        // would be deduplicated and ignored).
+        try {
+            creditWallet(topUp, topUp.getUser().getId());
+            log.info("Webhook wallet credited: orderId={}, userId={}, amount={}",
+                    orderId, topUp.getUser().getId(), topUp.getAmount());
+        } catch (Exception e) {
+            log.error("Webhook wallet credit failed for orderId={}: {}", orderId, e.getMessage(), e);
+            topUp.setStatus(WalletTopUpStatus.FAILED);
+            topUpRepository.save(topUp);
+        }
 
         return topUp;
     }
