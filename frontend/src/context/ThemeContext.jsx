@@ -1,30 +1,33 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 const ThemeContext = createContext();
 
+function applyTheme(isDark) {
+  const root = document.documentElement;
+  root.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  root.classList.toggle('dark', isDark);
+  localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
+}
+
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
-    // Check localStorage first
     const saved = localStorage.getItem('theme-preference');
     if (saved) return saved === 'dark';
-    
-    // Default to dark theme
     return true;
   });
 
-  useEffect(() => {
-    localStorage.setItem('theme-preference', isDark ? 'dark' : 'light');
-    const root = document.documentElement;
-    root.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    // Toggle the .dark class so Tailwind `dark:` variants resolve correctly
-    // alongside the CSS-variable `[data-theme="dark"]` system.
-    root.classList.toggle('dark', isDark);
-  }, [isDark]);
+  const toggle = useCallback(() => {
+    setIsDark(prev => {
+      const next = !prev;
+      applyTheme(next);
+      return next;
+    });
+  }, []);
 
-  const toggle = () => setIsDark(prev => !prev);
+  const value = useMemo(() => ({ isDark, toggle }), [isDark, toggle]);
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggle }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

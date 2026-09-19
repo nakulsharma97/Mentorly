@@ -1,0 +1,2525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mentorly — Complete Architecture Document</title>
+<style>
+  @page { size: A3 landscape; margin: 12mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0d1117; color: #e6edf3; line-height: 1.45; font-size: 13px; }
+  .page { width: 420mm; padding: 14mm 16mm; page-break-after: always; position: relative; background: #0d1117; }
+  .page:last-child { page-break-after: avoid; }
+  .page-cover { min-height: 270mm; }
+  h1 { font-size: 28px; color: #58a6ff; margin-bottom: 6px; letter-spacing: -0.5px; }
+  h2 { font-size: 18px; color: #58a6ff; margin: 0 0 6px 0; border-bottom: 2px solid #21262d; padding-bottom: 4px; }
+  h3 { font-size: 13px; color: #d2a8ff; margin: 6px 0 4px 0; }
+  h4 { font-size: 12px; color: #7ee787; margin: 4px 0 3px 0; }
+  .subtitle { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .diagram-box { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; min-height: 60px; }
+  .diagram-box-full { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px; }
+  .explanation { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; font-size: 11px; }
+  .explanation p { margin-bottom: 3px; }
+  .explanation strong { color: #58a6ff; }
+  .explanation em { color: #d2a8ff; font-style: normal; }
+  .file-list { font-size: 11px; color: #8b949e; font-family: 'Cascadia Code', 'Fira Code', monospace; }
+  .file-list .file { color: #7ee787; }
+  .file-list .desc { color: #8b949e; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin: 1px 2px; }
+  .tag-blue { background: #1f3a5f; color: #58a6ff; }
+  .tag-purple { background: #2d1f4e; color: #d2a8ff; }
+  .tag-green { background: #1a3a2a; color: #7ee787; }
+  .tag-red { background: #3a1a1a; color: #f85149; }
+  .tag-yellow { background: #3a3a1a; color: #d29922; }
+  .tag-cyan { background: #1a3a3a; color: #79c0ff; }
+  .tag-gray { background: #21262d; color: #8b949e; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #161b22; color: #58a6ff; text-align: left; padding: 6px 10px; border: 1px solid #30363d; }
+  td { padding: 5px 10px; border: 1px solid #30363d; vertical-align: top; }
+  tr:nth-child(even) td { background: #161b22; }
+  .flow-step { display: flex; align-items: flex-start; margin: 4px 0; }
+  .flow-step .num { background: #58a6ff; color: #0d1117; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; margin-right: 8px; margin-top: 1px; }
+  .flow-step .content { flex: 1; }
+  .flow-decision { display: inline-block; background: #3a3a1a; border: 1px solid #d29922; border-radius: 4px; padding: 2px 8px; font-size: 11px; color: #d29922; margin: 2px 0; }
+  .flow-yes { color: #7ee787; font-weight: 600; }
+  .flow-no { color: #f85149; font-weight: 600; }
+  .toc { columns: 3; column-gap: 20px; }
+  .toc-item { break-inside: avoid; margin-bottom: 6px; font-size: 13px; }
+  .toc-item a { color: #58a6ff; text-decoration: none; }
+  .toc-item a:hover { text-decoration: underline; }
+  .db-table { font-size: 11px; }
+  .db-table th { font-size: 11px; padding: 4px 8px; }
+  .db-table td { padding: 3px 8px; font-family: 'Cascadia Code', monospace; font-size: 10px; }
+  svg text { font-family: 'Segoe UI', system-ui, sans-serif; }
+  .cover-title { font-size: 42px; color: #58a6ff; font-weight: 700; margin: 40px 0 8px 0; }
+  .cover-sub { font-size: 18px; color: #8b949e; margin-bottom: 30px; }
+  .cover-badge { display: inline-block; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px 20px; margin: 4px; font-size: 13px; }
+  .section-num { color: #d29922; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page page-cover" style="display:flex;flex-direction:column;justify-content:center;">
+  <div class="cover-title">Mentorly</div>
+  <div class="cover-sub">Complete System Architecture &amp; Flow Documentation</div>
+  <p style="font-size:14px;color:#8b949e;margin-bottom:20px;">22 Architecture Diagrams · Database Schema · Source File Traceability · Deployment Pipeline</p>
+  <div>
+    <span class="cover-badge">🏗️ Spring Boot 3.2 Modular Monolith</span>
+    <span class="cover-badge">⚛️ React 18 SPA</span>
+    <span class="cover-badge">💳 Stripe + Razorpay</span>
+    <span class="cover-badge">🐳 Docker Compose</span>
+    <span class="cover-badge">🔄 78 Flyway Migrations</span>
+    <span class="cover-badge">📡 WebSocket Real-time</span>
+    <span class="cover-badge">🔒 JWT + OAuth2</span>
+    <span class="cover-badge">📊 Micrometer + Sentry</span>
+    <span class="cover-badge">☁️ GitHub Actions CI/CD</span>
+    <span class="cover-badge">🗄️ MySQL 8.0</span>
+  </div>
+  <div style="margin-top:16px;">
+    <h3>Table of Contents</h3>
+    <div class="toc" style="margin-top:6px;">
+      <div class="toc-item"><span class="section-num">01</span> Overall Runtime Architecture</div>
+      <div class="toc-item"><span class="section-num">02</span> Authentication &amp; Session</div>
+      <div class="toc-item"><span class="section-num">03</span> Mentor Verification</div>
+      <div class="toc-item"><span class="section-num">04</span> Discovery &amp; Search</div>
+      <div class="toc-item"><span class="section-num">05</span> Availability → Skill Sessions</div>
+      <div class="toc-item"><span class="section-num">06</span> Booking</div>
+      <div class="toc-item"><span class="section-num">07</span> Completion / Dispute</div>
+      <div class="toc-item"><span class="section-num">08</span> Session Requests</div>
+      <div class="toc-item"><span class="section-num">09</span> Payments</div>
+      <div class="toc-item"><span class="section-num">10</span> Live Session</div>
+      <div class="toc-item"><span class="section-num">11</span> Communication</div>
+      <div class="toc-item"><span class="section-num">12</span> Notifications</div>
+      <div class="toc-item"><span class="section-num">13</span> Learning</div>
+      <div class="toc-item"><span class="section-num">14</span> Reviews</div>
+      <div class="toc-item"><span class="section-num">15</span> Wallet &amp; Payout</div>
+      <div class="toc-item"><span class="section-num">16</span> Safety &amp; Moderation</div>
+      <div class="toc-item"><span class="section-num">17</span> Admin Control Plane</div>
+      <div class="toc-item"><span class="section-num">18</span> Security Filter Chain</div>
+      <div class="toc-item"><span class="section-num">19</span> Deployment</div>
+      <div class="toc-item"><span class="section-num">20</span> CI/CD Pipeline</div>
+      <div class="toc-item"><span class="section-num">21</span> Database Schema</div>
+      <div class="toc-item"><span class="section-num">22</span> End-to-End Business Story</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 01. OVERALL RUNTIME ARCHITECTURE -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">01</span> Overall Runtime Architecture</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1200 680" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <!-- Browser -->
+  <rect x="460" y="10" width="280" height="40" rx="6" fill="#1f3a5f" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="600" y="35" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="600">🌐 BROWSER (React SPA)</text>
+
+  <!-- Arrow -->
+  <line x1="600" y1="50" x2="600" y2="70" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+  <!-- Nginx -->
+  <rect x="420" y="70" width="360" height="40" rx="6" fill="#21262d" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="600" y="95" text-anchor="middle" fill="#8b949e" font-size="12" font-weight="600">NGINX (Reverse Proxy · SSL · Static Assets · WS Fwd)</text>
+
+  <!-- Split arrows -->
+  <line x1="520" y1="110" x2="300" y2="145" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+  <line x1="600" y1="110" x2="600" y2="145" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+  <line x1="680" y1="110" x2="900" y2="145" stroke="#58a6ff" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+  <text x="360" y="130" fill="#8b949e" font-size="10">API</text>
+  <text x="610" y="130" fill="#8b949e" font-size="10">WS</text>
+  <text x="860" y="130" fill="#8b949e" font-size="10">Static</text>
+
+  <!-- Security Layer -->
+  <rect x="200" y="145" width="300" height="35" rx="6" fill="#3a1a1a" stroke="#f85149" stroke-width="1.2"/>
+  <text x="350" y="167" text-anchor="middle" fill="#f85149" font-size="11" font-weight="600">🔒 SECURITY FILTER CHAIN</text>
+
+  <!-- Filters detail -->
+  <text x="205" y="195" fill="#8b949e" font-size="9">RequestTrace → RateLimit → JwtAuth → MaintenanceMode → Spring Security</text>
+
+  <!-- Controllers -->
+  <rect x="200" y="205" width="300" height="30" rx="5" fill="#1f3a5f" stroke="#58a6ff" stroke-width="1"/>
+  <text x="350" y="224" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">📡 CONTROLLERS (42 REST Endpoints)</text>
+
+  <!-- WebSocket handlers -->
+  <rect x="540" y="145" width="200" height="35" rx="5" fill="#1a3a3a" stroke="#79c0ff" stroke-width="1.2"/>
+  <text x="640" y="167" text-anchor="middle" fill="#79c0ff" font-size="11" font-weight="600">⚡ WebSocket Handlers</text>
+  <text x="545" y="195" fill="#8b949e" font-size="9">/ws/chat · /ws/chat/direct · /ws/notifications</text>
+
+  <!-- Static/Nginx -->
+  <rect x="780" y="145" width="220" height="35" rx="5" fill="#21262d" stroke="#8b949e" stroke-width="1"/>
+  <text x="890" y="167" text-anchor="middle" fill="#8b949e" font-size="11">📁 Static Files (built React)</text>
+
+  <!-- Services -->
+  <rect x="200" y="250" width="300" height="30" rx="5" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1"/>
+  <text x="350" y="269" text-anchor="middle" fill="#d2a8ff" font-size="11" font-weight="600">⚙️ DOMAIN SERVICES (47 @Service)</text>
+
+  <!-- Repositories -->
+  <rect x="200" y="295" width="300" height="30" rx="5" fill="#1a3a2a" stroke="#7ee787" stroke-width="1"/>
+  <text x="350" y="314" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="600">💾 REPOSITORIES (JPA / Hibernate)</text>
+
+  <!-- MySQL -->
+  <rect x="200" y="340" width="300" height="35" rx="6" fill="#1a3a3a" stroke="#79c0ff" stroke-width="1.5"/>
+  <text x="350" y="362" text-anchor="middle" fill="#79c0ff" font-size="12" font-weight="600">🗄️ MySQL 8.0 (50+ Tables)</text>
+  <text x="205" y="380" fill="#8b949e" font-size="9">78 Flyway migrations</text>
+
+  <!-- External Providers (right side) -->
+  <rect x="780" y="210" width="200" height="30" rx="5" fill="#3a3a1a" stroke="#d29922" stroke-width="1"/>
+  <text x="880" y="229" text-anchor="middle" fill="#d29922" font-size="10" font-weight="600">💳 Stripe (PaymentIntent)</text>
+  <rect x="780" y="245" width="200" height="30" rx="5" fill="#3a3a1a" stroke="#d29922" stroke-width="1"/>
+  <text x="880" y="264" text-anchor="middle" fill="#d29922" font-size="10" font-weight="600">💳 Razorpay (Order + Route)</text>
+  <rect x="780" y="280" width="200" height="30" rx="5" fill="#21262d" stroke="#8b949e" stroke-width="1"/>
+  <text x="880" y="299" text-anchor="middle" fill="#8b949e" font-size="10">📅 Google Calendar / Meet</text>
+  <rect x="780" y="315" width="200" height="30" rx="5" fill="#21262d" stroke="#8b949e" stroke-width="1"/>
+  <text x="880" y="334" text-anchor="middle" fill="#8b949e" font-size="10">📧 Email Service</text>
+  <rect x="780" y="350" width="200" height="30" rx="5" fill="#21262d" stroke="#8b949e" stroke-width="1"/>
+  <text x="880" y="369" text-anchor="middle" fill="#8b949e" font-size="10">🔴 Sentry (Error Tracking)</text>
+
+  <!-- Connect arrows to externals -->
+  <line x1="500" y1="265" x2="780" y2="225" stroke="#d29922" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="500" y1="265" x2="780" y2="260" stroke="#d29922" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="500" y1="270" x2="780" y2="295" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="500" y1="270" x2="780" y2="330" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="500" y1="270" x2="780" y2="365" stroke="#8b949e" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Monitoring -->
+  <rect x="540" y="210" width="200" height="30" rx="5" fill="#21262d" stroke="#8b949e" stroke-width="1"/>
+  <text x="640" y="229" text-anchor="middle" fill="#8b949e" font-size="10">📊 Micrometer + Prometheus</text>
+
+  <!-- WebSocket arrows -->
+  <line x1="500" y1="265" x2="540" y2="225" stroke="#79c0ff" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Module boxes at bottom -->
+  <rect x="100" y="400" width="1000" height="220" rx="8" fill="none" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="600" y="420" text-anchor="middle" fill="#8b949e" font-size="12" font-weight="600">SPRING BOOT MODULAR MONOLITH — 31 Domain Modules</text>
+
+  <!-- Module grid -->
+  <g font-size="10" fill="#e6edf3">
+    <!-- Row 1 -->
+    <rect x="120" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="175" y="453" text-anchor="middle" fill="#58a6ff">auth</text>
+    <rect x="240" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="295" y="453" text-anchor="middle" fill="#58a6ff">booking</text>
+    <rect x="360" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="415" y="453" text-anchor="middle" fill="#58a6ff">session</text>
+    <rect x="480" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="535" y="453" text-anchor="middle" fill="#58a6ff">payment</text>
+    <rect x="600" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="655" y="453" text-anchor="middle" fill="#58a6ff">wallet</text>
+    <rect x="720" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="775" y="453" text-anchor="middle" fill="#58a6ff">payout</text>
+    <rect x="840" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="895" y="453" text-anchor="middle" fill="#58a6ff">chat</text>
+    <rect x="960" y="435" width="110" height="28" rx="4" fill="#1f3a5f" stroke="#58a6ff" stroke-width="0.8"/>
+    <text x="1015" y="453" text-anchor="middle" fill="#58a6ff">notification</text>
+
+    <!-- Row 2 -->
+    <rect x="120" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="175" y="488" text-anchor="middle" fill="#d2a8ff">user</text>
+    <rect x="240" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="295" y="488" text-anchor="middle" fill="#d2a8ff">availability</text>
+    <rect x="360" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="415" y="488" text-anchor="middle" fill="#d2a8ff">search</text>
+    <rect x="480" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="535" y="488" text-anchor="middle" fill="#d2a8ff">review</text>
+    <rect x="600" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="655" y="488" text-anchor="middle" fill="#d2a8ff">learning</text>
+    <rect x="720" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="775" y="488" text-anchor="middle" fill="#d2a8ff">certification</text>
+    <rect x="840" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="895" y="488" text-anchor="middle" fill="#d2a8ff">messaging</text>
+    <rect x="960" y="470" width="110" height="28" rx="4" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="0.8"/>
+    <text x="1015" y="488" text-anchor="middle" fill="#d2a8ff">verification</text>
+
+    <!-- Row 3 -->
+    <rect x="120" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="175" y="523" text-anchor="middle" fill="#7ee787">safety</text>
+    <rect x="240" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="295" y="523" text-anchor="middle" fill="#7ee787">moderation</text>
+    <rect x="360" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="415" y="523" text-anchor="middle" fill="#7ee787">admin</text>
+    <rect x="480" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="535" y="523" text-anchor="middle" fill="#7ee787">analytics</text>
+    <rect x="600" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="655" y="523" text-anchor="middle" fill="#7ee787">meeting</text>
+    <rect x="720" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="775" y="523" text-anchor="middle" fill="#7ee787">sessionrequest</text>
+    <rect x="840" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="895" y="523" text-anchor="middle" fill="#7ee787">waitlist</text>
+    <rect x="960" y="505" width="110" height="28" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="0.8"/>
+    <text x="1015" y="523" text-anchor="middle" fill="#7ee787">watchlist</text>
+
+    <!-- Row 4 -->
+    <rect x="120" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="175" y="558" text-anchor="middle" fill="#8b949e">config</text>
+    <rect x="240" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="295" y="558" text-anchor="middle" fill="#8b949e">common</text>
+    <rect x="360" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="415" y="558" text-anchor="middle" fill="#8b949e">monitoring</text>
+    <rect x="480" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="535" y="558" text-anchor="middle" fill="#8b949e">files</text>
+    <rect x="600" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="655" y="558" text-anchor="middle" fill="#8b949e">skill</text>
+    <rect x="720" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="775" y="558" text-anchor="middle" fill="#8b949e">stats</text>
+    <rect x="840" y="540" width="110" height="28" rx="4" fill="#21262d" stroke="#8b949e" stroke-width="0.8"/>
+    <text x="895" y="558" text-anchor="middle" fill="#8b949e">mentorcertification</text>
+  </g>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<div class="grid2" style="margin-top:6px;">
+  <div class="explanation">
+    <h4>Architecture Style</h4>
+    <p><strong>Modular Monolith</strong> — single Spring Boot JAR with 31 domain packages, each containing Controller → Service → Repository.</p>
+    <p><strong>Key Design Patterns:</strong> Strategy (PaymentGateway), Observer (Notifications), Guard (ProfileCompletionGuard), IdempotencyKeySupport, AOP Audit Logging.</p>
+  </div>
+  <div class="explanation">
+    <h4>Runtime Stack</h4>
+    <p><strong>Backend:</strong> Java 21 · Spring Boot 3.2 · Spring Security 6 · Spring Data JPA · Hibernate · Flyway 78 migrations · Micrometer</p>
+    <p><strong>Frontend:</strong> React 18 · Vite · React Router · React Context (no Redux) · WebSocket native</p>
+    <p><strong>Infra:</strong> Docker Compose · Nginx · MySQL 8.0 · Let's Encrypt SSL · GitHub Actions CI/CD · GHCR</p>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 02. AUTHENTICATION -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">02</span> Authentication &amp; Session Management</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <!-- Signup Flow -->
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">SIGNUP / LOGIN FLOW</text>
+
+  <!-- User -->
+  <rect x="200" y="28" width="160" height="28" rx="5" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="46" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">👤 User (Browser)</text>
+
+  <line x1="280" y1="56" x2="280" y2="72" stroke="#58a6ff" stroke-width="1" marker-end="url(#arrowBlue)"/>
+
+  <!-- AuthPage -->
+  <rect x="180" y="72" width="200" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="88" text-anchor="middle" fill="#58a6ff" font-size="10">AuthPage.jsx (Signup/Login/OAuth2)</text>
+
+  <line x1="280" y1="96" x2="280" y2="112" stroke="#58a6ff" stroke-width="1" marker-end="url(#arrowBlue)"/>
+
+  <!-- AuthController -->
+  <rect x="160" y="112" width="240" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="128" text-anchor="middle" fill="#d2a8ff" font-size="10">POST /api/v1/auth/signup | login</text>
+
+  <!-- Decision: OTP? -->
+  <line x1="280" y1="136" x2="280" y2="152" stroke="#d29922" stroke-width="1" marker-end="url(#arrowYellow)"/>
+  <polygon points="280,152 340,172 280,192 220,172" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="176" text-anchor="middle" fill="#d29922" font-size="9" font-weight="600">OTP Required?</text>
+
+  <!-- Yes path -->
+  <line x1="340" y1="172" x2="420" y2="172" stroke="#7ee787" stroke-width="1"/>
+  <text x="370" y="167" fill="#7ee787" font-size="9" font-weight="600">YES</text>
+  <rect x="420" y="160" width="120" height="24" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="480" y="176" text-anchor="middle" fill="#7ee787" font-size="9">OtpService.send()</text>
+
+  <!-- No path -->
+  <line x1="280" y1="192" x2="280" y2="210" stroke="#f85149" stroke-width="1"/>
+  <text x="290" y="204" fill="#f85149" font-size="9" font-weight="600">NO</text>
+
+  <!-- AuthService -->
+  <rect x="160" y="210" width="240" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="226" text-anchor="middle" fill="#d2a8ff" font-size="10">AuthService.signup() / login()</text>
+
+  <line x1="280" y1="234" x2="280" y2="250" stroke="#d2a8ff" stroke-width="1" marker-end="url(#arrowPurple)"/>
+
+  <!-- BCrypt -->
+  <rect x="180" y="250" width="200" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="280" y="265" text-anchor="middle" fill="#8b949e" font-size="9">BCryptPasswordEncoder(10) → Password</text>
+
+  <!-- JWT -->
+  <line x1="280" y1="272" x2="280" y2="288" stroke="#d2a8ff" stroke-width="1" marker-end="url(#arrowPurple)"/>
+  <rect x="160" y="288" width="240" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="304" text-anchor="middle" fill="#d2a8ff" font-size="10">JwtService.generateTokenPair()</text>
+
+  <!-- Cookie + Token -->
+  <line x1="200" y1="312" x2="120" y2="332" stroke="#79c0ff" stroke-width="1"/>
+  <line x1="360" y1="312" x2="440" y2="332" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="40" y="332" width="160" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="120" y="347" text-anchor="middle" fill="#79c0ff" font-size="9">httpOnly Refresh Cookie</text>
+  <rect x="360" y="332" width="160" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="440" y="347" text-anchor="middle" fill="#79c0ff" font-size="9">Access Token (Response)</text>
+
+  <!-- Login attempts -->
+  <rect x="420" y="196" width="120" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="480" y="212" text-anchor="middle" fill="#f85149" font-size="9">AuthAttemptRecorder</text>
+
+  <!-- Profile Gate -->
+  <line x1="280" y1="354" x2="280" y2="370" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,370 360,390 280,410 200,390" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="394" text-anchor="middle" fill="#d29922" font-size="9" font-weight="600">Profile Complete?</text>
+
+  <!-- No -->
+  <line x1="200" y1="390" x2="100" y2="390" stroke="#f85149" stroke-width="1"/>
+  <text x="150" y="385" fill="#f85149" font-size="8">NO</text>
+  <rect x="10" y="380" width="90" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="55" y="395" text-anchor="middle" fill="#f85149" font-size="8">ProfileSetup</text>
+
+  <!-- Yes -->
+  <line x1="360" y1="390" x2="440" y2="390" stroke="#7ee787" stroke-width="1"/>
+  <text x="400" y="385" fill="#7ee787" font-size="8">YES</text>
+
+  <!-- Role Decision -->
+  <rect x="440" y="378" width="110" height="24" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="495" y="394" text-anchor="middle" fill="#d29922" font-size="9">Role?</text>
+
+  <!-- Role branches -->
+  <line x1="495" y1="402" x2="350" y2="430" stroke="#7ee787" stroke-width="1"/>
+  <line x1="495" y1="402" x2="445" y2="430" stroke="#d2a8ff" stroke-width="1"/>
+  <line x1="495" y1="402" x2="540" y2="430" stroke="#f85149" stroke-width="1"/>
+
+  <rect x="290" y="430" width="120" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="350" y="445" text-anchor="middle" fill="#7ee787" font-size="9">→ Learner Workspace</text>
+  <rect x="390" y="430" width="110" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="445" y="445" text-anchor="middle" fill="#d2a8ff" font-size="9">→ Mentor Workspace</text>
+  <rect x="490" y="430" width="110" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="545" y="445" text-anchor="middle" fill="#f85149" font-size="9">→ Admin Workspace</text>
+
+  <!-- OAuth2 -->
+  <rect x="10" y="460" width="540" height="24" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="476" text-anchor="middle" fill="#79c0ff" font-size="9">OAuth2: /oauth2/authorization/google → OAuth2LoginSuccessHandler → auto-create/link user → JWT</text>
+
+  <!-- Refresh flow -->
+  <rect x="10" y="490" width="540" height="24" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="506" text-anchor="middle" fill="#8b949e" font-size="9">Refresh: POST /auth/refresh → RefreshTokenSession lookup → rotate token → new access token</text>
+
+  <defs>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#d2a8ff"/>
+    </marker>
+    <marker id="arrowYellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#d29922"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#7ee787"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<div class="explanation" style="display:flex;flex-direction:column;justify-content:space-between;">
+  <div>
+    <h4>What Starts the Flow</h4>
+    <p>User visits <em>/login</em> or <em>/signup</em> → AuthPage.jsx renders.</p>
+    <h4>Step-by-Step</h4>
+    <p>1. AuthPage → POST /api/v1/auth/signup or /login</p>
+    <p>2. AuthController → AuthService → BCrypt verify/hash</p>
+    <p>3. OtpService (email verification for signup)</p>
+    <p>4. JwtService generates access + refresh tokens</p>
+    <p>5. RefreshTokenSession stored in DB (httpOnly cookie)</p>
+    <p>6. LoginAttemptRecorder tracks failed attempts</p>
+    <p>7. ProfileCompletionGate checks profile completeness</p>
+    <p>8. Role decision → Learner / Mentor / Admin workspace</p>
+    <h4>Key Decisions</h4>
+    <p><span class="flow-yes">OTP Required?</span> → Email verification for new signups</p>
+    <p><span class="flow-yes">Profile Complete?</span> → Redirect to ProfileSetup if incomplete</p>
+    <p><span class="flow-yes">Role?</span> → Routes to appropriate workspace</p>
+    <h4>Failure Paths</h4>
+    <p>• Bad credentials → AuthAttemptRecorder → 401</p>
+    <p>• Disabled account → 403</p>
+    <p>• Duplicate email → DataIntegrityViolation → 409</p>
+    <p>• OAuth2 failure → OAuth2LoginFailureHandler</p>
+    <h4>Key Source Files</h4>
+    <p class="file-list">
+      <span class="file">AuthController.java</span> — REST endpoints<br>
+      <span class="file">AuthService.java</span> — Business logic (851 lines)<br>
+      <span class="file">JwtService.java</span> — Token generation/validation<br>
+      <span class="file">AuthCookieService.java</span> — Cookie management<br>
+      <span class="file">OtpService.java</span> — Email OTP verification<br>
+      <span class="file">AppUserDetailsService.java</span> — Spring Security UserDetailsService<br>
+      <span class="file">RefreshTokenSession.java</span> — Refresh token entity<br>
+      <span class="file">LoginAttempt.java</span> — Brute-force tracking<br>
+      <span class="file">AccessTokenDenylist.java</span> — Token revocation<br>
+      <span class="file">OAuth2LoginSuccessHandler.java</span> — Google OAuth callback<br>
+      <span class="file">AuthPage.jsx</span> — Frontend auth UI
+    </p>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 03. MENTOR VERIFICATION -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">03</span> Mentor Verification</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 480" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">MENTOR VERIFICATION FLOW</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👤 Mentor User</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1" marker-end="url(#arrowBlue)"/>
+
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#d2a8ff" font-size="10">POST /api/v1/verification/mentor/request</text>
+
+  <line x1="280" y1="90" x2="280" y2="106" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="160" y="106" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="121" text-anchor="middle" fill="#d2a8ff" font-size="10">MentorVerificationService.createRequest()</text>
+
+  <!-- Decision: Already verified? -->
+  <line x1="280" y1="128" x2="280" y2="144" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,144 350,164 280,184 210,164" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="168" text-anchor="middle" fill="#d29922" font-size="8">Already Verified?</text>
+
+  <line x1="350" y1="164" x2="440" y2="164" stroke="#7ee787" stroke-width="1"/>
+  <text x="395" y="158" fill="#7ee787" font-size="8">YES</text>
+  <rect x="440" y="152" width="110" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="495" y="167" text-anchor="middle" fill="#7ee787" font-size="9">→ Reject (done)</text>
+
+  <line x1="280" y1="184" x2="280" y2="200" stroke="#f85149" stroke-width="1"/>
+  <text x="295" y="194" fill="#f85149" font-size="8">NO</text>
+
+  <!-- Create request -->
+  <rect x="140" y="200" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="215" text-anchor="middle" fill="#d2a8ff" font-size="9">Create MentorVerificationRequest (PENDING)</text>
+
+  <line x1="280" y1="222" x2="280" y2="238" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Document upload -->
+  <rect x="140" y="238" width="280" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="280" y="253" text-anchor="middle" fill="#8b949e" font-size="9">Upload documents (StoredFileService)</text>
+
+  <line x1="280" y1="260" x2="280" y2="276" stroke="#d29922" stroke-width="1"/>
+
+  <!-- Admin review -->
+  <rect x="140" y="276" width="280" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="280" y="291" text-anchor="middle" fill="#f85149" font-size="9">Admin Reviews (AdminController)</text>
+
+  <line x1="280" y1="298" x2="280" y2="314" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,314 350,334 280,354 210,334" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="338" text-anchor="middle" fill="#d29922" font-size="8">Decision?</text>
+
+  <line x1="200" y1="334" x2="100" y2="334" stroke="#7ee787" stroke-width="1"/>
+  <text x="150" y="328" fill="#7ee787" font-size="8">APPROVE</text>
+  <rect x="10" y="322" width="90" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="55" y="337" text-anchor="middle" fill="#7ee787" font-size="8">→ APPROVED</text>
+
+  <line x1="280" y1="354" x2="280" y2="370" stroke="#f85149" stroke-width="1"/>
+  <text x="295" y="364" fill="#f85149" font-size="8">REJECT</text>
+  <rect x="200" y="370" width="160" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="280" y="385" text-anchor="middle" fill="#f85149" font-size="8">→ REJECTED + reason</text>
+
+  <line x1="350" y1="334" x2="440" y2="334" stroke="#d29922" stroke-width="1"/>
+  <text x="395" y="328" fill="#d29922" font-size="8">REQUEST_INFO</text>
+  <rect x="440" y="322" width="110" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="495" y="337" text-anchor="middle" fill="#d29922" font-size="8">→ Additional Info</text>
+
+  <!-- Skill verification (parallel) -->
+  <rect x="10" y="410" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="425" text-anchor="middle" fill="#8b949e" font-size="9">Parallel: SkillVerificationController → SkillVerificationTask → SkillVerificationSubmission (admin skill assessment)</text>
+
+  <!-- Notifications -->
+  <rect x="10" y="440" width="540" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="455" text-anchor="middle" fill="#79c0ff" font-size="9">NotificationService.notifyUser() → In-app + Email on status change</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Mentor clicks "Become a Mentor" → submits verification application with documents.</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Mentor submits verification request via MentorVerificationController</p>
+  <p>2. MentorVerificationService checks if already verified/requested</p>
+  <p>3. Creates MentorVerificationRequest (status=PENDING)</p>
+  <p>4. Documents uploaded via StoredFileService (Optional documents per V53)</p>
+  <p>5. Admin reviews via AdminController / MentorVerificationsPage</p>
+  <p>6. Admin approves/rejects/requests more info</p>
+  <p>7. On approval: user role upgraded, notification sent</p>
+  <h4>Key Decisions</h4>
+  <p>• Already verified? → Reject duplicate requests</p>
+  • Admin decision: APPROVE / REJECT / REQUEST_INFO</p>
+  <h4>Failure Paths</h4>
+  <p>• Incomplete profile → ProfileCompletionGuard blocks submission</p>
+  <p>• Missing required docs → Validation error</p>
+  <p>• Rejected → Can re-apply after cooling period</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">MentorVerificationController.java</span> — REST API<br>
+    <span class="file">MentorVerificationService.java</span> — Business logic (45 @Service)<br>
+    <span class="file">MentorVerificationRequest.java</span> — Entity (mentor_verification_requests)<br>
+    <span class="file">SkillVerificationController.java</span> — Skill assessment API<br>
+    <span class="file">SkillVerificationTask.java</span> — Task entity<br>
+    <span class="file">SkillVerificationSubmission.java</span> — Submission entity<br>
+    <span class="file">StoredFileService.java</span> — Document storage<br>
+    <span class="file">AdminController.java</span> — Admin moderation queue<br>
+    <span class="file">MentorVerificationsPage.jsx</span> — Admin UI<br>
+    <span class="file">BecomeMentorPage.jsx</span> — Mentor application UI
+  </p>
+  <h4>Key Architecture Decision</h4>
+  <p>Verification is a separate flow from profile completion. Mentor must complete profile FIRST, then apply for verification. Admin approval is required before mentor can receive bookings.</p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 04. DISCOVERY -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">04</span> Discovery &amp; Search</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">MENTOR DISCOVERY FLOW</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👤 Learner Browser</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1" marker-end="url(#arrowBlue)"/>
+
+  <!-- Search page -->
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#58a6ff" font-size="10">LearnerMentorsPage.jsx</text>
+
+  <!-- Search Filters -->
+  <rect x="10" y="100" width="170" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+  <text x="95" y="114" text-anchor="middle" fill="#8b949e" font-size="8">SearchFilters.jsx</text>
+
+  <line x1="180" y1="110" x2="280" y2="120" stroke="#58a6ff" stroke-width="1"/>
+  <text x="220" y="110" fill="#8b949e" font-size="8">query, skill, rating, price</text>
+
+  <!-- API call -->
+  <rect x="160" y="120" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="135" text-anchor="middle" fill="#d2a8ff" font-size="9">GET /api/v1/users/mentors (public)</text>
+
+  <line x1="280" y1="142" x2="280" y2="158" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- MentorSearchController -->
+  <rect x="140" y="158" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="173" text-anchor="middle" fill="#d2a8ff" font-size="9">MentorSearchController → UserRepository (JPA Criteria)</text>
+
+  <line x1="280" y1="180" x2="280" y2="196" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Fulltext search -->
+  <rect x="140" y="196" width="280" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="211" text-anchor="middle" fill="#79c0ff" font-size="9">FULLTEXT INDEX (V18) + Skill filter</text>
+
+  <line x1="280" y1="218" x2="280" y2="234" stroke="#d29922" stroke-width="1"/>
+
+  <!-- Decision: results? -->
+  <polygon points="280,234 350,254 280,274 210,254" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="258" text-anchor="middle" fill="#d29922" font-size="8">Results Found?</text>
+
+  <line x1="200" y1="254" x2="100" y2="254" stroke="#f85149" stroke-width="1"/>
+  <text x="150" y="248" fill="#f85149" font-size="8">NO</text>
+  <rect x="10" y="242" width="90" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="55" y="257" text-anchor="middle" fill="#f85149" font-size="8">Empty State</text>
+
+  <line x1="350" y1="254" x2="440" y2="254" stroke="#7ee787" stroke-width="1"/>
+  <text x="395" y="248" fill="#7ee787" font-size="8">YES</text>
+
+  <!-- Mentor Cards -->
+  <rect x="440" y="242" width="110" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="495" y="257" text-anchor="middle" fill="#7ee787" font-size="8">Mentor Card List</text>
+
+  <!-- Click mentor -->
+  <line x1="280" y1="274" x2="280" y2="290" stroke="#58a6ff" stroke-width="1"/>
+
+  <rect x="160" y="290" width="240" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="305" text-anchor="middle" fill="#58a6ff" font-size="9">GET /api/v1/users/mentors/{id}</text>
+
+  <line x1="280" y1="312" x2="280" y2="328" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Profile detail -->
+  <rect x="140" y="328" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="343" text-anchor="middle" fill="#d2a8ff" font-size="9">MentorProfilePage + Reviews + Certifications</text>
+
+  <!-- Saved mentors -->
+  <rect x="10" y="370" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="385" text-anchor="middle" fill="#8b949e" font-size="9">Also: FavoriteController (save/unsave) · SkillWatchlist (skill alerts) · MentorSkillsPage · SkillDetailPage</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Learner browses /mentors or searches by skill → LearnerMentorsPage.jsx renders SearchFilters.</p>
+  <h4>Step-by-Step</h4>
+  <p>1. SearchFilters captures query, skill, rating, price range</p>
+  <p>2. GET /api/v1/users/mentors (public, no auth required for listing)</p>
+  <p>3. MentorSearchController → JPA Criteria API with FULLTEXT index</p>
+  <p>4. Results → Mentor Card components rendered</p>
+  <p>5. Click mentor → GET /api/v1/users/mentors/{id} (authenticated)</p>
+  <p>6. Full profile: reviews, certifications, availability, sessions</p>
+  <h4>Key Decisions</h4>
+  <p>• Fulltext match? → MySQL FULLTEXT index (V18)</p>
+  <p>• Skill filter? → JOIN skills table</p>
+  <p>• Auth required for full profile? → Yes, anonymous gets 401</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">MentorSearchController.java</span> — Search API<br>
+    <span class="file">UserController.java</span> — User/mentor endpoints<br>
+    <span class="file">SkillController.java</span> — Skill catalog<br>
+    <span class="file">FavoriteController.java</span> — Save/unsave mentors<br>
+    <span class="file">WatchlistController.java</span> — Skill watchlist alerts<br>
+    <span class="file">LearnerMentorsPage.jsx</span> — Mentor listing UI<br>
+    <span class="file">SearchFilters.jsx</span> — Search/filter UI component<br>
+    <span class="file">MentorProfilePage.jsx</span> — Full mentor profile<br>
+    <span class="file">LearnerSavedMentorsPage.jsx</span> — Saved mentors<br>
+    <span class="file">SkillDetailPage.jsx</span> — Skill detail with mentors
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 05. AVAILABILITY → SKILL SESSIONS -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">05</span> Availability → Skill Session Generation</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">AVAILABILITY → SESSION CREATION</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👨‍🏫 Mentor</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1" marker-end="url(#arrowBlue)"/>
+
+  <!-- Calendar UI -->
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#58a6ff" font-size="10">MentorCalendarPage.jsx</text>
+
+  <line x1="280" y1="90" x2="280" y2="106" stroke="#58a6ff" stroke-width="1"/>
+
+  <!-- Add slot -->
+  <rect x="160" y="106" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="121" text-anchor="middle" fill="#d2a8ff" font-size="9">POST /api/v1/availability/my-slots</text>
+
+  <line x1="280" y1="128" x2="280" y2="144" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Validation -->
+  <rect x="140" y="144" width="280" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="159" text-anchor="middle" fill="#d29922" font-size="9">Validate: no overlap · future time · mentor role</text>
+
+  <line x1="280" y1="166" x2="280" y2="182" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Save slot -->
+  <rect x="160" y="182" width="240" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="197" text-anchor="middle" fill="#7ee787" font-size="9">UserAvailabilitySlot saved</text>
+
+  <!-- Auto session creation -->
+  <line x1="280" y1="204" x2="280" y2="220" stroke="#d29922" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="370" y="215" fill="#d29922" font-size="8">SessionAutoCreationService</text>
+
+  <rect x="140" y="220" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="235" text-anchor="middle" fill="#d2a8ff" font-size="9">SessionAutoCreationService creates SkillSession</text>
+
+  <line x1="280" y1="242" x2="280" y2="258" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- SkillSession entity -->
+  <rect x="160" y="258" width="240" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="273" text-anchor="middle" fill="#79c0ff" font-size="9">SkillSession (status=AVAILABLE, type=SKILL)</text>
+
+  <!-- Visibility decision -->
+  <line x1="280" y1="280" x2="280" y2="296" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,296 360,316 280,336 200,316" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="320" text-anchor="middle" fill="#d29922" font-size="8">Session Type?</text>
+
+  <line x1="200" y1="316" x2="100" y2="316" stroke="#7ee787" stroke-width="1"/>
+  <text x="150" y="310" fill="#7ee787" font-size="8">PUBLIC</text>
+  <rect x="10" y="304" width="90" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="55" y="319" text-anchor="middle" fill="#7ee787" font-size="8">Listed publicly</text>
+
+  <line x1="360" y1="316" x2="440" y2="316" stroke="#d2a8ff" stroke-width="1"/>
+  <text x="400" y="310" fill="#d2a8ff" font-size="8">PRIVATE</text>
+  <rect x="440" y="304" width="110" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="495" y="319" text-anchor="middle" fill="#d2a8ff" font-size="8">Invite only</text>
+
+  <!-- Lifecycle scheduler -->
+  <rect x="10" y="360" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="375" text-anchor="middle" fill="#8b949e" font-size="9">BookingLifecycleScheduler: auto-expire past sessions · auto-confirm after window</text>
+
+  <!-- Manual creation -->
+  <rect x="10" y="390" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="405" text-anchor="middle" fill="#8b949e" font-size="9">Manual: POST /api/v1/sessions (mentor creates custom session)</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Mentor opens MentorCalendarPage → adds availability slot → system may auto-generate SkillSessions.</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Mentor adds time slot via AvailabilityController</p>
+  <p>2. Validate: no overlap, future time, mentor role required</p>
+  <p>3. UserAvailabilitySlot saved to user_availability_slots table</p>
+  <p>4. SessionAutoCreationService may auto-create SkillSession</p>
+  <p>5. SkillSession saved with status=AVAILABLE, type=SKILL</p>
+  <p>6. PUBLIC sessions listed in learner discovery</p>
+  <p>7. PRIVATE sessions accessible via invite link only</p>
+  <h4>Key Decisions</h4>
+  <p>• Overlap exists? → Reject slot creation</p>
+  <p>• Session type: PUBLIC → listed · PRIVATE → invite only</p>
+  <p>• Past slot? → Auto-expire by BookingLifecycleScheduler</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">AvailabilityController.java</span> — Slot CRUD API<br>
+    <span class="file">UserAvailabilitySlot.java</span> — Entity<br>
+    <span class="file">SessionAutoCreationService.java</span> — Auto session gen<br>
+    <span class="file">SessionController.java</span> — Session CRUD API<br>
+    <span class="file">SkillSession.java</span> — Session entity<br>
+    <span class="file">BookingLifecycleScheduler.java</span> — Scheduled cleanup<br>
+    <span class="file">MentorCalendarPage.jsx</span> — Calendar UI<br>
+    <span class="file">TeachingPage.jsx</span> — Mentor teaching dashboard
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 06. BOOKING (DEEP) -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">06</span> Booking — Deep Flow (8-Step Validation)</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 680" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">BOOKING LIFECYCLE — COMPLETE FLOW</text>
+
+  <!-- Learner -->
+  <rect x="490" y="28" width="200" height="28" rx="5" fill="#1f3a5f" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="590" y="46" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">👤 Learner</text>
+
+  <line x1="590" y1="56" x2="590" y2="72" stroke="#58a6ff" stroke-width="1.2"/>
+
+  <!-- BookingFlowPage -->
+  <rect x="440" y="72" width="300" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="590" y="88" text-anchor="middle" fill="#58a6ff" font-size="10">BookingFlowPage.jsx (select session → gateway)</text>
+
+  <line x1="590" y1="96" x2="590" y2="112" stroke="#58a6ff" stroke-width="1"/>
+
+  <!-- BookingController -->
+  <rect x="420" y="112" width="340" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="590" y="128" text-anchor="middle" fill="#d2a8ff" font-size="10">POST /api/v1/bookings (Idempotency-Key header)</text>
+
+  <line x1="590" y1="136" x2="590" y2="152" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- BookingService -->
+  <rect x="420" y="152" width="340" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="590" y="168" text-anchor="middle" fill="#d2a8ff" font-size="10">BookingService.createBooking() — 8 validations</text>
+
+  <!-- Validation boxes (left) -->
+  <g font-size="9">
+    <rect x="10" y="190" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="204" text-anchor="middle" fill="#d29922">① Idempotency Check</text>
+    <rect x="10" y="215" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="229" text-anchor="middle" fill="#d29922">② Session Exists &amp; Available</text>
+    <rect x="10" y="240" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="254" text-anchor="middle" fill="#d29922">③ Learner ≠ Mentor (no self-book)</text>
+    <rect x="10" y="265" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="279" text-anchor="middle" fill="#d29922">④ Capacity Check (group session)</text>
+    <rect x="10" y="290" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="304" text-anchor="middle" fill="#d29922">⑤ No Duplicate Booking</text>
+    <rect x="10" y="315" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="329" text-anchor="middle" fill="#d29922">⑥ Mentor Verified</text>
+    <rect x="10" y="340" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="354" text-anchor="middle" fill="#d29922">⑦ Not Blocked by Mentor</text>
+    <rect x="10" y="365" width="180" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="100" y="379" text-anchor="middle" fill="#d29922">⑧ Profile Completion Check</text>
+  </g>
+
+  <!-- Lines from validations to decision -->
+  <line x1="190" y1="280" x2="380" y2="280" stroke="#d29922" stroke-width="1" marker-end="url(#arrowYellow)"/>
+
+  <!-- Decision -->
+  <polygon points="500,260 620,280 500,300 380,280" fill="#3a3a1a" stroke="#d29922" stroke-width="1.5"/>
+  <text x="500" y="284" text-anchor="middle" fill="#d29922" font-size="9" font-weight="600">ALL PASS?</text>
+
+  <!-- No -->
+  <line x1="380" y1="280" x2="300" y2="280" stroke="#f85149" stroke-width="1"/>
+  <text x="340" y="274" fill="#f85149" font-size="8">NO</text>
+  <rect x="200" y="268" width="100" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="250" y="283" text-anchor="middle" fill="#f85149" font-size="8">400 Error</text>
+
+  <!-- Yes → Create Booking -->
+  <line x1="500" y1="300" x2="500" y2="318" stroke="#7ee787" stroke-width="1"/>
+  <text x="510" y="312" fill="#7ee787" font-size="8">YES</text>
+
+  <rect x="400" y="318" width="200" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="500" y="333" text-anchor="middle" fill="#7ee787" font-size="9">Booking Created (PENDING)</text>
+
+  <!-- Capacity full? -->
+  <line x1="500" y1="340" x2="500" y2="356" stroke="#d29922" stroke-width="1"/>
+  <polygon points="500,356 560,376 500,396 440,376" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="500" y="380" text-anchor="middle" fill="#d29922" font-size="8">Full?</text>
+
+  <line x1="440" y1="376" x2="340" y2="376" stroke="#d29922" stroke-width="1"/>
+  <text x="390" y="370" fill="#d29922" font-size="8">YES</text>
+  <rect x="240" y="364" width="100" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="290" y="379" text-anchor="middle" fill="#d29922" font-size="8">→ Waitlist</text>
+
+  <line x1="560" y1="376" x2="640" y2="376" stroke="#7ee787" stroke-width="1"/>
+  <text x="600" y="370" fill="#7ee787" font-size="8">NO</text>
+
+  <!-- Notify Mentor -->
+  <rect x="640" y="364" width="160" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="720" y="379" text-anchor="middle" fill="#79c0ff" font-size="9">Notify Mentor (WS + Email)</text>
+
+  <!-- Mentor Approval -->
+  <line x1="500" y1="396" x2="500" y2="412" stroke="#d29922" stroke-width="1"/>
+  <polygon points="500,412 580,432 500,452 420,432" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="500" y="436" text-anchor="middle" fill="#d29922" font-size="8">Mentor Action?</text>
+
+  <line x1="420" y1="432" x2="340" y2="432" stroke="#f85149" stroke-width="1"/>
+  <text x="380" y="426" fill="#f85149" font-size="8">REJECT</text>
+  <rect x="240" y="420" width="100" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="290" y="435" text-anchor="middle" fill="#f85149" font-size="8">→ Refund/Cancel</text>
+
+  <line x1="500" y1="452" x2="500" y2="468" stroke="#7ee787" stroke-width="1"/>
+  <text x="510" y="462" fill="#7ee787" font-size="8">ACCEPT</text>
+
+  <rect x="400" y="468" width="200" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="500" y="483" text-anchor="middle" fill="#7ee787" font-size="9">Booking → ACCEPTED</text>
+
+  <!-- Payment Gate -->
+  <line x1="500" y1="490" x2="500" y2="506" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="380" y="506" width="240" height="24" rx="5" fill="#3a3a1a" stroke="#d29922" stroke-width="1.5"/>
+  <text x="500" y="522" text-anchor="middle" fill="#d29922" font-size="10" font-weight="600">💳 PAYMENT GATEWAY</text>
+
+  <!-- Stripe / Razorpay -->
+  <line x1="430" y1="530" x2="350" y2="550" stroke="#d29922" stroke-width="1"/>
+  <line x1="570" y1="530" x2="650" y2="550" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="260" y="550" width="180" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="350" y="565" text-anchor="middle" fill="#7ee787" font-size="9">Stripe PaymentIntent</text>
+
+  <rect x="560" y="550" width="180" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="650" y="565" text-anchor="middle" fill="#7ee787" font-size="9">Razorpay Order + Checkout</text>
+
+  <!-- Payment result -->
+  <line x1="500" y1="530" x2="500" y2="590" stroke="#d29922" stroke-width="1"/>
+  <polygon points="500,590 570,610 500,630 430,610" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="500" y="614" text-anchor="middle" fill="#d29922" font-size="8">Payment?</text>
+
+  <line x1="430" y1="610" x2="340" y2="610" stroke="#f85149" stroke-width="1"/>
+  <text x="385" y="604" fill="#f85149" font-size="8">FAILED</text>
+  <rect x="240" y="598" width="100" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="290" y="613" text-anchor="middle" fill="#f85149" font-size="8">→ Payment = FAILED</text>
+
+  <line x1="500" y1="630" x2="500" y2="648" stroke="#7ee787" stroke-width="1"/>
+  <text x="510" y="642" fill="#7ee787" font-size="8">SUCCESS</text>
+
+  <rect x="380" y="648" width="240" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787" stroke-width="1.5"/>
+  <text x="500" y="663" text-anchor="middle" fill="#7ee787" font-size="10" font-weight="600">Payment = ESCROWED · Booking = CONFIRMED</text>
+
+  <defs>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrowYellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#d29922"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+<div class="grid2" style="margin-top:6px;">
+<div class="explanation">
+  <h4>Step-by-Step Validation Chain</h4>
+  <p><strong>① Idempotency:</strong> BookingIdempotencyKey check → replay returns existing booking</p>
+  <p><strong>② Session:</strong> EXISTS? → AVAILABLE? → start_time in future?</p>
+  <p><strong>③ Self-book:</strong> learner_id ≠ mentor_id</p>
+  <p><strong>④ Capacity:</strong> group session count &lt; max_participants</p>
+  <p><strong>⑤ Duplicate:</strong> UNIQUE(learner_id, session_id) check</p>
+  <p><strong>⑥ Mentor:</strong> verified=true, enabled=true</p>
+  <p><strong>⑦ Block:</strong> not in UserBlock table</p>
+  <p><strong>⑧ Profile:</strong> ProfileCompletionGuard check</p>
+</div>
+<div class="explanation">
+  <h4>Key Source Files</h4>
+  <p class="file-list">
+    <span class="file">BookingController.java</span> — REST API<br>
+    <span class="file">BookingService.java</span> — Create + validate<br>
+    <span class="file">BookingLifecycleService.java</span> — State transitions (919 lines)<br>
+    <span class="file">BookingApprovalController.java</span> — Mentor approval<br>
+    <span class="file">BookingIdempotencyKey.java</span> — Idempotency entity<br>
+    <span class="file">Booking.java</span> — Entity<br>
+    <span class="file">BookingFlowPage.jsx</span> — Frontend booking UI<br>
+    <span class="file">PaymentService.java</span> — Payment orchestration<br>
+    <span class="file">PaymentGateway.java</span> — Strategy interface<br>
+    <span class="file">StripeAdapter.java</span> — Stripe implementation<br>
+    <span class="file">RazorpayAdapter.java</span> — Razorpay implementation<br>
+    <span class="file">StripePaymentForm.jsx</span> — Card input component
+  </p>
+  <h4>Key Architecture Decision</h4>
+  <p>Booking uses <strong>Strategy Pattern</strong> for payment gateways. BookingService delegates to PaymentService, which selects the adapter. All 8 validations run in a single transaction — any failure rolls back the entire operation.</p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 07. COMPLETION / DISPUTE -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">07</span> Session Completion &amp; Dispute</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">COMPLETION / DISPUTE FLOW</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👤 Participant (Learner or Mentor)</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1"/>
+
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#d2a8ff" font-size="9">POST /api/v1/bookings/{id}/complete</text>
+
+  <line x1="280" y1="90" x2="280" y2="106" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Both confirm? -->
+  <polygon points="280,106 360,126 280,146 200,126" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="130" text-anchor="middle" fill="#d29922" font-size="8">Both Confirmed?</text>
+
+  <line x1="200" y1="126" x2="120" y2="126" stroke="#f85149" stroke-width="1"/>
+  <text x="160" y="120" fill="#f85149" font-size="8">NO</text>
+  <rect x="20" y="114" width="100" height="22" rx="4" fill="#3a3a1a" stroke="#f85149"/>
+  <text x="70" y="129" text-anchor="middle" fill="#f85149" font-size="8">→ Await other</text>
+
+  <line x1="280" y1="146" x2="280" y2="164" stroke="#7ee787" stroke-width="1"/>
+  <text x="295" y="158" fill="#7ee787" font-size="8">YES</text>
+
+  <rect x="160" y="164" width="240" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="179" text-anchor="middle" fill="#7ee787" font-size="9">Booking → COMPLETED</text>
+
+  <line x1="280" y1="186" x2="280" y2="202" stroke="#7ee787" stroke-width="1"/>
+
+  <!-- Escrow Release -->
+  <rect x="160" y="202" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="217" text-anchor="middle" fill="#d2a8ff" font-size="9">Payment → RELEASED (escrow released)</text>
+
+  <line x1="280" y1="224" x2="280" y2="240" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Platform Fee -->
+  <rect x="160" y="240" width="240" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="255" text-anchor="middle" fill="#d29922" font-size="9">Calculate Platform Fee (configurable %)</text>
+
+  <line x1="200" y1="262" x2="120" y2="282" stroke="#7ee787" stroke-width="1"/>
+  <line x1="360" y1="262" x2="440" y2="282" stroke="#7ee787" stroke-width="1"/>
+
+  <rect x="20" y="282" width="200" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="120" y="297" text-anchor="middle" fill="#7ee787" font-size="9">Mentor Earning = amount - fee</text>
+  <rect x="340" y="282" width="200" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="440" y="297" text-anchor="middle" fill="#8b949e" font-size="9">Platform Revenue = fee</text>
+
+  <!-- Wallet update -->
+  <line x1="120" y1="304" x2="120" y2="320" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="320" width="200" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="120" y="335" text-anchor="middle" fill="#d2a8ff" font-size="9">WalletService.addEntryForUser(EARNING)</text>
+
+  <!-- Certification -->
+  <line x1="120" y1="342" x2="120" y2="358" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="358" width="200" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="120" y="373" text-anchor="middle" fill="#79c0ff" font-size="9">CertificationService.checkProgress()</text>
+
+  <!-- Dispute path -->
+  <rect x="340" y="320" width="200" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="440" y="335" text-anchor="middle" fill="#f85149" font-size="9">OR: Dispute → AdminReview</text>
+  <rect x="340" y="346" width="200" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="440" y="361" text-anchor="middle" fill="#f85149" font-size="9">→ Refund or Release (admin decides)</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Either participant marks session complete via BookingLifecycleService.completeBooking().</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Participant calls POST /bookings/{id}/complete</p>
+  <p>2. BookingLifecycleService checks both participants confirmed</p>
+  <p>3. Both confirmed → Booking = COMPLETED</p>
+  <p>4. Payment = RELEASED (escrow released)</p>
+  <p>5. Platform fee calculated (configurable %)</p>
+  <p>6. Mentor earning = amount - fee</p>
+  <p>7. WalletService.addEntryForUser(EARNING) updates wallet</p>
+  <p>8. CertificationService checks if learner earns certificate</p>
+  <h4>Failure / Dispute</h4>
+  <p>• One party disputes → AdminSessionDisputesPage</p>
+  <p>• Admin decides: Refund (return to learner) or Release (pay mentor)</p>
+  <p>• Escrow is NEVER released before legitimate completion</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">BookingLifecycleService.java</span> — completeBooking(), startBooking()<br>
+    <span class="file">WalletService.java</span> — EARNING entry<br>
+    <span class="file">CertificationService.java</span> — Progress check<br>
+    <span class="file">PaymentService.java</span> — Escrow release<br>
+    <span class="file">AdminSessionDisputesPage.jsx</span> — Admin dispute UI<br>
+    <span class="file">LearnerSessionsPage.jsx</span> — Session completion UI
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 08. SESSION REQUESTS -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">08</span> Session Requests</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">CUSTOM SESSION REQUEST FLOW</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👤 Learner</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1"/>
+
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#d2a8ff" font-size="9">POST /api/v1/session-requests</text>
+
+  <line x1="280" y1="90" x2="280" y2="106" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="140" y="106" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="121" text-anchor="middle" fill="#d2a8ff" font-size="9">SessionRequestService.createRequest()</text>
+
+  <line x1="280" y1="128" x2="280" y2="144" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Notify mentor -->
+  <rect x="160" y="144" width="240" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="159" text-anchor="middle" fill="#79c0ff" font-size="9">Notify Mentor (WebSocket + Email)</text>
+
+  <line x1="280" y1="166" x2="280" y2="182" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,182 360,202 280,222 200,202" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="206" text-anchor="middle" fill="#d29922" font-size="8">Mentor Action?</text>
+
+  <line x1="200" y1="202" x2="100" y2="202" stroke="#7ee787" stroke-width="1"/>
+  <text x="150" y="196" fill="#7ee787" font-size="8">ACCEPT</text>
+  <rect x="10" y="190" width="90" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="55" y="205" text-anchor="middle" fill="#7ee787" font-size="8">→ Custom Session</text>
+
+  <line x1="360" y1="202" x2="440" y2="202" stroke="#f85149" stroke-width="1"/>
+  <text x="400" y="196" fill="#f85149" font-size="8">DECLINE</text>
+  <rect x="440" y="190" width="110" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="495" y="205" text-anchor="middle" fill="#f85149" font-size="8">→ Notify Learner</text>
+
+  <line x1="280" y1="222" x2="280" y2="238" stroke="#7ee787" stroke-width="1"/>
+
+  <rect x="140" y="238" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="253" text-anchor="middle" fill="#d2a8ff" font-size="9">Mentor creates SkillSession for the request</text>
+
+  <line x1="280" y1="260" x2="280" y2="276" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="160" y="276" width="240" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="291" text-anchor="middle" fill="#7ee787" font-size="9">Booking + Payment flow (same as #06)</text>
+
+  <!-- Reply flow -->
+  <rect x="10" y="320" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="335" text-anchor="middle" fill="#8b949e" font-size="9">Mentor can also REPLY with counter-offer (message, alternative time, price)</text>
+
+  <rect x="10" y="348" width="540" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="363" text-anchor="middle" fill="#8b949e" font-size="9">LearnerSessionRequestsPage.jsx tracks request status: PENDING → ACCEPTED/DECLINED/REPLIED</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Learner sends a custom session request to a specific mentor (topic, time, details).</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Learner submits request via SessionRequestController</p>
+  <p>2. SessionRequestService creates SessionRequest entity</p>
+  <p>3. Mentor notified via WebSocket + Email</p>
+  <p>4. Mentor can: ACCEPT → create custom session, DECLINE → notify learner, REPLY → counter-offer</p>
+  <p>5. On accept: Mentor creates SkillSession → normal booking flow</p>
+  <h4>Key Source Files</h4>
+  <p class="file-list">
+    <span class="file">SessionRequestController.java</span> — REST API<br>
+    <span class="file">SessionRequestService.java</span> — Business logic<br>
+    <span class="file">SessionRequest.java</span> — Entity (session_requests)<br>
+    <span class="file">LearnerSessionRequestsPage.jsx</span> — Learner request tracking<br>
+    <span class="file">MentorVerificationsPage.jsx</span> — Mentor sees incoming requests
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 09. PAYMENTS -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">09</span> Payments — Stripe &amp; Razorpay</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 650" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">DUAL GATEWAY PAYMENT ARCHITECTURE</text>
+
+  <!-- Strategy Pattern -->
+  <rect x="350" y="30" width="480" height="30" rx="6" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.5"/>
+  <text x="590" y="50" text-anchor="middle" fill="#d2a8ff" font-size="12" font-weight="600">PaymentGateway (Strategy Interface)</text>
+
+  <!-- Split -->
+  <line x1="470" y1="60" x2="280" y2="85" stroke="#d29922" stroke-width="1.2"/>
+  <line x1="710" y1="60" x2="900" y2="85" stroke="#d29922" stroke-width="1.2"/>
+
+  <!-- Stripe -->
+  <rect x="140" y="85" width="280" height="26" rx="5" fill="#1a3a2a" stroke="#7ee787" stroke-width="1.5"/>
+  <text x="280" y="103" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="600">StripeAdapter (REAL API)</text>
+
+  <!-- Razorpay -->
+  <rect x="760" y="85" width="280" height="26" rx="5" fill="#1a3a2a" stroke="#7ee787" stroke-width="1.5"/>
+  <text x="900" y="103" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="600">RazorpayAdapter (REAL API)</text>
+
+  <!-- Stripe flow -->
+  <rect x="100" y="125" width="360" height="400" rx="8" fill="none" stroke="#7ee787" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="280" y="145" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="700">STRIPE PAYMENT FLOW</text>
+
+  <!-- Stripe steps -->
+  <rect x="130" y="155" width="300" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="170" text-anchor="middle" fill="#58a6ff" font-size="9">POST /payments/intent {gateway: "stripe"}</text>
+
+  <line x1="280" y1="177" x2="280" y2="192" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="130" y="192" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="207" text-anchor="middle" fill="#d2a8ff" font-size="9">StripeAdapter.createOrder() → PaymentIntent</text>
+
+  <line x1="280" y1="214" x2="280" y2="229" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="150" y="229" width="260" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+  <text x="280" y="243" text-anchor="middle" fill="#8b949e" font-size="8">Payment entity: gateway_order_id = pi_xxx</text>
+
+  <line x1="280" y1="249" x2="280" y2="264" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="130" y="264" width="300" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="279" text-anchor="middle" fill="#58a6ff" font-size="9">Frontend: StripePaymentForm → CardElement</text>
+
+  <line x1="280" y1="286" x2="280" y2="301" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="130" y="301" width="300" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="316" text-anchor="middle" fill="#7ee787" font-size="9">stripe.confirmCardPayment(clientSecret, {card})</text>
+
+  <line x1="280" y1="323" x2="280" y2="338" stroke="#7ee787" stroke-width="1"/>
+  <rect x="130" y="338" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="353" text-anchor="middle" fill="#d2a8ff" font-size="9">POST /payments/verify {paymentId, gatewayOrderId}</text>
+
+  <line x1="280" y1="360" x2="280" y2="375" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="130" y="375" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="390" text-anchor="middle" fill="#d2a8ff" font-size="9">StripeAdapter.verifyPayment() → PaymentIntent.retrieve()</text>
+
+  <line x1="280" y1="397" x2="280" y2="412" stroke="#d29922" stroke-width="1"/>
+  <rect x="150" y="412" width="260" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="426" text-anchor="middle" fill="#d29922" font-size="8">Verify: status=succeeded + metadata.order_id + amount</text>
+
+  <line x1="280" y1="432" x2="280" y2="447" stroke="#7ee787" stroke-width="1"/>
+  <rect x="130" y="447" width="300" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="462" text-anchor="middle" fill="#7ee787" font-size="9">Payment = ESCROWED · Booking = CONFIRMED</text>
+
+  <!-- Stripe webhook -->
+  <rect x="130" y="480" width="300" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="495" text-anchor="middle" fill="#79c0ff" font-size="8">Webhook: charge.succeeded → idempotent reconcile</text>
+
+  <!-- Razorpay flow -->
+  <rect x="720" y="125" width="360" height="400" rx="8" fill="none" stroke="#7ee787" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="900" y="145" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="700">RAZORPAY PAYMENT FLOW</text>
+
+  <rect x="750" y="155" width="300" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="900" y="170" text-anchor="middle" fill="#58a6ff" font-size="9">POST /payments/intent {gateway: "razorpay"}</text>
+
+  <line x1="900" y1="177" x2="900" y2="192" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="750" y="192" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="900" y="207" text-anchor="middle" fill="#d2a8ff" font-size="9">RazorpayAdapter.createOrder() → Orders API</text>
+
+  <line x1="900" y1="214" x2="900" y2="229" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="770" y="229" width="260" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+  <text x="900" y="243" text-anchor="middle" fill="#8b949e" font-size="8">Payment entity: gateway_order_id = order_xxx</text>
+
+  <line x1="900" y1="249" x2="900" y2="264" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="750" y="264" width="300" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="900" y="279" text-anchor="middle" fill="#58a6ff" font-size="9">Frontend: Razorpay Checkout (checkout.js)</text>
+
+  <line x1="900" y1="286" x2="900" y2="301" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="750" y="301" width="300" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="900" y="316" text-anchor="middle" fill="#7ee787" font-size="9">Razorpay.open() → pay_xxx + signature</text>
+
+  <line x1="900" y1="323" x2="900" y2="338" stroke="#7ee787" stroke-width="1"/>
+  <rect x="750" y="338" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="900" y="353" text-anchor="middle" fill="#d2a8ff" font-size="9">POST /payments/verify {paymentId, signature}</text>
+
+  <line x1="900" y1="360" x2="900" y2="375" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="750" y="375" width="300" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="900" y="390" text-anchor="middle" fill="#d2a8ff" font-size="9">RazorpayAdapter.verifyPayment() → HMAC verify</text>
+
+  <line x1="900" y1="397" x2="900" y2="412" stroke="#d29922" stroke-width="1"/>
+  <rect x="770" y="412" width="260" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="900" y="426" text-anchor="middle" fill="#d29922" font-size="8">Verify: HMAC(gatewayOrderId|paymentId, secret)</text>
+
+  <line x1="900" y1="432" x2="900" y2="447" stroke="#7ee787" stroke-width="1"/>
+  <rect x="750" y="447" width="300" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="900" y="462" text-anchor="middle" fill="#7ee787" font-size="9">Payment = ESCROWED · Booking = CONFIRMED</text>
+
+  <rect x="750" y="480" width="300" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="900" y="495" text-anchor="middle" fill="#79c0ff" font-size="8">Webhook: payment.captured → idempotent reconcile</text>
+
+  <!-- Shared webhook dedup -->
+  <rect x="300" y="540" width="580" height="30" rx="6" fill="#3a3a1a" stroke="#d29922" stroke-width="1.5"/>
+  <text x="590" y="560" text-anchor="middle" fill="#d29922" font-size="10" font-weight="600">Shared: WebhookEventIdResolver → webhook_events table (UNIQUE gateway, eventId)</text>
+
+  <!-- Payment state machine -->
+  <rect x="100" y="580" width="980" height="40" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="200" y="596" fill="#8b949e" font-size="10" font-weight="600">State Machine:</text>
+  <rect x="320" y="585" width="80" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="360" y="600" text-anchor="middle" fill="#d29922" font-size="9">INITIATED</text>
+  <line x1="400" y1="596" x2="440" y2="596" stroke="#d29922" stroke-width="1" marker-end="url(#arrowYellow)"/>
+  <rect x="440" y="585" width="80" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="480" y="600" text-anchor="middle" fill="#7ee787" font-size="9">ESCROWED</text>
+  <line x1="520" y1="596" x2="560" y2="596" stroke="#7ee787" stroke-width="1" marker-end="url(#arrowGreen)"/>
+  <rect x="560" y="585" width="80" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="600" y="600" text-anchor="middle" fill="#7ee787" font-size="9">RELEASED</text>
+  <line x1="680" y1="596" x2="720" y2="596" stroke="#f85149" stroke-width="1"/>
+  <rect x="720" y="585" width="80" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="760" y="600" text-anchor="middle" fill="#f85149" font-size="9">FAILED</text>
+  <line x1="480" y1="607" x2="480" y2="615" stroke="#f85149" stroke-width="1"/>
+  <rect x="840" y="585" width="120" height="22" rx="4" fill="#3a1a1a" stroke="#d2a8ff"/>
+  <text x="900" y="600" text-anchor="middle" fill="#d2a8ff" font-size="9">REFUND_PENDING→REFUNDED</text>
+
+  <defs>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#7ee787"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 10. LIVE SESSION -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">10</span> Live Session (Google Meet Integration)</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">LIVE SESSION FLOW</text>
+
+  <rect x="200" y="28" width="160" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#58a6ff" font-size="10">👤 Learner / Mentor</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#58a6ff" stroke-width="1"/>
+
+  <rect x="160" y="68" width="240" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="83" text-anchor="middle" fill="#58a6ff" font-size="10">POST /api/v1/sessions/{id}/join</text>
+
+  <line x1="280" y1="90" x2="280" y2="106" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="140" y="106" width="280" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="121" text-anchor="middle" fill="#d2a8ff" font-size="9">LiveSessionService.validateParticipant()</text>
+
+  <line x1="280" y1="128" x2="280" y2="144" stroke="#d29922" stroke-width="1"/>
+
+  <!-- Decision: Meet link? -->
+  <polygon points="280,144 350,164 280,184 210,164" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="168" text-anchor="middle" fill="#d29922" font-size="8">Google Meet?</text>
+
+  <line x1="200" y1="164" x2="120" y2="164" stroke="#7ee787" stroke-width="1"/>
+  <text x="160" y="158" fill="#7ee787" font-size="8">YES</text>
+  <rect x="20" y="152" width="100" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="70" y="167" text-anchor="middle" fill="#79c0ff" font-size="8">→ Google Calendar</text>
+
+  <line x1="350" y1="164" x2="440" y2="164" stroke="#f85149" stroke-width="1"/>
+  <text x="395" y="158" fill="#f85149" font-size="8">NO</text>
+  <rect x="440" y="152" width="110" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="495" y="167" text-anchor="middle" fill="#8b949e" font-size="8">→ Manual link</text>
+
+  <line x1="280" y1="184" x2="280" y2="200" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="140" y="200" width="280" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="215" text-anchor="middle" fill="#79c0ff" font-size="9">LiveSessionController generates join link</text>
+
+  <line x1="280" y1="222" x2="280" y2="238" stroke="#58a6ff" stroke-width="1"/>
+
+  <rect x="160" y="238" width="240" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="253" text-anchor="middle" fill="#58a6ff" font-size="9">Booking → IN_PROGRESS</text>
+
+  <line x1="280" y1="260" x2="280" y2="276" stroke="#58a6ff" stroke-width="1"/>
+
+  <!-- WebSocket for session -->
+  <rect x="140" y="276" width="280" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="291" text-anchor="middle" fill="#79c0ff" font-size="9">Session chat via /ws/chat (booking-scoped)</text>
+
+  <line x1="280" y1="298" x2="280" y2="314" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="160" y="314" width="240" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="329" text-anchor="middle" fill="#d29922" font-size="9">BookingLifecycleScheduler: auto-expire if no join</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Participant clicks "Join Session" in LearnerSessionsPage → POST /sessions/{id}/join.</p>
+  <h4>Step-by-Step</h4>
+  <p>1. LiveSessionService validates participant (learner or mentor of this booking)</p>
+  <p>2. If Google Meet configured → generate Google Calendar + Meet link</p>
+  <p>3. If no Google Meet → return manual meeting link</p>
+  <p>4. Booking status → IN_PROGRESS</p>
+  <p>5. Session chat available via /ws/chat (booking-scoped)</p>
+  <p>6. BookingLifecycleScheduler auto-expires if no one joins</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">LiveSessionController.java</span> — Join API<br>
+    <span class="file">LiveSessionService.java</span> — Validation + link gen<br>
+    <span class="file">BookingLifecycleScheduler.java</span> — Auto-expire<br>
+    <span class="file">BookingChatWebSocketHandler.java</span> — Session chat<br>
+    <span class="file">MeetingService</span> (meeting/provider/) — Meeting provider abstraction
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 11. COMMUNICATION -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">11</span> Communication — Booking Chat + Direct Messaging</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">COMMUNICATION ARCHITECTURE</text>
+
+  <!-- Two chat types -->
+  <rect x="20" y="30" width="250" height="26" rx="5" fill="#1a3a3a" stroke="#79c0ff" stroke-width="1.2"/>
+  <text x="145" y="48" text-anchor="middle" fill="#79c0ff" font-size="10" font-weight="600">Booking Chat</text>
+
+  <rect x="290" y="30" width="250" height="26" rx="5" fill="#1a3a3a" stroke="#79c0ff" stroke-width="1.2"/>
+  <text x="415" y="48" text-anchor="middle" fill="#79c0ff" font-size="10" font-weight="600">Direct Messaging</text>
+
+  <!-- Booking Chat flow -->
+  <line x1="145" y1="56" x2="145" y2="72" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="50" y="72" width="190" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="145" y="87" text-anchor="middle" fill="#58a6ff" font-size="8">WebSocket: /ws/chat</text>
+
+  <line x1="145" y1="94" x2="145" y2="110" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="30" y="110" width="230" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="145" y="125" text-anchor="middle" fill="#d2a8ff" font-size="8">BookingChatWebSocketHandler</text>
+
+  <line x1="145" y1="132" x2="145" y2="148" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="30" y="148" width="230" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="145" y="163" text-anchor="middle" fill="#d29922" font-size="8">Authorize: Booking participant?</text>
+
+  <line x1="145" y1="170" x2="145" y2="186" stroke="#7ee787" stroke-width="1"/>
+  <rect x="30" y="186" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="145" y="201" text-anchor="middle" fill="#8b949e" font-size="8">ChatService + ChatInputSanitizer</text>
+
+  <line x1="145" y1="208" x2="145" y2="224" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="30" y="224" width="230" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="145" y="239" text-anchor="middle" fill="#7ee787" font-size="8">ChatMessage → DB + WS broadcast</text>
+
+  <line x1="145" y1="246" x2="145" y2="262" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="30" y="262" width="230" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="145" y="277" text-anchor="middle" fill="#79c0ff" font-size="8">Read receipts + Reactions</text>
+
+  <!-- DM flow -->
+  <line x1="415" y1="56" x2="415" y2="72" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="320" y="72" width="190" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="415" y="87" text-anchor="middle" fill="#58a6ff" font-size="8">WebSocket: /ws/chat/direct</text>
+
+  <line x1="415" y1="94" x2="415" y2="110" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="300" y="110" width="230" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="415" y="125" text-anchor="middle" fill="#d2a8ff" font-size="8">DirectChatWebSocketHandler</text>
+
+  <line x1="415" y1="132" x2="415" y2="148" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="300" y="148" width="230" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="415" y="163" text-anchor="middle" fill="#d29922" font-size="8">MessageRequest check (privacy)</text>
+
+  <line x1="415" y1="170" x2="415" y2="186" stroke="#7ee787" stroke-width="1"/>
+  <rect x="300" y="186" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="415" y="201" text-anchor="middle" fill="#8b949e" font-size="8">DirectConversation + DirectMessage</text>
+
+  <line x1="415" y1="208" x2="415" y2="224" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="300" y="224" width="230" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="415" y="239" text-anchor="middle" fill="#7ee787" font-size="8">Message → DB + WS broadcast</text>
+
+  <line x1="415" y1="246" x2="415" y2="262" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="300" y="262" width="230" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="415" y="277" text-anchor="middle" fill="#79c0ff" font-size="8">Read receipts + Pin + Archive</text>
+
+  <!-- Privacy -->
+  <rect x="20" y="300" width="520" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="280" y="315" text-anchor="middle" fill="#f85149" font-size="8">Privacy: UserBlock check · MessageRequest required for DM · Block → cannot message</text>
+
+  <!-- REST endpoints -->
+  <rect x="20" y="330" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="345" text-anchor="middle" fill="#8b949e" font-size="8">REST: ChatController → listConversations · getMessages · REST fallback for non-WS clients</text>
+
+  <rect x="20" y="360" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="375" text-anchor="middle" fill="#8b949e" font-size="8">Pages: LearnerMessagesPage.jsx · MessagesPage.jsx · MessageRequestController</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>Two Communication Channels</h4>
+  <p><strong>Booking Chat:</strong> Scoped to a booking, available to both participants. Uses /ws/chat WebSocket.</p>
+  <p><strong>Direct Messaging:</strong> Peer-to-peer, requires MessageRequest approval. Uses /ws/chat/direct WebSocket.</p>
+  <h4>Step-by-Step (Booking Chat)</h4>
+  <p>1. WebSocket connection: /ws/chat with bookingId</p>
+  <p>2. BookingChatWebSocketHandler verifies participant</p>
+  <p>3. ChatService + ChatInputSanitizer (XSS prevention)</p>
+  <p>4. ChatMessage saved to DB</p>
+  <p>5. WebSocket broadcast to other participants</p>
+  <p>6. Read receipts and reactions tracked</p>
+  <h4>Privacy Rules</h4>
+  <p>• UserBlock check prevents blocked users from messaging</p>
+  <p>• MessageRequest required before DM (privacy model)</p>
+  <p>• Block → immediate message prevention</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">BookingChatWebSocketHandler.java</span> — Booking WS<br>
+    <span class="file">DirectChatWebSocketHandler.java</span> — DM WS<br>
+    <span class="file">ChatService.java</span> — Business logic (945 lines)<br>
+    <span class="file">ChatInputSanitizer.java</span> — XSS prevention<br>
+    <span class="file">ChatController.java</span> — REST fallback<br>
+    <span class="file">ChatMessage.java</span> — Entity<br>
+    <span class="file">DirectConversation.java</span> — DM conversation<br>
+    <span class="file">DirectMessage.java</span> — DM message<br>
+    <span class="file">MessageRequest.java</span> — Privacy gate<br>
+    <span class="file">MessageRequestController.java</span> — Request API<br>
+    <span class="file">MessagePrivacyController.java</span> — Privacy settings
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 12. NOTIFICATIONS -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">12</span> Notifications</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">NOTIFICATION PIPELINE</text>
+
+  <!-- Trigger -->
+  <rect x="180" y="28" width="200" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="44" text-anchor="middle" fill="#d2a8ff" font-size="10">Business Event (booking, payment, etc.)</text>
+
+  <line x1="280" y1="52" x2="280" y2="68" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="160" y="68" width="240" height="24" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="84" text-anchor="middle" fill="#d2a8ff" font-size="10">NotificationService.notifyUser()</text>
+
+  <line x1="280" y1="92" x2="280" y2="108" stroke="#d29922" stroke-width="1"/>
+
+  <!-- Preference check -->
+  <polygon points="280,108 360,128 280,148 200,128" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="132" text-anchor="middle" fill="#d29922" font-size="8">Preference Check?</text>
+
+  <line x1="280" y1="148" x2="280" y2="164" stroke="#7ee787" stroke-width="1"/>
+  <text x="295" y="158" fill="#7ee787" font-size="8">YES</text>
+
+  <rect x="160" y="164" width="240" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="179" text-anchor="middle" fill="#7ee787" font-size="9">AppNotification saved to DB</text>
+
+  <!-- Split paths -->
+  <line x1="200" y1="186" x2="120" y2="210" stroke="#79c0ff" stroke-width="1"/>
+  <line x1="360" y1="186" x2="440" y2="210" stroke="#58a6ff" stroke-width="1"/>
+
+  <!-- WebSocket -->
+  <rect x="20" y="210" width="200" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="120" y="225" text-anchor="middle" fill="#79c0ff" font-size="9">⚡ WebSocket Push (real-time)</text>
+
+  <!-- Email -->
+  <rect x="340" y="210" width="200" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="440" y="225" text-anchor="middle" fill="#8b949e" font-size="9">📧 Email (preference-gated)</text>
+
+  <!-- NotificationWebSocketHandler -->
+  <line x1="120" y1="232" x2="120" y2="248" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="20" y="248" width="200" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="120" y="263" text-anchor="middle" fill="#79c0ff" font-size="8">NotificationWebSocketHandler.broadcastToUser()</text>
+
+  <!-- NotificationCenter -->
+  <line x1="120" y1="270" x2="120" y2="286" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="20" y="286" width="200" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="120" y="301" text-anchor="middle" fill="#58a6ff" font-size="8">NotificationCenter.jsx (UI)</text>
+
+  <!-- Broadcast -->
+  <rect x="340" y="260" width="200" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="440" y="275" text-anchor="middle" fill="#f85149" font-size="8">Admin Broadcast (all users)</text>
+
+  <rect x="340" y="286" width="200" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="440" y="301" text-anchor="middle" fill="#8b949e" font-size="8">NotificationBroadcastPage.jsx</text>
+
+  <!-- Types -->
+  <rect x="20" y="330" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="345" text-anchor="middle" fill="#8b949e" font-size="8">Types: BOOKING, PAYMENT, MESSAGE, REVIEW, VERIFICATION, SYSTEM, BROADCAST</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>Any business event (booking confirmed, payment received, message sent, etc.) calls NotificationService.notifyUser().</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Business service calls NotificationService.notifyUser(userId, type, title, message)</p>
+  <p>2. NotificationPreference check (per-type, per-role settings)</p>
+  <p>3. AppNotification persisted to DB (app_notifications table)</p>
+  <p>4. WebSocket push via NotificationWebSocketHandler.broadcastToUser() (real-time)</p>
+  <p>5. Email branch: EmailNotificationService (preference-gated)</p>
+  <h4>Special Paths</h4>
+  <p>• Admin Broadcast → NotificationBroadcastPage → all users</p>
+  <p>• Scheduled Reports → AdminScheduledReportService (cron-based)</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">NotificationService.java</span> — Pipeline orchestrator<br>
+    <span class="file">NotificationWebSocketHandler.java</span> — WS push<br>
+    <span class="file">EmailNotificationService.java</span> — Email branch<br>
+    <span class="file">AppNotification.java</span> — Entity<br>
+    <span class="file">NotificationPreference.java</span> — Preference entity<br>
+    <span class="file">NotificationBroadcast.java</span> — Broadcast entity<br>
+    <span class="file">NotificationCenter.jsx</span> — Frontend UI<br>
+    <span class="file">NotificationBroadcastPage.jsx</span> — Admin broadcast<br>
+    <span class="file">WebSocketConfig.java</span> — /ws/notifications
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 13. LEARNING -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">13</span> Learning — Aggregated Capabilities</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 360" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">LEARNING ECOSYSTEM</text>
+
+  <!-- Center -->
+  <rect x="180" y="30" width="200" height="26" rx="5" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.5"/>
+  <text x="280" y="48" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="600">LearningDashboardService</text>
+
+  <!-- Capabilities -->
+  <line x1="200" y1="56" x2="100" y2="80" stroke="#d29922" stroke-width="1"/>
+  <line x1="280" y1="56" x2="280" y2="80" stroke="#d29922" stroke-width="1"/>
+  <line x1="360" y1="56" x2="460" y2="80" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="20" y="80" width="160" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="100" y="95" text-anchor="middle" fill="#58a6ff" font-size="9">Session Notes</text>
+  <rect x="200" y="80" width="160" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="280" y="95" text-anchor="middle" fill="#58a6ff" font-size="9">Learning Paths</text>
+  <rect x="380" y="80" width="160" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="460" y="95" text-anchor="middle" fill="#58a6ff" font-size="9">Learner Tasks</text>
+
+  <!-- Second row -->
+  <rect x="20" y="112" width="160" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="100" y="127" text-anchor="middle" fill="#7ee787" font-size="9">Daily Tasks</text>
+  <rect x="200" y="112" width="160" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="280" y="127" text-anchor="middle" fill="#7ee787" font-size="9">Achievements</text>
+  <rect x="380" y="112" width="160" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="460" y="127" text-anchor="middle" fill="#7ee787" font-size="9">Certificates</text>
+
+  <!-- Controllers -->
+  <line x1="100" y1="134" x2="100" y2="154" stroke="#d2a8ff" stroke-width="1"/>
+  <line x1="280" y1="134" x2="280" y2="154" stroke="#d2a8ff" stroke-width="1"/>
+  <line x1="460" y1="134" x2="460" y2="154" stroke="#d2a8ff" stroke-width="1"/>
+
+  <rect x="20" y="154" width="160" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="100" y="169" text-anchor="middle" fill="#d2a8ff" font-size="8">LearningDashboardController</text>
+  <rect x="200" y="154" width="160" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="280" y="169" text-anchor="middle" fill="#d2a8ff" font-size="8">LearnerTaskController</text>
+  <rect x="380" y="154" width="160" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="460" y="169" text-anchor="middle" fill="#d2a8ff" font-size="8">CertificationController</text>
+
+  <!-- Pages -->
+  <rect x="20" y="200" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="215" text-anchor="middle" fill="#8b949e" font-size="8">LearnerLearningPage · LearnerTasksPage · LearnerPathPage · LearnerAchievementsPage · LearnerCertificatesPage</text>
+
+  <!-- DB tables -->
+  <rect x="20" y="234" width="520" height="40" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="250" text-anchor="middle" fill="#8b949e" font-size="9" font-weight="600">Entities:</text>
+  <text x="40" y="266" fill="#7ee787" font-size="8">SessionNote · LearnerTask · LearnerTodo · LearningPath · UserCertification · MentorCertification</text>
+
+  <!-- Integration -->
+  <rect x="20" y="290" width="520" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="280" y="305" text-anchor="middle" fill="#79c0ff" font-size="8">CertificationService: auto-issues certificates on milestone completion · MentorCertification: mentor skill badges</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What It Is</h4>
+  <p>Learning is an <strong>aggregation of capabilities</strong>, not a single CRUD flow. It includes notes, tasks, paths, achievements, and certificates.</p>
+  <h4>Components</h4>
+  <p>• <strong>Session Notes:</strong> Learners take notes per session (SessionNote entity)</p>
+  <p>• <strong>Learning Paths:</strong> Curated sequences of sessions (LearningPath entity, V61)</p>
+  <p>• <strong>Learner Tasks:</strong> Homework/tasks assigned by mentor (LearnerTask entity)</p>
+  <p>• <strong>Daily Tasks:</strong> Daily learning activities (V63)</p>
+  <p>• <strong>Achievements:</strong> Milestone tracking</p>
+  <p>• <strong>Certificates:</strong> Auto-issued on completion (CertificationService)</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">LearningDashboardService.java</span> — Aggregator<br>
+    <span class="file">LearningDashboardController.java</span> — REST API<br>
+    <span class="file">LearnerTaskService.java</span> — Task management<br>
+    <span class="file">LearnerTaskController.java</span> — Task API<br>
+    <span class="file">CertificationService.java</span> — Certificate logic<br>
+    <span class="file">CertificationController.java</span> — Cert API<br>
+    <span class="file">SessionNote.java</span> — Entity<br>
+    <span class="file">LearnerTask.java</span> — Entity<br>
+    <span class="file">LearnerLearningPage.jsx</span> — Learning dashboard UI
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 14. REVIEWS -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">14</span> Reviews</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">REVIEW SYSTEM</text>
+
+  <!-- Two review types -->
+  <rect x="30" y="30" width="230" height="26" rx="5" fill="#1f3a5f" stroke="#58a6ff" stroke-width="1.2"/>
+  <text x="145" y="48" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">Learner → Mentor Review</text>
+
+  <rect x="300" y="30" width="230" height="26" rx="5" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.2"/>
+  <text x="415" y="48" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="600">Mentor → Learner Review</text>
+
+  <line x1="145" y1="56" x2="145" y2="76" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="30" y="76" width="230" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="145" y="91" text-anchor="middle" fill="#d2a8ff" font-size="9">ReviewController.createReview()</text>
+
+  <line x1="415" y1="56" x2="415" y2="76" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="300" y="76" width="230" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="415" y="91" text-anchor="middle" fill="#d2a8ff" font-size="9">ReviewController.createReview()</text>
+
+  <line x1="145" y1="98" x2="145" y2="114" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="30" y="114" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="145" y="129" text-anchor="middle" fill="#8b949e" font-size="9">Validate: completed booking, one review</text>
+
+  <line x1="415" y1="98" x2="415" y2="114" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="300" y="114" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="415" y="129" text-anchor="middle" fill="#8b949e" font-size="9">Validate: completed booking, one review</text>
+
+  <line x1="145" y1="136" x2="145" y2="152" stroke="#7ee787" stroke-width="1"/>
+  <rect x="30" y="152" width="230" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="145" y="167" text-anchor="middle" fill="#7ee787" font-size="9">MentorReview saved + rating updated</text>
+
+  <line x1="415" y1="136" x2="415" y2="152" stroke="#7ee787" stroke-width="1"/>
+  <rect x="300" y="152" width="230" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="415" y="167" text-anchor="middle" fill="#7ee787" font-size="9">LearnerReview saved</text>
+
+  <!-- Reply -->
+  <rect x="30" y="190" width="230" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="145" y="205" text-anchor="middle" fill="#79c0ff" font-size="8">Mentor can reply (V25)</text>
+
+  <!-- Admin moderation -->
+  <rect x="300" y="190" width="230" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="415" y="205" text-anchor="middle" fill="#f85149" font-size="8">Admin can moderate (V22)</text>
+
+  <rect x="20" y="230" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="245" text-anchor="middle" fill="#8b949e" font-size="8">Pages: MentorReviewsPage · MentorProfilePage (shows reviews) · LearnerReviewsPage</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>What Starts the Flow</h4>
+  <p>After session completion, either participant can leave a review via ReviewController.</p>
+  <h4>Key Rules</h4>
+  <p>• Only completed bookings can be reviewed</p>
+  <p>• One review per participant per booking</p>
+  <p>• Mentor can reply to reviews (V25)</p>
+  <p>• Admin can moderate reviews (V22)</p>
+  <p>• Rating automatically updates mentor's average</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">ReviewController.java</span> — REST API<br>
+    <span class="file">ReviewService.java</span> — Business logic<br>
+    <span class="file">MentorReview.java</span> — Entity<br>
+    <span class="file">LearnerReview.java</span> — Entity<br>
+    <span class="file">MentorReviewsPage.jsx</span> — Mentor reviews UI<br>
+    <span class="file">MentorProfilePage.jsx</span> — Shows reviews on profile
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 15. WALLET / PAYOUT -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">15</span> Wallet &amp; Payout</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">WALLET &amp; MENTOR PAYOUT ARCHITECTURE</text>
+
+  <!-- Wallet Ledger -->
+  <rect x="350" y="30" width="480" height="28" rx="6" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.5"/>
+  <text x="590" y="49" text-anchor="middle" fill="#d2a8ff" font-size="11" font-weight="600">WalletService — Central Ledger (wallet_ledger_entries)</text>
+
+  <!-- Ledger types -->
+  <g font-size="9">
+    <rect x="100" y="72" width="100" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="150" y="86" text-anchor="middle" fill="#7ee787">EARNING</text>
+    <rect x="210" y="72" width="100" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="260" y="86" text-anchor="middle" fill="#58a6ff">TOP_UP</text>
+    <rect x="320" y="72" width="100" height="20" rx="3" fill="#3a1a1a" stroke="#f85149"/>
+    <text x="370" y="86" text-anchor="middle" fill="#f85149">WITHDRAWAL</text>
+    <rect x="430" y="72" width="100" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="480" y="86" text-anchor="middle" fill="#d29922">REFUND</text>
+    <rect x="540" y="72" width="100" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+    <text x="590" y="86" text-anchor="middle" fill="#8b949e">REVERSAL</text>
+    <rect x="650" y="72" width="100" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+    <text x="700" y="86" text-anchor="middle" fill="#8b949e">ADJUSTMENT</text>
+    <rect x="760" y="72" width="100" height="20" rx="3" fill="#1a3a3a" stroke="#79c0ff"/>
+    <text x="810" y="86" text-anchor="middle" fill="#79c0ff">CREDIT</text>
+    <rect x="870" y="72" width="100" height="20" rx="3" fill="#21262d" stroke="#8b949e"/>
+    <text x="920" y="86" text-anchor="middle" fill="#8b949e">DEBIT</text>
+  </g>
+
+  <!-- Top-up flow -->
+  <rect x="20" y="110" width="380" height="180" rx="8" fill="none" stroke="#58a6ff" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="210" y="128" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">💰 WALLET TOP-UP (Dual Gateway)</text>
+
+  <rect x="40" y="138" width="340" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="210" y="152" text-anchor="middle" fill="#58a6ff" font-size="8">POST /wallet/topup/intent {amount, gateway}</text>
+
+  <line x1="130" y1="158" x2="130" y2="172" stroke="#d29922" stroke-width="1"/>
+  <line x1="290" y1="158" x2="290" y2="172" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="40" y="172" width="170" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="125" y="186" text-anchor="middle" fill="#7ee787" font-size="8">Stripe: PaymentIntent</text>
+  <rect x="220" y="172" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="310" y="186" text-anchor="middle" fill="#7ee787" font-size="8">Razorpay: Order → Checkout</text>
+
+  <line x1="210" y1="192" x2="210" y2="206" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="60" y="206" width="300" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="210" y="220" text-anchor="middle" fill="#d2a8ff" font-size="8">POST /wallet/topup/verify {orderId, paymentId, signature}</text>
+
+  <line x1="210" y1="226" x2="210" y2="240" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="60" y="240" width="300" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="210" y="254" text-anchor="middle" fill="#7ee787" font-size="8">WalletTopUpService → idempotent credit → ledger entry</text>
+
+  <!-- Payout flow -->
+  <rect x="420" y="110" width="380" height="180" rx="8" fill="none" stroke="#d2a8ff" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="610" y="128" text-anchor="middle" fill="#d2a8ff" font-size="11" font-weight="700">💸 MENTOR PAYOUT (Dual Gateway)</text>
+
+  <rect x="440" y="138" width="340" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="610" y="152" text-anchor="middle" fill="#d2a8ff" font-size="8">POST /wallet/withdraw {amount, paymentMethod}</text>
+
+  <line x1="530" y1="158" x2="530" y2="172" stroke="#d29922" stroke-width="1"/>
+  <line x1="690" y1="158" x2="690" y2="172" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="440" y="172" width="170" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="525" y="186" text-anchor="middle" fill="#7ee787" font-size="8">Stripe: Connect Transfer</text>
+  <rect x="620" y="172" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="710" y="186" text-anchor="middle" fill="#7ee787" font-size="8">Razorpay: Route Transfer</text>
+
+  <line x1="610" y1="192" x2="610" y2="206" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="460" y="206" width="300" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="610" y="220" text-anchor="middle" fill="#d29922" font-size="8">Withdrawal = PROCESSING → webhook → COMPLETED / FAILED</text>
+
+  <line x1="610" y1="226" x2="610" y2="240" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="460" y="240" width="300" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="610" y="254" text-anchor="middle" fill="#7ee787" font-size="8">If FAILED → balance reconciled via REFUND ledger entry</text>
+
+  <!-- Webhook reconciliation -->
+  <rect x="820" y="110" width="340" height="180" rx="8" fill="none" stroke="#79c0ff" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="990" y="128" text-anchor="middle" fill="#79c0ff" font-size="11" font-weight="700">🔄 WEBHOOK RECONCILIATION</text>
+
+  <rect x="840" y="138" width="300" height="20" rx="3" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="990" y="152" text-anchor="middle" fill="#79c0ff" font-size="8">Payment webhook → PaymentVerificationService</text>
+  <rect x="840" y="164" width="300" height="20" rx="3" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="990" y="178" text-anchor="middle" fill="#79c0ff" font-size="8">Payout webhook → RazorpayPayoutController</text>
+  <rect x="840" y="190" width="300" height="20" rx="3" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="990" y="204" text-anchor="middle" fill="#79c0ff" font-size="8">Stripe webhook → ConnectWebhookController</text>
+
+  <rect x="840" y="216" width="300" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="990" y="230" text-anchor="middle" fill="#d29922" font-size="8">DB-backed idempotency: webhook_events table</text>
+  <rect x="840" y="242" width="300" height="20" rx="3" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="990" y="256" text-anchor="middle" fill="#d29922" font-size="8">UNIQUE(gateway, eventId) prevents duplicate processing</text>
+
+  <!-- States -->
+  <rect x="20" y="310" width="1140" height="80" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="330" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Withdrawal State Machine</text>
+  <rect x="200" y="340" width="100" height="24" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="250" y="356" text-anchor="middle" fill="#d29922" font-size="9">REQUESTED</text>
+  <line x1="300" y1="352" x2="380" y2="352" stroke="#d29922" stroke-width="1"/>
+  <rect x="380" y="340" width="120" height="24" rx="4" fill="#3a3a1a" stroke="#79c0ff"/>
+  <text x="440" y="356" text-anchor="middle" fill="#79c0ff" font-size="9">PROCESSING</text>
+  <line x1="500" y1="345" x2="580" y2="345" stroke="#7ee787" stroke-width="1"/>
+  <line x1="500" y1="359" x2="580" y2="359" stroke="#f85149" stroke-width="1"/>
+  <text x="540" y="340" fill="#7ee787" font-size="8">SUCCESS</text>
+  <text x="540" y="368" fill="#f85149" font-size="8">FAILED</text>
+  <rect x="580" y="338" width="100" height="24" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="630" y="354" text-anchor="middle" fill="#7ee787" font-size="9">COMPLETED</text>
+  <rect x="580" y="354" width="100" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="630" y="370" text-anchor="middle" fill="#f85149" font-size="9">FAILED</text>
+
+  <text x="750" y="360" fill="#8b949e" font-size="8">If FAILED → wallet balance restored via REFUND ledger entry</text>
+
+  <!-- Razorpay linked account -->
+  <rect x="20" y="400" width="1140" height="50" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="420" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Razorpay Route — Linked Account Lifecycle</text>
+  <text x="200" y="440" fill="#7ee787" font-size="8">Create Account → Create Stakeholder → Configure Route Product → Onboarding URL → Eligible → Transfer</text>
+
+  <rect x="20" y="460" width="1140" height="30" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="480" text-anchor="middle" fill="#8b949e" font-size="9">Entities: MentorWallet · WalletLedgerEntry · WalletTopUp · WalletWithdrawalIdempotencyKey · MentorConnectAccount · RazorpayLinkedAccount</text>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 16. SAFETY / MODERATION -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">16</span> Safety &amp; Moderation</h2>
+<div class="grid2">
+<div class="diagram-box">
+<svg viewBox="0 0 560 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="280" y="18" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">SAFETY &amp; MODERATION FLOW</text>
+
+  <!-- Two entry points -->
+  <rect x="30" y="30" width="230" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="145" y="46" text-anchor="middle" fill="#f85149" font-size="9" font-weight="600">Explicit Report / Block</text>
+
+  <rect x="300" y="30" width="230" height="24" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="415" y="46" text-anchor="middle" fill="#d29922" font-size="9" font-weight="600">Automated Moderation</text>
+
+  <!-- Explicit -->
+  <line x1="145" y1="54" x2="145" y2="70" stroke="#f85149" stroke-width="1"/>
+  <rect x="30" y="70" width="230" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="145" y="85" text-anchor="middle" fill="#d2a8ff" font-size="8">SafetyController.reportUser()</text>
+
+  <line x1="145" y1="92" x2="145" y2="108" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="30" y="108" width="100" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="80" y="123" text-anchor="middle" fill="#8b949e" font-size="8">UserReport</text>
+  <rect x="140" y="108" width="120" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="200" y="123" text-anchor="middle" fill="#8b949e" font-size="8">UserBlock</text>
+
+  <!-- Automated -->
+  <line x1="415" y1="54" x2="415" y2="70" stroke="#d29922" stroke-width="1"/>
+  <rect x="300" y="70" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="415" y="85" text-anchor="middle" fill="#8b949e" font-size="8">ModerationScanner (keyword scan)</text>
+
+  <line x1="415" y1="92" x2="415" y2="108" stroke="#d29922" stroke-width="1"/>
+  <rect x="300" y="108" width="230" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+  <text x="415" y="123" text-anchor="middle" fill="#8b949e" font-size="8">ContentModerationService</text>
+
+  <!-- Merge -->
+  <line x1="145" y1="130" x2="280" y2="150" stroke="#d2a8ff" stroke-width="1"/>
+  <line x1="415" y1="130" x2="280" y2="150" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- FlaggedContent -->
+  <rect x="140" y="150" width="280" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="165" text-anchor="middle" fill="#d29922" font-size="9">FlaggedContent → Admin Moderation Queue</text>
+
+  <line x1="280" y1="172" x2="280" y2="188" stroke="#d29922" stroke-width="1"/>
+
+  <rect x="140" y="188" width="280" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="280" y="203" text-anchor="middle" fill="#f85149" font-size="9">ContentModerationController (Admin)</text>
+
+  <line x1="280" y1="210" x2="280" y2="226" stroke="#d29922" stroke-width="1"/>
+  <polygon points="280,226 350,246 280,266 210,246" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="280" y="250" text-anchor="middle" fill="#d29922" font-size="8">Action?</text>
+
+  <line x1="200" y1="246" x2="100" y2="246" stroke="#7ee787" stroke-width="1"/>
+  <text x="150" y="240" fill="#7ee787" font-size="8">DISMISS</text>
+  <rect x="10" y="234" width="90" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="55" y="249" text-anchor="middle" fill="#7ee787" font-size="8">→ Clear</text>
+
+  <line x1="280" y1="266" x2="280" y2="282" stroke="#f85149" stroke-width="1"/>
+  <text x="295" y="278" fill="#f85149" font-size="8">REMOVE</text>
+
+  <line x1="350" y1="246" x2="440" y2="246" stroke="#d2a8ff" stroke-width="1"/>
+  <text x="395" y="240" fill="#d2a8ff" font-size="8">WARN</text>
+
+  <rect x="200" y="282" width="160" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="280" y="297" text-anchor="middle" fill="#f85149" font-size="8">Content removed + audit log</text>
+
+  <!-- Audit -->
+  <rect x="20" y="320" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="335" text-anchor="middle" fill="#8b949e" font-size="8">All moderation actions logged to AuditLog (AOP-based) → AuditLogPage for admin review</text>
+
+  <rect x="20" y="350" width="520" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="280" y="365" text-anchor="middle" fill="#8b949e" font-size="8">Pages: ContentModerationPage · ReportsManagementPage · AuditLogPage</text>
+</svg>
+</div>
+<div class="explanation">
+  <h4>Two Entry Points</h4>
+  <p><strong>Explicit:</strong> User reports content/user → SafetyController → UserReport entity</p>
+  <p><strong>Automated:</strong> ModerationScanner scans chat/messages for keywords → FlaggedContent</p>
+  <h4>Step-by-Step</h4>
+  <p>1. Report or scan creates FlaggedContent / ModerationEvent</p>
+  <p>2. Admin moderation queue (ContentModerationController)</p>
+  <p>3. Admin decides: DISMISS / WARN / REMOVE</p>
+  <p>4. Action logged to AuditLog (AOP-based audit)</p>
+  <p>5. User notified of moderation action</p>
+  <h4>Source Files</h4>
+  <p class="file-list">
+    <span class="file">SafetyController.java</span> — Report/Block API<br>
+    <span class="file">UserReport.java</span> — Report entity<br>
+    <span class="file">UserBlock.java</span> — Block entity<br>
+    <span class="file">ContentModerationService.java</span> — Moderation logic<br>
+    <span class="file">ContentModerationController.java</span> — Admin queue<br>
+    <span class="file">ModerationScanner.java</span> — Keyword scanner<br>
+    <span class="file">FlaggedContent.java</span> — Flagged entity<br>
+    <span class="file">ModerationEvent.java</span> — Event entity<br>
+    <span class="file">AuditLogService.java</span> — Audit logging<br>
+    <span class="file">ContentModerationPage.jsx</span> — Admin UI
+  </p>
+</div>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 17. ADMIN -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">17</span> Admin Control Plane</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">ADMIN — PART OF THE MODULAR MONOLITH (NOT A SEPARATE SERVICE)</text>
+
+  <!-- Admin module -->
+  <rect x="20" y="30" width="1140" height="350" rx="10" fill="none" stroke="#f85149" stroke-width="2"/>
+  <text x="590" y="55" text-anchor="middle" fill="#f85149" font-size="12" font-weight="700">Admin Module (Spring Boot @RestController + @Service)</text>
+
+  <!-- Admin Controllers -->
+  <rect x="40" y="70" width="300" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="190" y="86" text-anchor="middle" fill="#f85149" font-size="10">AdminController (96 @RestController)</text>
+
+  <rect x="400" y="70" width="250" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="525" y="86" text-anchor="middle" fill="#f85149" font-size="10">AdminResetController</text>
+
+  <rect x="670" y="70" width="250" height="24" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="795" y="86" text-anchor="middle" fill="#f85149" font-size="10">AdminService</text>
+
+  <!-- Capabilities -->
+  <g font-size="9">
+    <rect x="40" y="110" width="180" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="130" y="124" text-anchor="middle" fill="#58a6ff">User Management</text>
+    <rect x="240" y="110" width="180" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="330" y="124" text-anchor="middle" fill="#58a6ff">Session Management</text>
+    <rect x="440" y="110" width="180" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="530" y="124" text-anchor="middle" fill="#58a6ff">Payment Oversight</text>
+    <rect x="640" y="110" width="180" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="730" y="124" text-anchor="middle" fill="#58a6ff">Booking Approval</text>
+    <rect x="840" y="110" width="180" height="20" rx="3" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="930" y="124" text-anchor="middle" fill="#58a6ff">Skill Management</text>
+
+    <rect x="40" y="140" width="180" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="130" y="154" text-anchor="middle" fill="#d2a8ff">Mentor Verification</text>
+    <rect x="240" y="140" width="180" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="330" y="154" text-anchor="middle" fill="#d2a8ff">Content Moderation</text>
+    <rect x="440" y="140" width="180" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="530" y="154" text-anchor="middle" fill="#d2a8ff">Reports Management</text>
+    <rect x="640" y="140" width="180" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="730" y="154" text-anchor="middle" fill="#d2a8ff">Notification Broadcast</text>
+    <rect x="840" y="140" width="180" height="20" rx="3" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="930" y="154" text-anchor="middle" fill="#d2a8ff">Audit Log Review</text>
+
+    <rect x="40" y="170" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="130" y="184" text-anchor="middle" fill="#7ee787">Analytics Dashboard</text>
+    <rect x="240" y="170" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="330" y="184" text-anchor="middle" fill="#7ee787">System Settings</text>
+    <rect x="440" y="170" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="530" y="184" text-anchor="middle" fill="#7ee787">Platform Health</text>
+    <rect x="640" y="170" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="730" y="184" text-anchor="middle" fill="#7ee787">Dispute Resolution</text>
+    <rect x="840" y="170" width="180" height="20" rx="3" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="930" y="184" text-anchor="middle" fill="#7ee787">Cert Migration</text>
+  </g>
+
+  <!-- Frontend pages -->
+  <rect x="40" y="210" width="980" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="530" y="225" text-anchor="middle" fill="#8b949e" font-size="8">AdminDashboardPage · UserManagementPage · SessionManagementPage · AdminPaymentsPage · AdminOperationsPage · AdminAnalyticsPage · AdminNotificationsPage · NotificationBroadcastPage · ContentModerationPage · ReportsManagementPage · AuditLogPage · SystemSettingsPage · PlatformHealthPage · SkillManagementPage · AdminSessionDisputesPage</text>
+
+  <!-- Authorization -->
+  <rect x="40" y="250" width="980" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="530" y="265" text-anchor="middle" fill="#f85149" font-size="8">Security: /api/v1/admin/** → hasRole("ADMIN") · AdminController.ensureAdmin() defense-in-depth</text>
+
+  <!-- Supporting services -->
+  <rect x="40" y="290" width="980" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="530" y="305" text-anchor="middle" fill="#8b949e" font-size="8">AdminNotificationService · AdminScheduledReportService · AdminResetService · AdminSetting (platform_settings) · AdminNotifPreference · AdminDataInitializer</text>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 18. SECURITY FILTER CHAIN -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">18</span> Security — Request Filter Chain</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 420" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">SECURITY FILTER CHAIN (Correct Order)</text>
+
+  <!-- HTTP Request -->
+  <rect x="490" y="30" width="200" height="28" rx="6" fill="#58a6ff" stroke="#58a6ff"/>
+  <text x="590" y="49" text-anchor="middle" fill="#0d1117" font-size="11" font-weight="700">🌐 HTTP REQUEST</text>
+
+  <line x1="590" y1="58" x2="590" y2="74" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+
+  <!-- Filter 1: RequestTrace -->
+  <rect x="420" y="74" width="340" height="28" rx="5" fill="#21262d" stroke="#8b949e"/>
+  <text x="590" y="93" text-anchor="middle" fill="#8b949e" font-size="10">① RequestTraceFilter (traceId + timing)</text>
+
+  <line x1="590" y1="102" x2="590" y2="116" stroke="#8b949e" stroke-width="1" marker-end="url(#arrowGray)"/>
+
+  <!-- Filter 2: RateLimit -->
+  <rect x="420" y="116" width="340" height="28" rx="5" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="590" y="135" text-anchor="middle" fill="#d29922" font-size="10">② EndpointRateLimitFilter (per-IP rate limiting)</text>
+
+  <line x1="590" y1="144" x2="590" y2="158" stroke="#d29922" stroke-width="1" marker-end="url(#arrowYellow)"/>
+
+  <!-- Filter 3: JWT -->
+  <rect x="420" y="158" width="340" height="28" rx="5" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="590" y="177" text-anchor="middle" fill="#79c0ff" font-size="10">③ JwtAuthenticationFilter (Bearer + cookie)</text>
+
+  <line x1="590" y1="186" x2="590" y2="200" stroke="#79c0ff" stroke-width="1"/>
+
+  <!-- Filter 4: Maintenance -->
+  <rect x="420" y="200" width="340" height="28" rx="5" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="590" y="219" text-anchor="middle" fill="#f85149" font-size="10">④ MaintenanceModeFilter (503 if maintenance)</text>
+
+  <line x1="590" y1="228" x2="590" y2="242" stroke="#f85149" stroke-width="1"/>
+
+  <!-- Spring Security -->
+  <rect x="400" y="242" width="380" height="28" rx="5" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.5"/>
+  <text x="590" y="261" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="600">⑤ Spring Security Authorization</text>
+
+  <!-- Auth rules -->
+  <rect x="40" y="285" width="1100" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="300" text-anchor="middle" fill="#8b949e" font-size="9" font-weight="600">Authorization Rules:</text>
+  <text x="60" y="316" fill="#7ee787" font-size="8">permitAll: /auth/login, /auth/signup, /auth/refresh, /payments/webhook/**, /razorpay-payout/webhook, /ws/**, /health, /actuator/**, /oauth2/**, /public/**, /users/mentors, /users/mentors/skills, /users/check-username, /swagger-ui/**</text>
+  <text x="60" y="332" fill="#f85149" font-size="8">hasRole(ADMIN): /admin/**, /verification/mentor/requests/** · hasAnyRole(MENTOR,ADMIN): /admin/bookings/** · hasAnyRole(MENTOR,TEACHER,ADMIN): /availability/my-slots/** · authenticated: everything else</text>
+
+  <!-- Controller -->
+  <line x1="590" y1="270" x2="590" y2="285" stroke="#d2a8ff" stroke-width="1" marker-end="url(#arrowPurple)"/>
+
+  <line x1="590" y1="345" x2="590" y2="360" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Controller + validation -->
+  <rect x="420" y="360" width="340" height="24" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="590" y="376" text-anchor="middle" fill="#58a6ff" font-size="10">⑥ Controller → DTO Validation → Service</text>
+
+  <!-- Error handling -->
+  <rect x="40" y="395" width="1100" height="22" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="410" text-anchor="middle" fill="#8b949e" font-size="8">GlobalExceptionHandler · ServiceGlobalExceptionHandler → structured JSON errors with traceId · Sentry integration for server errors</text>
+
+  <defs>
+    <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#8b949e"/>
+    </marker>
+  </defs>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 19. DEPLOYMENT -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">19</span> Deployment Architecture</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">DOCKER COMPOSE DEPLOYMENT</text>
+
+  <!-- Browser -->
+  <rect x="490" y="30" width="200" height="28" rx="6" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="590" y="49" text-anchor="middle" fill="#58a6ff" font-size="11">🌐 Browser (User)</text>
+
+  <line x1="590" y1="58" x2="590" y2="74" stroke="#58a6ff" stroke-width="1.5"/>
+
+  <!-- Nginx container -->
+  <rect x="350" y="74" width="480" height="40" rx="8" fill="#21262d" stroke="#8b949e" stroke-width="1.5"/>
+  <text x="590" y="92" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600">🐳 Nginx Container</text>
+  <text x="590" y="106" text-anchor="middle" fill="#8b949e" font-size="8">SSL (Let's Encrypt) · Static React build · Reverse proxy · WebSocket forwarding</text>
+
+  <line x1="500" y1="114" x2="400" y2="134" stroke="#58a6ff" stroke-width="1"/>
+  <line x1="680" y1="114" x2="780" y2="134" stroke="#58a6ff" stroke-width="1"/>
+  <text x="440" y="128" fill="#8b949e" font-size="8">API + WS</text>
+  <text x="740" y="128" fill="#8b949e" font-size="8">Static</text>
+
+  <!-- Backend container -->
+  <rect x="250" y="134" width="300" height="50" rx="8" fill="#2d1f4e" stroke="#d2a8ff" stroke-width="1.5"/>
+  <text x="400" y="154" text-anchor="middle" fill="#d2a8ff" font-size="11" font-weight="600">🐳 Backend (Spring Boot)</text>
+  <text x="400" y="170" text-anchor="middle" fill="#d2a8ff" font-size="8">Java 21 · JAR · All env vars injected</text>
+
+  <!-- Frontend container -->
+  <rect x="620" y="134" width="300" height="50" rx="8" fill="#1f3a5f" stroke="#58a6ff" stroke-width="1.5"/>
+  <text x="770" y="154" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">🐳 Frontend (Nginx)</text>
+  <text x="770" y="170" text-anchor="middle" fill="#58a6ff" font-size="8">Built React SPA · VITE public keys only</text>
+
+  <line x1="400" y1="184" x2="400" y2="204" stroke="#d2a8ff" stroke-width="1.5"/>
+
+  <!-- MySQL -->
+  <rect x="300" y="204" width="200" height="40" rx="8" fill="#1a3a3a" stroke="#79c0ff" stroke-width="1.5"/>
+  <text x="400" y="222" text-anchor="middle" fill="#79c0ff" font-size="11" font-weight="600">🐳 MySQL 8.0</text>
+  <text x="400" y="236" text-anchor="middle" fill="#79c0ff" font-size="8">Persistent volume · Flyway migrations</text>
+
+  <!-- Certbot -->
+  <rect x="620" y="204" width="300" height="40" rx="8" fill="#1a3a2a" stroke="#7ee787" stroke-width="1.5"/>
+  <text x="770" y="222" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="600">🐳 Certbot (SSL)</text>
+  <text x="770" y="236" text-anchor="middle" fill="#7ee787" font-size="8">Let's Encrypt · Auto-renewal · ssl profile</text>
+
+  <!-- Env vars -->
+  <rect x="20" y="270" width="1140" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="288" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Environment Variables (from .env → docker-compose.yml → containers)</text>
+  <text x="60" y="306" fill="#d29922" font-size="8">Backend: JWT_SECRET · DB_URL/USER/PASS · STRIPE_SECRET_KEY · STRIPE_WEBHOOK_SECRET · STRIPE_CONNECT_WEBHOOK_SECRET · RAZORPAY_KEY_ID/SECRET · RAZORPAY_WEBHOOK_SECRET · RAZORPAY_PAYOUT_WEBHOOK_SECRET · GOOGLE OAuth2 credentials · SENTRY_DSN</text>
+  <text x="60" y="320" fill="#58a6ff" font-size="8">Frontend: VITE_RAZORPAY_KEY_ID · VITE_STRIPE_PUBLISHABLE_KEY (public keys only — NO secrets)</text>
+
+  <!-- Deployment script -->
+  <rect x="20" y="340" width="1140" height="24" rx="4" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="356" text-anchor="middle" fill="#8b949e" font-size="9">scripts/deploy.sh → docker compose pull → up -d → health check → validate-deploy.sh → rollback on failure</text>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 20. CI/CD -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">20</span> CI/CD Pipeline</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">GITHUB ACTIONS CI/CD PIPELINE</text>
+
+  <!-- Git Push -->
+  <rect x="490" y="30" width="200" height="28" rx="6" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="590" y="49" text-anchor="middle" fill="#58a6ff" font-size="11">🔀 Git Push / PR to main</text>
+
+  <line x1="500" y1="58" x2="300" y2="80" stroke="#d2a8ff" stroke-width="1"/>
+  <line x1="680" y1="58" x2="880" y2="80" stroke="#d2a8ff" stroke-width="1"/>
+
+  <!-- Backend CI -->
+  <rect x="140" y="80" width="320" height="100" rx="8" fill="#161b22" stroke="#d2a8ff" stroke-width="1.2"/>
+  <text x="300" y="100" text-anchor="middle" fill="#d2a8ff" font-size="11" font-weight="700">backend-ci.yml</text>
+
+  <text x="160" y="118" fill="#7ee787" font-size="8">✓ mvn clean compile</text>
+  <text x="160" y="132" fill="#7ee787" font-size="8">✓ mvn test (313 tests)</text>
+  <text x="160" y="146" fill="#7ee787" font-size="8">✓ Docker build → ghcr.io/nakulsharma97/mentorly-backend</text>
+  <text x="160" y="160" fill="#7ee787" font-size="8">✓ Push to GHCR</text>
+  <text x="160" y="174" fill="#8b949e" font-size="8">Node: 21 · Maven cache · Docker layer cache</text>
+
+  <!-- Frontend CI -->
+  <rect x="720" y="80" width="320" height="100" rx="8" fill="#161b22" stroke="#58a6ff" stroke-width="1.2"/>
+  <text x="880" y="100" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="700">frontend-ci.yml</text>
+
+  <text x="740" y="118" fill="#7ee787" font-size="8">✓ npm ci</text>
+  <text x="740" y="132" fill="#7ee787" font-size="8">✓ npm run lint</text>
+  <text x="740" y="146" fill="#7ee787" font-size="8">✓ npm run build (Vite)</text>
+  <text x="740" y="160" fill="#7ee787" font-size="8">✓ Docker build → ghcr.io/nakulsharma97/mentorly-frontend</text>
+  <text x="740" y="174" fill="#8b949e" font-size="8">Node: 20 · npm cache · Docker layer cache</text>
+
+  <!-- Deploy -->
+  <line x1="300" y1="180" x2="590" y2="210" stroke="#d29922" stroke-width="1.5"/>
+  <line x1="880" y1="180" x2="590" y2="210" stroke="#d29922" stroke-width="1.5"/>
+
+  <rect x="390" y="210" width="400" height="30" rx="8" fill="#3a3a1a" stroke="#d29922" stroke-width="1.5"/>
+  <text x="590" y="230" text-anchor="middle" fill="#d29922" font-size="11" font-weight="700">deploy.yml (on main branch)</text>
+
+  <line x1="590" y1="240" x2="590" y2="256" stroke="#d29922" stroke-width="1.2"/>
+
+  <!-- Deploy steps -->
+  <rect x="100" y="256" width="980" height="60" rx="8" fill="#161b22" stroke="#30363d"/>
+  <text x="590" y="274" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Deployment Steps:</text>
+  <text x="120" y="292" fill="#7ee787" font-size="8">① SSH to server</text>
+  <text x="280" y="292" fill="#7ee787" font-size="8">② docker compose pull (GHCR images)</text>
+  <text x="520" y="292" fill="#7ee787" font-size="8">③ docker compose up -d</text>
+  <text x="740" y="292" fill="#7ee787" font-size="8">④ Health check</text>
+  <text x="880" y="292" fill="#f85149" font-size="8">⑤ Rollback on failure</text>
+  <text x="120" y="306" fill="#d29922" font-size="8">Secrets from GitHub Environment "production": SSH_HOST, SSH_USER, SSH_KEY, SERVER_PATH</text>
+
+  <!-- Image consistency -->
+  <rect x="20" y="330" width="1140" height="24" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="590" y="346" text-anchor="middle" fill="#79c0ff" font-size="9">Image Consistency: ghcr.io/nakulsharma97/mentorly-backend:main → same in CI, docker-compose, deploy.sh</text>
+</svg>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 21. DATABASE SCHEMA -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">21</span> Database Schema — Complete Entity Map (50+ Tables)</h2>
+<div class="grid3" style="font-size:11px;">
+<div class="explanation">
+<h4>Core Domain</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>users</td><td>id, email, password_hash, role, full_name, wallet_address, enabled, username</td></tr>
+<tr><td>skills</td><td>id, name, category</td></tr>
+<tr><td>sessions</td><td>id, mentor_id, title, description, session_type, start_time, end_time, price_amount, status</td></tr>
+<tr><td>bookings</td><td>id, session_id, learner_id, booking_status, created_at, completion_confirmation, idempotency_key</td></tr>
+<tr><td>user_availability_slots</td><td>id, user_id, start_time, end_time</td></tr>
+<tr><td>user_projects</td><td>id, user_id, title, description, role, images</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Payment &amp; Wallet</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>payments</td><td>id, booking_id, amount, mode, status, provider_ref, gateway_order_id, gateway_payment_id</td></tr>
+<tr><td>payment_idempotency_keys</td><td>id, user_id, endpoint, idempotency_key, request_hash, payment_id</td></tr>
+<tr><td>webhook_events</td><td>id, gateway, event_id, event_type, status (UNIQUE gateway+event_id)</td></tr>
+<tr><td>mentor_wallets</td><td>id, user_id, balance, currency</td></tr>
+<tr><td>wallet_ledger_entries</td><td>id, user_id, type, amount, balance_after, currency, reference_id, gateway</td></tr>
+<tr><td>wallet_top_ups</td><td>id, order_id, user_id, amount, gateway, gateway_order_id, gateway_payment_id, status</td></tr>
+<tr><td>wallet_withdrawal_idempotency_keys</td><td>id, user_id, idempotency_key, withdrawal_id</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Payout &amp; Connect</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>mentor_connect_accounts</td><td>id, user_id, stripe_account_id, onboarding_status</td></tr>
+<tr><td>razorpay_linked_accounts</td><td>id, user_id, razorpay_account_id, reference_id, onboarding_status, product_config_status</td></tr>
+</table>
+<h4>Communication</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>chat_messages</td><td>id, booking_id, sender_id, content, created_at</td></tr>
+<tr><td>direct_conversations</td><td>id, participant_one_id, participant_two_id</td></tr>
+<tr><td>direct_messages</td><td>id, conversation_id, sender_id, content, read</td></tr>
+<tr><td>message_requests</td><td>id, requester_id, target_id, status</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Auth &amp; Security</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>refresh_token_sessions</td><td>id, user_id, token, expires_at</td></tr>
+<tr><td>access_token_denylist</td><td>id, token, expires_at</td></tr>
+<tr><td>login_attempts</td><td>id, email, ip, success, attempt_type</td></tr>
+<tr><td>email_verifications</td><td>id, email, otp, expires_at</td></tr>
+<tr><td>password_reset_token</td><td>id, user_id, token, expires_at</td></tr>
+</table>
+<h4>Verification</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>mentor_verification_requests</td><td>id, user_id, status, submitted_at, reviewed_at</td></tr>
+<tr><td>skill_verification_tasks</td><td>id, skill_id, description</td></tr>
+<tr><td>skill_verification_submissions</td><td>id, task_id, user_id, status</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Reviews &amp; Moderation</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>mentor_reviews</td><td>id, mentor_id, learner_id, booking_id, rating, comment</td></tr>
+<tr><td>learner_reviews</td><td>id, learner_id, mentor_id, booking_id, rating, comment</td></tr>
+<tr><td>flagged_content</td><td>id, owner_id, reporter_id, content_type, status, assigned_moderator_id</td></tr>
+<tr><td>flagged_content_events</td><td>id, content_id, actor_id, action, reason</td></tr>
+<tr><td>user_reports</td><td>id, reporter_id, reported_id, reason, status</td></tr>
+<tr><td>user_blocks</td><td>id, blocker_id, blocked_id</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Notifications &amp; Admin</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>app_notifications</td><td>id, user_id, type, title, message, read, reference_id</td></tr>
+<tr><td>notification_preferences</td><td>id, user_id, type, email_enabled, in_app_enabled</td></tr>
+<tr><td>notification_broadcasts</td><td>id, title, message, target_role, priority</td></tr>
+<tr><td>admin_settings</td><td>id, key, value</td></tr>
+<tr><td>admin_notif_preferences</td><td>id, admin_id, type, enabled</td></tr>
+<tr><td>audit_logs</td><td>id, user_id, action, entity_type, entity_id, details, trace_id</td></tr>
+</table>
+</div>
+<div class="explanation">
+<h4>Learning &amp; Certifications</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>session_notes</td><td>id, session_id, user_id, content</td></tr>
+<tr><td>learner_tasks</td><td>id, session_id, learner_id, title, description, status</td></tr>
+<tr><td>learner_todos</td><td>id, user_id, title, completed</td></tr>
+<tr><td>user_certifications</td><td>id, user_id, certification_type, issued_at</td></tr>
+<tr><td>mentor_certifications</td><td>id, mentor_id, skill_id, verified</td></tr>
+</table>
+<h4>Other</h4>
+<table class="db-table">
+<tr><th>Table</th><th>Key Columns</th></tr>
+<tr><td>session_requests</td><td>id, learner_id, mentor_id, topic, status</td></tr>
+<tr><td>session_waitlist</td><td>id, session_id, learner_id, status</td></tr>
+<tr><td>stored_files</td><td>id, user_id, filename, content_type, path</td></tr>
+<tr><td>saved_mentors</td><td>id, user_id, mentor_id</td></tr>
+<tr><td>skill_watchlist</td><td>id, user_id, skill_id</td></tr>
+<tr><td>skill_requests</td><td>id, user_id, skill_name, status</td></tr>
+</table>
+</div>
+</div>
+<div style="margin-top:8px;" class="explanation">
+<h4>Migration History</h4>
+<p>78 Flyway migrations (V1 through V78) — from initial schema through payment adapter pattern, wallet, Razorpay linked accounts, webhook events, gateway-neutral fields, and payout enhancements. No gaps in migration numbering.</p>
+</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<!-- 22. END-TO-END BUSINESS STORY -->
+<!-- ════════════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+<h2><span class="section-num">22</span> End-to-End Business Story</h2>
+<div class="diagram-box-full">
+<svg viewBox="0 0 1180 620" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+  <text x="590" y="18" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="700">COMPLETE MENTORLY BUSINESS FLOW — SIGNUP TO PAYOUT</text>
+
+  <!-- Step 1 -->
+  <rect x="20" y="32" width="180" height="28" rx="5" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="110" y="50" text-anchor="middle" fill="#58a6ff" font-size="9" font-weight="600">① Signup / Login</text>
+  <text x="210" y="48" fill="#8b949e" font-size="7">AuthPage → AuthController → JWT + Refresh</text>
+
+  <!-- Step 2 -->
+  <line x1="110" y1="60" x2="110" y2="72" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="20" y="72" width="180" height="28" rx="5" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="110" y="90" text-anchor="middle" fill="#d2a8ff" font-size="9" font-weight="600">② Profile Completion</text>
+  <text x="210" y="88" fill="#8b949e" font-size="7">ProfileSetup → ProfileCompletionGuard</text>
+
+  <!-- Step 3 -->
+  <line x1="110" y1="100" x2="110" y2="112" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="112" width="180" height="28" rx="5" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="110" y="130" text-anchor="middle" fill="#d2a8ff" font-size="9" font-weight="600">③ Mentor Application</text>
+  <text x="210" y="128" fill="#8b949e" font-size="7">BecomeMentorPage → MentorVerificationController</text>
+
+  <!-- Step 4 -->
+  <line x1="110" y1="140" x2="110" y2="152" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="152" width="180" height="28" rx="5" fill="#3a1a1a" stroke="#f85149"/>
+  <text x="110" y="170" text-anchor="middle" fill="#f85149" font-size="9" font-weight="600">④ Admin Verification</text>
+  <text x="210" y="168" fill="#8b949e" font-size="7">AdminController → approve/reject</text>
+
+  <!-- Step 5 -->
+  <line x1="110" y1="180" x2="110" y2="192" stroke="#f85149" stroke-width="1"/>
+  <rect x="20" y="192" width="180" height="28" rx="5" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="110" y="210" text-anchor="middle" fill="#7ee787" font-size="9" font-weight="600">⑤ Approved Mentor</text>
+  <text x="210" y="208" fill="#8b949e" font-size="7">Role = MENTOR, verified = true</text>
+
+  <!-- Step 6 -->
+  <line x1="110" y1="220" x2="110" y2="232" stroke="#7ee787" stroke-width="1"/>
+  <rect x="20" y="232" width="180" height="28" rx="5" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="110" y="250" text-anchor="middle" fill="#d2a8ff" font-size="9" font-weight="600">⑥ Availability Slots</text>
+  <text x="210" y="248" fill="#8b949e" font-size="7">MentorCalendarPage → AvailabilityController</text>
+
+  <!-- Step 7 -->
+  <line x1="110" y1="260" x2="110" y2="272" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="272" width="180" height="28" rx="5" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="110" y="290" text-anchor="middle" fill="#79c0ff" font-size="9" font-weight="600">⑦ Skill Sessions Created</text>
+  <text x="210" y="288" fill="#8b949e" font-size="7">SessionAutoCreationService → SkillSession</text>
+
+  <!-- Step 8 -->
+  <line x1="110" y1="300" x2="110" y2="312" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="20" y="312" width="180" height="28" rx="5" fill="#1f3a5f" stroke="#58a6ff"/>
+  <text x="110" y="330" text-anchor="middle" fill="#58a6ff" font-size="9" font-weight="600">⑧ Learner Discovery</text>
+  <text x="210" y="328" fill="#8b949e" font-size="7">LearnerMentorsPage → MentorSearchController</text>
+
+  <!-- Step 9 -->
+  <line x1="110" y1="340" x2="110" y2="352" stroke="#58a6ff" stroke-width="1"/>
+  <rect x="20" y="352" width="180" height="28" rx="5" fill="#2d1f4e" stroke="#d2a8ff"/>
+  <text x="110" y="370" text-anchor="middle" fill="#d2a8ff" font-size="9" font-weight="600">⑨ Booking (8 validations)</text>
+  <text x="210" y="368" fill="#8b949e" font-size="7">BookingFlowPage → BookingService → BookingLifecycleService</text>
+
+  <!-- Step 10 -->
+  <line x1="110" y1="380" x2="110" y2="392" stroke="#d2a8ff" stroke-width="1"/>
+  <rect x="20" y="392" width="180" height="28" rx="5" fill="#3a3a1a" stroke="#d29922"/>
+  <text x="110" y="410" text-anchor="middle" fill="#d29922" font-size="9" font-weight="600">⑩ Payment (Stripe/Razorpay)</text>
+  <text x="210" y="408" fill="#8b949e" font-size="7">PaymentService → Gateway → ESCROWED</text>
+
+  <!-- Step 11 -->
+  <line x1="110" y1="420" x2="110" y2="432" stroke="#d29922" stroke-width="1"/>
+  <rect x="20" y="432" width="180" height="28" rx="5" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="110" y="450" text-anchor="middle" fill="#79c0ff" font-size="9" font-weight="600">⑪ Live Session (Meet)</text>
+  <text x="210" y="448" fill="#8b949e" font-size="7">LiveSessionController → Google Meet</text>
+
+  <!-- Step 12 -->
+  <line x1="110" y1="460" x2="110" y2="472" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="20" y="472" width="180" height="28" rx="5" fill="#1a3a3a" stroke="#79c0ff"/>
+  <text x="110" y="490" text-anchor="middle" fill="#79c0ff" font-size="9" font-weight="600">⑫ Chat + Notifications</text>
+  <text x="210" y="488" fill="#8b949e" font-size="7">WebSocket + NotificationService</text>
+
+  <!-- Step 13 -->
+  <line x1="110" y1="500" x2="110" y2="512" stroke="#79c0ff" stroke-width="1"/>
+  <rect x="20" y="512" width="180" height="28" rx="5" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="110" y="530" text-anchor="middle" fill="#7ee787" font-size="9" font-weight="600">⑬ Session Complete</text>
+  <text x="210" y="528" fill="#8b949e" font-size="7">Both confirm → COMPLETED</text>
+
+  <!-- Step 14 -->
+  <line x1="110" y1="540" x2="110" y2="552" stroke="#7ee787" stroke-width="1"/>
+  <rect x="20" y="552" width="180" height="28" rx="5" fill="#1a3a2a" stroke="#7ee787"/>
+  <text x="110" y="570" text-anchor="middle" fill="#7ee787" font-size="9" font-weight="600">⑭ Escrow Released</text>
+  <text x="210" y="568" fill="#8b949e" font-size="7">Payment RELEASED → Platform Fee → Mentor Earning</text>
+
+  <!-- Right side: cross-cutting -->
+  <rect x="420" y="32" width="740" height="570" rx="8" fill="none" stroke="#30363d" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="790" y="52" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="700">CROSS-CUTTING CONCERNS</text>
+
+  <g font-size="9">
+    <rect x="440" y="65" width="220" height="22" rx="4" fill="#3a1a1a" stroke="#f85149"/>
+    <text x="550" y="80" text-anchor="middle" fill="#f85149">🔒 Security Filter Chain</text>
+    <rect x="680" y="65" width="220" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="790" y="80" text-anchor="middle" fill="#d29922">⏱️ Rate Limiting</text>
+    <rect x="920" y="65" width="220" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+    <text x="1030" y="80" text-anchor="middle" fill="#79c0ff">🔑 JWT + Refresh</text>
+
+    <rect x="440" y="95" width="220" height="22" rx="4" fill="#2d1f4e" stroke="#d2a8ff"/>
+    <text x="550" y="110" text-anchor="middle" fill="#d2a8ff">🔄 Idempotency Keys</text>
+    <rect x="680" y="95" width="220" height="22" rx="4" fill="#1a3a2a" stroke="#7ee787"/>
+    <text x="790" y="110" text-anchor="middle" fill="#7ee787">📋 Audit Logging (AOP)</text>
+    <rect x="920" y="95" width="220" height="22" rx="4" fill="#3a3a1a" stroke="#d29922"/>
+    <text x="1030" y="110" text-anchor="middle" fill="#d29922">🛡️ Moderation Scanner</text>
+
+    <rect x="440" y="125" width="220" height="22" rx="4" fill="#1a3a3a" stroke="#79c0ff"/>
+    <text x="550" y="140" text-anchor="middle" fill="#79c0ff">📨 Notifications Pipeline</text>
+    <rect x="680" y="125" width="220" height="22" rx="4" fill="#1f3a5f" stroke="#58a6ff"/>
+    <text x="790" y="140" text-anchor="middle" fill="#58a6ff">🗄️ MySQL 8.0</text>
+    <rect x="920" y="125" width="220" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+    <text x="1030" y="140" text-anchor="middle" fill="#8b949e">📦 Flyway (78 migrations)</text>
+
+    <rect x="440" y="155" width="220" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+    <text x="550" y="170" text-anchor="middle" fill="#8b949e">🐳 Docker Compose</text>
+    <rect x="680" y="155" width="220" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+    <text x="790" y="170" text-anchor="middle" fill="#8b949e">🌐 Nginx SSL</text>
+    <rect x="920" y="155" width="220" height="22" rx="4" fill="#21262d" stroke="#8b949e"/>
+    <text x="1030" y="170" text-anchor="middle" fill="#8b949e">🔄 CI/CD (GitHub Actions)</text>
+  </g>
+
+  <!-- Additional flow: Reviews, Learning, Wallet, Payout -->
+  <line x1="200" y1="570" x2="440" y2="200" stroke="#8b949e" stroke-width="0.8" stroke-dasharray="3,3"/>
+  <line x1="200" y1="530" x2="440" y2="230" stroke="#8b949e" stroke-width="0.8" stroke-dasharray="3,3"/>
+  <line x1="200" y1="490" x2="440" y2="260" stroke="#8b949e" stroke-width="0.8" stroke-dasharray="3,3"/>
+
+  <rect x="440" y="195" width="340" height="100" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="610" y="215" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Post-Session Flows</text>
+  <text x="460" y="233" fill="#7ee787" font-size="8">⑮ Review: Learner reviews Mentor → ReviewController</text>
+  <text x="460" y="248" fill="#d2a8ff" font-size="8">⑯ Learning: Notes, Tasks, Certificates → LearningDashboardService</text>
+  <text x="460" y="263" fill="#d29922" font-size="8">⑰ Wallet: Earning credited → WalletService.addEntry(EARNING)</text>
+  <text x="460" y="278" fill="#79c0ff" font-size="8">⑱ Payout: Mentor withdraws → Stripe/Razorpay → PROCESSING → COMPLETED</text>
+
+  <!-- Wallet top-up -->
+  <rect x="440" y="310" width="340" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="610" y="330" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Wallet Top-Up (parallel flow)</text>
+  <text x="460" y="348" fill="#58a6ff" font-size="8">User tops up wallet → Stripe/Razorpay → verified → wallet credited</text>
+  <text x="460" y="363" fill="#8b949e" font-size="8">Idempotent: one payment = one credit, never double</text>
+
+  <!-- Dispute -->
+  <rect x="800" y="195" width="340" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="970" y="215" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Dispute Path</text>
+  <text x="820" y="233" fill="#f85149" font-size="8">Either party disputes → AdminSessionDisputesPage</text>
+  <text x="820" y="248" fill="#d29922" font-size="8">Admin decides: Refund (learner) or Release (mentor)</text>
+
+  <!-- Safety -->
+  <rect x="800" y="270" width="340" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="970" y="290" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Safety &amp; Moderation</text>
+  <text x="820" y="308" fill="#f85149" font-size="8">Report/Block → SafetyController · Auto-scan → ModerationScanner</text>
+  <text x="820" y="323" fill="#d29922" font-size="8">Admin moderation queue → ContentModerationController</text>
+
+  <!-- Admin oversight -->
+  <rect x="800" y="350" width="340" height="60" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="970" y="370" text-anchor="middle" fill="#8b949e" font-size="10" font-weight="600">Admin Oversight</text>
+  <text x="820" y="388" fill="#f85149" font-size="8">AdminController: users, sessions, payments, bookings, skills</text>
+  <text x="820" y="403" fill="#d29922" font-size="8">Analytics, Audit Logs, System Settings, Platform Health</text>
+
+  <!-- Final -->
+  <rect x="440" y="440" width="700" height="60" rx="8" fill="#1a3a2a" stroke="#7ee787" stroke-width="1.5"/>
+  <text x="790" y="462" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="700">COMPLETE CYCLE</text>
+  <text x="790" y="480" text-anchor="middle" fill="#7ee787" font-size="9">Signup → Profile → Mentor Approval → Availability → Sessions → Discovery → Booking → Payment → Live Session → Chat → Completion → Escrow Release → Review → Learning → Wallet → Payout</text>
+</svg>
+</div>
+</div>
+
+</body>
+</html>

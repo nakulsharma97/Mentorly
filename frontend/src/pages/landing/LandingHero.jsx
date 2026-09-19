@@ -76,11 +76,12 @@ export default function LandingHero({ mentorCount, heroRating, heroSwaps, naviga
             <img
               className="landing-hero-photo"
               alt="Mentor and learner reviewing a laptop in a modern workspace"
-              src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=1200&q=82"
+              src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=75"
               loading="eager"
               fetchPriority="high"
-              width="1200"
-              height="630"
+              decoding="async"
+              width="800"
+              height="420"
             />
             <div className="landing-hero-badge">
               <span

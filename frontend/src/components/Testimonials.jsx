@@ -3,10 +3,11 @@ import { motion } from "framer-motion";
 import usePublicData from "../hooks/usePublicData";
 
 export default function Testimonials({ onShareReview }) {
-  const { testimonials: items, testimonialsLoading: loading } = usePublicData({
+  const { testimonials, testimonialsLoading: loading } = usePublicData({
     fetchMentors: false,
     fetchTestimonials: true,
   });
+  const items = Array.isArray(testimonials) ? testimonials : [];
 
   if (loading)
     return (

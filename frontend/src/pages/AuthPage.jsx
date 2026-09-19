@@ -1,14 +1,15 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import useCommunityStats from "../hooks/useCommunityStats";
 import usePublicData from "../hooks/usePublicData";
 import { useOptionalTheme } from "../context/ThemeContext";
+import LandingSkeleton from "../components/LandingSkeleton";
 import "./AuthPage.css";
 
 // Eager: above the fold (hero + nav)
 import LandingHero from "./landing/LandingHero";
 
-// Lazy: everything below the fold
+// Lazy: everything below the fold — only load when scrolled near viewport
 const LandingFeatures = lazy(() => import("./landing/LandingFeatures"));
 const LandingMentors = lazy(() => import("./landing/LandingMentors"));
 const LandingWorkflow = lazy(() => import("./landing/LandingWorkflow"));
@@ -53,47 +54,38 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
   }, []);
 
   useEffect(() => {
-    // Scroll-reveal: reveal elements as they enter the viewport.
-    // Uses getBoundingClientRect checks on scroll + interval.
-    const checkVisible = () => {
-      const vh = window.innerHeight;
-      document.querySelectorAll(".landing-reveal:not(.is-visible)").forEach((el) => {
-        const rect = el.getBoundingClientRect();
-        if (rect.top < vh + 100) {
-          el.classList.add("is-visible");
-        }
-      });
-    };
+    // Scroll-reveal via IntersectionObserver — zero CPU cost when idle.
+    // Falls back to immediate reveal if IO is unavailable.
+    if (!("IntersectionObserver" in window)) {
+      document.querySelectorAll(".landing-reveal").forEach((el) => el.classList.add("is-visible"));
+      return undefined;
+    }
 
-    // Check immediately (elements already in viewport)
-    requestAnimationFrame(checkVisible);
-    // Double-check after a short delay for late-mounting elements
-    setTimeout(checkVisible, 200);
-    setTimeout(checkVisible, 500);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { rootMargin: "0px 0px -60px 0px", threshold: 0.01 },
+    );
 
-    // Check on scroll — listen on window, document, and documentElement
-    // to cover all scroll container scenarios.
-    let ticking = false;
-    const onScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => { checkVisible(); ticking = false; });
-        ticking = true;
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    document.addEventListener("scroll", onScroll, { passive: true });
-    document.documentElement.addEventListener("scroll", onScroll, { passive: true });
+    // Observe all current and future landing-reveal elements.
+    const revealEls = document.querySelectorAll(".landing-reveal");
+    revealEls.forEach((el) => observer.observe(el));
 
-    // Re-check periodically for the first 10 seconds to catch
-    // late-mounting elements and programmatic scrolls.
-    const interval = setInterval(checkVisible, 300);
-    setTimeout(() => clearInterval(interval), 10000);
+    // Also observe future elements added by lazy chunks.
+    const mutationObserver = new MutationObserver(() => {
+      document.querySelectorAll(".landing-reveal:not(.is-visible)").forEach((el) => observer.observe(el));
+    });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      document.removeEventListener("scroll", onScroll);
-      document.documentElement.removeEventListener("scroll", onScroll);
-      clearInterval(interval);
+      observer.disconnect();
+      mutationObserver.disconnect();
     };
   }, []);
 
@@ -225,9 +217,9 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
         <div className="landing-section-divider" aria-hidden="true" />
 
         {/* Everything below — lazy, off-screen */}
-        <Suspense fallback={null}><LandingFeatures /></Suspense>
+        <Suspense fallback={<LandingSkeleton variant="features" />}><LandingFeatures /></Suspense>
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<LandingSkeleton variant="mentors" />}>
           <LandingMentors
             mentors={mentors}
             mentorsLoading={mentorsLoading}
@@ -235,23 +227,23 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
           />
         </Suspense>
 
-        <Suspense fallback={null}><LandingWorkflow /></Suspense>
+        <Suspense fallback={<LandingSkeleton variant="workflow" />}><LandingWorkflow /></Suspense>
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<LandingSkeleton />}>
           <LandingOutcomes heroCompletion={heroCompletion} onSelectSignup={onSelectSignup} />
         </Suspense>
 
-        <Suspense fallback={null}><CommunityStats /></Suspense>
+        <Suspense fallback={<LandingSkeleton />}><CommunityStats /></Suspense>
 
         <div className="landing-section-divider" aria-hidden="true" />
 
-        <Suspense fallback={null}><Testimonials onShareReview={onSelectSignup} /></Suspense>
+        <Suspense fallback={<LandingSkeleton />}><Testimonials onShareReview={onSelectSignup} /></Suspense>
 
         <div className="landing-section-divider-wave" aria-hidden="true" />
 
-        <Suspense fallback={null}><LandingFAQ /></Suspense>
+        <Suspense fallback={<LandingSkeleton />}><LandingFAQ /></Suspense>
 
-        <Suspense fallback={null}><LandingCTA onSelectSignup={onSelectSignup} /></Suspense>
+        <Suspense fallback={<LandingSkeleton />}><LandingCTA onSelectSignup={onSelectSignup} /></Suspense>
       </main>
 
       {/* ═══ FOOTER / UTILS ═══ */}
@@ -280,7 +272,7 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
       <Suspense fallback={null}>
         <PremiumFooter onScrollToSection={scrollToSection} />
-      </Suspense>
+      </Suspense>  
     </div>
   );
 }

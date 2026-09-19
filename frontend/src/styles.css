@@ -137,18 +137,12 @@ body {
   margin: 0;
   font-family: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at 100% 0%, #d6f4ef 0%, transparent 45%),
-    radial-gradient(circle at 0% 100%, #dceefd 0%, transparent 42%),
-    var(--bg);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  background: var(--bg);
+  transition: none;
 }
 
 [data-theme="dark"] body {
-  background:
-    radial-gradient(circle at 100% 0%, #1a3d35 0%, transparent 45%),
-    radial-gradient(circle at 0% 100%, #1a2d3d 0%, transparent 42%),
-    var(--bg);
+  background: var(--bg);
 }
 
 .floating-nav {

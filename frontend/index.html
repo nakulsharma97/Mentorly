@@ -85,6 +85,17 @@
     };
   </script>
   <title>Mentorly — Learn from the Right Mentor</title>
+  <!-- Preload critical landing assets -->
+  <link rel="preload" as="image" href="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=75" fetchpriority="high" />
+  <!-- Prevent FOUC: set theme BEFORE first paint -->
+  <script>
+    (function(){
+      var t=localStorage.getItem('theme-preference');
+      var d=t?t==='dark':true;
+      document.documentElement.setAttribute('data-theme',d?'dark':'light');
+      if(d)document.documentElement.classList.add('dark');
+    })();
+  </script>
   <style>
     html,
     body,
@@ -95,19 +106,19 @@
       padding: 0;
       box-sizing: border-box;
       background-clip: border-box;
-      background-color: #f2f8f7;
     }
 
     html {
       background-color: #f2f8f7;
     }
+    [data-theme="dark"] html,
+    [data-theme="dark"] body,
+    [data-theme="dark"] #root {
+      background-color: #0b1220;
+    }
 
     body {
       min-height: 100%;
-      background:
-        radial-gradient(circle at top left, rgba(215, 243, 238, 0.95) 0%, transparent 38%),
-        radial-gradient(circle at bottom right, rgba(220, 238, 253, 0.95) 0%, transparent 42%),
-        linear-gradient(180deg, #f2f8f7 0%, #edf4f2 100%);
       color: #182028;
       font-family: 'Inter', 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
