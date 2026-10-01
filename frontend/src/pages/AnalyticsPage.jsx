@@ -1294,7 +1294,7 @@ export default function AnalyticsPage({ profile }) {
                     transition={{ duration: 0.2 }}
                   >
                     <Link
-                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#14B8A6] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0F9E92] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
+                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0F766E] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0b665e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
                       to="/teach"
                     >
                       Create Workshop
@@ -1307,7 +1307,7 @@ export default function AnalyticsPage({ profile }) {
                     transition={{ duration: 0.2 }}
                   >
                     <Link
-                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#14B8A6] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0F9E92] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
+                      className="inline-flex h-[52px] w-full items-center justify-center rounded-2xl bg-[#0F766E] px-8 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(20,184,166,0.25)] transition-colors duration-200 hover:bg-[#0b665e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:w-auto"
                       to="/mentors"
                     >
                       Find Mentor

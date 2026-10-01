@@ -104,7 +104,7 @@ export default function SearchFilters({ value = '', onSearch, onFilterChange }) 
     localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(next));
   };
 
-  const levelLabels = { BEGINNER: '🌱 Beginner', INTERMEDIATE: '🌿 Intermediate', EXPERT: '🚀 Expert' };
+  const levelLabels = { BEGINNER: 'Beginner', INTERMEDIATE: 'Intermediate', EXPERT: 'Expert' };
   const availLabels = { thisWeek: '📅 This Week', thisMonth: '📆 This Month', flexible: '⏰ Flexible' };
 
   const activeBadges = [

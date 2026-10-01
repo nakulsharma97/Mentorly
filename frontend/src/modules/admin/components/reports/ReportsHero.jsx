@@ -19,7 +19,7 @@ export default function ReportsHero({ openCount = 0, onReview }) {
         </>
       }
       title="Trust & Safety"
-      subtitle="Keep Mentorly safe for every learner and mentor. Review reports, investigate incidents, and take action — all from one queue."
+      subtitle="See every member report in one queue, investigate what happened, and resolve it."
       primaryButton={
         <button
           type="button"

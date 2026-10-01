@@ -109,7 +109,7 @@ const FIELDS_BY_ROLE = {
     { name: "profileImageUrl", label: "Profile Photo", type: FIELD_TYPES.photo, span: 2, required: true },
     { name: "fullName", label: "Full Name", type: FIELD_TYPES.text, placeholder: "Your full name", required: true },
     { name: "learningGoals", label: "Learning Goals", type: FIELD_TYPES.textarea, placeholder: "What do you want to achieve? e.g. Master React, prepare for interviews…", required: true, span: 2 },
-    { name: "aboutMe", label: "Bio", type: FIELD_TYPES.textarea, placeholder: "A short intro about yourself and your learning journey…", required: true, span: 2 },
+    { name: "aboutMe", label: "Bio", type: FIELD_TYPES.textarea, placeholder: "A short intro about yourself…", required: true, span: 2 },
     { name: "skills", label: "Interested Skills", type: FIELD_TYPES.chips, required: true, span: 2 },
     { name: "currentSkillLevel", label: "Current Skill Level", type: FIELD_TYPES.select, required: true },
     { name: "languages", label: "Languages", type: FIELD_TYPES.languages, required: true },
@@ -228,7 +228,7 @@ function SuccessOverlay({ onGoDashboard, onViewProfile, editMode }) {
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <h2>{editMode ? "✓ Profile Updated Successfully" : "🎉 Profile Completed Successfully"}</h2>
+        <h2>{editMode ? "Profile updated" : "Profile complete"}</h2>
         {editMode ? (
           <p>
             Your profile changes have been saved. Certifications and projects are
@@ -845,7 +845,7 @@ export default function CompleteProfilePage({
       {/* ── Minimal top bar: brand + logout only ── */}
       <header className="cpp-topbar">
         <div className="cpp-brand">
-          <span className="cpp-logo">SS</span>
+          <span className="cpp-logo">ML</span>
           <span className="cpp-brand-name">Mentorly</span>
         </div>
         <div className="cpp-topbar-actions">
@@ -1064,7 +1064,7 @@ export default function CompleteProfilePage({
         </div>
 
         <footer className="cpp-footer">
-          <span className="cpp-logo cpp-logo--sm">SS</span>
+          <span className="cpp-logo cpp-logo--sm">ML</span>
           <p>Mentorly · {isPhotoSet ? "Profile photo added ✓" : "Add a profile photo to get discovered faster"}</p>
         </footer>
       </div>

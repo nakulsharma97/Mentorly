@@ -407,6 +407,7 @@ export default function SystemSettingsPage({ notify }) {
                               checked={Boolean(value)}
                               onChange={(v) => handleNotifToggle(key, v)}
                               disabled={saving || Boolean(busyAction)}
+                              label={humanizePrefKey(key)}
                             />
                           </div>
                         ))}
@@ -492,12 +493,13 @@ export default function SystemSettingsPage({ notify }) {
 
 /* ── Sub-components ────────────────────────────────────────────── */
 
-function ToggleSwitch({ checked, onChange, disabled }) {
+function ToggleSwitch({ checked, onChange, disabled, label }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       className={`ss-toggle${checked ? " ss-toggle--on" : ""}`}
       onClick={() => onChange(!checked)}
       disabled={disabled}
@@ -518,7 +520,7 @@ function FieldControl({ field, value, onChange, disabled }) {
           <strong>{field.label}</strong>
           {field.description && <p>{field.description}</p>}
         </div>
-        <ToggleSwitch checked={value === "true" || value === true} onChange={(v) => onChange(v ? "true" : "false")} disabled={disabled} />
+        <ToggleSwitch checked={value === "true" || value === true} onChange={(v) => onChange(v ? "true" : "false")} disabled={disabled} label={field.label} />
       </div>
     );
   }
@@ -538,6 +540,7 @@ function FieldControl({ field, value, onChange, disabled }) {
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           className="ss-input ss-input--select"
+          aria-label={field.label}
         >
           {(field.options || []).map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
@@ -550,6 +553,7 @@ function FieldControl({ field, value, onChange, disabled }) {
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           className="ss-input"
+          aria-label={field.label}
         />
       )}
     </div>

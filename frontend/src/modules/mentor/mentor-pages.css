@@ -9,6 +9,9 @@
 :root {
   --mp-primary: #0F9D8A;
   --mp-primary-hover: #0C8A79;
+  /* Brand teal as *text* on a white card is only 3.4:1 — this darker tone
+     clears WCAG AA for active tabs/links while fills keep --mp-primary. */
+  --mp-primary-text: #0B7E70;
   --mp-primary-light: rgba(15, 157, 138, 0.10);
   --mp-primary-lighter: rgba(15, 157, 138, 0.06);
   --mp-primary-strong: rgba(15, 157, 138, 0.15);
@@ -21,8 +24,14 @@
   --mp-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
   --mp-shadow-lg: 0 8px 30px rgba(15, 157, 138, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
   --mp-text: #111827;
-  --mp-text-secondary: #6B7280;
-  --mp-text-muted: #9CA3AF;
+  /* Darkened from #6B7280: on the tinted workspace surfaces the gray-500
+     tone only reached ~4.3:1 (calendar ghost button). Gray-600 clears AA. */
+  --mp-text-secondary: #4B5563;
+  /* #9CA3AF was only 2.54:1 on the light surface — muted copy must still
+     clear WCAG AA (4.5:1), so it uses the slate-500 tone here. Slate-500
+     still fell to ~3.6:1 on the calendar's teal-tinted header, so muted copy
+     now uses slate-600, which clears 4.5:1 on every light surface. */
+  --mp-text-muted: #475569;
   --mp-success: #16A34A;
   --mp-success-light: rgba(22, 163, 74, 0.12);
   --mp-warning: #F59E0B;
@@ -63,9 +72,11 @@
   --mp-shadow-lg: 0 8px 30px rgba(20, 184, 166, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3);
   --mp-text: #F1F5F9;
   --mp-text-secondary: #94A3B8;
-  --mp-text-muted: #64748B;
+  /* Lifted from slate-500, which only reached ~3.5:1 on the dark surface. */
+  --mp-text-muted: #9CA3AF;
   --mp-primary: #14B8A6;
   --mp-primary-hover: #2DD4BF;
+  --mp-primary-text: #2DD4BF;
   --mp-primary-light: rgba(20, 184, 166, 0.12);
   --mp-primary-lighter: rgba(20, 184, 166, 0.06);
   --mp-primary-strong: rgba(20, 184, 166, 0.18);
@@ -957,7 +968,8 @@
 }
 
 .mp-pill--pending {
-  color: #b45309;
+  /* #b45309 on the 15% amber tint measured 4.48:1 — amber-800 clears AA. */
+  color: #92400e;
   background: rgba(245, 158, 11, 0.15);
 }
 
@@ -1661,7 +1673,7 @@
 
 .mp-view-tab--active {
   background: var(--mp-card);
-  color: var(--mp-primary);
+  color: var(--mp-primary-text);
   box-shadow: var(--mp-shadow-sm);
 }
 

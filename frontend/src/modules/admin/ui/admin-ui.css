@@ -13,7 +13,7 @@
   --au-hover: #f8fafc;
   --au-text: #0f172a;
   --au-text-2: #64748b;
-  --au-text-3: #94a3b8;
+  --au-text-3: #64748b;
   --au-primary: #14b8a6;
   --au-primary-dark: #0f766e;
   --au-primary-tint: rgba(20, 184, 166, 0.1);
@@ -21,11 +21,13 @@
   --au-gradient: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
   --au-blue: #2563eb;
   --au-blue-tint: rgba(59, 130, 246, 0.12);
-  --au-amber: #d97706;
+  /* Darker status hues in light — the light tints (#e3f4e9 etc.) leave the
+     original 16a34a/d97706/dc2626 at 2.8–4.0:1; these clear 5.5:1+. */
+  --au-amber: #92400e;
   --au-amber-tint: rgba(245, 158, 11, 0.14);
-  --au-green: #16a34a;
+  --au-green: #166534;
   --au-green-tint: rgba(22, 163, 74, 0.12);
-  --au-red: #dc2626;
+  --au-red: #b91c1c;
   --au-red-tint: rgba(239, 68, 68, 0.11);
   --au-violet: #7c3aed;
   --au-violet-tint: rgba(139, 92, 246, 0.12);
@@ -53,6 +55,11 @@
   --au-text-3: #64748b;
   --au-primary: #2dd4bf;
   --au-primary-dark: #14b8a6;
+  /* Status colours on dark surfaces — keep them bright (the dark tints are
+     near-black, so the light-mode values would drop to ~2–3:1). */
+  --au-green: #16a34a;
+  --au-amber: #d97706;
+  --au-red: #f87171;
   --au-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.3);
   --au-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   --au-shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.5);
@@ -929,7 +936,7 @@
   --au-hover: #f8fafc;
   --au-text: #0f172a;
   --au-text-2: #64748b;
-  --au-text-3: #94a3b8;
+  --au-text-3: #64748b;
   --au-primary: #14b8a6;
   --au-primary-dark: #0f766e;
   --au-primary-tint: rgba(20, 184, 166, 0.1);
@@ -937,11 +944,13 @@
   --au-gradient: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
   --au-blue: #2563eb;
   --au-blue-tint: rgba(59, 130, 246, 0.12);
-  --au-amber: #d97706;
+  /* Darker status hues in light — the light tints (#e3f4e9 etc.) leave the
+     original 16a34a/d97706/dc2626 at 2.8–4.0:1; these clear 5.5:1+. */
+  --au-amber: #92400e;
   --au-amber-tint: rgba(245, 158, 11, 0.14);
-  --au-green: #16a34a;
+  --au-green: #166534;
   --au-green-tint: rgba(22, 163, 74, 0.12);
-  --au-red: #dc2626;
+  --au-red: #b91c1c;
   --au-red-tint: rgba(239, 68, 68, 0.11);
   --au-violet: #7c3aed;
   --au-violet-tint: rgba(139, 92, 246, 0.12);
@@ -969,6 +978,11 @@
   --au-text-3: #64748b;
   --au-primary: #2dd4bf;
   --au-primary-dark: #14b8a6;
+  /* Status colours on dark surfaces — keep them bright (the dark tints are
+     near-black, so the light-mode values would drop to ~2–3:1). */
+  --au-green: #16a34a;
+  --au-amber: #d97706;
+  --au-red: #f87171;
   --au-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   --au-shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.5);
 

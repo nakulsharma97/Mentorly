@@ -653,7 +653,7 @@ export default function AdminOperationsPage({ notify }) {
       className="hero-section--compact"
           badge="CONVERSATIONS"
           title="Conversations"
-          subtitle="Monitor learner and mentor conversations, review flagged messages, and manage communication across the platform."
+          subtitle="Read learner and mentor conversations, review flagged messages, and step in when needed."
           primaryButton={
             <button type="button" className="hero-section__btn hero-section__btn--primary" onClick={() => setActiveTab('reports')}>
               <span className="material-symbols-outlined">flag</span>

@@ -3648,6 +3648,26 @@ ul {
   border-color: var(--accent) !important;
 }
 
+/* The blanket reset above flattens *every* button to a neutral surface, which
+   erases the difference between a primary CTA and a ghost icon button. Re-assert
+   the design-system primary so the main action of a form still reads as the
+   main action in dark mode. */
+[data-theme="dark"] .ui-btn-primary,
+[data-theme="dark"] button.submit-btn,
+[data-theme="dark"] button[type="submit"].submit-btn {
+  background: linear-gradient(120deg, #0f766e, #0e7490) !important;
+  color: #ffffff !important;
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .ui-btn-primary:hover,
+[data-theme="dark"] button.submit-btn:hover,
+[data-theme="dark"] button[type="submit"].submit-btn:hover {
+  background: linear-gradient(120deg, #0d6a62, #0c6780) !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 28px rgba(6, 121, 111, 0.35);
+}
+
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select {

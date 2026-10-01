@@ -2,12 +2,11 @@ export default function LandingOutcomes({ heroCompletion, onSelectSignup }) {
   return (
     <section id="outcomes" className="landing-section landing-outcomes">
       <div className="landing-outcome-copy landing-reveal">
-        <span className="landing-kicker">Production-ready polish</span>
-        <h2>Designed for trust, focus, and repeat use.</h2>
+        <span className="landing-kicker">Follow-through</span>
+        <h2>Booked sessions actually happen.</h2>
         <p>
-          The interface now leans into restrained color, strong spacing,
-          crisp cards, and motion that supports the workflow instead of
-          distracting from it.
+          Bookings on Mentorly are meant to be kept. Here is how
+          sessions have actually gone, straight from real bookings.
         </p>
         <button
           className="landing-button landing-button-primary"
@@ -30,19 +29,19 @@ export default function LandingOutcomes({ heroCompletion, onSelectSignup }) {
             <span className="material-symbols-outlined" aria-hidden="true">
               done
             </span>{" "}
-            Accessible contrast and focus states
+            Easy to read, with clear focus states
           </p>
           <p>
             <span className="material-symbols-outlined" aria-hidden="true">
               done
             </span>{" "}
-            Responsive layouts for all viewports
+            Works on phone, tablet, and desktop
           </p>
           <p>
             <span className="material-symbols-outlined" aria-hidden="true">
               done
             </span>{" "}
-            Smooth, reduced-motion-aware animations
+            Quick animations, or none if you prefer
           </p>
         </div>
       </div>

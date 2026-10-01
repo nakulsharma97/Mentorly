@@ -802,7 +802,7 @@ export default function AdminPaymentsPage({ notify }) {
       className="hero-section--compact"
           badge="PAYMENTS"
           title="Payment Management"
-          subtitle="Monitor, refund, and release payments across the platform. Search payments, process bulk refunds, download receipts, and manage mentor payouts."
+          subtitle="See every payment, issue refunds, release mentor payouts, and pull receipts."
           primaryButton={
             <button
               type="button"

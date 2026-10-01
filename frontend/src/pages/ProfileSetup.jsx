@@ -130,7 +130,7 @@ function CompletionCard({ percent, sections }) {
       : percent < 66
         ? { title: "Almost there!", text: "Just a few more details to complete your profile." }
         : percent < 100
-          ? { title: "Looking great!", text: "Your profile is ready to impress learners." }
+          ? { title: "Profile updated", text: "Your profile is ready for learners to see." }
           : { title: "Profile complete!", text: "Everything is filled in — you're ready to mentor." };
 
   return (

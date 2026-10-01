@@ -36,8 +36,8 @@ export default function RoleGuide() {
             Welcome to <span className="text-primary">Mentorly</span>
           </h1>
           <p className="text-xl text-on-surface-variant mb-8">
-            Two different worlds. One platform. Choose your role and start your
-            journey.
+            Two different worlds, one platform. Pick your role and get
+            started.
           </p>
         </div>
 

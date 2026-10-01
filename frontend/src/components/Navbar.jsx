@@ -115,7 +115,7 @@ export default function Navbar({
     >
       <div className="site-navbar-inner">
         <div className="site-navbar-brand">
-          <span className="site-navbar-logo">SS</span>
+          <span className="site-navbar-logo">ML</span>
           <div className="site-navbar-brand-text">
             <p className="site-navbar-brand-label">Mentorly</p>
             <p className="site-navbar-brand-title">{roleLabel} dashboard</p>

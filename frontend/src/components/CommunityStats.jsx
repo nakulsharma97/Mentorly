@@ -66,32 +66,32 @@ export default function CommunityStats() {
   const cards = [
     {
       key: "totalUsers",
-      label: "Total Registered Users",
-      emoji: "👥",
+      label: "Total registered users",
+      icon: "group",
       value: stats.totalUsers,
     },
     {
       key: "activeUsers",
-      label: "Users Online",
-      emoji: "🟢",
+      label: "Users online",
+      icon: "bolt",
       value: stats.activeUsers,
     },
     {
       key: "skillsOffered",
-      label: "Skills Offered",
-      emoji: "📚",
+      label: "Skills offered",
+      icon: "school",
       value: stats.skillsOffered,
     },
     {
       key: "completedSwaps",
-      label: "Successful Skill Swaps",
-      emoji: "🤝",
+      label: "Skill swaps completed",
+      icon: "swap_horiz",
       value: stats.completedSwaps,
     },
     {
       key: "averageRating",
-      label: "Average User Rating",
-      emoji: "⭐",
+      label: "Average user rating",
+      icon: "star",
       value: stats.averageRating,
     },
   ];
@@ -113,23 +113,17 @@ export default function CommunityStats() {
             key={c.key}
             style={{ animationDelay: `${0.06 * idx}s` }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 28 }} aria-hidden>
-                {c.emoji}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: "var(--lp-muted)", fontWeight: 900 }}>
-                  {c.label}
-                </div>
-                <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
-                  {c.key === "averageRating" ? (
-                    <strong>{Number(c.value).toFixed(2)}</strong>
-                  ) : (
-                    <CountUp value={c.value || 0} />
-                  )}
-                </div>
-              </div>
-            </div>
+            <span className="material-symbols-outlined" aria-hidden="true">
+              {c.icon}
+            </span>
+            <p className="landing-stat-label">{c.label}</p>
+            <p className="landing-stat-value">
+              {c.key === "averageRating" ? (
+                Number(c.value).toFixed(2)
+              ) : (
+                <CountUp value={c.value || 0} />
+              )}
+            </p>
           </article>
         ))}
       </div>

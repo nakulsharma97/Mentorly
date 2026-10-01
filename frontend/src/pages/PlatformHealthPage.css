@@ -5,9 +5,20 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
+  /* Light: the mint stat cards (#f5faf9) need the darker green/amber to
+     clear 4.5:1 (16a34a = 3.1:1, d97706 = 3.1:1). */
+  --ph-ok: #15803d;
+  --ph-warn: #92400e;
+  --ph-danger: #dc2626;
+}
+
+/* Dark mode — #dc2626 on the slate-900 stat cards is only 3.7:1; the
+   red-400 tint clears AA (6.4:1) while staying the same alarm colour.
+   The original green/amber are fine on dark surfaces (5.3:1 / 5.5:1). */
+[data-theme="dark"] {
   --ph-ok: #16a34a;
   --ph-warn: #d97706;
-  --ph-danger: #dc2626;
+  --ph-danger: #f87171;
 }
 
 /* ── Global status banner ─────────────────────────────────────── */

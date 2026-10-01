@@ -1,5 +1,10 @@
 .landing-stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-top:18px}
-.landing-stat-card{border-radius:22px;padding:20px;min-height:140px;display:flex;align-items:center}
+.landing-stat-card{border-radius:22px;padding:20px;min-height:140px;display:flex;flex-direction:column;align-items:flex-start}
+
+/* Cards reuse the shared feature-card icon chip; label + value stack beneath it
+   so every tile reads the same regardless of how the label wraps. */
+.landing-stat-card .landing-stat-label{margin:14px 0 0;flex:0 0 auto;color:var(--lp-muted);font-size:.78rem;font-weight:800;letter-spacing:.02em;line-height:1.4}
+.landing-stat-card .landing-stat-value{margin:4px 0 0;flex:0 0 auto;color:var(--lp-ink);font-family:'Sora','Manrope',sans-serif;font-size:1.75rem;font-weight:800;line-height:1.15;letter-spacing:-.02em}
 @media (max-width:1020px){.landing-stats-grid{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:720px){.landing-stats-grid{grid-template-columns:1fr}}
 

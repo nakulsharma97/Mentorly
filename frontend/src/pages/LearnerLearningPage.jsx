@@ -237,7 +237,7 @@ function Hero({ learnerName, overview, onContinue }) {
           {greeting()}, {firstName}
         </h1>
         <p className="ml-hero-text">
-          Track your mentor sessions, continue your learning journey and monitor your progress.
+          Track your mentor sessions, see what you have lined up, and keep an eye on your progress.
         </p>
         <div className="ml-hero-actions">
           <button type="button" className="ml-btn ml-btn--hero-primary" onClick={onContinue}>
@@ -435,7 +435,7 @@ function SessionTimeline({ items }) {
         <h2 className="ml-section-title">
           <Icon name="timeline" /> Session Timeline
         </h2>
-        <p className="ml-section-hint">Your learning journey, newest first</p>
+        <p className="ml-section-hint">Your learning, newest first</p>
       </div>
       {items.length === 0 ? (
         <div className="ml-empty ml-empty--illustrated">
@@ -1274,7 +1274,7 @@ export default function LearnerLearningPage() {
       setBusy(true);
       try {
         await client.post("/api/v1/learning/todos", { task: suggestion.text, done: true });
-        showToast("success", "Task completed 🎉");
+        showToast("success", "Task completed");
         refresh();
       } catch (error) {
         showToast("error", getErrorMessage(error));
@@ -1307,7 +1307,7 @@ export default function LearnerLearningPage() {
       setBusy(true);
       try {
         await client.patch(`/api/v1/learning/todos/${todo.id}`, { done });
-        showToast("success", done ? "Task completed 🎉" : "Task marked not done");
+        showToast("success", done ? "Task completed" : "Task marked not done");
         refresh();
       } catch (error) {
         showToast("error", getErrorMessage(error));

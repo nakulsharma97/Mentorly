@@ -537,7 +537,7 @@ export default function AdminAnalyticsPage({ notify }) {
         className="hero-section--compact"
         badge="Analytics"
         title="Platform Analytics"
-        subtitle="Real-time platform metrics, trends, and business intelligence. All values are real database counts."
+        subtitle="Platform metrics, trends, and reports — updated live from real data."
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">monitoring</span>

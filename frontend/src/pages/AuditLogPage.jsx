@@ -28,8 +28,8 @@ const MODULES = [
 
 const SEVERITY_META = {
   INFO: { color: "#64748b", bg: "#f1f5f9" },
-  SUCCESS: { color: "#16a34a", bg: "#dcfce7" },
-  WARNING: { color: "#d97706", bg: "#fef3c7" },
+  SUCCESS: { color: "#15803d", bg: "#dcfce7" },
+  WARNING: { color: "#92400e", bg: "#fef3c7" },
   ERROR: { color: "#dc2626", bg: "#fee2e2" },
   CRITICAL: { color: "#b91c1c", bg: "#fecaca" },
 };
@@ -654,7 +654,7 @@ export default function AuditLogPage({ notify }) {
       className="hero-section--compact"
         badge="Monitoring · Security"
         title="Activity Timeline & Security Audit"
-        subtitle="Enterprise-grade audit trail — who did what, when, and from where. Entries are immutable and read-only."
+        subtitle="Every admin action, who did it, when, and from where. Entries cannot be edited or deleted."
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">manage_search</span>

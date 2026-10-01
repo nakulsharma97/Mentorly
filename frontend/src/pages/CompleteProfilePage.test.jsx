@@ -139,7 +139,7 @@ describe("CompleteProfilePage", () => {
     );
 
     expect(
-      await screen.findByText(/Profile Completed Successfully/i),
+      await screen.findByText(/Profile complete/i),
     ).toBeInTheDocument();
 
     // Both success CTA buttons are available — no waiting required.

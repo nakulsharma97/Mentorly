@@ -12,11 +12,21 @@
   /* ── Brand Colors ── */
   --ss-primary: #0F9D8A;
   --ss-primary-hover: #0B7E70;
+  /* Stronger tint of the brand colour: used wherever text or a filled button
+     needs WCAG AA against a light surface (white-on-#0F9D8A is only 3.4:1). */
+  --ss-primary-strong: #0B7E70;
   --ss-primary-light: rgba(15, 157, 138, 0.1);
   --ss-primary-lighter: rgba(15, 157, 138, 0.06);
   --ss-primary-glow: rgba(15, 157, 138, 0.25);
   --ss-accent: #14B8A6;
   --ss-accent-light: rgba(20, 184, 166, 0.12);
+
+  /* Info-callout surface/text used by the mentor Calendar auto-session banner.
+     Previously undefined (var() fell back to a light mint with dark-green
+     text), which turned into white-on-white once the blanket dark-theme text
+     rule forced near-white text onto the mint surface. */
+  --md-soft: #f0fdf4;
+  --md-text-2: #166534;
 
   /* ── Surfaces ── */
   --ss-bg: #F5FAF9;
@@ -31,7 +41,9 @@
   /* ── Typography ── */
   --ss-text: #0F172A;
   --ss-text-secondary: #475569;
-  --ss-text-muted: #94A3B8;
+  /* muted text must clear WCAG AA on the light surface (#fff → 4.76:1).
+     #94A3B8 was only 2.56:1 here — it is a dark-surface colour. */
+  --ss-text-muted: #64748B;
   --ss-text-inverse: #FFFFFF;
   --ss-font: 'Inter', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   --ss-font-heading: 'Inter', 'Manrope', -apple-system, sans-serif;
@@ -116,11 +128,17 @@
 [data-theme="dark"] {
   --ss-primary: #34D399;
   --ss-primary-hover: #6EE7B7;
+  --ss-primary-strong: #5EEAD4;
   --ss-primary-light: rgba(52, 211, 153, 0.12);
   --ss-primary-lighter: rgba(52, 211, 153, 0.06);
   --ss-primary-glow: rgba(52, 211, 153, 0.3);
   --ss-accent: #14B8A6;
   --ss-accent-light: rgba(20, 184, 166, 0.12);
+
+  /* Dark callout: dark-green surface so the forced near-white dark-theme text
+     stays legible instead of landing on the light-mint fallback. */
+  --md-soft: #0c2e22;
+  --md-text-2: #a7f3d0;
 
   --ss-bg: #0F172A;
   --ss-card: #1E293B;
@@ -133,7 +151,9 @@
 
   --ss-text: #F1F5F9;
   --ss-text-secondary: #94A3B8;
-  --ss-text-muted: #64748B;
+  /* Lighter than the light-theme value: muted text on #111827/#1E293B needs
+     the lifted tone to clear 4.5:1 (slate-500 only reached ~3.5:1). */
+  --ss-text-muted: #94A3B8;
 
   --ss-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --ss-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
@@ -585,23 +605,42 @@
 
 /* Primary */
 .ss-btn--primary {
-  background: var(--ss-primary);
+  background: var(--ss-primary-strong, #0B7E70);
   color: var(--ss-text-inverse);
-  border-color: var(--ss-primary);
+  border-color: var(--ss-primary-strong, #0B7E70);
   box-shadow: 0 2px 8px var(--ss-primary-glow);
 }
 
 .ss-btn--primary:hover {
-  background: var(--ss-primary-hover);
-  border-color: var(--ss-primary-hover);
+  background: #075f55;
+  border-color: #075f55;
   box-shadow: 0 4px 16px var(--ss-primary-glow);
   transform: translateY(-1px);
+}
+
+/* Dark theme: `--ss-primary-strong` flips to the bright mint used for accent
+   text, which would leave white label text on a light fill (~1.9:1). Keep the
+   primary button on a deep teal fill in both themes so the label always clears
+   AA. `!important` is required to outrank the blanket dark `button` reset in
+   styles.css for the button variants. */
+[data-theme="dark"] .ss-btn--primary {
+  background: #0f766e !important;
+  border-color: #0f766e !important;
+  color: #f0fdfa !important;
+}
+
+[data-theme="dark"] .ss-btn--primary:hover {
+  background: #0b6b5a !important;
+  border-color: #0b6b5a !important;
+  color: #ffffff !important;
 }
 
 /* Secondary (Outlined) */
 .ss-btn--secondary {
   background: transparent;
-  color: var(--ss-primary);
+  /* #0F9D8A as text on white is only 3.4:1 — the strong tone clears AA
+     while the border keeps the brighter brand hue. */
+  color: var(--ss-primary-strong);
   border-color: var(--ss-primary);
 }
 

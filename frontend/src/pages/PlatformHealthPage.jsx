@@ -864,7 +864,7 @@ export default function PlatformHealthPage({ notify }) {
           <span style={{ fontWeight: 700, color: "var(--admin-text)" }}>Export Monitoring Report</span>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" className="admin-refresh-btn" onClick={handleExportCsv} disabled={exporting.csv} style={{ background: "#059669" }}>
+          <button type="button" className="admin-refresh-btn" onClick={handleExportCsv} disabled={exporting.csv} style={{ background: "#047857" }}>
             <Icon name="table_chart" /> {exporting.csv ? "Exporting…" : "Export CSV"}
           </button>
           <button type="button" className="admin-refresh-btn" onClick={handleExportXlsx} disabled={exporting.xlsx} style={{ background: "#1d4ed8" }}>

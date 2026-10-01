@@ -394,7 +394,7 @@ export default function AuthModal({
         </h2>
         <p className="muted auth-modal-subtitle">
           {mode === "login"
-            ? "Sign in to continue your learning journey."
+            ? "Sign in to pick up where you left off."
             : "Start learning from experienced mentors."}
         </p>
 
@@ -410,7 +410,7 @@ export default function AuthModal({
           <div className="auth-onboarding">
             <div className="auth-onboarding-header">
               <span className="auth-onboarding-pill">Step 1 of 3</span>
-              <span className="auth-onboarding-title">Set up your Mentorly journey</span>
+              <span className="auth-onboarding-title">Set up your account</span>
             </div>
             <div className="auth-onboarding-steps">
               <div className="auth-onboarding-step is-active">

@@ -420,7 +420,7 @@
   height: 18px;
   padding: 0 4px;
   border-radius: 999px;
-  background: var(--crm-primary);
+  background: var(--crm-primary-dark);
   color: #fff;
   font-size: 10px;
   font-weight: 800;
@@ -1426,7 +1426,7 @@
   padding: 0 24px;
   border-radius: 14px;
   border: none;
-  background: var(--crm-primary);
+  background: var(--crm-primary-dark);
   color: #fff;
   font-family: inherit;
   font-size: 14.5px;
@@ -1438,7 +1438,7 @@
 }
 
 .ss-empty__btn:hover {
-  background: var(--crm-primary-dark);
+  background: #0b5a54;
   transform: translateY(-2px);
 }
 

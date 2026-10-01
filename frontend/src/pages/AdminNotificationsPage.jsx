@@ -18,7 +18,7 @@ export default function AdminNotificationsPage({ notify }) {
       className="hero-section--compact"
         badge="NOTIFICATIONS"
         title="Notification Center"
-        subtitle="Verification requests, new users, bookings, payments, reports and platform alerts — delivered in real time."
+        subtitle="Verification requests, new users, bookings, payments, reports, and platform alerts land here as they happen."
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">notifications_active</span>
@@ -32,7 +32,7 @@ export default function AdminNotificationsPage({ notify }) {
           overflow: "hidden",
           padding: 0,
           borderRadius: 20,
-          background: "var(--au-surface, #ffffff)",
+          background: "var(--au-card, #ffffff)",
           border: "1px solid var(--au-border, #e6edf3)",
           boxShadow: "0 8px 30px rgba(15,23,42,.06)",
         }}

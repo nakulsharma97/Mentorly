@@ -27,7 +27,7 @@ export default function PremiumFooter({ onScrollToSection }) {
           {/* Column 1: Brand */}
           <div className="footer-column footer-brand">
             <div className="brand-badge">
-              <div className="brand-logo">SS</div>
+              <div className="brand-logo">ML</div>
             </div>
             <div className="brand-info">
               <h3 className="brand-name">Mentorly</h3>

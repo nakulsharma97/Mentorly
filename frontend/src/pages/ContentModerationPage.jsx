@@ -448,12 +448,12 @@ export default function ContentModerationPage({ notify }) {
 
         <div className="cmc-filter-field" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
-            <label>From date</label>
-            <input type="date" value={fromDate} onChange={(e) => applyFilterChange(setFromDate, e.target.value)} />
+            <label htmlFor="cmc-from-date">From date</label>
+            <input id="cmc-from-date" type="date" value={fromDate} onChange={(e) => applyFilterChange(setFromDate, e.target.value)} />
           </div>
           <div>
-            <label>To date</label>
-            <input type="date" value={toDate} onChange={(e) => applyFilterChange(setToDate, e.target.value)} />
+            <label htmlFor="cmc-to-date">To date</label>
+            <input id="cmc-to-date" type="date" value={toDate} onChange={(e) => applyFilterChange(setToDate, e.target.value)} />
           </div>
         </div>
       </div>
@@ -869,7 +869,7 @@ export default function ContentModerationPage({ notify }) {
       className="hero-section--compact"
         badge="Moderation"
         title="Content Moderation Center"
-        subtitle="Review content flagged by reports and automated detection. Approve, remove, warn, or escalate — every action is tracked and notified."
+        subtitle="Content flagged by reports or automated checks. Approve, remove, warn, or escalate — every action is logged and the owner is notified."
         secondaryButton={
           stats ? (
             <span className="hero-section__btn hero-section__btn--secondary" style={{ height: "auto", padding: "10px 18px", cursor: "default" }}>

@@ -194,7 +194,7 @@ export default function AdminDashboardPage({ notify }) {
   if (loadError && !dashboard) {
     return (
       <main className="admin-page">
-        <AdminDashboardHero subtitle="Platform metrics at a glance." />
+        <AdminDashboardHero        subtitle="Key numbers from across the platform." />
 
         <div className="admin-dash-state" role="alert">
           <span className="admin-dash-state__icon">

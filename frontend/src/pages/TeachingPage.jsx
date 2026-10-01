@@ -515,7 +515,7 @@ function SessionRequestsSection({ notify, highlightRequestId, gateRequest }) {
                   rows={3}
                   value={acceptMessage}
                   onChange={(e) => setAcceptMessage(e.target.value)}
-                  placeholder="e.g. I'm excited to work with you! Let's set up a time that works."
+                  placeholder="e.g. Happy to help. When would you like to meet?"
                   ref={acceptTextareaRef}
                 />
                 <span

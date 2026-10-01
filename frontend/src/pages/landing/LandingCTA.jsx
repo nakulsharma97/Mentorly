@@ -11,13 +11,12 @@ export default function LandingCTA({ onSelectSignup }) {
       <div className="landing-cta-card landing-reveal">
         <div className="landing-cta-shimmer" aria-hidden="true" />
         <span className="landing-cta-kicker">
-          <span aria-hidden="true">✨</span>
-          Join thousands of learners
+          Free to start
         </span>
-        <h2>Ready to accelerate your career?</h2>
+        <h2>Ready to find your mentor?</h2>
         <p>
-          Sign up free, find your mentor, and start learning from industry
-          experts who have already built the path.
+          Sign up free, browse mentors who have been where you want to
+          go, and book your first session.
         </p>
         <div className="landing-cta-actions">
           <button

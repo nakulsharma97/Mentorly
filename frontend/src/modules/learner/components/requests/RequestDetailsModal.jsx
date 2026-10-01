@@ -27,7 +27,7 @@ export default function RequestDetailsModal({ request, onClose, onReply }) {
     <ModalShell
       title="Request Details"
       subtitle={`Sent ${formatRequestDate(request.createdAt)} at ${formatRequestTime(request.createdAt)}`}
-      label={`Request details — ${name}`}
+      label={`Request details: ${name}`}
       closeLabel="Close details"
       onClose={onClose}
       footer={

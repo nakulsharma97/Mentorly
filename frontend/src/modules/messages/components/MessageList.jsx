@@ -53,7 +53,7 @@ export default function MessageList({
       ) : days.length === 0 ? (
         <EmptyConversation
           icon="waving_hand"
-          title="Say hello 👋"
+          title="Say hello"
           description={`This is the beginning of your conversation with ${peerName}.`}
         />
       ) : (

@@ -664,7 +664,7 @@
 .ld-achievement__xp {
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--ss-primary, #0F9D8A);
+  color: var(--ss-primary-strong, #0B7E70);
   white-space: nowrap;
 }
 
@@ -887,7 +887,7 @@
 
 .ld-invite__btn--primary {
   background: #ffffff;
-  color: #0d9488;
+  color: #0b7e70;
   box-shadow: 0 10px 24px -10px rgba(2, 44, 34, 0.5);
 }
 

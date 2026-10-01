@@ -236,7 +236,7 @@ export default function App() {
               fontFamily: "'Inter', sans-serif",
             }}
           >
-            <span aria-hidden="true">🔧</span> Maintenance mode is active — only administrators can access the platform.
+            Maintenance mode is on. Only administrators can access the platform.
             Go to{' '}
             <a
               href="/admin/settings"

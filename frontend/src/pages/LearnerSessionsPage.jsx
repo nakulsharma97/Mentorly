@@ -770,10 +770,10 @@ function RightSidebar({ stats, allBookings }) {
   }, [allBookings]);
 
   const motivation = useMemo(() => {
-    if (weeklyGoal >= 100) return "Amazing! You crushed your weekly goal! \uD83C\uDF1F";
-    if (weeklyGoal >= 60) return "Great progress! Keep it up! \uD83D\uDCAA";
-    if (weeklyGoal >= 30) return "Good start! Stay consistent. \uD83D\uDCA1";
-    return "Book a session to start learning! \uD83D\uDE80";
+    if (weeklyGoal >= 100) return "You hit your weekly goal.";
+    if (weeklyGoal >= 60) return "You're past halfway to your goal.";
+    if (weeklyGoal >= 30) return "A good start. Keep it going.";
+    return "Book a session to get started.";
   }, [weeklyGoal]);
 
   return (

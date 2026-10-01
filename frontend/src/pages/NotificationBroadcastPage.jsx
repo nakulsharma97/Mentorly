@@ -657,7 +657,7 @@ export default function NotificationBroadcastPage({ notify }) {
       className="hero-section--compact"
         badge="Engagement"
         title="Notification & Broadcast Center"
-        subtitle="Compose, schedule, and track platform-wide notifications. All stats come from real database records."
+        subtitle="Write, schedule, and track notifications sent across the platform."
         primaryButton={
           <button
             type="button"

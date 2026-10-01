@@ -98,7 +98,7 @@ export default function RoleSwitcher({ profile, onProfileUpdated }) {
 
         <div className="mt-6 pt-6 border-t border-outline-variant/10">
           <p className="text-xs text-on-surface-variant mb-3">
-            💡 What you'll see as {otherRoleLabel}:
+            What you'll see as {otherRoleLabel}:
           </p>
           {otherRole === "MENTOR" ? (
             <ul className="space-y-2 text-xs text-on-surface-variant">

@@ -911,7 +911,7 @@ export function LearnerSkillsPage() {
         className="hero-section--compact"
         badge={<><Icon name="auto_stories" /> Skill Explorer</>}
         title="Explore Skills & Learning Paths"
-        subtitle="Browse hundreds of in-demand skills, find expert mentors, and start your personalised learning journey today."
+        subtitle="Browse in-demand skills, compare mentors, and book sessions that fit your goals."
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">auto_stories</span>
@@ -1706,7 +1706,7 @@ export function LearnerSessionsPage() {
           </p>
           <p className="lp-empty__desc">
             {activeTab === 'upcoming'
-              ? 'Book a session with a mentor to get started on your learning journey.'
+              ? 'Book a session with a mentor to get started.'
               : activeTab === 'completed'
               ? 'Completed sessions will appear here once they are finished.'
               : 'Cancelled sessions will appear here if any bookings are cancelled.'}

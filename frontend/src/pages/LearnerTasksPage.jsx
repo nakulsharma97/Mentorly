@@ -727,7 +727,7 @@ export default function LearnerTasksPage() {
       setBusy(true);
       try {
         await client.patch(`/api/v1/learning/tasks/${task.id}/complete`, { completed });
-        showToast("success", completed ? "Task completed 🎉" : "Task marked not done");
+        showToast("success", completed ? "Task completed" : "Task marked not done");
         if (detailTask && detailTask.id === task.id) {
           setDetailTask((current) => (current ? { ...current, status: completed ? "COMPLETED" : "TODO", completedAt: completed ? new Date().toISOString() : null } : current));
         }

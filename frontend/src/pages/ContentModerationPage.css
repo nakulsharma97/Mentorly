@@ -87,6 +87,14 @@
   margin-top: 18px;
 }
 
+/* Dark mode — this card had no dark surface, so it stayed #fff while the
+   blanket dark rules painted its title/labels/icons near-white (1.05:1). */
+[data-theme="dark"] .cmc-filters-card {
+  background: var(--admin-panel-bg, #111a2e);
+  border-color: var(--admin-border, #1e293b);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
 .cmc-filters-card__title {
   margin: 0 0 14px;
   font-size: 16px;

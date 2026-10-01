@@ -18,8 +18,8 @@ function copyFor(variant) {
     suggestedTitle: isMentor ? "Suggested Learners" : "Suggested Mentors",
     emptyTitle: isMentor ? "No learners found" : "No mentors found",
     emptyHint: isMentor
-      ? "Try another search keyword — learners across Mentorly will appear here."
-      : "Try another search keyword — mentors across Mentorly will appear here.",
+      ? "No matching learners. Try a different name or skill."
+      : "No matching mentors. Try a different name or skill.",
   };
 }
 

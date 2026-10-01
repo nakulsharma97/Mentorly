@@ -121,7 +121,18 @@ public class SecurityConfig {
                                                 .hasRole("ADMIN")                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login",
                                                                 "/api/v1/auth/signup",
                                                                 "/api/v1/auth/refresh",
-                                                                "/api/v1/auth/logout")
+                                                                "/api/v1/auth/logout",
+                                                                // Signup verifies the email before the account exists, so
+                                                                // these three must be reachable anonymously. Without them
+                                                                // the frontend's signup flow gets a 401 before it can ever
+                                                                // create an account.
+                                                                "/api/v1/auth/send-verification-otp",
+                                                                "/api/v1/auth/resend-verification-otp",
+                                                                "/api/v1/auth/verify-email",
+                                                                // Password recovery is by definition used by signed-out
+                                                                // users, so both endpoints must stay anonymous.
+                                                                "/api/v1/auth/forgot-password",
+                                                                "/api/v1/auth/reset-password")
                                                                 .permitAll()
                                                                 // Payment gateway callbacks are unauthenticated by design — the
                                                                 // controller verifies the gateway HMAC signature itself (see

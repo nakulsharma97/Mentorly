@@ -620,13 +620,12 @@ export default function MentorDashboard({ profile, notify }) {
         }
         title={
           <>
-            {getGreeting()}, {firstName}{" "}
-            <span role="img" aria-label="wave">👋</span>
+            {getGreeting()}, {firstName}
           </>
         }
         subtitle={
           <>
-            Here&apos;s what&apos;s happening with your mentorship journey today.
+            Here&apos;s what&apos;s happening with your sessions today.
             {profile?.username && (
               <span
                 style={{

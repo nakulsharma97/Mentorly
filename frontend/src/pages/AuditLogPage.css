@@ -91,6 +91,22 @@
 .al-kpi--rose .al-kpi__icon { background: #ffe4e6; color: #be123c; }
 .al-kpi--red .al-kpi__icon { background: #fee2e2; color: #dc2626; }
 
+/* Dark mode — the chips keep their pastel backgrounds (they are the design),
+   but the blanket [data-theme="dark"] span rule in styles.css forces the
+   label/glyph near-white (1.05:1 on the pastel). Re-pin the designed tone
+   colors with !important; the inner glyph inherits the chip's colour. */
+[data-theme="dark"] .al-kpi__icon { color: #64748b !important; }
+[data-theme="dark"] .al-kpi--slate .al-kpi__icon { color: #475569 !important; }
+[data-theme="dark"] .al-kpi--blue .al-kpi__icon { color: #1d4ed8 !important; }
+[data-theme="dark"] .al-kpi--cyan .al-kpi__icon { color: #0e7490 !important; }
+[data-theme="dark"] .al-kpi--teal .al-kpi__icon { color: #0f766e !important; }
+[data-theme="dark"] .al-kpi--violet .al-kpi__icon { color: #6d28d9 !important; }
+[data-theme="dark"] .al-kpi--amber .al-kpi__icon { color: #b45309 !important; }
+[data-theme="dark"] .al-kpi--rose .al-kpi__icon { color: #be123c !important; }
+[data-theme="dark"] .al-kpi--red .al-kpi__icon { color: #dc2626 !important; }
+[data-theme="dark"] .al-kpi__icon .material-symbols-outlined,
+[data-theme="dark"] .al-kpi__icon .md__icon { color: inherit !important; }
+
 .al-kpi__value {
   margin: 0;
   font-size: 1.35rem;

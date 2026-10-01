@@ -602,7 +602,7 @@ export default function BookingFlowPage({ sessionId, onBookingComplete, onCancel
               }}
             >
               <p style={{ margin: 0, color: 'var(--success-text, #166534)', lineHeight: 1.6 }}>
-                🎉 This mentor currently offers <strong>free mentoring sessions</strong>. No payment
+                This mentor currently offers <strong>free mentoring sessions</strong>. No payment
                 required.
               </p>
               {bookingError ? <p style={{ color: 'var(--error)', marginTop: 10 }}>{bookingError}</p> : null}

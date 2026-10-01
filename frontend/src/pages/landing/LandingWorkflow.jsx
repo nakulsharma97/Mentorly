@@ -3,7 +3,7 @@ export default function LandingWorkflow() {
     <section id="workflow" className="landing-section landing-workflow">
       <div className="landing-section-heading landing-reveal">
         <span className="landing-kicker">How it works</span>
-        <h2>A cleaner path from intent to outcome.</h2>
+        <h2>How a session works, start to finish.</h2>
       </div>
 
       <div className="landing-step-grid">
@@ -11,17 +11,17 @@ export default function LandingWorkflow() {
           [
             "01",
             "Choose your goal",
-            "Define the skill, level, and outcome you want from the session.",
+            "Pick a skill, set your level, and say what you want to get better at.",
           ],
           [
             "02",
             "Match with a mentor",
-            "Compare skills, availability, proof, and pricing before you book.",
+            "Check a mentor's skills, ratings, availability, and price before you book.",
           ],
           [
             "03",
             "Meet and follow up",
-            "Use messages, session links, notes, and wallet history after the call.",
+            "After the call, messages, links, notes, and payments stay with the booking.",
           ],
         ].map(([number, title, text]) => (
           <article className="landing-step landing-reveal" key={number}>

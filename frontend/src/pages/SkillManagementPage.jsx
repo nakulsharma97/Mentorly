@@ -283,7 +283,7 @@ export default function SkillManagementPage({ notify }) {
                       <button type="button" className="au-btn au-btn--outline au-btn--sm" onClick={() => { setMergingSkill(s); setMergeTargetId(""); }} title="Merge this skill into another to remove duplicates">
                         <GitMerge size={15} /> Merge
                       </button>
-                      <button type="button" className="au-btn au-btn--danger au-btn--sm" onClick={() => deleteSkill(s)}>
+                      <button type="button" className="au-btn au-btn--danger au-btn--sm" onClick={() => deleteSkill(s)} aria-label={`Delete skill ${s.name}`}>
                         <Trash2 size={15} />
                       </button>
                     </div>

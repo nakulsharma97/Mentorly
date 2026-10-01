@@ -253,7 +253,7 @@ export default function MentorProjectsManager({ notify, readonly, onCountChange 
             <span className="material-symbols-outlined">folder_open</span>
             Projects
           </h3>
-          <p className="mcm-card__subtitle">Showcase your best work — this is optional and never affects profile completion.</p>
+          <p className="mcm-card__subtitle">Add your best work here. This is optional and never affects profile completion.</p>
         </div>
         {!showForm && !readonly && (
           <button type="button" className="mcm-btn mcm-btn--primary mcm-btn--sm" onClick={startAdd}>

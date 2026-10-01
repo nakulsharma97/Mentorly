@@ -23,7 +23,9 @@
   --rpx-shadow-xl: 0 12px 40px rgba(15, 157, 138, 0.15), 0 4px 12px rgba(15, 23, 42, 0.08);
   --rpx-text: #0f172a;
   --rpx-text-secondary: #475569;
-  --rpx-text-muted: #94a3b8;
+  /* #94a3b8 is a dark-surface colour: it only reached 2.56:1 on the light
+     chart/empty-state cards. Slate-500 clears 4.5:1 on white. */
+  --rpx-text-muted: #64748b;
   --rpx-success: #16a34a;
   --rpx-success-light: rgba(22, 163, 74, 0.12);
   --rpx-warning: #d97706;

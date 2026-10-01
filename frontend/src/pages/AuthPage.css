@@ -384,7 +384,7 @@
   padding: 12px 12px 16px;
 }
 
-.landing-product-header span {
+.landing-product-header span:not(.landing-live-pill) {
   color: var(--lp-muted);
   font-size: 0.7rem;
   font-weight: 800;
@@ -405,13 +405,13 @@
   gap: 5px;
   padding: 4px 10px 4px 8px;
   border-radius: 999px;
-  background: #059669;
+  background: #047857;
   color: #ffffff;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
+  box-shadow: 0 2px 8px rgba(4, 120, 87, 0.4);
   line-height: 1;
 }
 
@@ -1116,6 +1116,13 @@
   will-change: auto;
 }
 
+/* Keyboard users can tab into content that has not scrolled into view yet;
+   reveal it immediately instead of leaving focus on an invisible element. */
+.landing-reveal:focus-within {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .landing-reveal-delay-1 { transition-delay: 0.08s; }
 .landing-reveal-delay-2 { transition-delay: 0.16s; }
 .landing-reveal-delay-3 { transition-delay: 0.24s; }
@@ -1538,18 +1545,24 @@
   box-shadow: 0 16px 40px rgba(12, 30, 26, 0.1);
   max-height: 0;
   overflow: hidden;
+  display: none;
   flex-direction: column;
   gap: 16px;
   opacity: 0;
+  /* visibility keeps the collapsed menu out of the tab order and the
+     accessibility tree — max-height/opacity alone leave its links focusable. */
+  visibility: hidden;
   transform: translateY(-8px);
   transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
               transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              visibility 0.35s cubic-bezier(0.22, 1, 0.36, 1),
               max-height 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .landing-mobile-nav-dropdown.is-open {
   max-height: 500px;
   opacity: 1;
+  visibility: visible;
   transform: translateY(0);
 }
 
@@ -1600,14 +1613,20 @@
   backdrop-filter: blur(14px);
   cursor: pointer;
   opacity: 0;
+  /* visibility (not just opacity) keeps the button out of the tab order while
+     it is hidden — an opacity-only hide leaves it keyboard-focusable. */
+  visibility: hidden;
   transform: translateY(16px) scale(0.9);
-  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease, background 0.3s ease;
+  transition: opacity 0.35s ease, visibility 0.35s ease,
+              transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.3s ease, background 0.3s ease;
   pointer-events: none;
   -webkit-tap-highlight-color: transparent;
 }
 
 .landing-back-to-top.is-visible {
   opacity: 1;
+  visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: auto;
 }
@@ -1748,6 +1767,10 @@
 
   .landing-nav-hamburger {
     display: inline-flex;
+  }
+
+  .landing-mobile-nav-dropdown {
+    display: flex;
   }
 
   .landing-hero,
@@ -2147,7 +2170,7 @@
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
 }
 
-[data-theme="dark"] .landing-product-header span,
+[data-theme="dark"] .landing-product-header span:not(.landing-live-pill),
 [data-theme="dark"] .landing-product-header strong {
   color: #e2e8f0;
 }
@@ -2211,6 +2234,36 @@
   border-color: rgba(255, 255, 255, 0.06);
 }
 
+[data-theme="dark"] .landing-mentor-meta span {
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .landing-mentor-meta strong {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .landing-mentor-empty {
+  background: rgba(17, 24, 39, 0.6);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* The global `[data-theme="dark"] .material-symbols-outlined` rule repaints
+   icon glyphs near-white, which would vanish on this mint chip. Give the chip
+   the same translucent teal treatment the feature-card icons use. */
+[data-theme="dark"] .landing-mentor-empty .landing-mentor-empty-icon {
+  background: rgba(94, 234, 212, 0.12);
+  color: #5eead4;
+}
+
+[data-theme="dark"] .landing-mentor-empty-title {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .landing-mentor-empty-sub {
+  color: #94a3b8;
+}
+
 [data-theme="dark"] .landing-step {
   background: rgba(17, 24, 39, 0.6);
   border-color: rgba(255, 255, 255, 0.06);
@@ -2269,10 +2322,27 @@
   border-top-color: rgba(255, 255, 255, 0.06);
 }
 
+/* The global `[data-theme="dark"] button` reset in styles.css flattens every
+   <button> to a neutral surface, which would make the landing CTAs lose their
+   brand colour and hierarchy. Re-assert the landing button variants here. */
+[data-theme="dark"] .landing-button-primary,
+[data-theme="dark"] .landing-button-dark {
+  background: linear-gradient(135deg, #0b6b5a 0%, #085141 100%) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .landing-button-soft,
+[data-theme="dark"] .landing-button-ghost {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
 [data-theme="dark"] .landing-button-soft:hover,
 [data-theme="dark"] .landing-button-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.13) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 

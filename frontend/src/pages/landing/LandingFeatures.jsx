@@ -15,11 +15,11 @@ export default function LandingFeatures() {
 
       <section className="landing-section landing-feature-band">
         <div className="landing-section-heading landing-reveal">
-          <span className="landing-kicker">Built for momentum</span>
-          <h2>Everything feels connected, from discovery to follow-up.</h2>
+          <span className="landing-kicker">What you get</span>
+          <h2>Everything from search to follow-up stays connected.</h2>
           <p>
-            Cleaner flows, better hierarchy, and practical tools for sessions
-            that do not end when the call ends.
+            Messages, notes, and links stay attached to each booking, so
+            nothing gets lost after the call ends.
           </p>
         </div>
 
@@ -30,8 +30,8 @@ export default function LandingFeatures() {
             </span>
             <h3>Browse with confidence</h3>
             <p>
-              Readable mentor cards, clear skill tags, ratings, and
-              availability signals help learners decide faster.
+              Skills, ratings, reviews, and open slots are right on the
+              mentor card, so you can decide quickly.
             </p>
           </article>
           <article className="landing-feature-card landing-feature-card-dark landing-reveal">

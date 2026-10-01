@@ -169,13 +169,24 @@
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
 }
 
-/* Dark mode — hero primary buttons stay white pills; the global dark icon
-   rule would render their material-symbols glyphs near-white on white, so
-   pin the glyph to the button's dark-teal text color (Students "New
-   Session", Reviews "Export", …). Light mode is untouched. */
+/* Dark mode — hero primary buttons stay white pills, but the blanket
+   [data-theme="dark"] a|span|div|button { … !important } rules paint the label
+   near-white and (for <button> variants) flatten the pill to the neutral dark
+   hover surface. Pin the pill white + the label/glyph to the dark-teal text
+   colour with !important so they beat the blanket rules. Light mode is
+   untouched. */
+[data-theme="dark"] .hero-section__btn--primary {
+  background: #fff !important;
+  color: var(--hero-btn-text, #0f766e) !important;
+}
+
 [data-theme="dark"] .hero-section__btn--primary .material-symbols-outlined,
 [data-theme="dark"] .hero-section__btn--primary .md__icon {
-  color: var(--hero-btn-text, #0f766e);
+  color: var(--hero-btn-text, #0f766e) !important;
+}
+
+[data-theme="dark"] .hero-section__btn--primary:hover:not(:disabled) {
+  background: #f0fdfa !important;
 }
 
 .hero-section__btn--primary:hover:not(:disabled) {
