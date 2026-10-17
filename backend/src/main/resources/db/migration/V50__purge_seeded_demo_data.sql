@@ -44,7 +44,8 @@
 
 -- ── Snapshot the demo account ids (created by V9 + V39) ──────────
 DROP TABLE IF EXISTS _flyway_tmp_demo_user_ids;
-CREATE TABLE _flyway_tmp_demo_user_ids AS
+CREATE TABLE _flyway_tmp_demo_user_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_user_ids (id)
 SELECT id FROM users WHERE email IN (
     'mentor@test.com', 'learner@test.com',
     'priya.sharma@example.com', 'raj.patel@example.com',
@@ -55,38 +56,45 @@ SELECT id FROM users WHERE email IN (
 
 -- ── Snapshot related ids so deletes stay consistent ──────────────
 DROP TABLE IF EXISTS _flyway_tmp_demo_session_ids;
-CREATE TABLE _flyway_tmp_demo_session_ids AS
+CREATE TABLE _flyway_tmp_demo_session_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_session_ids (id)
 SELECT id FROM sessions WHERE mentor_id IN (SELECT id FROM _flyway_tmp_demo_user_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_booking_ids;
-CREATE TABLE _flyway_tmp_demo_booking_ids AS
+CREATE TABLE _flyway_tmp_demo_booking_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_booking_ids (id)
 SELECT id FROM bookings
 WHERE learner_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
    OR session_id IN (SELECT id FROM _flyway_tmp_demo_session_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_payment_ids;
-CREATE TABLE _flyway_tmp_demo_payment_ids AS
+CREATE TABLE _flyway_tmp_demo_payment_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_payment_ids (id)
 SELECT id FROM payments
 WHERE learner_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
    OR mentor_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
    OR session_id IN (SELECT id FROM _flyway_tmp_demo_session_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_conversation_ids;
-CREATE TABLE _flyway_tmp_demo_conversation_ids AS
+CREATE TABLE _flyway_tmp_demo_conversation_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_conversation_ids (id)
 SELECT id FROM direct_conversations
 WHERE participant_one_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
    OR participant_two_id IN (SELECT id FROM _flyway_tmp_demo_user_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_task_ids;
-CREATE TABLE _flyway_tmp_demo_task_ids AS
+CREATE TABLE _flyway_tmp_demo_task_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_task_ids (id)
 SELECT id FROM skill_verification_tasks WHERE mentor_id IN (SELECT id FROM _flyway_tmp_demo_user_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_broadcast_ids;
-CREATE TABLE _flyway_tmp_demo_broadcast_ids AS
+CREATE TABLE _flyway_tmp_demo_broadcast_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_broadcast_ids (id)
 SELECT id FROM notification_broadcasts WHERE created_by IN (SELECT id FROM _flyway_tmp_demo_user_ids);
 
 DROP TABLE IF EXISTS _flyway_tmp_demo_flagged_ids;
-CREATE TABLE _flyway_tmp_demo_flagged_ids AS
+CREATE TABLE _flyway_tmp_demo_flagged_ids (id BIGINT NOT NULL PRIMARY KEY);
+INSERT INTO _flyway_tmp_demo_flagged_ids (id)
 SELECT id FROM flagged_content
 WHERE owner_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
    OR reporter_id IN (SELECT id FROM _flyway_tmp_demo_user_ids)
