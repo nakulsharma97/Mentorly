@@ -1,0 +1,142 @@
+# ── Mentorly frontend for Render ─────────────────────────────────────────────
+# Serves the built Vite bundle and reverse-proxies /api, /oauth2,
+# /login/oauth2 and /ws to the Spring Boot service, so the browser only ever
+# talks to ONE origin.
+#
+# Why one origin matters here:
+#   * auth lives in httpOnly cookies (access_token / refresh_token) with
+#     SameSite=Lax, and onrender.com is on the Public Suffix List — a separate
+#     API host would be cross-site, so the browser would never send them;
+#   * the notification/chat WebSockets are opened as `wss://<page host>/ws/...`
+#     (see NotificationCenter.jsx / useChatSocket.js), which only resolves if
+#     the same host proxies /ws.
+#
+# ${PORT} and ${BACKEND_URL} are substituted at container start by the official
+# nginx image entrypoint (docker-entrypoint.d/20-envsubst-on-templates.sh).
+# Only defined environment variables are substituted, so nginx runtime
+# variables such as $uri / $host / $http_upgrade are left untouched.
+
+server {
+  listen ${PORT};
+  server_name _;
+
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # Render terminates TLS in front of the container: never emit HSTS here.
+  client_max_body_size 12m;
+
+  gzip on;
+  gzip_vary on;
+  gzip_min_length 1024;
+  gzip_proxied any;
+  gzip_types text/plain text/css text/xml application/json application/javascript
+             application/xml image/svg+xml application/wasm;
+
+  # Tailwind Play CDN + Razorpay checkout + Stripe Elements are loaded from the
+  # browser, so they must stay in the CSP (see frontend/index.html).
+  set $csp "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://checkout.razorpay.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.ingest.sentry.io https://api.stripe.com https://*.stripe.com https://api.razorpay.com; frame-src https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
+  add_header Content-Security-Policy $csp always;
+  add_header X-Content-Type-Options "nosniff" always;
+  add_header X-Frame-Options "DENY" always;
+  add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+  # ── API + auth proxies ────────────────────────────────────────────────────
+  location /api/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_http_version 1.1;
+    # Host must stay the BACKEND host so Render's edge routes to the API
+    # service; the browser-facing host/scheme are carried in X-Forwarded-* so
+    # Spring builds OAuth2 redirect URIs for the public frontend origin
+    # (server.forward-headers-strategy=framework).
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 60s;
+    proxy_connect_timeout 10s;
+  }
+
+  location /oauth2/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_http_version 1.1;
+    # Host must stay the BACKEND host so Render's edge routes to the API
+    # service; the browser-facing host/scheme are carried in X-Forwarded-* so
+    # Spring builds OAuth2 redirect URIs for the public frontend origin
+    # (server.forward-headers-strategy=framework).
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 60s;
+    proxy_connect_timeout 10s;
+  }
+
+  location /login/oauth2/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_http_version 1.1;
+    # Host must stay the BACKEND host so Render's edge routes to the API
+    # service; the browser-facing host/scheme are carried in X-Forwarded-* so
+    # Spring builds OAuth2 redirect URIs for the public frontend origin
+    # (server.forward-headers-strategy=framework).
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 60s;
+    proxy_connect_timeout 10s;
+  }
+
+  # ── WebSockets (chat + notifications) ─────────────────────────────────────
+  location /ws/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    # Host must stay the BACKEND host so Render's edge routes to the API
+    # service; the browser-facing host/scheme are carried in X-Forwarded-* so
+    # Spring builds OAuth2 redirect URIs for the public frontend origin
+    # (server.forward-headers-strategy=framework).
+    proxy_set_header Host $proxy_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+  }
+
+  # ── Static assets ─────────────────────────────────────────────────────────
+  # `expires` (not add_header) so the security headers above stay inherited.
+  location /assets/ {
+    expires 1y;
+    try_files $uri =404;
+  }
+
+  location = /service-worker.js {
+    expires -1;
+    try_files $uri =404;
+  }
+
+  location = /index.html {
+    expires -1;
+  }
+
+  # SPA fallback: every unknown path renders index.html (client-side routing).
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}

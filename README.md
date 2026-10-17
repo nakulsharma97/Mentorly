@@ -612,6 +612,7 @@ Quality gates on `mvn verify`: **JaCoCo line coverage ≥ 40%** (enforced by `ja
 ### Deployment targets
 
 - **Docker Compose** — local / staging stack (`docker-compose.yml`)
+- **Render + Aiven** — two free Docker web services (SPA + same-origin API proxy) with an Aiven for MySQL database; see [docs/DEPLOY_RENDER_AIVEN.md](docs/DEPLOY_RENDER_AIVEN.md) (all env vars, API keys and webhook URLs)
 - **HTTPS** — nginx + certbot (Let's Encrypt) via `scripts/setup-ssl.sh`; compose `ssl` profile for manual issuance/renewal
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/DEPLOYMENT_READINESS.md](docs/DEPLOYMENT_READINESS.md), [docs/STAGING_PROD_RUNBOOK.md](docs/STAGING_PROD_RUNBOOK.md), and [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).

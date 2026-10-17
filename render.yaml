@@ -1,0 +1,168 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Mentorly — Render Blueprint (backend API + SPA frontend)
+#
+# Database is NOT defined here: it lives on Aiven for MySQL (free tier).
+# See docs/DEPLOY_RENDER_AIVEN.md for the full step-by-step guide.
+#
+# Two services are required (not one static site + one API) because the app
+# authenticates with httpOnly SameSite=Lax cookies and opens WebSockets on the
+# page's own host. onrender.com is on the Public Suffix List, so a SPA served
+# from a different *.onrender.com host would never receive those cookies.
+# The frontend therefore serves the bundle AND proxies /api, /oauth2,
+# /login/oauth2 and /ws to the backend's public URL.
+#
+# `sync: false` values are prompted for once, when the Blueprint is created.
+# After that, change them in Dashboard → <service> → Environment.
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  # ── Spring Boot API ────────────────────────────────────────────────────────
+  - type: web
+    name: mentorly-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      # Render routes traffic to $PORT; the image defaults to 8080.
+      - key: PORT
+        value: "8080"
+      - key: SERVER_PORT
+        value: "8080"
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # 512 MB free instance: keep the JVM (and the thread pool) well inside
+      # the cgroup limit.
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC -Xss512k
+      - key: SERVER_TOMCAT_THREADS_MAX
+        value: "25"
+      - key: SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE
+        value: "5"
+      # nginx proxies every request, so proxy headers are trustworthy.
+      - key: APP_TRUSTED_PROXY
+        value: "true"
+      # Honour X-Forwarded-Host/Proto from the frontend proxy so OAuth2 and
+      # other absolute redirects are built for the public frontend origin.
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: framework
+      - key: APP_AUTH_COOKIE_SECURE
+        value: "true"
+
+      # ── Aiven MySQL (Dashboard → your service → Overview → Connection info) ──
+      # jdbc:mysql://HOST:PORT/defaultdb?sslMode=REQUIRED&serverTimezone=UTC
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+
+      # ── Auth / origins ──────────────────────────────────────────────────────
+      # MUST be valid base64 decoding to >=32 bytes (JwtService validates this),
+      # so do not let Render generate it: paste `openssl rand -base64 48`.
+      - key: JWT_SECRET
+        sync: false
+      # Must be the frontend's real URL (adjust if Render appends a suffix).
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://mentorly-web.onrender.com
+      - key: APP_WEBSOCKET_ALLOWED_ORIGINS
+        value: https://mentorly-web.onrender.com
+      - key: OAUTH2_REDIRECT_URL
+        value: https://mentorly-web.onrender.com/oauth/callback
+      - key: APP_FRONTEND_BASE_URL
+        value: https://mentorly-web.onrender.com
+
+      # ── Bootstrap admin (auto-seeded on first boot) ─────────────────────────
+      - key: APP_ADMIN_EMAIL
+        sync: false
+      - key: APP_ADMIN_PASSWORD
+        sync: false
+      - key: APP_ADMIN_NAME
+        value: Platform Admin
+
+      # ── Email (Render free blocks outbound 25/465/587 → keep disabled) ──────
+      - key: APP_EMAIL_ENABLED
+        value: "false"
+      - key: MAIL_HOST
+        value: smtp.resend.com
+      - key: MAIL_PORT
+        value: "465"
+      - key: MAIL_USERNAME
+        value: resend
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: APP_EMAIL_FROM
+        value: no-reply@mentorly.app
+
+      # ── Payments ────────────────────────────────────────────────────────────
+      # prod turns fail-on-placeholder ON by default; without real Razorpay keys
+      # the app refuses to start, so allow placeholders for the first deploy.
+      - key: APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER
+        value: "false"
+      - key: APP_PAYMENT_RAZORPAY_KEY_ID
+        sync: false
+      - key: APP_PAYMENT_RAZORPAY_KEY_SECRET
+        sync: false
+      - key: APP_PAYMENT_RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: APP_PAYOUT_RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_CONNECT_WEBHOOK_SECRET
+        sync: false
+
+      # ── OAuth2 social login ─────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+      # ── Google Meet links (optional) ────────────────────────────────────────
+      - key: GOOGLE_CALENDAR_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CALENDAR_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALENDAR_REDIRECT_URI
+        sync: false
+
+      # ── Observability ───────────────────────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false
+
+  # ── SPA + same-origin API proxy ────────────────────────────────────────────
+  - type: web
+    name: mentorly-web
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile.render
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: "8080"
+      # Public origin nginx forwards /api, /oauth2, /login/oauth2 and /ws to.
+      - key: BACKEND_URL
+        value: https://mentorly-api.onrender.com
+      # Baked into the bundle at build time.
+      - key: VITE_API_BASE_URL
+        value: ""
+      - key: VITE_APP_ENV
+        value: production
+      - key: VITE_RAZORPAY_KEY_ID
+        sync: false
+      - key: VITE_STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: VITE_SENTRY_DSN
+        sync: false
