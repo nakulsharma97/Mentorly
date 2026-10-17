@@ -37,17 +37,36 @@ Ek aur zaroori baat: Render ke **free** web service ko private network se reach 
 
 ---
 
-## 0.1 "Folder me Dockerfile nahi hai?" — clear kar dein
+## 0.1 Dockerfile kahan hai? (aur root wala kya hai)
 
-Dockerfile **hai**, bas root folder me nahi — har service ka apna hai (yehi sahi pattern hai):
+Dockerfile **hai** — aur ab repo root par bhi ek hai, taaki Render ke default settings bina error ke chalein:
 
-| File | Kiske liye | Repo me status |
+| File | Kiske liye | Build context |
 |---|---|---|
-| [`backend/Dockerfile`](../backend/Dockerfile) | `mentorly-api` (Spring Boot, Maven multi-stage) | pehle se tha |
-| [`frontend/Dockerfile.render`](../frontend/Dockerfile.render) | `mentorly-web` (Vite build + nginx) | is deploy ke liye naya banaya |
-| [`frontend/nginx.render.conf.template`](../frontend/nginx.render.conf.template) | nginx config (proxy + SPA fallback) | naya |
+| [`Dockerfile`](../Dockerfile) | Repo root se banta **wahi backend API** (Render default ke liye) | repo root |
+| [`backend/Dockerfile`](../backend/Dockerfile) | `mentorly-api` (Spring Boot, Maven multi-stage) — canonical image | `backend/` |
+| [`frontend/Dockerfile.render`](../frontend/Dockerfile.render) | `mentorly-web` (Vite build + nginx) | `frontend/` |
+| [`frontend/nginx.render.conf.template`](../frontend/nginx.render.conf.template) | nginx config (proxy + SPA fallback) | — |
+| [`.dockerignore`](../.dockerignore) | root context chhota rakhta hai; `.env` image me nahi jaata | repo root |
 
-Root me Dockerfile ki zaroorat **nahi** hoti, kyunki [`render.yaml`](../render.yaml) har service ke liye alag `dockerContext` deta hai:
+Root `Dockerfile` **sirf** isliye hai ki jab `Root Directory` aur `Dockerfile Path` dono khaali hon (Render ka default → `./Dockerfile`)
+to build `open Dockerfile: no such file or directory` par fail na ho. Wo **backend** image banata hai, frontend nahi:
+
+- frontend service ke liye `Root Directory: frontend` + `Dockerfile Path: Dockerfile.render` set karna **zaroori** hai, warna wo bhi backend build kar dega.
+- Root `Dockerfile` port `$PORT` se bind karta hai (Render default `10000`) — `--server.port=${PORT:-8080}` ki wajah se `PORT`/`SERVER_PORT`
+  manually set karne ki zaroorat nahi padti.
+
+Do valid raste:
+
+| Rasta | Root Directory | Dockerfile Path | Build Context |
+|---|---|---|---|
+| A. Render default (root Dockerfile) | *(khaali)* | *(khaali → `Dockerfile`)* | *(khaali)* |
+| B. Preferred — chhota context | `backend` | `Dockerfile` | *(khaali)* |
+
+> Trap: Root Directory khaali + Dockerfile Path `backend/Dockerfile` **nahi** chalega — build context repo root ban jaata hai aur `COPY pom.xml` fail hota hai.
+> Root Directory `backend` + Dockerfile Path `backend/Dockerfile` bhi galat hai (wo `backend/backend/Dockerfile` dhundhega).
+
+[`render.yaml`](../render.yaml) rasta B use karta hai:
 
 ```yaml
 - name: mentorly-api
@@ -58,7 +77,9 @@ Root me Dockerfile ki zaroorat **nahi** hoti, kyunki [`render.yaml`](../render.y
   dockerfilePath: ./frontend/Dockerfile.render
 ```
 
-Aur ek zaroori baat: **Render aapke laptop ka folder nahi padhta** — wo GitHub repo clone karke usme se build karta hai. Matlab `render.yaml`, `backend/Dockerfile` aur `frontend/Dockerfile.render` **GitHub par push hone chahiye** (Section 3), tabhi deploy chalega. Local folder me Docker install hona bhi zaroori nahi hai.
+Aur ek zaroori baat: **Render aapke laptop ka folder nahi padhta** — wo GitHub repo clone karke usme se build karta hai. Matlab `render.yaml`,
+`Dockerfile`, `backend/Dockerfile` aur `frontend/Dockerfile.render` **GitHub par push hone chahiye** (Section 3), tabhi deploy chalega.
+Local folder me Docker install hona bhi zaroori nahi hai.
 
 ---
 
@@ -518,15 +539,18 @@ Off rakho. Code sirf plain Redis (no TLS) support karta hai, isliye Upstash/Redi
 ## 12. Blueprint ke bina manual deploy (agar `render.yaml` use nahi karna)
 
 **Backend**
-- New → **Web Service** → repo → Runtime **Docker**
-- Root/Context: `backend` · Dockerfile: `backend/Dockerfile`
+- New → **Web Service** → repo → Branch `main` → Runtime **Docker**
+- Root Directory: `backend` · Dockerfile Path: `Dockerfile` · Build Context: *(khaali)*
+- *(alternative: Root Directory khaali chhodo — repo root ka `Dockerfile` khud build ho jaayega, path bhi khaali)*
 - Region: `singapore` · Plan: **Free**
 - Health check path: `/actuator/health`
+- Port: kuch set karne ki zaroorat nahi — image `$PORT` par bind karta hai (`--server.port=${PORT:-8080}`)
 - Env vars: Section 6.1 + 6.2
 
 **Frontend**
 - New → **Web Service** → same repo → Runtime **Docker**
-- Context: `frontend` · Dockerfile: `frontend/Dockerfile.render`
+- Root Directory: `frontend` · Dockerfile Path: `Dockerfile.render` · Build Context: *(khaali)*
+- ⚠ `frontend/Dockerfile` (bina `.render`) mat chuno — wo compose/VPS wala TLS image hai, Render par 443 bind karke fail hoga.
 - Health check path: `/`
 - Env vars: Section 6.3
 

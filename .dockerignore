@@ -1,0 +1,29 @@
+# Build context for the repository-root ./Dockerfile (context = repo root).
+# When a service uses Root Directory = backend, backend/.dockerignore applies
+# instead; this file is ignored in that case.
+
+.git
+.github
+.freebuff
+.vscode
+.idea
+
+# Never ship local secrets into an image layer
+.env
+.env.*
+!.env.example
+
+# Build outputs / dependencies that would otherwise bloat the context
+backend/target
+backend/uploads
+frontend/node_modules
+frontend/dist
+frontend/coverage
+frontend/playwright-report
+frontend/playwright-report-a11y
+frontend/test-results
+frontend/e2e-screenshots
+
+**/*.log
+**/__pycache__
+**/*.py[cod]
