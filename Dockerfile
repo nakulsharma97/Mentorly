@@ -1,67 +1,76 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  Mentorly — repository-root Dockerfile  →  SPRING BOOT API ONLY
-# ═══════════════════════════════════════════════════════════════════════════
+#  Mentorly — SINGLE-SERVICE image for Render (frontend + backend together)
 #
-#  Why this file exists
-#  --------------------
-#  Render's Docker runtime defaults to <repo-root>/Dockerfile when a service is
-#  created with "Root Directory" and "Dockerfile Path" left empty. The real
-#  backend image lives at backend/Dockerfile, so such a service used to fail
-#  before the first build step with:
-#      error: failed to solve: failed to read dockerfile:
-#             open Dockerfile: no such file or directory
+#  One container runs:
+#    * nginx  on $PORT       → serves the React build, proxies /api, /oauth2,
+#                              /login/oauth2, /ws and /actuator/health
+#    * Spring Boot on 8081   → internal only (127.0.0.1)
 #
-#  This file builds the same backend image from the repository root, so a Render
-#  Web Service created with the defaults now works with no dashboard changes.
-#
-#  Relationship to the other Dockerfiles
-#  -------------------------------------
-#    backend/Dockerfile          the canonical API image (context = backend/)
-#    ./Dockerfile  (this file)   same image, context = repository root
-#    frontend/Dockerfile         SPA + TLS nginx, for docker-compose / VPS
-#    frontend/Dockerfile.render  SPA + plain-HTTP nginx proxy, for Render
-#
-#  ⚠ THIS IS NOT THE FRONTEND IMAGE. A frontend service must use
-#    Root Directory = frontend, Dockerfile Path = Dockerfile.render.
-#
-#  Preferred Render configuration (smaller context, no backend/ prefixes):
-#    Root Directory: backend · Dockerfile Path: Dockerfile · Build Context: (empty)
-#  Use this root file when you would rather keep Root Directory empty.
+#  Render settings: Runtime Docker · Dockerfile Path ./Dockerfile · Context .
 # ═══════════════════════════════════════════════════════════════════════════
 
-# ── Build stage ────────────────────────────────────────────────────────────
-FROM maven:3.9-eclipse-temurin-21-jammy AS build
+# ── 1) Frontend build ──────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS frontend-build
+WORKDIR /app
+ENV NODE_ENV=production
 
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY frontend/ ./
+
+# Render passes service env vars as build args. VITE_API_BASE_URL stays EMPTY:
+# the SPA calls same-origin /api/v1/* and nginx proxies it to Spring Boot.
+ARG VITE_API_BASE_URL=""
+ARG VITE_APP_ENV=production
+ARG VITE_RAZORPAY_KEY_ID=""
+ARG VITE_STRIPE_PUBLISHABLE_KEY=""
+ARG VITE_SENTRY_DSN=""
+ARG VITE_ENABLE_MONITORING=""
+ARG VITE_MONITORING_ENDPOINT=""
+ENV VITE_API_BASE_URL="$VITE_API_BASE_URL" \
+    VITE_APP_ENV="$VITE_APP_ENV" \
+    VITE_RAZORPAY_KEY_ID="$VITE_RAZORPAY_KEY_ID" \
+    VITE_STRIPE_PUBLISHABLE_KEY="$VITE_STRIPE_PUBLISHABLE_KEY" \
+    VITE_SENTRY_DSN="$VITE_SENTRY_DSN" \
+    VITE_ENABLE_MONITORING="$VITE_ENABLE_MONITORING" \
+    VITE_MONITORING_ENDPOINT="$VITE_MONITORING_ENDPOINT"
+
+RUN npm run build
+
+# ── 2) Backend build ───────────────────────────────────────────────────────
+FROM maven:3.9-eclipse-temurin-21-jammy AS backend-build
 WORKDIR /workspace
-
-# Context is the repository root, so every backend path needs its prefix.
-# Only pom.xml + src are needed: the pom is standalone (parent is resolved from
-# Maven Central, not from a sibling directory).
 COPY backend/pom.xml ./
 COPY backend/src ./src
-
-# Tests are skipped in the image build: they need a live MySQL/Redis and run in
-# CI instead. Produces target/backend-0.0.1-SNAPSHOT.jar.
 RUN mvn -B -ntp clean package -Dmaven.test.skip=true
 
-# ── Runtime stage ──────────────────────────────────────────────────────────
+# ── 3) Runtime: JRE + nginx ────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-jammy
 
-WORKDIR /app
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nginx gettext-base bash \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf \
+ && ln -sf /dev/stdout /var/log/nginx/access.log \
+ && ln -sf /dev/stderr /var/log/nginx/error.log
 
-COPY --from=build /workspace/target/*.jar /app/app.jar
+WORKDIR /app
+COPY --from=backend-build /workspace/target/*.jar /app/app.jar
+COPY --from=frontend-build /app/dist /usr/share/nginx/html
+
+# Reuse the existing nginx config; also expose /actuator/health so Render's
+# health check reaches Spring Boot instead of the SPA fallback.
+COPY frontend/nginx.render.conf.template /etc/nginx/mentorly.conf.template
+RUN sed -i 's|^  location /api/ {|  location = /actuator/health {\n    proxy_pass ${BACKEND_URL};\n    proxy_http_version 1.1;\n  }\n\n  location /api/ {|' /etc/nginx/mentorly.conf.template
+
+# start.sh runs nginx + Spring Boot; strip Windows CRLF line endings if present.
+COPY start.sh /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV SPRING_PROFILES_ACTIVE=prod
+# 512 MB free instance shared with nginx → keep the JVM a bit smaller.
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k"
 
-# Free Render instances have 512 MB. Override by setting JAVA_TOOL_OPTIONS as a
-# service environment variable (env vars win over image ENV).
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=65 -XX:+UseSerialGC -Xss512k"
-
-# Documentation only — the actual binding comes from $PORT at runtime.
 EXPOSE 8080
-
-# Render injects PORT (default 10000) and routes traffic to it. Spring Boot does
-# not read PORT on its own and application.yml hardcodes server.port=8080, so it
-# is passed as a command-line argument, which outranks both the yml value and
-# SERVER_PORT. Falls back to 8080 for plain `docker run`.
-ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -jar /app/app.jar --server.port=${PORT:-8080}"]
+CMD ["/app/start.sh"]
