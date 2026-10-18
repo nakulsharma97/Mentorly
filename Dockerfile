@@ -10,12 +10,11 @@
 # ═══════════════════════════════════════════════════════════════════════════
 
 # ── 1) Frontend build ──────────────────────────────────────────────────────
-FROM node:20-bookworm-slim AS frontend-build
+FROM node:22-bookworm-slim AS frontend-build
 WORKDIR /app
-ENV NODE_ENV=production
-
 COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# vite & plugins are devDependencies → they MUST be installed for the build.
+RUN npm ci --include=dev --no-audit --no-fund
 
 COPY frontend/ ./
 
