@@ -1,0 +1,148 @@
+/* Admin → Settings → Google Calendar connection card */
+
+.gcal-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 0 0 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-color, #e2e8e5);
+  border-radius: 16px;
+  background: var(--card-bg, #ffffff);
+  box-shadow: 0 1px 2px rgba(15, 60, 50, 0.04);
+}
+
+.gcal-card__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #e8f6f1;
+  color: #0b6b5a;
+}
+
+.gcal-card__icon .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.gcal-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gcal-card__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gcal-card__head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: inherit;
+}
+
+.gcal-card__body p {
+  margin: 6px 0 0;
+  max-width: 70ch;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--muted-text, #5a6f68);
+}
+
+.gcal-card__body .gcal-card__hint {
+  font-size: 0.8125rem;
+  color: #8a6d1f;
+}
+
+.gcal-card__body code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(11, 107, 90, 0.08);
+  font-size: 0.8em;
+}
+
+.gcal-card__body .gcal-card__error {
+  color: #b42318;
+}
+
+.gcal-card__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.gcal-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.gcal-pill.is-on {
+  background: #dcf5e7;
+  color: #0b6b3f;
+}
+
+.gcal-pill.is-off {
+  background: #fdf1dc;
+  color: #8a5a10;
+}
+
+.gcal-pill.is-checking {
+  background: #eef1f0;
+  color: #5a6f68;
+}
+
+[data-theme="dark"] .gcal-card {
+  background: var(--card-bg, #1b2523);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .gcal-card__icon {
+  background: rgba(94, 234, 212, 0.12);
+  color: #5eead4;
+}
+
+[data-theme="dark"] .gcal-pill.is-on {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+[data-theme="dark"] .gcal-pill.is-off {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .gcal-pill.is-checking {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+@media (max-width: 720px) {
+  .gcal-card {
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+
+  .gcal-card__actions {
+    width: 100%;
+    padding-top: 4px;
+  }
+
+  .gcal-card__actions .ss-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

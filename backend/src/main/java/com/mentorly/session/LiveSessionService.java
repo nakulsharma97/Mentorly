@@ -78,19 +78,21 @@ public class LiveSessionService {
         // Save session first to get an ID
         session = sessionRepository.save(session);
 
-        // Generate Google Meet link
+        // Generate the Google Meet link. A missing/expired Google connection (or
+        // a transient API error) must never block scheduling: the session is kept
+        // with meetingLink = null and surfaces meetingLinkPending = true so the
+        // mentor can retry once the calendar is connected.
         try {
             String meetingLink = meetingProvider.createMeeting(session);
             session.setMeetingLink(meetingLink);
-            session = sessionRepository.save(session);
             log.info("Live session created with automatic Google Meet link. Session ID: {}", session.getId());
         } catch (MeetingProviderException e) {
-            // Clean up the session if meeting creation failed
-            sessionRepository.delete(session);
-            log.error("Failed to create Google Meet for session. Deleted incomplete session.", e);
-            throw e;
+            log.warn("Google Meet link could not be created for session {} ({}: {}). "
+                            + "Session kept with a pending link.",
+                    session.getId(), e.getErrorCode(), e.getMessage());
         }
 
+        session = sessionRepository.save(session);
         return mapToResponse(session);
     }
 
@@ -218,13 +220,16 @@ public class LiveSessionService {
         session.setMaxParticipants(request.getMaxParticipants());
         session.setUpdatedAt(OffsetDateTime.now());
 
-        // Update Google Meet event
+        // Update the Google Meet event. A calendar outage must not roll back the
+        // mentor's edits — the session data is still saved and the event can be
+        // re-synced later.
         if (session.getCalendarEventId() != null) {
             try {
                 meetingProvider.updateMeeting(session, session.getMeetingId());
             } catch (MeetingProviderException e) {
-                log.error("Failed to update Google Meet event", e);
-                throw e;
+                log.warn("Google Meet event update failed for session {} ({}: {}). "
+                                + "Continuing with the session update.",
+                        sessionId, e.getErrorCode(), e.getMessage());
             }
         }
 
@@ -249,13 +254,16 @@ public class LiveSessionService {
             throw new UnauthorizedException("You can only cancel your own sessions");
         }
 
-        // Delete from Google Calendar
+        // Delete the Google Calendar event. If Google is unavailable the local
+        // cancellation still proceeds — the orphaned event is preferable to a
+        // session the mentor cannot cancel.
         if (session.getCalendarEventId() != null) {
             try {
                 meetingProvider.deleteMeeting(session.getCalendarEventId());
             } catch (MeetingProviderException e) {
-                log.error("Failed to delete Google Meet event", e);
-                throw e;
+                log.warn("Google Meet event delete failed for session {} ({}: {}). "
+                                + "Continuing with the local cancellation.",
+                        sessionId, e.getErrorCode(), e.getMessage());
             }
         }
 
@@ -337,6 +345,8 @@ public class LiveSessionService {
                 .status(session.getLiveSessionStatus())
                 .meetingProvider(session.getMeetingProvider())
                 .meetingGenerated(session.isMeetingGenerated())
+                .meetingLinkPending(session.getLiveSessionStatus() != LiveSessionStatus.CANCELLED
+                        && !session.isMeetingGenerated())
                 .approvedCount((int) approvedCount)
                 .rejectedCount((int) rejectedCount)
                 .pendingCount((int) pendingCount)

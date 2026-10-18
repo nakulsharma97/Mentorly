@@ -58,6 +58,12 @@ public class LiveSessionResponse {
 
     private boolean meetingGenerated;
 
+    /**
+     * True when the session is scheduled but no Meet link exists yet (Google
+     * Calendar not connected, or the calendar API failed at creation time).
+     */
+    private boolean meetingLinkPending;
+
     // Approval status (for admin)
     private Integer approvedCount;
 

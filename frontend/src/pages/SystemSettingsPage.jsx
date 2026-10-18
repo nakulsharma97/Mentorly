@@ -3,6 +3,7 @@ import client from "../api/client";
 import { getApiErrorMessage as errorMessage } from "../utils/apiErrors";
 import Icon from "../modules/common/dashboard/Icon";
 import HeroSection from "../components/HeroSection";
+import GoogleCalendarCard from "../modules/admin/components/GoogleCalendarCard";
 import "./AdminOperationsPage.css";
 import "./SystemSettingsPage.css";
 import "../modules/admin/ui/admin-ui.css";
@@ -323,6 +324,9 @@ export default function SystemSettingsPage({ notify }) {
           </div>
         }
       />
+
+      {/* Google Calendar / Google Meet connection */}
+      <GoogleCalendarCard notify={notify} />
 
       {/* Sticky toolbar */}
       <div className="ss-toolbar">
