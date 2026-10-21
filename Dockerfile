@@ -50,6 +50,7 @@ FROM eclipse-temurin:21-jre-jammy
 RUN apt-get update \
  && apt-get install -y --no-install-recommends nginx gettext-base bash \
  && rm -rf /var/lib/apt/lists/* \
+ && sed -i 's/^worker_processes .*/worker_processes 1;/' /etc/nginx/nginx.conf \
  && rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf \
  && ln -sf /dev/stdout /var/log/nginx/access.log \
  && ln -sf /dev/stderr /var/log/nginx/error.log
@@ -68,8 +69,15 @@ COPY start.sh /app/start.sh
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV SPRING_PROFILES_ACTIVE=prod
-# 512 MB free instance shared with nginx → keep the JVM a bit smaller.
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+UseSerialGC -Xss512k"
+
+# ── Memory budget for a 512 MB instance (nginx + JVM share it) ─────────────
+# MaxRAMPercentage only caps the HEAP. Metaspace, code cache, thread stacks and
+# direct buffers are extra, so every region is capped explicitly. Render env
+# vars with the same name override these defaults.
+ENV JAVA_TOOL_OPTIONS="-Xms64m -Xmx190m -XX:MaxMetaspaceSize=120m -XX:ReservedCodeCacheSize=40m -XX:MaxDirectMemorySize=24m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:CICompilerCount=1 -Xss256k -XX:+ExitOnOutOfMemoryError"
+ENV SERVER_TOMCAT_THREADS_MAX=20 \
+    SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5 \
+    SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=1
 
 EXPOSE 8080
 CMD ["/app/start.sh"]
