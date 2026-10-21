@@ -181,7 +181,19 @@ Follow each step in order. Secrets are never committed — they live only in Git
 
 ---
 
-### 🚀 L. Deployment SSH Access (Required)
+### 🚀 L. Deployment target (one mode is enough)
+
+`deploy.yml` supports two modes and **skips cleanly (green) when neither is
+configured**, so missing deploy secrets never fail the pipeline. Pick one:
+
+**Mode A — Render deploy hook (this repo's production setup)**
+
+| # | Secret Name | Value | How to get |
+|---|---|---|---|
+| 1 | `RENDER_DEPLOY_HOOK_URL` | Render deploy hook URL | Render → your service → **Settings** → **Deploy Hook** → copy URL |
+| 2 | `RENDER_SERVICE_URL` | Public base URL for the smoke test (optional) | e.g. `https://mentorly-web.onrender.com` |
+
+**Mode B — Docker Compose over SSH (self-hosted server)**
 
 | # | Secret Name | Value | How to get |
 |---|---|---|---|
@@ -190,7 +202,7 @@ Follow each step in order. Secrets are never committed — they live only in Git
 | 3 | `DEPLOY_PATH` | Absolute path to project on server | e.g. `/opt/Mentorly` |
 | 4 | `DEPLOY_SSH_KEY` | Full SSH private key | See instructions below |
 
-### Optional
+### Optional (SSH mode only)
 
 | # | Secret Name | Value | Default |
 |---|---|---|---|
@@ -341,10 +353,13 @@ REPOSITORY SECRETS (Settings → Secrets → Repository secrets):
   MAIL_FROM               Optional
 
 PRODUCTION ENVIRONMENT (Settings → Environments → production):
-  DEPLOY_HOST             ✅ Required
-  DEPLOY_USER             ✅ Required
-  DEPLOY_PATH             ✅ Required
-  DEPLOY_SSH_KEY          ✅ Required
+  ── deploy target: configure ONE mode, or the job skips (green) ──
+  RENDER_DEPLOY_HOOK_URL  Optional (Mode A — Render)
+  RENDER_SERVICE_URL      Optional (Mode A — smoke test URL)
+  DEPLOY_HOST             Optional (Mode B — SSH)
+  DEPLOY_USER             Optional (Mode B — SSH)
+  DEPLOY_PATH             Optional (Mode B — SSH)
+  DEPLOY_SSH_KEY          Optional (Mode B — SSH)
   DEPLOY_SSH_PORT         Optional (default: 22)
   DEPLOY_PROTOCOL         Optional (default: https)
 

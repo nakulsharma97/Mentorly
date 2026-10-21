@@ -79,12 +79,19 @@ jobs:
           echo "Deploying tag: ${TAG}"
 
       # ── Determine target from environment ────────────────
+      # Two deployment modes are supported, and NEITHER is required for the
+      # pipeline to stay green:
+      #   render — a Render deploy hook (this repo's documented production
+      #            setup: render.yaml + docs/DEPLOY_RENDER_AIVEN.md)
+      #   ssh    — docker compose on a self-hosted server (DEPLOY_* secrets)
+      #   none   — nothing configured; the job explains how to enable a mode
+      #            and skips instead of failing.
       # Secrets are read through environment variables (never echoed into the
       # script) and only written to step outputs once the environment resolves.
       # Only presence is reported in the log — never values. The SSH key is
       # written via the multiline $GITHUB_OUTPUT delimiter syntax so it survives
       # intact and is selected per environment (no silent cross-env fallback).
-      - name: Set deployment target
+      - name: Detect deployment target
         id: target
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -99,6 +106,8 @@ jobs:
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT }}
           STAGING_PROTOCOL: ${{ secrets.STAGING_PROTOCOL }}
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
         run: |
           # workflow_dispatch inputs are not populated on workflow_run events,
           # so fall back to production unless an environment was explicitly given.
@@ -126,6 +135,21 @@ jobs:
               ;;
           esac
 
+          # Mode selection: Render hook wins, then a complete SSH target,
+          # otherwise nothing is configured and the job skips.
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            MODE="render"
+          elif [ -n "$HOST" ] && [ -n "$USER" ] && [ -n "$PATH_DIR" ] && [ -n "$SSH_KEY" ]; then
+            MODE="ssh"
+          elif [ -n "$HOST$USER$PATH_DIR$SSH_KEY" ]; then
+            # Partly configured on purpose? Fail loudly instead of silently
+            # skipping — a half-set SSH target never deploys and is easy to miss.
+            MODE="incomplete"
+          else
+            MODE="none"
+          fi
+
+          echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo "host=${HOST}" >> "$GITHUB_OUTPUT"
           echo "user=${USER}" >> "$GITHUB_OUTPUT"
           echo "path=${PATH_DIR}" >> "$GITHUB_OUTPUT"
@@ -144,7 +168,9 @@ jobs:
           fi
 
           # Safe presence diagnostics — booleans only, never values.
-          echo "Deployment target configured for: ${ENV_NAME}"
+          echo "Deployment target resolved for: ${ENV_NAME}"
+          echo "  Deploy mode:         ${MODE}"
+          echo "  Render hook set:     $([ -n "$RENDER_DEPLOY_HOOK_URL" ] && echo true || echo false)"
           echo "  Host configured:     $([ -n "$HOST" ] && echo true || echo false)"
           echo "  User configured:     $([ -n "$USER" ] && echo true || echo false)"
           echo "  Path configured:     $([ -n "$PATH_DIR" ] && echo true || echo false)"
@@ -156,6 +182,7 @@ jobs:
       # Fail early with a clear, secret-free message instead of letting the SSH
       # action fail with "missing server host". Only presence is checked.
       - name: Validate deployment configuration
+        if: steps.target.outputs.mode == 'ssh'
         run: |
           ENV_NAME="${{ steps.target.outputs.env_name }}"
           TARGET_HOST="${{ steps.target.outputs.host }}"
@@ -192,6 +219,7 @@ jobs:
 
       # ── Deploy via SSH ───────────────────────────────────
       - name: Deploy via SSH
+        if: steps.target.outputs.mode == 'ssh'
         uses: appleboy/ssh-action@v1.2.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
@@ -214,17 +242,119 @@ jobs:
             chmod +x scripts/deploy.sh
             bash scripts/deploy.sh --tag "$IMAGE_TAG"
 
+      # ── Deploy to Render (production setup) ──────────────
+      # A Render deploy hook is a POST-only URL that starts a deploy of the
+      # service's tracked branch. It is a credential, so it is never printed
+      # (GitHub also masks secret values in the log).
+      - name: Trigger Render deploy
+        if: steps.target.outputs.mode == 'render'
+        env:
+          HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          HTTP_CODE=$(curl -sS -o /tmp/render-deploy.json -w "%{http_code}" \
+            -X POST "$HOOK_URL" 2>/dev/null || echo "000")
+          case "$HTTP_CODE" in
+            200|201|202)
+              echo "✅ Render deploy triggered (HTTP ${HTTP_CODE})"
+              echo "Render builds in the background — follow the deploy in the Render dashboard."
+              ;;
+            *)
+              echo "❌ Render deploy hook returned HTTP ${HTTP_CODE}" >&2
+              echo "Check RENDER_DEPLOY_HOOK_URL (Render → service → Settings → Deploy Hook)." >&2
+              exit 1
+              ;;
+          esac
+
+      # ── Partially configured SSH target: stop loudly ─────
+      - name: Deployment configuration incomplete
+        if: steps.target.outputs.mode == 'incomplete'
+        env:
+          TARGET_HOST: ${{ steps.target.outputs.host }}
+          TARGET_USER: ${{ steps.target.outputs.user }}
+          TARGET_PATH: ${{ steps.target.outputs.path }}
+          TARGET_KEY: ${{ steps.target.outputs.key }}
+        run: |
+          ENV_NAME="${{ steps.target.outputs.env_name }}"
+          case "$ENV_NAME" in
+            staging)    HOST_SECRET="STAGING_HOST";  USER_SECRET="STAGING_USER";  PATH_SECRET="STAGING_PATH";  KEY_SECRET="STAGING_SSH_KEY";;
+            *)          HOST_SECRET="DEPLOY_HOST";   USER_SECRET="DEPLOY_USER";   PATH_SECRET="DEPLOY_PATH";   KEY_SECRET="DEPLOY_SSH_KEY";;
+          esac
+          WHERE="the '${ENV_NAME}' GitHub Environment (Settings → Environments → ${ENV_NAME} → Environment secrets)"
+
+          echo "❌ Some SSH deploy secrets are set but the target is incomplete." >&2
+          [ -n "$TARGET_HOST" ] || echo "   Missing: ${HOST_SECRET}" >&2
+          [ -n "$TARGET_USER" ] || echo "   Missing: ${USER_SECRET}" >&2
+          [ -n "$TARGET_PATH" ] || echo "   Missing: ${PATH_SECRET}" >&2
+          [ -n "$TARGET_KEY" ]  || echo "   Missing: ${KEY_SECRET}" >&2
+          echo "" >&2
+          echo "Add the missing values in ${WHERE}, or remove the others to skip" >&2
+          echo "deployment entirely (RENDER_DEPLOY_HOOK_URL is the Render alternative)." >&2
+          exit 1
+
+      # ── No target configured: explain, don't fail ────────
+      # Missing deploy secrets are a configuration gap, not a code defect, and
+      # `main` already auto-deploys on Render. Report what to configure and let
+      # the pipeline stay green instead of red-flagging every push.
+      - name: Deployment skipped — no target configured
+        if: steps.target.outputs.mode == 'none'
+        run: |
+          {
+            echo "### ⏭️ Deployment skipped — no deploy target configured"
+            echo ""
+            echo "_Environment: ${{ steps.target.outputs.env_name }}_"
+            echo ""
+            echo "This job does not fail when no target is configured: Render already"
+            echo "auto-deploys pushes to main, and the SSH path is optional."
+            echo ""
+            echo "To make this job deploy, add ONE of these to the"
+            echo "'${{ steps.target.outputs.env_name }}' environment"
+            echo "(Settings → Environments → ${{ steps.target.outputs.env_name }} → Environment secrets):"
+            echo ""
+            echo "Render (recommended):"
+            echo "- RENDER_DEPLOY_HOOK_URL — Render → your service → Settings → Deploy Hook"
+            echo "- RENDER_SERVICE_URL — optional, public URL used by the post-deploy smoke test"
+            echo ""
+            echo "Self-hosted server (docker compose over SSH):"
+            echo "- DEPLOY_HOST, DEPLOY_USER, DEPLOY_PATH, DEPLOY_SSH_KEY"
+            echo "- optional: DEPLOY_SSH_PORT (default 22), DEPLOY_PROTOCOL (default https)"
+            echo ""
+            echo "If this repository deploys exclusively through Render or another"
+            echo "platform, deploy.yml can be deleted without affecting CI."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # ── Post-deployment smoke tests ──────────────────────
-      - name: Smoke test — Health endpoint
-        if: ${{ !inputs.skip_health_check }}
+      # Only run when a public base URL is known: protocol://host for SSH,
+      # RENDER_SERVICE_URL for Render (optional secret).
+      - name: Resolve smoke test target
+        id: smoke
         env:
           PROTOCOL: ${{ steps.target.outputs.protocol }}
+          HOST: ${{ steps.target.outputs.host }}
+          RENDER_URL: ${{ secrets.RENDER_SERVICE_URL }}
+        run: |
+          BASE_URL=""
+          if [ "${{ steps.target.outputs.mode }}" = "ssh" ] && [ -n "$HOST" ]; then
+            BASE_URL="${PROTOCOL}://${HOST}"
+          elif [ "${{ steps.target.outputs.mode }}" = "render" ] && [ -n "$RENDER_URL" ]; then
+            BASE_URL="${RENDER_URL%/}"
+          fi
+          echo "base_url=${BASE_URL}" >> "$GITHUB_OUTPUT"
+          if [ -z "$BASE_URL" ]; then
+            echo "No smoke-test base URL (set RENDER_SERVICE_URL to enable it) — skipping smoke tests."
+          else
+            echo "Smoke-testing ${BASE_URL}"
+          fi
+
+      - name: Smoke test — Health endpoint
+        if: ${{ steps.smoke.outputs.base_url != '' && !inputs.skip_health_check }}
+        env:
+          BASE_URL: ${{ steps.smoke.outputs.base_url }}
         run: |
           echo "Waiting for backend to be reachable..."
           sleep 10
           for i in $(seq 1 12); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              "$PROTOCOL://${{ steps.target.outputs.host }}/actuator/health" \
+              "${BASE_URL}/actuator/health" \
               2>/dev/null || echo "000")
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Backend healthy (HTTP $HTTP_CODE)"
@@ -237,11 +367,12 @@ jobs:
           exit 1
 
       - name: Smoke test — Signup page loads
+        if: steps.smoke.outputs.base_url != ''
         env:
-          PROTOCOL: ${{ steps.target.outputs.protocol }}
+          BASE_URL: ${{ steps.smoke.outputs.base_url }}
         run: |
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$PROTOCOL://${{ steps.target.outputs.host }}/api/v1/auth/signup" \
+            "${BASE_URL}/api/v1/auth/signup" \
             2>/dev/null || echo "000")
           echo "Signup endpoint: HTTP $HTTP_CODE"
           # 401 or 400 means the server is responding (authentication challenge)
@@ -256,18 +387,25 @@ jobs:
         id: summary
         run: |
           ENV_NAME="${{ steps.target.outputs.env_name }}"
+          MODE="${{ steps.target.outputs.mode }}"
           IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
           HOST="${{ steps.target.outputs.host }}"
           echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
           echo "image=${IMG}" >> "$GITHUB_OUTPUT"
           echo "host=${HOST}" >> "$GITHUB_OUTPUT"
+          echo "mode=${MODE}" >> "$GITHUB_OUTPUT"
           echo ""
           echo "=========================================="
-          echo "  Deployment complete"
+          if [ "$MODE" = "none" ]; then
+            echo "  Deployment skipped (no target configured)"
+          else
+            echo "  Deployment complete"
+          fi
           echo "=========================================="
           echo "  Environment:  ${ENV_NAME}"
+          echo "  Mode:         ${MODE}"
           echo "  Image:        ${IMG}"
-          echo "  Host:         ${HOST}"
+          echo "  Host:         ${HOST:-n/a (Render)}"
           echo "  Triggered by: ${{ github.event_name }}"
           echo "  Status:       ${{ job.status }}"
           echo ""
