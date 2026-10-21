@@ -2838,6 +2838,96 @@
   color: var(--md-muted);
 }
 
+/* ── Single-border search field ────────────────────────────────────────────
+   The CONTAINER owns the only visible border. The global rule at
+   styles.css (~line 1004, `input:not([type='checkbox'])`) has higher
+   specificity (0,1,1) than `.ls-hero__search` (0,1,0) and would paint a
+   second grey border + padding on the inner input. These scoped rules win
+   (0,2,0) and strip every border/ring/inset-shadow from the input itself,
+   including the browser-default and the global focus-visible outline. */
+.ls-hero__search-wrap .ls-hero__search {
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  font-size: 0.95rem;
+}
+
+.ls-hero__search-wrap .ls-hero__search:focus,
+.ls-hero__search-wrap .ls-hero__search:focus-visible {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+/* ── Hero (on dark gradient) variant ───────────────────────────────────────
+   The hero is always the same dark gradient in light AND dark theme, so the
+   glass treatment here is theme-safe. Border is intentionally stronger than
+   the old inline 15% white so it reads clearly in both themes. */
+.ls-hero__search-wrap--hero {
+  flex: 1;
+  min-width: 220px;
+  max-width: 480px;
+  margin-top: 4px;
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 2px 10px rgba(2, 10, 22, 0.18);
+}
+
+.ls-hero__search-wrap--hero:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+/* Focus indicator lives on the CONTAINER only. */
+.ls-hero__search-wrap--hero:focus-within {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.35);
+}
+
+.ls-hero__search-wrap--hero .ls-hero__search {
+  color: #fff;
+}
+
+.ls-hero__search-wrap--hero .ls-hero__search::placeholder {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.ls-hero__search-wrap--hero .ls-hero__search-icon {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+.ls-hero__search-wrap--hero .ls-hero__search-clear {
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.70);
+}
+
+.ls-hero__search-wrap--hero .ls-hero__search-clear:hover {
+  background: rgba(239, 68, 68, 0.30);
+  color: #fff;
+}
+
+/* ── Mobile: hero actions stack (column, stretch) — let the field fill the
+   row and keep the toggle left-aligned instead of stretching it. ── */
+@media (max-width: 640px) {
+  .hero-section__actions .ls-hero__search-wrap--hero {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .hero-section__actions .ls-view-toggle--hero {
+    align-self: flex-start;
+  }
+}
+
 .ls-hero__search-clear {
   width: 26px;
   height: 26px;
@@ -3450,17 +3540,17 @@
 }
 
 .ls-view-btn {
-  width: 32px;
-  height: 28px;
+  width: 34px;
+  height: 30px;
   border-radius: 8px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--md-muted);
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: all 0.15s;
-  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-size: 0.9rem;
 }
 
 .ls-view-btn:hover {
@@ -3468,10 +3558,42 @@
   color: var(--md-ink);
 }
 
+/* Active state is signalled by background + border + accent colour, never
+   by opacity alone. */
 .ls-view-btn.is-active {
   background: var(--panel);
+  border-color: var(--brand);
   color: var(--brand);
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+
+/* Hero (dark gradient) variant of the toggle — solid white active chip so
+   the two states stay unmistakable in both themes. */
+.ls-view-toggle--hero {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 10px;
+}
+
+.ls-view-toggle--hero .ls-view-btn {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.ls-view-toggle--hero .ls-view-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.ls-view-toggle--hero .ls-view-btn.is-active {
+  background: #fff;
+  border-color: #fff;
+  color: #0f766e;
+  box-shadow: 0 1px 6px rgba(2, 10, 22, 0.28);
+}
+
+.ls-view-toggle--hero .ls-view-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: 1px;
 }
 
 /* ------------------------------------------------------ reminder banner */

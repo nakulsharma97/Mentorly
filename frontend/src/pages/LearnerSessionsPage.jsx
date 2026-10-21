@@ -962,6 +962,29 @@ export default function LearnerSessionsPage() {
     ? data
     : (Array.isArray(data?.content) ? data.content : EMPTY_ARRAY);
 
+  // "/" focuses the hero search — but never while the user is typing in a
+  // field (input/textarea/select/contenteditable) or with a modifier held.
+  useEffect(() => {
+    const onShortcut = (e) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable
+      ) return;
+      const field = document.querySelector(".ls-hero__search");
+      if (field) {
+        e.preventDefault();
+        field.focus();
+      }
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
+
   // Auto-refresh when the tab regains focus (e.g. the learner switches back to
   // this tab after the mentor confirmed a session elsewhere) so the list and
   // counts always reflect the latest backend state.
@@ -1027,7 +1050,10 @@ export default function LearnerSessionsPage() {
     return [...set].sort();
   }, [allBookings]);
 
+  // Debounced, trimmed, lowercased search term. Trimming keeps a paste with
+  // stray spaces ("  react ") from silently returning zero results.
   const debouncedQ = useDebouncedValue(query, 300);
+  const q = debouncedQ.trim().toLowerCase();
 
   // Sessions grouped by tab
   const tabSessions = useMemo(() => {
@@ -1048,8 +1074,7 @@ export default function LearnerSessionsPage() {
       const date = formatDate(b?.session?.startTime);
       const status = b?.bookingStatus || "";
 
-      if (debouncedQ) {
-        const q = debouncedQ.toLowerCase();
+      if (q) {
         // Match against mentor name, title, date, status, and normalized skills
         // (CSV string / JSON string / array handled uniformly).
         const baseMatch =
@@ -1067,7 +1092,7 @@ export default function LearnerSessionsPage() {
       if (statusFilter && statusFilter !== "all" && status !== statusFilter) return false;
       return true;
     });
-  }, [tabSessions, debouncedQ, mentorFilter, statusFilter]);
+  }, [tabSessions, q, mentorFilter, statusFilter]);
 
   // Sorted sessions
   const sorted = useMemo(() => {
@@ -1303,15 +1328,14 @@ export default function LearnerSessionsPage() {
         title="Your Booked Sessions"
         sub="Manage upcoming, completed and cancelled sessions in one place. Join, reschedule, cancel or review any session."
       >
-        <div className="ls-hero__search-wrap" style={{ flex: 1, minWidth: 220, background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.15)" }}>
-          <Icon name="search" className="ls-hero__search-icon" style={{ color: "rgba(255,255,255,0.60)" }} />
+        <div className="ls-hero__search-wrap ls-hero__search-wrap--hero">
+          <Icon name="search" className="ls-hero__search-icon" />
           <input
             className="ls-hero__search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by mentor, title, or status…"
             aria-label="Search sessions"
-            style={{ color: "#fff" }}
           />
           {query && (
             <button
@@ -1319,19 +1343,23 @@ export default function LearnerSessionsPage() {
               className="ls-hero__search-clear"
               onClick={() => setQuery("")}
               aria-label="Clear search"
-              style={{ color: "rgba(255,255,255,0.60)" }}
             >
               <Icon name="close" />
             </button>
           )}
         </div>
-        <div className="ls-view-toggle" style={{ background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: 3 }}>
+        <div
+          className="ls-view-toggle ls-view-toggle--hero"
+          role="group"
+          aria-label="Change session view"
+        >
           <button
             type="button"
             className={`ls-view-btn${viewMode === "list" ? " is-active" : ""}`}
             onClick={() => setViewMode("list")}
             aria-label="List view"
-            style={viewMode === "list" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+            aria-pressed={viewMode === "list"}
+            title="List view"
           >
             <Icon name="view_list" />
           </button>
@@ -1340,7 +1368,8 @@ export default function LearnerSessionsPage() {
             className={`ls-view-btn${viewMode === "grid" ? " is-active" : ""}`}
             onClick={() => setViewMode("grid")}
             aria-label="Grid view"
-            style={viewMode === "grid" ? { background: "rgba(255,255,255,0.18)", color: "#fff" } : { color: "rgba(255,255,255,0.60)" }}
+            aria-pressed={viewMode === "grid"}
+            title="Grid view"
           >
             <Icon name="grid_view" />
           </button>
@@ -1511,12 +1540,14 @@ export default function LearnerSessionsPage() {
                   <Icon name="restart_alt" /> Clear
                 </button>
               )}
-              <div className="ls-view-toggle">
+              <div className="ls-view-toggle" role="group" aria-label="Change session view">
                 <button
                   type="button"
                   className={`ls-view-btn${viewMode === "list" ? " is-active" : ""}`}
                   onClick={() => setViewMode("list")}
                   aria-label="List view"
+                  aria-pressed={viewMode === "list"}
+                  title="List view"
                 >
                   <Icon name="view_list" />
                 </button>
@@ -1525,6 +1556,8 @@ export default function LearnerSessionsPage() {
                   className={`ls-view-btn${viewMode === "grid" ? " is-active" : ""}`}
                   onClick={() => setViewMode("grid")}
                   aria-label="Grid view"
+                  aria-pressed={viewMode === "grid"}
+                  title="Grid view"
                 >
                   <Icon name="grid_view" />
                 </button>
@@ -1614,7 +1647,7 @@ export default function LearnerSessionsPage() {
               ))}
             </div>
           ) : (
-            <SessionsEmptyState activeTab={activeTab} query={debouncedQ} />
+            <SessionsEmptyState activeTab={activeTab} query={debouncedQ.trim()} />
           )}
         </div>
 
