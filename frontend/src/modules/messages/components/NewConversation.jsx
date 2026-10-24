@@ -49,6 +49,16 @@ export default function NewConversation({ profile, onClose, onStart, notify, var
     searchRef.current?.focus();
   }, []);
 
+  // Escape dismisses the panel — same pattern as the app's other dialogs
+  // (AuthModal, ReportModal, ShareModal, ProfileGateModal).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   useEffect(() => {
     const q = query.trim();
     const seq = ++seqRef.current;

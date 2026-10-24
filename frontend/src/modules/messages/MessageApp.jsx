@@ -352,8 +352,19 @@ export default function MessageApp({
     setNewChatOpen(false);
     setChatInput("");
     // Row is already patched into the list optimistically — keep the follow-up
-    // sync silent so the sidebar never flashes.
-    load({ silent: true });
+    // sync silent so the sidebar never flashes. A refresh that was already in
+    // flight when this conversation was created (or one that fails) can come
+    // back without it; re-apply the patch when that happens so the just-opened
+    // chat never reverts to the New Conversation screen.
+    Promise.resolve(load({ silent: true })).then(() => {
+      patchDirect((prev) =>
+        (prev || []).some(
+          (c) => String(c.conversationId) === String(convId),
+        )
+          ? prev
+          : [row.conversation, ...(prev || [])],
+      );
+    });
   };
 
   const handleSend = useCallback(

@@ -3,11 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Mock react-router ──
+// Search params are per-test mutable so deep links (?tab=…&review=…) can be
+// exercised without a full router.
+const { mockSearchParams } = vi.hoisted(() => ({
+  mockSearchParams: { current: new URLSearchParams() },
+}));
+
 vi.mock("react-router", () => ({
   Link: ({ children, to, ...props }) => (
     <a href={to} {...props}>{children}</a>
   ),
   useNavigate: () => vi.fn(),
+  useSearchParams: () => [mockSearchParams.current, vi.fn()],
 }));
 
 // ── Mock API client ──
@@ -69,6 +76,7 @@ const bookings = [
 describe("LearnerSessionsPage — Booked Sessions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.current = new URLSearchParams();
     // apiGet() unwraps only ApiResponse-shaped bodies ({message, data}).
     mockGet.mockImplementation((path) => {
       if (path === "/api/v1/bookings") {
@@ -156,5 +164,80 @@ describe("LearnerSessionsPage — Booked Sessions", () => {
     fireEvent.change(input, { target: { value: "/" } });
     fireEvent.keyDown(input, { key: "/" });
     expect(document.activeElement).toBe(input);
+  });
+});
+
+describe("LearnerSessionsPage — Share Your Review deep link", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSearchParams.current = new URLSearchParams();
+    mockGet.mockImplementation((path) => {
+      if (path === "/api/v1/bookings") {
+        return Promise.resolve({ data: { message: "ok", data: bookings } });
+      }
+      return Promise.resolve({ data: { message: "ok", data: [] } });
+    });
+  });
+
+  it("?tab=completed&review=1 opens the Completed tab with review guidance", async () => {
+    const completedBooking = makeBooking(3, "Meera Rao", "Advanced React Patterns", {
+      bookingStatus: "COMPLETED",
+      paymentStatus: "RELEASED",
+    });
+    mockSearchParams.current = new URLSearchParams("tab=completed&review=1");
+    mockGet.mockImplementation((path) => {
+      if (path === "/api/v1/bookings") {
+        return Promise.resolve({ data: { message: "ok", data: [completedBooking] } });
+      }
+      return Promise.resolve({ data: { message: "ok", data: [] } });
+    });
+
+    render(<LearnerSessionsPage />);
+    await waitFor(() => expect(screen.getByText("Advanced React Patterns")).toBeTruthy());
+
+    // The Completed pill is the active tab.
+    const activePill = document.querySelector(".ls-pill.is-active");
+    expect(activePill).toBeTruthy();
+    expect(activePill.textContent).toMatch(/completed/i);
+
+    // Review guidance banner tells the learner to leave a review.
+    const banner = screen.getByRole("status");
+    expect(banner.textContent).toMatch(/share your experience/i);
+    expect(banner.textContent).toMatch(/leave review/i);
+  });
+
+  it("?review=1 without a tab defaults to Completed and shows the empty-state guidance", async () => {
+    // Default fixtures are all CONFIRMED (upcoming) — no completed sessions.
+    mockSearchParams.current = new URLSearchParams("review=1");
+
+    render(<LearnerSessionsPage />);
+    // The Completed tab is empty, so wait for the guidance banner itself.
+    await waitFor(() =>
+      expect(screen.getByText("No completed sessions yet")).toBeTruthy(),
+    );
+
+    const activePill = document.querySelector(".ls-pill.is-active");
+    expect(activePill).toBeTruthy();
+    expect(activePill.textContent).toMatch(/completed/i);
+
+    const banner = screen.getByRole("status");
+    expect(banner.textContent).toMatch(/no completed sessions yet/i);
+    // Empty state offers a way forward (scoped to the banner — the sidebar
+    // also has a "Find Mentors" link).
+    const findMentors = banner.querySelector('a[href="/learner/mentors"]');
+    expect(findMentors).toBeTruthy();
+    expect(findMentors.textContent).toMatch(/find mentors/i);
+  });
+
+  it("falls back to the default tab when ?tab= is unknown and shows no banner", async () => {
+    mockSearchParams.current = new URLSearchParams("tab=bogus&review=0");
+
+    render(<LearnerSessionsPage />);
+    await waitFor(() => expect(screen.getByText("React Fundamentals")).toBeTruthy());
+
+    const activePill = document.querySelector(".ls-pill.is-active");
+    expect(activePill).toBeTruthy();
+    expect(activePill.textContent).toMatch(/upcoming/i);
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

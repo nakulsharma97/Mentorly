@@ -148,7 +148,9 @@ export default function App() {
       // never inherits a previous session's onboarding dismissal.
       if (user?.role !== "ADMIN" && !isProfileComplete(user)) {
         clearOnboardingDismissal();
-        localStorage.removeItem("auth_post_redirect");
+        // Keep any pending post-login destination (e.g. "Share Your Review"):
+        // the onboarding success handlers consume it once the profile is
+        // completed, so mandatory profile setup never loses the intent.
         navigate(PROFILE_ONBOARDING_PATH, { replace: true });
         return;
       }

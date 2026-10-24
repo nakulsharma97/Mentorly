@@ -131,6 +131,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
   const [reviewMessage, setReviewMessage] = useState("");
   const [reviewMessageType, setReviewMessageType] = useState("");
   const [reviewForm, setReviewForm] = useState({ bookingId: "", rating: "5", comment: "", title: "", anonymous: false });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSort, setReviewSort] = useState("newest");
   const [saved, setSaved] = useState(false);
   const [relatedMentors, setRelatedMentors] = useState([]);
@@ -299,11 +300,16 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
+    // Ignore repeat clicks while a submission is already in flight.
+    if (reviewSubmitting) return;
     setReviewMessage("");
     if (!isLoggedIn) { setReviewMessage(getInfoFeedback("reviewLoginRequired").message); setReviewMessageType("error"); onRequireLogin?.(); return; }
     const bookingIdNum = Number(reviewForm.bookingId);
     if (!bookingIdNum || !reviewForm.bookingId) { setReviewMessage("Please select a completed booking from the list."); setReviewMessageType("error"); return; }
     if (!reviewForm.comment || !reviewForm.comment.trim()) { setReviewMessage("Please write your review experience."); setReviewMessageType("error"); return; }
+    const ratingNum = Number(reviewForm.rating);
+    if (!Number.isFinite(ratingNum) || ratingNum < 1 || ratingNum > 5) { setReviewMessage("Please select a star rating between 1 and 5."); setReviewMessageType("error"); return; }
+    setReviewSubmitting(true);
     try {
       await client.post("/api/v1/reviews", {
         bookingId: bookingIdNum,
@@ -325,6 +331,8 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
         setReviewMessage(getErrorFeedback("reviewSubmitFailed").message);
       }
       setReviewMessageType("error");
+    } finally {
+      setReviewSubmitting(false);
     }
   };
 
@@ -830,7 +838,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     <button
                       type="button"
                       className="mpr-btn mpr-btn--outline"
-                      onClick={() => navigate('/learner/sessions')}
+                      onClick={() => navigate('/learner/sessions?tab=completed')}
                     >
                       <Icon name="event" /> View My Sessions
                     </button>
@@ -912,9 +920,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                       <button
                         type="submit"
                         className="mpr-btn mpr-btn--primary"
-                        disabled={!reviewForm.bookingId || !reviewForm.comment || !reviewForm.comment.trim()}
+                        disabled={reviewSubmitting || !reviewForm.bookingId || !reviewForm.comment || !reviewForm.comment.trim()}
                       >
-                        <Icon name="rate_review" /> Submit Review
+                        <Icon name="rate_review" /> {reviewSubmitting ? "Submitting…" : "Submit Review"}
                       </button>
                     </div>
 

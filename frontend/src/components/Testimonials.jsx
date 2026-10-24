@@ -120,13 +120,28 @@ export default function Testimonials({ onShareReview }) {
           </motion.article>
         ))}
       </div>
-      {items.length > 6 && (
-        <div
-          style={{ display: "flex", justifyContent: "center", marginTop: 18 }}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: 12,
+          marginTop: 18,
+          flexWrap: "wrap",
+        }}
+      >
+        {items.length > 6 && (
+          <button className="landing-button landing-button-soft" type="button">
+            View All Reviews
+          </button>
+        )}
+        <button
+          className="landing-button landing-button-primary"
+          type="button"
+          onClick={onShareReview}
         >
-          <button className="landing-button landing-button-soft">View All Reviews</button>
-        </div>
-      )}
+          Share your review
+        </button>
+      </div>
     </section>
   );
 }

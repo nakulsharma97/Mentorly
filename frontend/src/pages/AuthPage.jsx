@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import useCommunityStats from "../hooks/useCommunityStats";
 import usePublicData from "../hooks/usePublicData";
@@ -29,7 +29,7 @@ const scrollToSection = (sectionId) => (event) => {
     ?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-export default function AuthPage({ onSelectLogin, onSelectSignup }) {
+export default function AuthPage({ onSelectLogin, onSelectSignup, onShareReview }) {
   const navigate = useNavigate();
   const themeCtx = useOptionalTheme();
   const [activeSection, setActiveSection] = useState("product");
@@ -237,7 +237,11 @@ export default function AuthPage({ onSelectLogin, onSelectSignup }) {
 
         <div className="landing-section-divider" aria-hidden="true" />
 
-        <Suspense fallback={<LandingSkeleton />}><Testimonials onShareReview={onSelectSignup} /></Suspense>
+        {/* "Share your review" must start the LOGIN flow (not signup) and
+            carry its destination — see AppRoutes' onShareReview. */}
+        <Suspense fallback={<LandingSkeleton />}>
+          <Testimonials onShareReview={onShareReview || onSelectLogin} />
+        </Suspense>
 
         <div className="landing-section-divider-wave" aria-hidden="true" />
 

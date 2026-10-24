@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import { useToasts } from "../hooks/useToasts";
 import Icon from "../modules/common/dashboard/Icon";
@@ -931,10 +931,30 @@ function DiscoverableSessionCard({ session, isPrivate, onBook }) {
    MAIN PAGE — LearnerSessionsPage (redesigned)
    ══════════════════════════════════════════════════════════════════════════ */
 
+/** Keys of the pill navigation — used to validate deep-linked ?tab= values. */
+const SESSION_TAB_KEYS = [
+  "all",
+  "upcoming",
+  "completed",
+  "cancelled",
+  "pending",
+  "explore",
+  "foryou",
+];
+
 export default function LearnerSessionsPage() {
   useDocumentTitle("Booked Sessions");
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("upcoming");
+  /* Deep links from the landing page's "Share Your Review" flow arrive as
+     /learner/sessions?tab=completed&review=1 — open the Completed tab and show
+     the review guidance. Unknown/absent params keep the default behaviour. */
+  const [searchParams] = useSearchParams();
+  const reviewIntent = searchParams.get("review") === "1";
+  const [activeTab, setActiveTab] = useState(() => {
+    const requested = searchParams.get("tab");
+    if (SESSION_TAB_KEYS.includes(requested)) return requested;
+    return reviewIntent ? "completed" : "upcoming";
+  });
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("date_desc");
   const [mentorFilter, setMentorFilter] = useState("");
@@ -1500,6 +1520,32 @@ export default function LearnerSessionsPage() {
               </button>
             ))}
           </div>
+
+          {/* Review-intent guidance ("Share Your Review" deep link) */}
+          {reviewIntent && activeTab === "completed" && !loading && !error && (
+            <div className="ls-reminder md-animate" role="status">
+              <div className="ls-reminder__icon">
+                <Icon name={grouped.completed.length > 0 ? "rate_review" : "task_alt"} />
+              </div>
+              <div className="ls-reminder__text">
+                <p className="ls-reminder__title">
+                  {grouped.completed.length > 0
+                    ? "Share your experience"
+                    : "No completed sessions yet"}
+                </p>
+                <p className="ls-reminder__sub">
+                  {grouped.completed.length > 0
+                    ? "Choose a completed session below and select \u201cLeave Review\u201d to rate your mentor and write your feedback."
+                    : "You need to complete a session with a mentor before you can leave a review. Book a session, finish it, then come back here to share your experience."}
+                </p>
+              </div>
+              {grouped.completed.length === 0 && (
+                <Link to="/learner/mentors" className="ls-btn ls-btn--primary ls-btn--sm">
+                  <Icon name="person_search" /> Find Mentors
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Toolbar: Sort, Mentor filter, View toggle */}
           <div className="ls-toolbar md-animate">

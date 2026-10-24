@@ -167,4 +167,88 @@ describe("CompleteProfilePage", () => {
       }),
     );
   });
+
+  it("edit mode: prefills the existing profile instead of clearing it", () => {
+    render(
+      <CompleteProfilePage
+        profile={{ ...mentorProfile, profileCompleted: true, country: "India" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /Edit Your Profile/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/Full Name/)).toHaveValue("Jane Doe");
+    expect(screen.getByLabelText(/Country/)).toHaveValue("India");
+    expect(
+      screen.getByRole("button", { name: /Save Changes/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("edit mode: saving returns to the profile page, not the dashboard", async () => {
+    const onGoDashboard = vi.fn();
+    const onViewProfile = vi.fn();
+    client.post.mockResolvedValue({
+      data: { data: { ...mentorProfile, profileCompleted: true } },
+    });
+
+    render(
+      <CompleteProfilePage
+        profile={{ ...mentorProfile, profileCompleted: true }}
+        onGoDashboard={onGoDashboard}
+        onViewProfile={onViewProfile}
+        notify={vi.fn()}
+      />,
+    );
+
+    const fill = (label, value) => {
+      const el = screen.getByLabelText(new RegExp(label));
+      fireEvent.change(el, { target: { value } });
+    };
+
+    fill("Profile Photo", "https://example.com/jane.jpg");
+    fill("Full Name", "Jane Doe");
+    fill("Headline", "React Mentor");
+    fill("Bio", "I love teaching React.");
+    fireEvent.change(screen.getByLabelText(/Years of experience/), {
+      target: { value: "6" },
+    });
+    fireEvent.change(screen.getByLabelText(/Additional months of experience/), {
+      target: { value: "6" },
+    });
+    const langInput = screen.getByPlaceholderText("Type a language and press Enter");
+    fireEvent.change(langInput, { target: { value: "English" } });
+    fireEvent.click(screen.getByRole("button", { name: /Add language/i }));
+    fill("Education", "B.Tech Computer Science");
+    fill("LinkedIn URL", "https://linkedin.com/in/jane");
+    fill("Portfolio URL", "https://jane.dev");
+    fill("Hourly Price", "50");
+    fill("Availability", "Weekdays 6-9 PM");
+    fill("Country", "India");
+    fill("State / Province", "Delhi");
+    fill("City", "New Delhi");
+    fill("Phone Number", "+91 98765 43210");
+    fireEvent.change(
+      screen.getByPlaceholderText("Type a skill and press Enter"),
+      { target: { value: "React" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Add skill/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    expect(await screen.findByText(/Profile updated/i)).toBeInTheDocument();
+
+    // Auto-redirect lands back on the profile page — never the dashboard.
+    await waitFor(
+      () => expect(onViewProfile).toHaveBeenCalledTimes(1),
+      { timeout: 4000 },
+    );
+    expect(onGoDashboard).not.toHaveBeenCalled();
+
+    // The existing profile record was updated, not duplicated.
+    expect(client.post).toHaveBeenCalledWith(
+      "/api/v1/users/me/profile/complete",
+      expect.objectContaining({ fullName: "Jane Doe" }),
+    );
+  });
 });

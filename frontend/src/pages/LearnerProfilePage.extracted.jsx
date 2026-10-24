@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import SectionCard, { EmptyState } from "../modules/common/dashboard/SectionCard";
 import StatsCard from "../modules/common/dashboard/StatsCard";
 import HeroSection from "../components/HeroSection";
@@ -94,6 +95,15 @@ export default function LearnerProfilePage() {
         }
         title="Profile"
         subtitle="Your live learner profile and saved backend records."
+        primaryButton={
+          <Link
+            to="/complete-profile"
+            className="hero-section__btn hero-section__btn--primary"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>edit</span>
+            Edit Profile
+          </Link>
+        }
         illustration={
           <div className="hero-section__watermark" aria-hidden="true">
             <span className="material-symbols-outlined">badge</span>

@@ -335,12 +335,18 @@ export default function CompleteProfilePage({
     if (!success) return undefined;
     // Auto-redirect hands the fresh server profile (profileCompleted=true) to
     // the auth layer so needsProfileSetup flips false and the mentor is NOT
-    // bounced straight back to onboarding.
+    // bounced straight back to onboarding. In edit mode ("Save Changes") the
+    // user came from their profile page, so return there instead of the
+    // dashboard.
     const timer = window.setTimeout(() => {
-      onGoDashboard?.(completedProfileRef.current);
+      if (editMode) {
+        onViewProfile?.(completedProfileRef.current);
+      } else {
+        onGoDashboard?.(completedProfileRef.current);
+      }
     }, 2400);
     return () => window.clearTimeout(timer);
-  }, [success, onGoDashboard]);
+  }, [success, onGoDashboard, onViewProfile, editMode]);
 
   /* ── Field validation ── */
   function validateField(field, value) {

@@ -6,7 +6,11 @@ import RouteErrorBoundary from "./RouteErrorBoundary";
 const LearnerLayout = lazy(() => import("../modules/learner/layouts/LearnerLayout"));
 const MentorLayout = lazy(() => import("../modules/mentor/layouts/MentorLayout"));
 import RoleGuard from "../modules/common/RoleGuard";
-import { roleRoot } from "../modules/common/routeUtils";
+import {
+  consumePostLoginRedirect,
+  REVIEW_DESTINATION,
+  roleRoot,
+} from "../modules/common/routeUtils";
 import {
   dismissOnboarding,
   isProfileComplete,
@@ -111,10 +115,15 @@ export default function AppRoutes({
   const navigate = useNavigate();
 
   if (!isLoggedIn) {
+    // "Share Your Review" (landing page Testimonials): sign IN — not up —
+    // and carry the review destination through the whole login flow.
     const sharedAuthPage = (
       <AuthPage
         onSelectSignup={() => handleSelectAuthMode("signup")}
         onSelectLogin={() => handleSelectAuthMode("login")}
+        onShareReview={() =>
+          handleSelectAuthMode("login", REVIEW_DESTINATION)
+        }
         language={language}
         onLanguageChange={onLanguageChange}
       />
@@ -178,6 +187,9 @@ export default function AppRoutes({
               notify={notify}
               onLogout={handleLogout}
               onDismiss={() => {
+                // Skipping onboarding abandons any pending destination so a
+                // stale one can never hijack a later navigation.
+                consumePostLoginRedirect();
                 dismissOnboarding();
                 navigate(roleRoot(profile?.role), { replace: true });
               }}
@@ -192,9 +204,19 @@ export default function AppRoutes({
                   title: "Profile completed",
                   message: "Your profile is ready.",
                 });
-                navigate(roleRoot(updated?.role || profile?.role), { replace: true });
+                // Preserve the intended destination (e.g. Share Your Review)
+                // through mandatory profile completion; fall back to the role
+                // dashboard only when no valid destination was saved.
+                navigate(
+                  consumePostLoginRedirect() ||
+                    roleRoot(updated?.role || profile?.role),
+                  { replace: true },
+                );
               }}
               onViewProfile={(updated) => {
+                // An explicit "View Profile" choice supersedes any pending
+                // destination — consume it so it cannot linger as stale state.
+                consumePostLoginRedirect();
                 setProfile(updated || profile);
                 setProfileChecked(true);
                 notify({
@@ -355,6 +377,8 @@ export default function AppRoutes({
             notify={notify}
             onLogout={handleLogout}
             onDismiss={() => {
+              // Closing the page abandons any pending post-login destination.
+              consumePostLoginRedirect();
               dismissOnboarding();
               navigate(roleRoot(profile?.role), { replace: true });
             }}
@@ -368,9 +392,17 @@ export default function AppRoutes({
                   ? "Your profile changes have been saved."
                   : "Your profile is ready.",
               });
-              navigate(roleRoot(updated?.role || profile?.role), { replace: true });
+              // Same rule as onboarding: honor a saved destination (preserved
+              // through profile completion) before defaulting to the dashboard.
+              navigate(
+                consumePostLoginRedirect() ||
+                  roleRoot(updated?.role || profile?.role),
+                { replace: true },
+              );
             }}
             onViewProfile={(updated) => {
+              // Explicit profile visit — drop any pending destination.
+              consumePostLoginRedirect();
               setProfile(updated || profile);
               setProfileChecked(true);
               notify({

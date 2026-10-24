@@ -376,6 +376,10 @@ client.interceptors.request.use((config) => {
       resolveInflight = resolve;
       rejectInflight = reject;
     });
+    // Mark the piggyback promise as handled so that rejecting it (error path
+    // below) never surfaces as an unhandled rejection when no concurrent
+    // caller is attached. Real piggybackers receive the error as before.
+    inflightPromise.catch(() => {});
     _getInflight.set(cacheKey, inflightPromise);
     // In axios 1.x, config.adapter is a string ("xhr"), not a function.
     // Delete it so axios resolves the adapter internally.  The response

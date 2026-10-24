@@ -51,12 +51,15 @@ export function ChatProvider({ profile, children }) {
 
     inflightRef.current = (async () => {
       try {
+        // A failed refresh must NEVER blank the list: `null` marks "fetch
+        // failed" so we keep whatever we already have. Otherwise one bad
+        // response would wipe every conversation (and the open chat with it).
         const [bookingRes, directRes] = await Promise.all([
-          client.get("/api/v1/chat/conversations").catch(() => ({ data: { data: [] } })),
-          client.get("/api/v1/chat/direct/conversations").catch(() => ({ data: { data: [] } })),
+          client.get("/api/v1/chat/conversations").catch(() => null),
+          client.get("/api/v1/chat/direct/conversations").catch(() => null),
         ]);
-        setBookingConvs(unwrap(bookingRes.data) || []);
-        setDirectConvs(unwrap(directRes.data) || []);
+        if (bookingRes) setBookingConvs(unwrap(bookingRes.data) || []);
+        if (directRes) setDirectConvs(unwrap(directRes.data) || []);
       } catch {
         setError("Conversations could not be loaded.");
       } finally {

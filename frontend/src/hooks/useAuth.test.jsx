@@ -963,4 +963,81 @@ describe("useAuthProfile – route protection", () => {
     expect(mockNavigate).not.toHaveBeenCalled();
     sessionStorage.removeItem("mentorly:onboarding_dismissed");
   });
+
+  // ── Share Your Review — destination preserved across login ──
+
+  it("handleSelectAuthMode('login', dest) saves the destination and opens /login", async () => {
+    noSessionSetup();
+    const { result } = renderAt("/");
+    await tick(100);
+
+    act(() => {
+      result.current.handleSelectAuthMode(
+        "login",
+        "/learner/sessions?tab=completed&review=1",
+      );
+    });
+
+    expect(localStorage.getItem("auth_post_redirect")).toBe(
+      "/learner/sessions?tab=completed&review=1",
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/login");
+  });
+
+  it("handleSelectAuthMode rejects external destinations (open-redirect guard)", async () => {
+    localStorage.setItem("auth_post_redirect", "/stale-destination");
+    noSessionSetup();
+    const { result } = renderAt("/");
+    await tick(100);
+
+    act(() => {
+      result.current.handleSelectAuthMode(
+        "login",
+        "https://evil.example.com/phish",
+      );
+    });
+
+    // The stale value is dropped and the external value is never stored.
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith("/login");
+  });
+
+  it("handleSelectAuthMode without a destination clears any stale redirect", async () => {
+    localStorage.setItem("auth_post_redirect", "/stale-destination");
+    noSessionSetup();
+    const { result } = renderAt("/");
+    await tick(100);
+
+    act(() => {
+      result.current.handleSelectAuthMode("signup");
+    });
+
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith("/signup");
+  });
+
+  it("logged in + /login with a saved destination → navigates there, not the dashboard", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    mockFetchProfile.mockResolvedValue({
+      id: 42,
+      fullName: "Test User",
+      role: "LEARNER",
+      profileCompleted: true,
+    });
+    localStorage.setItem(
+      "auth_post_redirect",
+      "/learner/sessions?tab=completed&review=1",
+    );
+
+    renderAt("/login");
+    await tick(100);
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      "/learner/sessions?tab=completed&review=1",
+      { replace: true },
+    );
+    // Consumed exactly once — nothing lingers to hijack a later login.
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+  });
 });

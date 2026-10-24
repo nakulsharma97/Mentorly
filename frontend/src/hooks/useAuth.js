@@ -7,7 +7,13 @@ import client, {
   onMaintenanceMode,
 } from "../api/client";
 import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
-import { isPublicPath, roleRoot } from "../modules/common/routeUtils";
+import {
+  consumePostLoginRedirect,
+  isPublicPath,
+  isSafeInternalPath,
+  POST_LOGIN_REDIRECT_KEY,
+  roleRoot,
+} from "../modules/common/routeUtils";
 import useUnreadNotifications from "./useUnreadNotifications";
 import { fetchProfile, invalidateProfileCache } from "./useProfileCache";
 import {
@@ -298,9 +304,9 @@ export function useAuthProfile({ notify }) {
         navigate(PROFILE_ONBOARDING_PATH, { replace: true });
         return;
       }
-      const post = localStorage.getItem("auth_post_redirect");
+      // Honor (and consume) any destination saved before authentication.
+      const post = consumePostLoginRedirect();
       if (post) {
-        localStorage.removeItem("auth_post_redirect");
         navigate(post, { replace: true });
       } else {
         navigate(roleRoot(profile?.role), { replace: true });
@@ -369,10 +375,10 @@ export function useAuthProfile({ notify }) {
       // post-login redirect. Honor the intended destination instead of
       // bouncing the freshly logged-in user to the role dashboard. This is
       // the single consumer of the redirect for the modal-login flow.
-      const pendingRedirect = localStorage.getItem("auth_post_redirect");
-      // Only honor internal app paths — never a malformed/stale value.
-      if (pendingRedirect && pendingRedirect.startsWith("/")) {
-        localStorage.removeItem("auth_post_redirect");
+      // Only honor validated internal app paths — never a malformed/stale or
+      // external value (open-redirect protection). The key is consumed here.
+      const pendingRedirect = consumePostLoginRedirect();
+      if (pendingRedirect) {
         navigate(pendingRedirect, { replace: true });
       } else {
         navigate(roleRoot(profile?.role), { replace: true });
@@ -404,13 +410,19 @@ export function useAuthProfile({ notify }) {
   }, [notify, navigate]);
 
   const handleSelectAuthMode = useCallback(
-    (mode) => {
+    (mode, postLoginRedirect) => {
       setOauthError("");
       setAuthMode(mode);
       // Manual auth intent (navbar / landing-page buttons) — drop any stale
       // post-login redirect so an abandoned "login to view profile" flow can
-      // never hijack a later, unrelated sign-in.
-      localStorage.removeItem("auth_post_redirect");
+      // never hijack a later, unrelated sign-in. An explicit intent (e.g. the
+      // landing page's "Share Your Review") may supply its own validated
+      // internal destination, which survives login instead of the dashboard.
+      if (isSafeInternalPath(postLoginRedirect)) {
+        localStorage.setItem(POST_LOGIN_REDIRECT_KEY, postLoginRedirect);
+      } else {
+        localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+      }
       navigate(mode === "login" ? "/login" : "/signup");
     },
     [navigate],
