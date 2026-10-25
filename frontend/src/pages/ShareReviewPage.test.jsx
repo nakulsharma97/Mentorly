@@ -97,6 +97,12 @@ describe("ShareReviewPage", () => {
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ type: "success" }),
     );
+
+    // The post-submit "back" link uses roleRoot(profile.role) so it returns
+    // the learner into the layout, not to a bare /share-review shell.
+    expect(
+      screen.getByRole("link", { name: /go to your dashboard/i }),
+    ).toHaveAttribute("href", "/learner/dashboard");
   });
 
   it("shows an existing pending review with status and lets the user edit it", async () => {

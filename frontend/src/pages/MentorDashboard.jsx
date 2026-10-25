@@ -824,7 +824,7 @@ export default function MentorDashboard({ profile, notify }) {
             <Link
               to={
                 verificationStatus?.profileCompleted
-                  ? "/become-mentor"
+                  ? "/become-a-mentor"
                   : "/complete-profile"
               }
               className="ss-btn ss-btn--primary ss-btn--sm"

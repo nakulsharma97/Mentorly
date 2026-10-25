@@ -798,6 +798,53 @@ describe("useAuthProfile – route protection", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
   });
 
+  it("new MENTOR returning from OAuth → mentor onboarding, never a /learner route", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    // Brand-new OAuth mentor: profile incomplete (no skills/aboutMe) →
+    // mandatory onboarding takes priority over any saved destination.
+    mockFetchProfile.mockResolvedValue({
+      id: 42,
+      fullName: "New OAuth Mentor",
+      role: "MENTOR",
+    });
+    localStorage.removeItem("auth_post_redirect");
+
+    renderAt("/oauth/callback");
+    await tick(100);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/complete-profile", {
+      replace: true,
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      expect.stringContaining("/learner"),
+      expect.anything(),
+    );
+  });
+
+  it("MENTOR with a complete profile returning from OAuth → /mentor/dashboard", async () => {
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    mockFetchProfile.mockResolvedValue({
+      id: 42,
+      fullName: "Mentor One",
+      role: "MENTOR",
+      profileCompleted: true,
+    });
+    localStorage.removeItem("auth_post_redirect");
+
+    renderAt("/oauth/callback");
+    await tick(100);
+
+    expect(mockNavigate).toHaveBeenCalledWith("/mentor/dashboard", {
+      replace: true,
+    });
+    expect(mockNavigate).not.toHaveBeenCalledWith(
+      "/learner/dashboard",
+      expect.anything(),
+    );
+  });
+
   // ── logged in, on root/redirectable paths ──────────────
 
   it("logged in + / → redirects to role dashboard", async () => {
@@ -1038,6 +1085,9 @@ describe("useAuthProfile – route protection", () => {
     renderAt("/login");
     await tick(100);
 
+    // "/share-review" stays the role-agnostic destination — AppRoutes
+    // resolves it to /learner/share-review (or /mentor/…) so the page opens
+    // inside its workspace layout.
     expect(mockNavigate).toHaveBeenCalledWith("/share-review", {
       replace: true,
     });

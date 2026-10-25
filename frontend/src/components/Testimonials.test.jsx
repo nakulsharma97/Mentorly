@@ -64,4 +64,38 @@ describe("Testimonials — Share your review CTA", () => {
       screen.queryByRole("button", { name: /share your review/i }),
     ).toBeNull();
   });
+
+  // ── React keys — sources have independent id sequences ──
+
+  it("renders cards with colliding reviewIds across sources without duplicate-key warnings", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPublicData.testimonials = [
+      { ...sampleReview, source: "SITE", reviewText: "A platform review." },
+      {
+        ...sampleReview,
+        source: "MENTOR_REVIEW",
+        reviewText: "A mentor review.",
+      },
+    ];
+    render(<Testimonials onShareReview={vi.fn()} />);
+
+    expect(screen.getByText("A platform review.")).toBeInTheDocument();
+    expect(screen.getByText("A mentor review.")).toBeInTheDocument();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("keeps keys unique for legacy payloads without a source (index fallback)", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockPublicData.testimonials = [
+      { ...sampleReview, reviewText: "First legacy review." },
+      { ...sampleReview, reviewText: "Second legacy review." },
+    ];
+    render(<Testimonials onShareReview={vi.fn()} />);
+
+    expect(screen.getByText("First legacy review.")).toBeInTheDocument();
+    expect(screen.getByText("Second legacy review.")).toBeInTheDocument();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });

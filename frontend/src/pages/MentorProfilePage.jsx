@@ -6,6 +6,7 @@ import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import ReportModal from "../components/ReportModal";
 import ShareModal from "../components/ShareModal";
 import { normalizeSkills } from "../utils/skills";
+import { messagesPath } from "../modules/common/routeUtils";
 import { formatPrice, isFree } from "../utils/price";
 import BookingFlowPage from "./BookingFlowPage";
 import HeroSection from "../components/HeroSection";
@@ -115,7 +116,7 @@ function LoadingSkeleton() {
 
 /* ── Main Component ──────────────────────────────────── */
 
-export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }) {
+export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify, profile }) {
   const { mentorId } = useParams();
   const navigate = useNavigate();
 
@@ -467,8 +468,8 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
               try {
                 const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
                 const data = res?.data?.data;
-                if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
-                else navigate("/learner/messages");
+                if (data?.conversationId) navigate(messagesPath(profile?.role, data.conversationId));
+                else navigate(messagesPath(profile?.role));
               } catch (err) {
                 const status = err?.response?.status;
                 const errBody = err?.response?.data;
@@ -985,7 +986,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                   try {
                     const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
                     const data = res?.data?.data;
-                    if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
+                    if (data?.conversationId) navigate(messagesPath(profile?.role, data.conversationId));
                   } catch (e) {
                     const detail =
                       e?.response?.data?.data?.message ||
@@ -1579,12 +1580,13 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     <p>Your mentor has received your personalized learning request. They will review it and respond shortly.</p>
                     <div className="mpr-request-success__eta"><Icon name="schedule" /> Expected response within 24 hours</div>
                     <div className="mpr-request-success__actions">
-                      <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => { setShowRequestModal(false); setRequestSent(false); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" }); }}>
+                      <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => {                        setShowRequestModal(false); setRequestSent(false); setRequestForm({ subject: "", goal: "", duration: "60", date: "", time: "", budget: "" });
+                      }}>
                         Back to Profile
                       </button>
                       <button type="button" className="mpr-btn mpr-btn--primary" onClick={() => {
                         setShowRequestModal(false);
-                        navigate(`/learner/messages`);
+                        navigate(messagesPath(profile?.role));
                       }}>
                         <Icon name="chat" /> Open Chat
                       </button>
@@ -1861,7 +1863,7 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                 <button type="button" className="mpr-btn mpr-btn--outline" onClick={() => {
                   setShowBookingSuccess(false);
                   setBookingSessionId(null);
-                  navigate("/learner/messages");
+                  navigate(messagesPath(profile?.role));
                 }}>
                   <Icon name="chat" /> Open Chat
                 </button>

@@ -40,6 +40,29 @@ export const isPublicPath = (path) => {
   return ["/", "/login", "/signup", "/test-checklist"].includes(path);
 };
 
+/**
+ * Role-correct path to the messaging workspace, optionally deep-linked into
+ * one conversation.
+ *
+ * /learner/messages and /mentor/messages are separate routes behind their
+ * role's layout + RoleGuard, so a mentor must never be sent to the learner
+ * path (it would bounce them out of the page). Admins have no messaging
+ * workspace at all — they land on their dashboard instead of a blocked route.
+ *
+ * @param {string|null|undefined} role  viewer's role (LEARNER / MENTOR / ADMIN)
+ * @param {string|number|null|undefined} [conversationId]  optional deep link
+ * @returns {string}
+ */
+export function messagesPath(role, conversationId) {
+  if (role === "ADMIN") {
+    return ADMIN_DASHBOARD;
+  }
+  const root = role === "MENTOR" ? MENTOR_ROOT : LEARNER_ROOT;
+  return conversationId
+    ? `${root}/messages/${conversationId}`
+    : `${root}/messages`;
+}
+
 /* ── Post-login destination ("Share Your Review", mentor deep links) ── */
 
 /** localStorage key holding the page the user wanted before authenticating. */
@@ -50,6 +73,11 @@ export const POST_LOGIN_REDIRECT_KEY = "auth_post_redirect";
  * (/share-review) where any signed-in learner or mentor can submit one
  * review of the Mentorly platform itself (admin-moderated before it
  * appears on the landing page).
+ *
+ * Kept role-agnostic: AppRoutes' /share-review route resolves it to the
+ * role's workspace layout path (/learner/share-review or
+ * /mentor/share-review), so post-login redirects and onboarding always
+ * land on the page WITH its navbar/sidebar.
  */
 export const REVIEW_DESTINATION = "/share-review";
 

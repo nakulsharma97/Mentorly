@@ -292,13 +292,51 @@ describe("AuthModal — signup username availability", () => {
 });
 
 describe("AuthModal — OAuth mentor intent", () => {
+  // jsdom refuses real navigation and logs "Not implemented: navigation" on
+  // window.location.href assignment; stub the location where jsdom allows it
+  // (harmless no-op where it does not).
+  let realLocation = null;
+  let locationStubbed = false;
+
+  beforeAll(() => {
+    try {
+      realLocation = window.location;
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        writable: true,
+        value: { href: "", protocol: realLocation.protocol },
+      });
+      locationStubbed = true;
+    } catch {
+      locationStubbed = false;
+    }
+  });
+
+  afterAll(() => {
+    if (locationStubbed) {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: realLocation,
+      });
+    }
+  });
+
+  const readSignupRoleCookie = () =>
+    (document.cookie.match(/(?:^|;\s*)oauth_signup_role=([^;]*)/) || [])[1];
+
+  const clearSignupRoleCookie = () => {
+    document.cookie = "oauth_signup_role=; path=/; max-age=0";
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    clearSignupRoleCookie();
   });
 
   afterEach(() => {
     localStorage.clear();
+    clearSignupRoleCookie();
   });
 
   const renderAuth = (mode) =>
@@ -313,7 +351,7 @@ describe("AuthModal — OAuth mentor intent", () => {
       </MemoryRouter>,
     );
 
-  it("signup + MENTOR shows the hint and stores the destination on Google click", () => {
+  it("signup + MENTOR shows the mentor hint, writes the MENTOR cookie and no post-login redirect", () => {
     renderAuth("signup");
 
     fireEvent.change(screen.getByLabelText("I want to"), {
@@ -321,39 +359,50 @@ describe("AuthModal — OAuth mentor intent", () => {
     });
 
     expect(
-      screen.getByText(/You'll sign in as a learner first/i),
+      screen.getByText(/You'll join as a mentor/i),
     ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: /continue with google/i }),
     );
 
-    expect(localStorage.getItem("auth_post_redirect")).toBe(
-      "/become-a-mentor",
-    );
+    // The chosen role rides the OAuth round trip in a cookie — the backend
+    // creates the account as MENTOR. No /become-a-mentor redirect is staged:
+    // a new mentor follows the same onboarding as email signup.
+    expect(readSignupRoleCookie()).toBe("MENTOR");
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+    if (locationStubbed) {
+      expect(window.location.href).toContain("/oauth2/authorization/google");
+    }
   });
 
-  it("signup + LEARNER shows no hint and stores nothing on GitHub click", () => {
+  it("signup + LEARNER shows no hint and writes the LEARNER cookie", () => {
     renderAuth("signup");
 
     expect(
-      screen.queryByText(/You'll sign in as a learner first/i),
+      screen.queryByText(/You'll join as a mentor/i),
     ).toBeNull();
 
     fireEvent.click(
       screen.getByRole("button", { name: /continue with github/i }),
     );
 
+    expect(readSignupRoleCookie()).toBe("LEARNER");
     expect(localStorage.getItem("auth_post_redirect")).toBeNull();
   });
 
-  it("login mode stores nothing on Google click", () => {
+  it("login mode clears a stale signup-role cookie", () => {
+    // A leftover intent from an abandoned signup must never apply to a
+    // later sign-in.
+    document.cookie = "oauth_signup_role=MENTOR; path=/";
     renderAuth("login");
+    expect(readSignupRoleCookie()).toBe("MENTOR");
 
     fireEvent.click(
       screen.getByRole("button", { name: /continue with google/i }),
     );
 
+    expect(readSignupRoleCookie()).toBeUndefined();
     expect(localStorage.getItem("auth_post_redirect")).toBeNull();
   });
 });

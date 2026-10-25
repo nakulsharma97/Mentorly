@@ -1,3 +1,4 @@
+import { useParams } from "react-router";
 import MessageApp from "../modules/messages/MessageApp";
 import HeroSection from "../components/HeroSection";
 import "../modules/messages/messages.css";
@@ -6,8 +7,13 @@ import "../modules/messages/messages.css";
  * Mentor messaging — unified page hero + the shared three-column
  * <MessageApp /> (conversation list · chat · details). The hero uses the
  * exact same design system as every other page; only the copy differs.
+ *
+ * The optional `:conversationId` route param deep-links straight into a
+ * conversation (e.g. TeachingPage's "Message learner"); the app auto-selects
+ * it once the list has loaded — same contract as LearnerMessagesPage.
  */
 export default function MessagesPage({ profile, notify }) {
+  const { conversationId } = useParams();
   return (
     <div className="ms-page">
       <HeroSection
@@ -21,7 +27,12 @@ export default function MessagesPage({ profile, notify }) {
           </div>
         }
       />
-      <MessageApp profile={profile} notify={notify} variant="MENTOR" />
+      <MessageApp
+        profile={profile}
+        notify={notify}
+        variant="MENTOR"
+        initialConversationId={conversationId}
+      />
     </div>
   );
 }

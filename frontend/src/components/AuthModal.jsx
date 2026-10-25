@@ -10,7 +10,6 @@ import client, {
 } from "../api/client";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import { getApiErrorMessage } from "../utils/apiErrors";
-import { POST_LOGIN_REDIRECT_KEY } from "../modules/common/routeUtils";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "./ui/Primitives";
 import OtpVerification from "./OtpVerification";
 
@@ -332,18 +331,30 @@ export default function AuthModal({
   };
 
   // ── Social auth ──
+  /**
+   * Cookie carrying the chosen signup role across the OAuth round trip.
+   * Same-origin in prod, so the callback request carries it back; the
+   * backend reads it once, validates it (MENTOR/LEARNER only) and clears it.
+   */
+  const OAUTH_SIGNUP_ROLE_COOKIE = "oauth_signup_role";
+
   const onSocialAuth = (provider) => {
     trackAnalyticsEvent("auth_social_clicked", { provider, mode });
-    // OAuth leaves the page, so localStorage is the only way a mentor-intent
-    // signup can carry its destination across the round trip (the OAuth
-    // callback consumes it after login). Login and LEARNER signups are
-    // untouched — no key is written for them.
-    if (mode === "signup" && form.role === "MENTOR") {
-      try {
-        localStorage.setItem(POST_LOGIN_REDIRECT_KEY, "/become-a-mentor");
-      } catch {
-        // Storage unavailable — OAuth proceeds without mentor intent.
+    // OAuth leaves the page, so a cookie is the only transport that rides
+    // back on the callback request. Signup writes the chosen role; login
+    // deletes it so a stale intent can never apply to a later sign-in.
+    // A new mentor now joins AS a mentor (like email signup) — no
+    // /become-a-mentor post-login redirect is needed.
+    try {
+      const secure = window.location.protocol === "https:" ? "; Secure" : "";
+      if (mode === "signup") {
+        const role = form.role === "MENTOR" ? "MENTOR" : "LEARNER";
+        document.cookie = `${OAUTH_SIGNUP_ROLE_COOKIE}=${role}; path=/; max-age=600; SameSite=Lax${secure}`;
+      } else {
+        document.cookie = `${OAUTH_SIGNUP_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax${secure}`;
       }
+    } catch {
+      // Cookie write failed — OAuth proceeds without role intent (LEARNER).
     }
     window.location.href = `${API_BASE_URL}/oauth2/authorization/${provider}`;
   };
@@ -682,7 +693,7 @@ export default function AuthModal({
 
         {mode === "signup" && form.role === "MENTOR" && (
           <p className="auth-oauth-mentor-hint" role="note">
-            You'll sign in as a learner first, then apply to become a mentor. An admin reviews every application.
+            You'll join as a mentor. An admin must verify and approve you before you appear in search.
           </p>
         )}
 

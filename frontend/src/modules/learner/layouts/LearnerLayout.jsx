@@ -47,7 +47,7 @@ const PROFILE_MENU = [
   { to: "/complete-profile", label: "Edit profile", icon: "edit" },
   { to: "/learner/settings", label: "Settings", icon: "settings" },
   { to: "/learner/certificates", label: "Certificates", icon: "workspace_premium" },
-  { to: "/share-review", label: "Share your review", icon: "rate_review" },
+  { to: "/learner/share-review", label: "Share your review", icon: "rate_review" },
 ];
 
 export default function LearnerLayout({ profile, onLogout, unreadNotifications, onUnreadCountChange, notify }) {

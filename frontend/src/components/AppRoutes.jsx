@@ -318,6 +318,7 @@ export default function AppRoutes({
         <Route path="profile" element={rc("learner-profile", <LearnerProfilePage profile={profile} />)} />
         <Route path="settings" element={rc("learner-settings", <LearnerSettingsPage profile={profile} notify={notify} onProfileUpdated={setProfile} />)} />
         <Route path="resources" element={rc("learner-resources", <ResourcesPage />)} />
+        <Route path="share-review" element={rc("share-review", <ShareReviewPage profile={profile} notify={notify} />)} />
         <Route path="wallet" element={rc("learner-wallet", <WalletPage profile={profile} notify={notify} />)} />
         <Route path="*" element={<Navigate to="/learner/dashboard" replace />} />
       </Route>
@@ -358,9 +359,14 @@ export default function AppRoutes({
         <Route path="analytics" element={rc("mentor-analytics", <AnalyticsPage profile={profile} />)} />
         <Route path="reviews" element={rc("mentor-reviews", <MentorReviewsPage profile={profile} notify={notify} />)} />
         <Route path="messages" element={rc("mentor-messages", <MessagesPage profile={profile} notify={notify} onLogout={handleLogout} />)} />
+        {/* Deep link into one conversation — mirrors the learner block so
+            "Message …" buttons on TeachingPage (/mentor/messages/:id) resolve
+            instead of falling through to the mentor catch-all. */}
+        <Route path="messages/:conversationId" element={rc("mentor-messages-conversation", <MessagesPage profile={profile} notify={notify} onLogout={handleLogout} />)} />
         <Route path="wallet" element={rc("mentor-wallet", <WalletPage profile={profile} notify={notify} />)} />
         <Route path="professional-profile" element={rc("mentor-professional-profile", <ProfessionalProfilePage profile={profile} notify={notify} />)} />            <Route path="notifications" element={rc("mentor-notifications", <MentorNotificationsPage notify={notify} />)} />
         <Route path="settings" element={rc("mentor-settings", <MentorSettingsPage profile={profile} notify={notify} onProfileUpdated={setProfile} />)} />
+        <Route path="share-review" element={rc("mentor-share-review", <ShareReviewPage profile={profile} notify={notify} />)} />
         <Route path="*" element={<Navigate to="/mentor/dashboard" replace />} />
       </Route>
 
@@ -428,15 +434,20 @@ export default function AppRoutes({
 
       {/* ── Role-based redirect routes ── */}
       <Route path="/role-guide" element={rc("role-guide", <RoleGuide />)} />
-      {/* Site-wide "Share your review" — reachable by learners and mentors;
-          admins are bounced to their console (they moderate, not review). */}
+      {/* Site-wide "Share your review" — role-agnostic entry point. The page
+          itself lives inside each workspace layout (so it renders with the
+          normal navbar/sidebar): this route only resolves REVIEW_DESTINATION
+          ("/share-review") to the role's layout path. Admins are bounced to
+          their console (they moderate, not review). */}
       <Route
         path="/share-review"
         element={
           profile?.role === "ADMIN" ? (
             <Navigate to="/admin/dashboard" replace />
+          ) : profile?.role === "MENTOR" ? (
+            <Navigate to="/mentor/share-review" replace />
           ) : (
-            rc("share-review", <ShareReviewPage profile={profile} notify={notify} />)
+            <Navigate to="/learner/share-review" replace />
           )
         }
       />
@@ -450,7 +461,7 @@ export default function AppRoutes({
       <Route path="/analytics" element={<Navigate to="/mentor/analytics" replace />} />
       <Route path="/messages" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/messages" : "/learner/messages"} replace />} />
       <Route path="/sessions/:sessionId" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/teach" : "/learner/sessions"} replace />} />
-      <Route path="/mentors/:mentorId" element={rc("mentor-profile", <MentorProfilePage isLoggedIn={true} notify={notify} />)} />
+      <Route path="/mentors/:mentorId" element={rc("mentor-profile", <MentorProfilePage isLoggedIn={true} notify={notify} profile={profile} />)} />
 
       {/* ── Admin Routes ── */}
       <Route

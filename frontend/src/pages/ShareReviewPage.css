@@ -1,15 +1,22 @@
 /* ShareReviewPage — site-wide "Share your experience with Mentorly".
    Uses global design tokens (--panel, --text, --muted, --line, --accent, …)
-   so light/dark themes work without extra rules. */
+   so light/dark themes work without extra rules.
+
+   The page renders inside the learner/mentor workspace layout
+   (.ws-main-content), which already provides the scrolling area, theme
+   background and unified page padding (top 16 · sides 32 · bottom 40).
+   No page-level background, min-height or padding of its own — it is a
+   content column, not a standalone page. */
 
 .sr-page {
   max-width: 760px;
   margin: 0 auto;
-  padding: 40px 20px 72px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
+
 
 /* ── Hero ─────────────────────────────────────────── */
 
@@ -492,10 +499,6 @@
 /* ── Mobile (375px) ───────────────────────────────── */
 
 @media (max-width: 560px) {
-  .sr-page {
-    padding: 24px 14px 56px;
-  }
-
   .sr-card {
     padding: 20px 16px;
     border-radius: 14px;

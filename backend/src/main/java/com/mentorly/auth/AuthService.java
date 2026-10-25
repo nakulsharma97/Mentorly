@@ -350,6 +350,23 @@ public class AuthService {
 
     @Transactional
     public AuthResponse loginWithOAuth(String provider, Map<String, Object> attributes, String clientIp) {
+        return loginWithOAuth(provider, attributes, clientIp, null);
+    }
+
+    /**
+     * OAuth sign-in/sign-up.
+     *
+     * @param requestedRole role the user chose on the signup form before the
+     *                      OAuth round trip (carried in the
+     *                      {@code oauth_signup_role} cookie), or null. It is
+     *                      honored ONLY when a brand-new account is created
+     *                      and ONLY for {@link UserRole#MENTOR}; every other
+     *                      value falls back to LEARNER. Existing accounts
+     *                      never change role.
+     */
+    @Transactional
+    public AuthResponse loginWithOAuth(String provider, Map<String, Object> attributes, String clientIp,
+                                       UserRole requestedRole) {
         // ── Validation ──
         if (provider == null || provider.isBlank()) {
             incrementCounter("auth.oauth.failed", "reason", "invalid_provider");
@@ -409,7 +426,10 @@ public class AuthService {
             created.setEmail(email);
             created.setUsername(generateUsernameFromEmail(email));
             created.setFullName(extractDisplayName(attributes, email));
-            created.setRole(UserRole.LEARNER);
+            // New-account role comes from the signup form (mentor intent) —
+            // nothing else. ADMIN / null / unknown values can never mint a
+            // privileged account here; existing accounts keep their role.
+            created.setRole(requestedRole == UserRole.MENTOR ? UserRole.MENTOR : UserRole.LEARNER);
             created.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
             created.setLastActiveAt(OffsetDateTime.now());
             return userRepository.save(created);

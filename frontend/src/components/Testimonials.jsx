@@ -78,7 +78,11 @@ export default function Testimonials({ onShareReview }) {
       <div className="landing-mentor-grid">
         {items.map((it, idx) => (
           <motion.article
-            key={it.reviewId}
+            // The three review sources have independent id sequences, so
+            // reviewId alone can collide (SiteReview #1 vs MentorReview #1)
+            // and React would drop/duplicate cards. Source disambiguates;
+            // index keeps keys unique for legacy payloads without a source.
+            key={it.source ? `${it.source}-${it.reviewId}` : `idx-${idx}`}
             className="landing-mentor-card landing-reveal"
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}

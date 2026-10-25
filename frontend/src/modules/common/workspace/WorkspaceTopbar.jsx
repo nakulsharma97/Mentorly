@@ -4,6 +4,7 @@ import { useTheme } from "../../../context/ThemeContext";
 import client from "../../../api/client";
 import SsIcon from "../../../components/ui/SsIcon";
 import { initials } from "../dashboard/dashboardUtils";
+import { messagesPath } from "../routeUtils";
 const NotificationCenter = lazy(() => import("../../../components/NotificationCenter"));
 
 /**
@@ -169,8 +170,9 @@ export default function WorkspaceTopbar({
     if (user.role === "MENTOR") {
       navigate(`/mentors/${user.userId}`);
     } else {
-      // Navigate to learner profile or messages
-      navigate(`/learner/messages`);
+      // Open the messages workspace of the VIEWING user — a mentor topbar
+      // must never land on the learner route (RoleGuard would bounce it).
+      navigate(messagesPath(profile?.role));
     }
   };
 

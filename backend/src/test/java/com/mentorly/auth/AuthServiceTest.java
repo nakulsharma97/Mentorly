@@ -2,6 +2,7 @@ package com.mentorly.auth;
 
 import com.mentorly.common.ApiClientException;
 import com.mentorly.common.AuditLogService;
+import com.mentorly.user.MentorVerificationStatus;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
 import com.mentorly.user.UserRole;
@@ -20,11 +21,13 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.mentorly.auth.AuthDtos.LoginRequest;
 import static com.mentorly.auth.AuthDtos.SignupRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -261,7 +264,122 @@ class AuthServiceTest {
         assertEquals("Your account has been disabled. Please contact support.", ex.getMessage());
     }
 
+    // ── OAuth signup role (mentor intent from the signup form) ─────────────
+
+    @Test
+    void oauthNewUserWithMentorRequestCreatesUnapprovedMentor() {
+        stubNewOAuthUser("mentor.new@example.com");
+
+        var response = authService.loginWithOAuth(
+                "google", oauthAttributes("mentor.new@example.com"), null, UserRole.MENTOR);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        User created = captor.getValue();
+        assertEquals(UserRole.MENTOR, created.getRole());
+        // Fresh mentors are hidden until an admin approves a verification.
+        assertEquals(MentorVerificationStatus.NOT_SUBMITTED, created.getVerificationStatus());
+        assertFalse(created.isApprovedMentor());
+        assertEquals("MENTOR", response.role());
+    }
+
+    @Test
+    void oauthNewUserWithAdminRequestStillCreatesLearner() {
+        stubNewOAuthUser("sneaky@example.com");
+
+        authService.loginWithOAuth(
+                "google", oauthAttributes("sneaky@example.com"), null, UserRole.ADMIN);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        assertEquals(UserRole.LEARNER, captor.getValue().getRole());
+    }
+
+    @Test
+    void oauthNewUserWithNullRequestCreatesLearner() {
+        stubNewOAuthUser("plain@example.com");
+
+        var response = authService.loginWithOAuth(
+                "github", oauthAttributes("plain@example.com"), null, null);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).save(captor.capture());
+        assertEquals(UserRole.LEARNER, captor.getValue().getRole());
+        assertEquals("LEARNER", response.role());
+    }
+
+    @Test
+    void oauthExistingLearnerKeepsRoleWhenMentorRequested() {
+        User existing = user("learner1");
+        existing.setEmail("learner1@example.com");
+        stubExistingOAuthUser(existing);
+
+        var response = authService.loginWithOAuth(
+                "google", oauthAttributes("learner1@example.com"), null, UserRole.MENTOR);
+
+        assertEquals(UserRole.LEARNER, existing.getRole());
+        assertEquals("LEARNER", response.role());
+    }
+
+    @Test
+    void oauthExistingMentorKeepsMentorRoleWithoutRequest() {
+        User existing = user("mentor1");
+        existing.setEmail("mentor1@example.com");
+        existing.setRole(UserRole.MENTOR);
+        stubExistingOAuthUser(existing);
+
+        var response = authService.loginWithOAuth(
+                "google", oauthAttributes("mentor1@example.com"), null, null);
+
+        assertEquals(UserRole.MENTOR, existing.getRole());
+        assertEquals("MENTOR", response.role());
+    }
+
+    @Test
+    void oauthDisabledAccountIsBlockedEvenWithMentorRequest() {
+        User existing = user("banned1");
+        existing.setEmail("banned1@example.com");
+        existing.setEnabled(false);
+        when(userRepository.findByEmail("banned1@example.com")).thenReturn(Optional.of(existing));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> authService.loginWithOAuth(
+                        "google", oauthAttributes("banned1@example.com"), null, UserRole.MENTOR));
+
+        assertEquals("Your account has been disabled. Please contact support.", ex.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static Map<String, Object> oauthAttributes(String email) {
+        return Map.of("email", email, "name", "OAuth User");
+    }
+
+    /** Full stub set for a brand-new OAuth account (no client IP → no rate-limit lookups). */
+    private void stubNewOAuthUser(String email) {
+        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(userRepository.existsByUsernameLower(any(String.class))).thenReturn(false);
+        when(passwordEncoder.encode(any(String.class))).thenReturn("hashed");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubTokenIssue();
+    }
+
+    /** Stub set for an existing, active OAuth account. */
+    private void stubExistingOAuthUser(User user) {
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubTokenIssue();
+    }
+
+    private void stubTokenIssue() {
+        when(jwtService.generateToken(any(User.class), any(String.class))).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(any(User.class), any(String.class))).thenReturn("refresh-token");
+        when(jwtService.extractTokenId("refresh-token")).thenReturn("token-id-1");
+        Claims claims = mock(Claims.class);
+        when(claims.getExpiration()).thenReturn(new Date(System.currentTimeMillis() + 600000));
+        when(jwtService.extractAllClaims("refresh-token")).thenReturn(claims);
+    }
 
     private static SignupRequest signupRequest(String email, String username) {
         return new SignupRequest(

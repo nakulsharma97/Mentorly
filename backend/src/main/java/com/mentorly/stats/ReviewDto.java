@@ -25,4 +25,11 @@ public class ReviewDto {
     private int rating;
     private OffsetDateTime reviewDate;
     private String reviewText;
+
+    /**
+     * Which table this row came from: "SITE", "MENTOR_REVIEW" or
+     * "LEARNER_REVIEW". The three sources have independent id sequences, so
+     * clients must key on source + reviewId to keep React keys unique.
+     */
+    private String source;
 }

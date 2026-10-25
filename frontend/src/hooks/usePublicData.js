@@ -24,6 +24,10 @@ let sharedTestimonials = [];
 let mentorsError = false;
 let testimonialsError = false;
 let lastFetchTime = 0;
+// Separate stamp: mentors and testimonials are independent fetches — one
+// completing must not mark the other's cache as fresh (or they'd skip
+// their own fetch while still empty).
+let lastFetchTestimonialsTime = 0;
 let inflightMentors = null;
 let inflightTestimonials = null;
 
@@ -63,12 +67,12 @@ function fetchTestimonials() {
     .then((res) => {
       sharedTestimonials = res.data || [];
       testimonialsError = false;
-      lastFetchTime = Date.now();
+      lastFetchTestimonialsTime = Date.now();
       return sharedTestimonials;
     })
     .catch(() => {
       testimonialsError = true;
-      lastFetchTime = Date.now();
+      lastFetchTestimonialsTime = Date.now();
       return [];
     })
     .finally(() => {
@@ -117,7 +121,7 @@ export default function usePublicData({ fetchMentors: shouldFetchMentors = true,
   useEffect(() => {
     if (!shouldFetchTestimonials) return;
 
-    const isFresh = Date.now() - lastFetchTime < CACHE_TTL_MS;
+    const isFresh = Date.now() - lastFetchTestimonialsTime < CACHE_TTL_MS;
     if (isFresh && sharedTestimonials.length) {
       setTestimonials(sharedTestimonials);
       setTestimonialsLoading(false);

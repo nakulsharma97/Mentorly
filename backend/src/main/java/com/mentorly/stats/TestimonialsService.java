@@ -24,6 +24,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TestimonialsService {
+
+    /** DTO {@code source} values — one per backing table. */
+    static final String SOURCE_MENTOR_REVIEW = "MENTOR_REVIEW";
+    static final String SOURCE_LEARNER_REVIEW = "LEARNER_REVIEW";
+    static final String SOURCE_SITE = "SITE";
+
+    /** Max approved site reviews guaranteed a slot in the public list. */
+    static final int MAX_SITE_REVIEWS = 3;
+
     private final MentorReviewRepository mentorReviewRepository;
     private final LearnerReviewRepository learnerReviewRepository;
     private final BookingRepository bookingRepository;
@@ -32,7 +41,11 @@ public class TestimonialsService {
     public List<ReviewDto> latestApprovedReviews(int limit) {
         // Fetch recent reviews with JOIN FETCH to avoid N+1 on relationships
         int fetchSize = limit * 3; // Buffer to get enough after cross-type merge
-        List<ReviewDto> items = new ArrayList<>();
+        // Reserve up to MAX_SITE_REVIEWS slots for approved site reviews so a
+        // burst of mentor/learner reviews can never crowd them out.
+        int siteSlots = Math.min(MAX_SITE_REVIEWS, limit);
+
+        List<ReviewDto> others = new ArrayList<>();
 
         List<MentorReview> mentorReviews = mentorReviewRepository
                 .findAllWithRelations(PageRequest.of(0, fetchSize));
@@ -46,7 +59,7 @@ public class TestimonialsService {
                 completed = bookingRepository.countByLearnerIdAndBookingStatus(reviewer.getId(),
                         BookingStatus.COMPLETED);
             }
-            items.add(new ReviewDto(r.getId(),
+            others.add(new ReviewDto(r.getId(),
                     reviewer == null ? "" : reviewer.getFullName(),
                     reviewer == null ? null : reviewer.getProfileImageUrl(),
                     reviewer != null && reviewer.isMentorVerified(),
@@ -55,7 +68,8 @@ public class TestimonialsService {
                     completed,
                     r.getRating(),
                     r.getCreatedAt(),
-                    r.getComment()));
+                    r.getComment(),
+                    SOURCE_MENTOR_REVIEW));
         }
 
         List<LearnerReview> learnerReviews = learnerReviewRepository
@@ -70,7 +84,7 @@ public class TestimonialsService {
                 completed = bookingRepository.countBySessionMentorIdAndBookingStatus(reviewer.getId(),
                         BookingStatus.COMPLETED);
             }
-            items.add(new ReviewDto(r.getId(),
+            others.add(new ReviewDto(r.getId(),
                     reviewer == null ? "" : reviewer.getFullName(),
                     reviewer == null ? null : reviewer.getProfileImageUrl(),
                     reviewer != null && reviewer.isMentorVerified(),
@@ -79,12 +93,16 @@ public class TestimonialsService {
                     completed,
                     r.getRating(),
                     r.getCreatedAt(),
-                    r.getComment()));
+                    r.getComment(),
+                    SOURCE_LEARNER_REVIEW));
         }
 
-        // Approved platform-wide site reviews ("Share your review") join the same list.
+        // Approved platform-wide site reviews ("Share your review") join the
+        // same list. The repository returns them newest-first; only the
+        // reserved slots are fetched.
+        List<ReviewDto> siteItems = new ArrayList<>();
         for (SiteReview sr : siteReviewRepository.findByStatusWithUser(
-                SiteReviewStatus.APPROVED, PageRequest.of(0, fetchSize))) {
+                SiteReviewStatus.APPROVED, PageRequest.of(0, siteSlots))) {
             var author = sr.getUser();
             long completed = 0;
             if (author != null) {
@@ -93,7 +111,7 @@ public class TestimonialsService {
                         + bookingRepository.countBySessionMentorIdAndBookingStatus(author.getId(),
                                 BookingStatus.COMPLETED);
             }
-            items.add(new ReviewDto(sr.getId(),
+            siteItems.add(new ReviewDto(sr.getId(),
                     author == null ? "" : author.getFullName(),
                     author == null ? null : author.getProfileImageUrl(),
                     false,
@@ -102,10 +120,19 @@ public class TestimonialsService {
                     completed,
                     sr.getRating(),
                     sr.getCreatedAt(),
-                    sr.getComment()));
+                    sr.getComment(),
+                    SOURCE_SITE));
         }
 
-        return items.stream()
+        // Site reviews first (guaranteed), then fill the remaining slots with
+        // the newest mentor/learner reviews, then order the whole selection by
+        // date — never by id, since the sources have independent id sequences.
+        List<ReviewDto> selected = new ArrayList<>(siteItems);
+        int remaining = Math.max(0, limit - selected.size());
+        others.sort(Comparator.comparing(ReviewDto::getReviewDate).reversed());
+        selected.addAll(others.stream().limit(remaining).collect(Collectors.toList()));
+
+        return selected.stream()
                 .sorted(Comparator.comparing(ReviewDto::getReviewDate).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
