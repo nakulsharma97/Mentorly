@@ -1,6 +1,5 @@
 package com.mentorly.messaging;
 
-import com.mentorly.booking.BookingRepository;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
@@ -26,9 +25,9 @@ public class MessageRequestService {
     private final MessageRequestRepository messageRequestRepository;
     private final DirectConversationRepository directConversationRepository;
     private final DirectMessageRepository directMessageRepository;
-    private final BookingRepository bookingRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final MessagingPolicyService messagingPolicyService;
 
     @Transactional
     public MessageRequestView createRequest(User sender, Long receiverId, String firstMessage) {
@@ -68,7 +67,7 @@ public class MessageRequestService {
         MessageRequest existing = messageRequestRepository
                 .findTopBySenderIdAndReceiverIdOrderByCreatedAtDesc(sender.getId(), receiver.getId());
         if (existing != null && existing.getStatus() == MessageRequestStatus.PENDING) {
-            throw new IllegalArgumentException("You already have a pending request with this user already pending");
+            throw new IllegalArgumentException("You already have a pending request with this user.");
         }
         if (existing != null && existing.getStatus() == MessageRequestStatus.DECLINED && existing.getCreatedAt() != null
                 && existing.getCreatedAt().plusHours(24).isAfter(OffsetDateTime.now())) {
@@ -165,39 +164,13 @@ public class MessageRequestService {
         return MessageRequestView.from(saved);
     }
 
+    /**
+     * Delegates to the shared {@link MessagingPolicyService} so message
+     * requests and direct-chat creation enforce identical privacy rules
+     * with identical messages (behavior unchanged for this flow).
+     */
     private void enforcePrivacy(User sender, User receiver) {
-        MessagePrivacy privacy = receiver.getMessagePrivacy() == null ? MessagePrivacy.ANYONE
-                : receiver.getMessagePrivacy();
-        if (privacy == MessagePrivacy.NOBODY) {
-            throw new IllegalArgumentException("This user is not accepting new message requests.");
-        }
-        if (privacy == MessagePrivacy.MENTORS_ONLY && sender.getRole() != UserRole.MENTOR) {
-            throw new IllegalArgumentException("This user only accepts message requests from mentors.");
-        }
-        if (privacy == MessagePrivacy.LEARNERS_ONLY && sender.getRole() != UserRole.LEARNER) {
-            throw new IllegalArgumentException("This user only accepts message requests from learners.");
-        }
-        if (privacy == MessagePrivacy.CONNECTED_ONLY) {
-            boolean connected = hasAcceptedConversation(sender, receiver) || hasAcceptedSession(sender, receiver);
-            if (!connected) {
-                throw new IllegalArgumentException("This user only accepts message requests from connected users.");
-            }
-        }
-    }
-
-    private boolean hasAcceptedConversation(User sender, User receiver) {
-        return directConversationRepository.findBetweenUsers(sender, receiver).isPresent();
-    }
-
-    private boolean hasAcceptedSession(User sender, User receiver) {
-        return bookingRepository
-                .findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(sender.getId(), receiver.getId(),
-                        com.mentorly.booking.BookingStatus.ACCEPTED)
-                .stream().findAny().isPresent()
-                || bookingRepository
-                        .findBySessionMentorIdAndLearnerIdAndBookingStatusOrderByCreatedAtDesc(receiver.getId(),
-                                sender.getId(), com.mentorly.booking.BookingStatus.ACCEPTED)
-                        .stream().findAny().isPresent();
+        messagingPolicyService.assertCanStartConversation(sender, receiver);
     }
 
 }

@@ -7,6 +7,7 @@ import com.mentorly.messaging.DirectConversation;
 import com.mentorly.messaging.DirectConversationRepository;
 import com.mentorly.messaging.DirectMessage;
 import com.mentorly.messaging.DirectMessageRepository;
+import com.mentorly.messaging.MessagingPolicyService;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.safety.UserBlockRepository;
 import com.mentorly.session.SkillSession;
@@ -49,6 +50,7 @@ public class ChatService {
     private final DirectConversationRepository directConversationRepository;
     private final DirectMessageRepository directMessageRepository;
     private final ObjectMapper objectMapper;
+    private final MessagingPolicyService messagingPolicyService;
 
     public List<ConversationDto> listConversations(User currentUser, String query, String filter) {
         List<Booking> bookings = loadBookingsForUser(currentUser);
@@ -401,6 +403,11 @@ public class ChatService {
         if (target.getRole() == UserRole.MENTOR && !target.isApprovedMentor()) {
             throw new IllegalArgumentException("This mentor is currently unavailable for messaging.");
         }
+
+        // Privacy gate — the receiver's messagePrivacy (NOBODY / MENTORS_ONLY /
+        // LEARNERS_ONLY / CONNECTED_ONLY) and the admin ban apply to NEW
+        // conversations only; existing ones returned above stay openable.
+        messagingPolicyService.assertCanStartConversation(currentUser, target);
 
         // Create new direct conversation
         DirectConversation conversation = new DirectConversation();

@@ -300,7 +300,7 @@ class MentorVerificationWorkflowIntegrationTest {
 
         // The latest request is the resubmission and it is PENDING again.
         MentorVerificationRequest latest = requestRepository
-                .findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId()).orElseThrow();
+                .findFirstByMentorIdOrderByCreatedAtDescIdDesc(mentor.getId()).orElseThrow();
         assertThat(latest.getStatus()).isEqualTo(MentorVerificationRequestStatus.PENDING);
         assertThat(latest.getSkills()).contains("Spring Boot");
 
@@ -383,7 +383,7 @@ class MentorVerificationWorkflowIntegrationTest {
 
         // A PENDING request must exist for this mentor with a submission time.
         MentorVerificationRequest request = requestRepository
-                .findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId())
+                .findFirstByMentorIdOrderByCreatedAtDescIdDesc(mentor.getId())
                 .orElseThrow(() -> new AssertionError("Expected an auto-created verification request"));
         assertThat(request.getStatus()).isEqualTo(MentorVerificationRequestStatus.PENDING);
         assertThat(request.getSubmittedAt()).isNotNull();

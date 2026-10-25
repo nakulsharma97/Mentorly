@@ -51,6 +51,7 @@ const PROFILE_MENU = [
   { to: "/mentor/professional-profile", label: "Profile", icon: "person" },
   { to: "/mentor/settings", label: "Settings", icon: "settings" },
   { to: "/mentor/wallet", label: "Earnings", icon: "payments" },
+  { to: "/share-review", label: "Share your review", icon: "rate_review" },
 ];
 
 export default function MentorLayout({

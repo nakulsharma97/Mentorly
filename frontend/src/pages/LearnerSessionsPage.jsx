@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import client from "../api/client";
 import { useToasts } from "../hooks/useToasts";
+import ToastCenter from "../components/ToastCenter";
 import Icon from "../modules/common/dashboard/Icon";
 import { normalizeSkills, skillsMatchQuery } from "../utils/skills";
 import MentorPageHero from "../modules/mentor/components/MentorPageHero";
@@ -1273,12 +1274,20 @@ export default function LearnerSessionsPage() {
       const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
       const conversationId = res?.data?.data?.conversationId;
       navigate(conversationId ? `/learner/messages/${conversationId}` : "/learner/messages");
-    } catch {
-      navigate("/learner/messages");
+    } catch (err) {
+      // Stay on this page so the page-level toast remains visible; only a
+      // successful conversation navigates away. Surface the backend reason
+      // (e.g. "This user is not accepting new message requests.").
+      const message =
+        err?.response?.data?.data?.message ||
+        err?.response?.data?.data?.error ||
+        err?.response?.data?.message ||
+        "Could not start the conversation.";
+      notify?.({ type: "error", title: "Message failed", message });
     }
   }
 
-  const { notify } = useToasts();
+  const { toasts, notify, dismissToast } = useToasts();
 
   /* ── Dual-confirmation: confirm session completion ── */
   async function confirmSessionCompletion(booking) {
@@ -1854,6 +1863,14 @@ export default function LearnerSessionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Page-level toast surface — this page's useToasts() state previously
+          had no renderer, so its notify() calls (incl. messaging errors) were
+          invisible. Mounted only while toasts exist so the page's baseline
+          DOM (and its a11y tree) is unchanged when there is nothing to show. */}
+      {(toasts?.length ?? 0) > 0 && (
+        <ToastCenter toasts={toasts} onDismiss={dismissToast} />
       )}
     </div>
   );

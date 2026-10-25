@@ -346,6 +346,14 @@ export function useAuthProfile({ notify }) {
       if (pathname.startsWith("/mentors/")) {
         localStorage.setItem("auth_post_redirect", pathname + location.search);
         navigate("/login", { replace: true });
+      } else if (pathname.startsWith("/become-a-mentor")) {
+        // Anonymous "Become a Mentor" — remember the destination and open the
+        // SIGNUP flow (the /mentors/ branch above opens login instead). Every
+        // post-auth consumer ("/", "/signup", onboarding, OAuth callback)
+        // then lands the user on the application page afterwards.
+        localStorage.setItem(POST_LOGIN_REDIRECT_KEY, "/become-a-mentor");
+        setAuthMode("signup");
+        navigate("/signup", { replace: true });
       } else {
         navigate("/", { replace: true });
       }

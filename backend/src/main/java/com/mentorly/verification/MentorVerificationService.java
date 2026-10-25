@@ -87,7 +87,7 @@ public class MentorVerificationService {
         // cannot submit again — otherwise a resubmission would silently demote
         // an approved mentor to PENDING and remove them from search.
         MentorVerificationRequest latest = requestRepository
-                .findFirstByMentorIdOrderByCreatedAtDesc(currentUser.getId()).orElse(null);
+                .findFirstByMentorIdOrderByCreatedAtDescIdDesc(currentUser.getId()).orElse(null);
         if (latest != null) {
             switch (latest.getStatus()) {
                 case PENDING, UNDER_REVIEW -> throw new IllegalArgumentException(
@@ -191,7 +191,7 @@ public class MentorVerificationService {
         }
         // Never overwrite an existing request: in-progress applications stay
         // untouched and APPROVED mentors must never be demoted.
-        if (requestRepository.findFirstByMentorIdOrderByCreatedAtDesc(mentor.getId()).isPresent()) {
+        if (requestRepository.findFirstByMentorIdOrderByCreatedAtDescIdDesc(mentor.getId()).isPresent()) {
             log.info("[Verification] Auto-submit skipped userId={} reason=existing-request", mentor.getId());
             return;
         }
@@ -244,7 +244,7 @@ public class MentorVerificationService {
      * dashboard status banner). Returns null when the user has never applied.
      */
     public MentorVerificationRequest latestFor(User user) {
-        return requestRepository.findFirstByMentorIdOrderByCreatedAtDesc(user.getId()).orElse(null);
+        return requestRepository.findFirstByMentorIdOrderByCreatedAtDescIdDesc(user.getId()).orElse(null);
     }
 
     public List<MentorVerificationDto> myRequests(User user) {

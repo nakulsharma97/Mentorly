@@ -2383,3 +2383,13 @@
   border-color: rgba(94, 234, 212, 0.15);
   background: rgba(94, 234, 212, 0.04);
 }
+
+/* Mentor-intent OAuth hint — shown under the social buttons when signing up
+   with "Teach as a mentor" selected (OAuth still creates a learner account). */
+.auth-oauth-mentor-hint {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--lp-muted, #64748b);
+}

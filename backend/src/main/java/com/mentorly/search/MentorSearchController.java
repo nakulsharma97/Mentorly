@@ -3,7 +3,7 @@ package com.mentorly.search;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.booking.BookingStatus;
 import com.mentorly.common.ApiResponse;
-import com.mentorly.messaging.DirectConversationRepository;
+import com.mentorly.messaging.MessagingPolicyService;
 import com.mentorly.review.MentorReviewRepository;
 import com.mentorly.safety.UserBlockRepository;
 import com.mentorly.session.SessionRepository;
@@ -38,14 +38,15 @@ public class MentorSearchController {
 
         private final UserRepository userRepository;
         private final BookingRepository bookingRepository;
-        private final DirectConversationRepository directConversationRepository;
+        private final MessagingPolicyService messagingPolicyService;
         private final UserBlockRepository userBlockRepository;
         private final MentorReviewRepository mentorReviewRepository;
         private final SessionRepository sessionRepository;
 
         /**
          * Search across all enabled users (mentors + learners) by name.
-         * Learners see only mentors; mentors see everyone.
+         * Every signed-in user sees both roles; admin accounts and mentors
+         * pending approval are always excluded.
          */
         @GetMapping("/users")
         public ApiResponse<List<UserSearchResult>> searchUsers(
@@ -120,40 +121,13 @@ public class MentorSearchController {
                         return false;
                 }
 
-                if (directConversationRepository.findBetweenUsers(currentUser, target).isPresent()) {
+                if (messagingPolicyService.hasExistingConversation(currentUser, target)) {
                         return true;
                 }
 
-                return hasAcceptedSession(currentUser.getId(), target.getId());
-        }
-
-        private boolean hasAcceptedSession(Long currentUserId, Long targetUserId) {
-                for (BookingStatus status : List.of(
-                                BookingStatus.ACCEPTED,
-                                BookingStatus.CONFIRMED,
-                                BookingStatus.IN_PROGRESS,
-                                BookingStatus.COMPLETED)) {
-                        boolean hasForward = !bookingRepository
-                                        .findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(
-                                                        currentUserId,
-                                                        targetUserId,
-                                                        status)
-                                        .isEmpty();
-                        if (hasForward) {
-                                return true;
-                        }
-
-                        boolean hasReverse = !bookingRepository
-                                        .findBySessionMentorIdAndLearnerIdAndBookingStatusOrderByCreatedAtDesc(
-                                                        currentUserId,
-                                                        targetUserId,
-                                                        status)
-                                        .isEmpty();
-                        if (hasReverse) {
-                                return true;
-                        }
-                }
-                return false;
+                // Shared with the message-request/direct-chat privacy checks so
+                // the "connected" definition never drifts between surfaces.
+                return messagingPolicyService.hasAcceptedSession(currentUser.getId(), target.getId());
         }
 
         /**

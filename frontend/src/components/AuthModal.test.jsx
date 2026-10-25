@@ -290,3 +290,70 @@ describe("AuthModal — signup username availability", () => {
     expect(input.value).toBe("nakul");
   });
 });
+
+describe("AuthModal — OAuth mentor intent", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  const renderAuth = (mode) =>
+    render(
+      <MemoryRouter>
+        <AuthModal
+          mode={mode}
+          onClose={vi.fn()}
+          onLoggedIn={vi.fn()}
+          notify={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+  it("signup + MENTOR shows the hint and stores the destination on Google click", () => {
+    renderAuth("signup");
+
+    fireEvent.change(screen.getByLabelText("I want to"), {
+      target: { value: "MENTOR" },
+    });
+
+    expect(
+      screen.getByText(/You'll sign in as a learner first/i),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+
+    expect(localStorage.getItem("auth_post_redirect")).toBe(
+      "/become-a-mentor",
+    );
+  });
+
+  it("signup + LEARNER shows no hint and stores nothing on GitHub click", () => {
+    renderAuth("signup");
+
+    expect(
+      screen.queryByText(/You'll sign in as a learner first/i),
+    ).toBeNull();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with github/i }),
+    );
+
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+  });
+
+  it("login mode stores nothing on Google click", () => {
+    renderAuth("login");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with google/i }),
+    );
+
+    expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+  });
+});

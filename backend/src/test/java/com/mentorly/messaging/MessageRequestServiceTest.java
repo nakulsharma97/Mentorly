@@ -3,9 +3,10 @@ package com.mentorly.messaging;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.user.User;
+import com.mentorly.user.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -36,8 +37,26 @@ class MessageRequestServiceTest {
     @Mock
     private NotificationService notificationService;
 
-    @InjectMocks
+    @Mock
+    private UserRepository userRepository;
+
+    /**
+     * Built by hand instead of @InjectMocks so the shared policy service is
+     * the REAL one wired to these repository mocks — privacy assertions then
+     * exercise the exact code path production uses.
+     */
     private MessageRequestService messageRequestService;
+
+    @BeforeEach
+    void setUp() {
+        messageRequestService = new MessageRequestService(
+                messageRequestRepository,
+                directConversationRepository,
+                directMessageRepository,
+                notificationService,
+                userRepository,
+                new MessagingPolicyService(directConversationRepository, bookingRepository));
+    }
 
     private User user(Long id, String role) {
         User user = new User();
@@ -97,7 +116,7 @@ class MessageRequestServiceTest {
 
         assertThatThrownBy(() -> messageRequestService.createRequest(sender, receiver, "Hello"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already pending");
+                .hasMessageContaining("pending request");
     }
 
     @Test

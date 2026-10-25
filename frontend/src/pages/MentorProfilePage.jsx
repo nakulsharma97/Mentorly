@@ -986,7 +986,14 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify }
                     const res = await client.post(`/api/v1/chat/direct/${mentorId}`);
                     const data = res?.data?.data;
                     if (data?.conversationId) navigate(`/learner/messages/${data.conversationId}`);
-                  } catch (e) { console.debug('Message navigation failed', e); }
+                  } catch (e) {
+                    const detail =
+                      e?.response?.data?.data?.message ||
+                      e?.response?.data?.data?.error ||
+                      e?.response?.data?.message ||
+                      "Could not start the conversation.";
+                    notify?.({ type: "error", title: "Message failed", message: detail });
+                  }
                 }}>
                   <Icon name="chat" /> Send a Message
                 </button>

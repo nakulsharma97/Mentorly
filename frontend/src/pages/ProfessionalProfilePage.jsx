@@ -313,7 +313,7 @@ export default function ProfessionalProfilePage({ profile, notify }) {
             className="hero-section__btn hero-section__btn--primary"
           >
             <span className="material-symbols-outlined" style={{ fontSize: 20 }}>edit</span>
-            Full Profile Setup
+            Edit profile
           </Link>
         }
         illustration={

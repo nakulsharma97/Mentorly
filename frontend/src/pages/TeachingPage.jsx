@@ -1552,7 +1552,13 @@ export default function TeachingPage({ profile: profileProp, notify }) {
                                       const res = await client.post(`/api/v1/chat/direct/${targetId}`);
                                       const convId = res?.data?.data?.conversationId;
                                       navigate(convId ? `/mentor/messages/${convId}` : "/mentor/messages");
-                                    } catch {
+                                    } catch (err) {
+                                      const message =
+                                        err?.response?.data?.data?.message ||
+                                        err?.response?.data?.data?.error ||
+                                        err?.response?.data?.message ||
+                                        "Could not start the conversation.";
+                                      notify?.({ type: "error", title: "Message failed", message });
                                       navigate("/mentor/messages");
                                     }
                                   }}

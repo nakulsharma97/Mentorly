@@ -10,6 +10,7 @@ import client, {
 } from "../api/client";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
 import { getApiErrorMessage } from "../utils/apiErrors";
+import { POST_LOGIN_REDIRECT_KEY } from "../modules/common/routeUtils";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "./ui/Primitives";
 import OtpVerification from "./OtpVerification";
 
@@ -333,6 +334,17 @@ export default function AuthModal({
   // ── Social auth ──
   const onSocialAuth = (provider) => {
     trackAnalyticsEvent("auth_social_clicked", { provider, mode });
+    // OAuth leaves the page, so localStorage is the only way a mentor-intent
+    // signup can carry its destination across the round trip (the OAuth
+    // callback consumes it after login). Login and LEARNER signups are
+    // untouched — no key is written for them.
+    if (mode === "signup" && form.role === "MENTOR") {
+      try {
+        localStorage.setItem(POST_LOGIN_REDIRECT_KEY, "/become-a-mentor");
+      } catch {
+        // Storage unavailable — OAuth proceeds without mentor intent.
+      }
+    }
     window.location.href = `${API_BASE_URL}/oauth2/authorization/${provider}`;
   };
 
@@ -667,6 +679,12 @@ export default function AuthModal({
             Continue with GitHub
           </UIButton>
         </div>
+
+        {mode === "signup" && form.role === "MENTOR" && (
+          <p className="auth-oauth-mentor-hint" role="note">
+            You'll sign in as a learner first, then apply to become a mentor. An admin reviews every application.
+          </p>
+        )}
 
         {/* ── Switch mode ── */}
         <div className="auth-switch-mode">

@@ -158,8 +158,10 @@ export default function NewConversation({ profile, onClose, onStart, notify, var
       await sendRequest(user);
     } catch (err) {
       const body = err?.response?.data;
+      // Prefer the nested detail — ApiResponse keeps only a generic
+      // "Request failed" on top and puts the real reason in data.data.
       const message = String(
-        body?.message || body?.data?.error || err?.message || "",
+        body?.data?.message || body?.data?.error || body?.message || err?.message || "",
       );
       const lower = message.toLowerCase();
 
@@ -190,12 +192,21 @@ export default function NewConversation({ profile, onClose, onStart, notify, var
       }
 
       setError(
-        body?.message || body?.data?.error || err?.message || "Unable to send request.",
+        body?.data?.message ||
+          body?.data?.error ||
+          body?.message ||
+          err?.message ||
+          "Unable to send request.",
       );
       notify?.({
         type: "error",
         title: "Request failed",
-        message: body?.message || err?.message || "Please try again.",
+        message:
+          body?.data?.message ||
+          body?.data?.error ||
+          body?.message ||
+          err?.message ||
+          "Please try again.",
       });
     } finally {
       setWorkingUserId(null);

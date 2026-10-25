@@ -20,8 +20,13 @@ public interface MentorVerificationRequestRepository extends JpaRepository<Mento
     /**
      * Latest request (by creation) for a mentor regardless of status — feeds
      * the mentor dashboard status banner and duplicate-application checks.
+     *
+     * <p>created_at is a second-precision MySQL TIMESTAMP, so two rows written
+     * within the same second tie in ORDER BY created_at DESC. The id DESC
+     * tie-break (auto-increment PK) makes "latest" deterministic: the row
+     * inserted last always wins the tie.
      */
-    Optional<MentorVerificationRequest> findFirstByMentorIdOrderByCreatedAtDesc(Long mentorId);
+    Optional<MentorVerificationRequest> findFirstByMentorIdOrderByCreatedAtDescIdDesc(Long mentorId);
 
     long countByStatus(MentorVerificationRequestStatus status);
 

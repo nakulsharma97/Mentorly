@@ -1406,11 +1406,13 @@ export default function LearnerLearningPage() {
         const res = await client.post(`/api/v1/chat/direct/${mentor.mentorId}`);
         const conversationId = res?.data?.data?.conversationId || res?.data?.conversationId;
         navigate(conversationId ? `/learner/messages/${conversationId}` : "/learner/messages");
-      } catch {
-        navigate("/learner/messages");
+      } catch (err) {
+        // Show the backend reason in the in-page toast and stay put — the
+        // toast would be unmounted if we navigated away after a failure.
+        showToast("error", getErrorMessage(err));
       }
     },
-    [navigate],
+    [navigate, showToast],
   );
 
   const handleContinue = useCallback(() => {

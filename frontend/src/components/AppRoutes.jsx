@@ -67,6 +67,8 @@ const LearnerProfilePage = lazy(() => import("../pages/LearnerProfilePage"));
 const LearnerSettingsPage = lazy(() => import("../pages/LearnerSettingsPage"));
 const LearnerNotificationsPage = lazy(() => import("../pages/LearnerNotificationsPage"));
 const LearnerSessionRequestsPage = lazy(() => import("../pages/LearnerSessionRequestsPage"));
+const ShareReviewPage = lazy(() => import("../pages/ShareReviewPage"));
+const AdminSiteReviewsPage = lazy(() => import("../pages/AdminSiteReviewsPage"));
 
 function RedirectToMentorProfessionalProfile() {
   const { section } = useParams();
@@ -426,6 +428,18 @@ export default function AppRoutes({
 
       {/* ── Role-based redirect routes ── */}
       <Route path="/role-guide" element={rc("role-guide", <RoleGuide />)} />
+      {/* Site-wide "Share your review" — reachable by learners and mentors;
+          admins are bounced to their console (they moderate, not review). */}
+      <Route
+        path="/share-review"
+        element={
+          profile?.role === "ADMIN" ? (
+            <Navigate to="/admin/dashboard" replace />
+          ) : (
+            rc("share-review", <ShareReviewPage profile={profile} notify={notify} />)
+          )
+        }
+      />
       <Route path="/sessions" element={<Navigate to={profile?.role === "MENTOR" ? "/mentor/teach" : "/learner/sessions"} replace />} />
       <Route path="/resources" element={<Navigate to="/learner/resources" replace />} />
       <Route path="/teach" element={<Navigate to="/mentor/teach" replace />} />
@@ -467,6 +481,7 @@ export default function AppRoutes({
         <Route path="health" element={rc("admin-health", <PlatformHealthPage notify={notify} />)} />
         <Route path="reports" element={rc("admin-reports", <ReportsManagementPage notify={notify} />)} />
         <Route path="verifications" element={rc("admin-verifications", <MentorVerificationsPage notify={notify} />)} />
+        <Route path="site-reviews" element={rc("admin-site-reviews", <AdminSiteReviewsPage notify={notify} />)} />
         <Route path="payments" element={rc("admin-payments", <AdminPaymentsPage notify={notify} />)} />
         <Route path="skills" element={rc("admin-skills", <SkillManagementPage notify={notify} />)} />
         <Route path="conversations" element={rc("admin-conversations", <AdminOperationsPage notify={notify} />)} />

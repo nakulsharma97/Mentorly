@@ -779,6 +779,17 @@ describe("useAuthProfile – route protection", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
   });
 
+  it("not logged in + /become-a-mentor → saves destination and opens signup", async () => {
+    localStorage.removeItem("auth_post_redirect");
+    noSessionSetup();
+    const { result } = renderAt("/become-a-mentor");
+    await tick(100);
+
+    expect(localStorage.getItem("auth_post_redirect")).toBe("/become-a-mentor");
+    expect(mockNavigate).toHaveBeenCalledWith("/signup", { replace: true });
+    expect(result.current.authMode).toBe("signup");
+  });
+
   it("not logged in + /oauth/callback → OAuth handler navigates to /login", async () => {
     noSessionSetup();
     renderAt("/oauth/callback");
@@ -972,14 +983,11 @@ describe("useAuthProfile – route protection", () => {
     await tick(100);
 
     act(() => {
-      result.current.handleSelectAuthMode(
-        "login",
-        "/learner/sessions?tab=completed&review=1",
-      );
+      result.current.handleSelectAuthMode("login", "/share-review");
     });
 
     expect(localStorage.getItem("auth_post_redirect")).toBe(
-      "/learner/sessions?tab=completed&review=1",
+      "/share-review",
     );
     expect(mockNavigate).toHaveBeenCalledWith("/login");
   });
@@ -1025,18 +1033,14 @@ describe("useAuthProfile – route protection", () => {
       role: "LEARNER",
       profileCompleted: true,
     });
-    localStorage.setItem(
-      "auth_post_redirect",
-      "/learner/sessions?tab=completed&review=1",
-    );
+    localStorage.setItem("auth_post_redirect", "/share-review");
 
     renderAt("/login");
     await tick(100);
 
-    expect(mockNavigate).toHaveBeenCalledWith(
-      "/learner/sessions?tab=completed&review=1",
-      { replace: true },
-    );
+    expect(mockNavigate).toHaveBeenCalledWith("/share-review", {
+      replace: true,
+    });
     // Consumed exactly once — nothing lingers to hijack a later login.
     expect(localStorage.getItem("auth_post_redirect")).toBeNull();
   });

@@ -6,6 +6,9 @@ import com.mentorly.review.MentorReview;
 import com.mentorly.review.MentorReviewRepository;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.booking.BookingStatus;
+import com.mentorly.sitereview.SiteReview;
+import com.mentorly.sitereview.SiteReviewRepository;
+import com.mentorly.sitereview.SiteReviewStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ public class TestimonialsService {
     private final MentorReviewRepository mentorReviewRepository;
     private final LearnerReviewRepository learnerReviewRepository;
     private final BookingRepository bookingRepository;
+    private final SiteReviewRepository siteReviewRepository;
 
     public List<ReviewDto> latestApprovedReviews(int limit) {
         // Fetch recent reviews with JOIN FETCH to avoid N+1 on relationships
@@ -76,6 +80,29 @@ public class TestimonialsService {
                     r.getRating(),
                     r.getCreatedAt(),
                     r.getComment()));
+        }
+
+        // Approved platform-wide site reviews ("Share your review") join the same list.
+        for (SiteReview sr : siteReviewRepository.findByStatusWithUser(
+                SiteReviewStatus.APPROVED, PageRequest.of(0, fetchSize))) {
+            var author = sr.getUser();
+            long completed = 0;
+            if (author != null) {
+                completed = bookingRepository.countByLearnerIdAndBookingStatus(author.getId(),
+                        BookingStatus.COMPLETED)
+                        + bookingRepository.countBySessionMentorIdAndBookingStatus(author.getId(),
+                                BookingStatus.COMPLETED);
+            }
+            items.add(new ReviewDto(sr.getId(),
+                    author == null ? "" : author.getFullName(),
+                    author == null ? null : author.getProfileImageUrl(),
+                    false,
+                    author == null || author.getRole() == null ? "Learner" : author.getRole().name(),
+                    "Mentorly platform",
+                    completed,
+                    sr.getRating(),
+                    sr.getCreatedAt(),
+                    sr.getComment()));
         }
 
         return items.stream()

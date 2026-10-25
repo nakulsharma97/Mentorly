@@ -124,7 +124,7 @@ function mentorExtras(rawData) {
    Premium Mentor Card
    ========================================================================== */
 
-function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData }) {
+function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData, notify }) {
   // mentor.skills can be a CSV string, JSON string, array, or null — never
   // call .slice/.map/.length on it directly.
   const skills = normalizeSkills(mentor.skills);
@@ -148,6 +148,12 @@ function PremiumMentorCard({ mentor, saved, onSaveToggle, pending, rawData }) {
       }
     } catch (err) {
       window.console.error("[Message] Navigation failed:", err);
+      const message =
+        err?.response?.data?.data?.message ||
+        err?.response?.data?.data?.error ||
+        err?.response?.data?.message ||
+        "Could not start the conversation.";
+      notify?.({ type: "error", title: "Message failed", message });
       navigate("/learner/messages");
     }
   };
@@ -896,6 +902,7 @@ export default function LearnerMentorsPage({ notify }) {
               saved={isFavorite(mentor.id)}
               pending={isPending(mentor.id)}
               onSaveToggle={toggleMentorSave}
+              notify={notify}
             />
           ))}
         </div>

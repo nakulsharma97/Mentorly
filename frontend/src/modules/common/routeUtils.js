@@ -46,11 +46,12 @@ export const isPublicPath = (path) => {
 export const POST_LOGIN_REDIRECT_KEY = "auth_post_redirect";
 
 /**
- * Landing-page "Share Your Review" destination: the learner sessions page
- * opened on the Completed tab, with a review-intent flag so the page can
- * explain how to leave a review (deep-link also works without the flag).
+ * Landing-page "Share Your Review" destination: the site-wide review page
+ * (/share-review) where any signed-in learner or mentor can submit one
+ * review of the Mentorly platform itself (admin-moderated before it
+ * appears on the landing page).
  */
-export const REVIEW_DESTINATION = "/learner/sessions?tab=completed&review=1";
+export const REVIEW_DESTINATION = "/share-review";
 
 /**
  * Only internal app paths may be used as a post-login destination — rejects

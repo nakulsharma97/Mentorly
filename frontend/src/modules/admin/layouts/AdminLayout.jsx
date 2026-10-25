@@ -20,6 +20,7 @@ const GROUPS = [
       { to: "/admin/reports", label: "Reports", icon: "flag" },
       { to: "/admin/flagged-content", label: "Flagged Content", icon: "reports" },
       { to: "/admin/verifications", label: "Verifications", icon: "verified" },
+      { to: "/admin/site-reviews", label: "Site Reviews", icon: "rate_review" },
     ],
   },
   {
@@ -48,6 +49,7 @@ const PAGE_META = {
   reports: { title: "Reports", search: "Search reports..." },
   "flagged-content": { title: "Flagged Content", search: "Search..." },
   verifications: { title: "Mentor Verifications", search: "Search..." },
+  "site-reviews": { title: "Site Reviews", search: "Search reviews..." },
   analytics: { title: "Analytics", search: "Search..." },
   notifications: { title: "Broadcast Notification", search: "Search broadcasts..." },
   "notification-center": { title: "Notifications", search: "" },
