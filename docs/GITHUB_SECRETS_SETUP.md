@@ -31,14 +31,38 @@ This guide explains how to configure GitHub Secrets for CI/CD pipelines to secur
 
 ### Deployment Secrets
 
-| Secret Name                | Description                              | Example                             |
-| -------------------------- | ---------------------------------------- | ----------------------------------- |
-| `DOCKER_REGISTRY_URL`      | Docker registry URL                      | `gcr.io` or `docker.io`             |
-| `DOCKER_REGISTRY_USERNAME` | Docker registry username                 | `_json_key` (for GCR)               |
-| `DOCKER_REGISTRY_PASSWORD` | Docker registry password/token           | Base64-encoded service account JSON |
-| `KUBE_CONFIG`              | Kubernetes cluster config (if using K8s) | Base64-encoded kubeconfig file      |
-| `SSH_DEPLOY_KEY`           | SSH private key for server access        | SSH private key content             |
-| `SSH_KNOWN_HOSTS`          | Known hosts for SSH (fingerprints)       | SSH host keys                       |
+These are **GitHub Environment secrets** (Settings → Environments → `production` /
+`staging` → Environment secrets), and they are what makes `deploy.yml` actually
+deploy instead of logging *"Deployment skipped — no target configured"*.
+Set **either** the Render pair **or** the SSH pair; with neither set the workflow
+stays green but deploys nothing and runs no smoke tests.
+
+| Secret Name              | Mode   | Description                                                   | Example                                            |
+| ------------------------ | ------ | ------------------------------------------------------------- | -------------------------------------------------- |
+| `RENDER_DEPLOY_HOOK_URL` | render | Render → service → Settings → **Deploy Hook** (POST-only URL) | `https://api.render.com/v1/services/svc_…/hook/…`  |
+| `RENDER_SERVICE_URL`     | render | Optional: public base URL used by the post-deploy smoke tests | `https://mentorly-api.onrender.com`                |
+| `DEPLOY_HOST`            | ssh    | Production server hostname                                    | `deploy.example.com`                               |
+| `DEPLOY_USER`            | ssh    | SSH user                                                      | `deploy`                                           |
+| `DEPLOY_PATH`            | ssh    | Directory containing `docker-compose.yml` on the server       | `/srv/mentorly`                                    |
+| `DEPLOY_SSH_KEY`         | ssh    | SSH private key for server access                             | PEM/OpenSSH private key content                    |
+| `DEPLOY_SSH_PORT`        | ssh    | Optional SSH port (default `22`)                              | `22`                                               |
+| `DEPLOY_PROTOCOL`        | ssh    | Optional smoke-test protocol (default `https`)                | `https`                                            |
+| `STAGING_HOST` / `STAGING_USER` / `STAGING_PATH` / `STAGING_SSH_KEY` / `STAGING_SSH_PORT` / `STAGING_PROTOCOL` | ssh | Same as `DEPLOY_*`, used when the workflow is dispatched with `environment: staging` | — |
+
+> Partial configuration fails loudly: if only *some* `DEPLOY_*` / `STAGING_*`
+> secrets are set, `deploy.yml` errors instead of skipping. All-or-nothing.
+
+**CI-only secrets** (repository level, optional — a missing value only skips the
+optional step):
+
+| Secret Name                                              | Used by        | Effect when unset       |
+| -------------------------------------------------------- | -------------- | ----------------------- |
+| `SLACK_WEBHOOK_URL`                                      | backend-ci, deploy | Slack notification skipped |
+| `MAIL_SERVER`, `MAIL_TO`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_PORT`, `MAIL_FROM` | backend-ci, deploy | Email notification skipped |
+| `PLAYWRIGHT_BACKEND_URL`                                 | frontend-ci    | Playwright E2E job skipped |
+
+> The backend Docker image needs no registry secret: `backend-ci` pushes to
+> `ghcr.io` with the workflow's own `GITHUB_TOKEN`.
 
 ## How to Add Secrets to GitHub
 

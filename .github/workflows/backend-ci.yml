@@ -6,14 +6,12 @@ on:
       - main
     paths:
       - "backend/**"
-      - "pom.xml"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches:
       - main
     paths:
       - "backend/**"
-      - "pom.xml"
       - ".github/workflows/backend-ci.yml"
   release:
     types: [published]

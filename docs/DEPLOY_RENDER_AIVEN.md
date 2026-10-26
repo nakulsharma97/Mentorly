@@ -43,18 +43,27 @@ Dockerfile **hai** — aur ab repo root par bhi ek hai, taaki Render ke default 
 
 | File | Kiske liye | Build context |
 |---|---|---|
-| [`Dockerfile`](../Dockerfile) | Repo root se banta **wahi backend API** (Render default ke liye) | repo root |
+| [`Dockerfile`](../Dockerfile) | **Single-service image**: frontend build (node) + backend build (Maven) + runtime me nginx aur Spring Boot dono (`start.sh`) — sirf Render ke default `./Dockerfile` ke liye fallback | repo root |
 | [`backend/Dockerfile`](../backend/Dockerfile) | `mentorly-api` (Spring Boot, Maven multi-stage) — canonical image | `backend/` |
 | [`frontend/Dockerfile.render`](../frontend/Dockerfile.render) | `mentorly-web` (Vite build + nginx) | `frontend/` |
 | [`frontend/nginx.render.conf.template`](../frontend/nginx.render.conf.template) | nginx config (proxy + SPA fallback) | — |
 | [`.dockerignore`](../.dockerignore) | root context chhota rakhta hai; `.env` image me nahi jaata | repo root |
 
-Root `Dockerfile` **sirf** isliye hai ki jab `Root Directory` aur `Dockerfile Path` dono khaali hon (Render ka default → `./Dockerfile`)
-to build `open Dockerfile: no such file or directory` par fail na ho. Wo **backend** image banata hai, frontend nahi:
+Root `Dockerfile` ab **backend-only nahi** hai: wo frontend (Vite) aur backend (Maven)
+dono build karta hai aur ek container me chalata hai — nginx `$PORT` par SPA serve karta
+hai aur `/api`, `/oauth2`, `/login/oauth2`, `/ws`, `/actuator/health` ko internal
+Spring Boot (`127.0.0.1:8081`) par proxy karta hai (`start.sh`). Ye **sirf** fallback
+hai taaki jab `Root Directory` aur `Dockerfile Path` dono khaali hon (Render ka default
+→ `./Dockerfile`) to build `open Dockerfile: no such file or directory` par fail na ho.
+
+**Canonical path: [`render.yaml`](../render.yaml) (rasta B — do services).** Root
+`Dockerfile` ek alternate all-in-one image hai; dono same-origin proxy rakhte hain, par
+blueprint wala do-services setup isi doc ka documented route hai.
 
 - frontend service ke liye `Root Directory: frontend` + `Dockerfile Path: Dockerfile.render` set karna **zaroori** hai, warna wo bhi backend build kar dega.
-- Root `Dockerfile` port `$PORT` se bind karta hai (Render default `10000`) — `--server.port=${PORT:-8080}` ki wajah se `PORT`/`SERVER_PORT`
-  manually set karne ki zaroorat nahi padti.
+- Root `Dockerfile` `$PORT` par bind karta hai (Render default `10000`) aur Spring ko
+  internal `8081` par `--server.port=8081` se chalata hai; single-service setup me
+  `SERVER_PORT` set karne ki zaroorat nahi padti.
 
 Do valid raste:
 

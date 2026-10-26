@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/frontend-ci.yml?branch=main&label=frontend%20CI&logo=github" alt="Frontend CI" />
   </a>
   <a href="https://github.com/nakulsharma97/Mentorly/actions/workflows/deploy.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/deploy.yml?branch=main&label=deploy&logo=github" alt="Deploy" />
+    <img src="https://img.shields.io/github/actions/workflow/status/nakulsharma97/Mentorly/deploy.yml?branch=main&label=deploy%20(opt-in)&logo=github" alt="Deploy workflow (opt-in: runs green even when no deploy target is configured)" />
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/github/license/nakulsharma97/Mentorly" alt="License" />
@@ -23,7 +23,7 @@
   </a>
 </p>
 
-> The CI badges show the live status of the GitHub Actions workflows on `main`. The coverage badges show the **real measured values** from the latest local runs: backend **47.6% line coverage** (JaCoCo — `cd backend && mvn clean verify`, report at `backend/target/site/jacoco/index.html`) and frontend **52.9% line coverage** (Vitest — `cd frontend && npm run test:coverage`, report at `frontend/coverage/index.html`). These are static badges: regenerate them by re-running the commands above and updating the numbers, or replace them with auto-updating badges once a hosted coverage service (e.g. Codecov) is connected to CI.
+> The CI badges show the live status of the GitHub Actions workflows on `main`. The **deploy badge is opt-in**: `deploy.yml` succeeds even when it deployed nothing (no `RENDER_DEPLOY_HOOK_URL` / `DEPLOY_*` secret configured → the job logs "Deployment skipped" and runs no smoke test), so read it as "the deploy workflow ran", not "production was updated". Production is updated either by Render's own git integration or once a deploy target is configured — see [docs/GITHUB_SECRETS_SETUP.md](docs/GITHUB_SECRETS_SETUP.md#deployment-secrets). The coverage badges show the **real measured values** from the latest local runs: backend **47.6% line coverage** (JaCoCo — `cd backend && mvn clean verify`, report at `backend/target/site/jacoco/index.html`) and frontend **52.9% line coverage** (Vitest — `cd frontend && npm run test:coverage`, report at `frontend/coverage/index.html`). These are static badges: regenerate them by re-running the commands above and updating the numbers, or replace them with auto-updating badges once a hosted coverage service (e.g. Codecov) is connected to CI.
 
 Mentorly is a full-stack, role-based mentorship marketplace where **learners** book 1:1 sessions with **verified mentors**. The platform separates learner, mentor, and admin experiences behind distinct workspaces and includes a simulated payment-gateway layer, real-time chat, Google Meet integration, review moderation, and wallet payouts.
 
@@ -607,7 +607,7 @@ Quality gates on `mvn verify`: **JaCoCo line coverage ≥ 40%** (enforced by `ja
 |---|---|---|
 | `backend-ci.yml` | PR / push | Backend build + tests + quality gates |
 | `frontend-ci.yml` | PR / push | Frontend build + lint + unit tests (+ e2e) |
-| `deploy.yml` | Release / manual | Build images, deploy to target environment |
+| `deploy.yml` | After backend-ci / frontend-ci on `main`, or manual | Deploy to the configured target (Render hook or SSH + `scripts/deploy.sh`) with health smoke tests — **opt-in**: skips cleanly until a target secret exists |
 
 ### Deployment targets
 

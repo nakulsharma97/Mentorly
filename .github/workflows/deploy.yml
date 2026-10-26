@@ -2,8 +2,12 @@ name: deploy
 
 on:
   # ── Triggered after a successful Docker image push ─────
+  # Both CI workflows: a backend-only OR a frontend-only push to main must
+  # deploy. When one push touches both paths the deploy job runs twice; the
+  # render step is a re-trigger of the same commit (harmless), and the SSH
+  # step is idempotent (same image tag, same compose project).
   workflow_run:
-    workflows: ["backend-ci"]
+    workflows: ["backend-ci", "frontend-ci"]
     types:
       - completed
     branches:

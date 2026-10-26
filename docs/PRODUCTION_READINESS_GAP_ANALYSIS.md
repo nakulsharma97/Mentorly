@@ -73,7 +73,7 @@
 
 ### CI/CD (Partial)
 
-- ✅ GitHub Actions workflows (ci.yml, release-please.yml)
+- ✅ GitHub Actions workflows (backend-ci.yml, frontend-ci.yml, deploy.yml)
 - ✅ Code linting and tests
 - ✅ Coverage gates
 - ✅ Dependency security checks

@@ -116,7 +116,11 @@ log_ok "All required commands available"
 # ── Step 1: Pull the latest image ────────────────────────
 log_step "Pulling Docker images"
 
-BACKEND_IMAGE="${BACKEND_IMAGE:-${REGISTRY}/${GITHUB_REPOSITORY:-nakulsharma97/Mentorly}-backend:${IMAGE_TAG}}"
+# Registry references MUST be lowercase ("repository name must be lowercase").
+# ${var,,} needs bash 4+, so use tr to stay portable — CI lowercases its tags
+# via docker/metadata-action, and docker-compose.yml defaults to the same name.
+REPO_LOWER="$(echo "${GITHUB_REPOSITORY:-nakulsharma97/Mentorly}" | tr '[:upper:]' '[:lower:]')"
+BACKEND_IMAGE="${BACKEND_IMAGE:-${REGISTRY}/${REPO_LOWER}-backend:${IMAGE_TAG}}"
 log_info "Pulling backend: $BACKEND_IMAGE"
 
 # Save the current image digest for rollback
