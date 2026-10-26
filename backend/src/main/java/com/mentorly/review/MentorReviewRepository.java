@@ -14,6 +14,19 @@ import java.util.Optional;
 public interface MentorReviewRepository extends JpaRepository<MentorReview, Long> {
     boolean existsByBookingId(Long bookingId);
 
+    /**
+     * Booking ids from the given set that already carry a mentor review — one
+     * query replaces a per-booking {@code existsByBookingId} round trip.
+     */
+    @Query("select r.booking.id from MentorReview r where r.booking.id in :bookingIds")
+    List<Long> findReviewedBookingIdsIn(
+            @org.springframework.data.repository.query.Param("bookingIds") java.util.Collection<Long> bookingIds);
+
+    /** Rating histogram for one mentor — one GROUP BY replaces five full-list scans. */
+    @Query("select r.rating, count(r) from MentorReview r where r.mentor.id = :mentorId group by r.rating")
+    List<Object[]> countByRatingForMentorId(
+            @org.springframework.data.repository.query.Param("mentorId") Long mentorId);
+
     Optional<MentorReview> findByBookingId(Long bookingId);
 
     long countByMentorId(Long mentorId);

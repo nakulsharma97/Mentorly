@@ -8,7 +8,10 @@ import com.mentorly.skill.SkillRepository;
 import com.mentorly.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -31,13 +34,30 @@ public class StatsService {
     private final BookingRepository bookingRepository;
     private final MentorReviewRepository mentorReviewRepository;
     private final LearnerReviewRepository learnerReviewRepository;
+    private final CacheManager cacheManager;
+
+    /**
+     * Safety net for the TTL-less in-memory cache used when Redis is off
+     * (docker-compose and Render both ship with {@code APP_REDIS_ENABLED}
+     * unset): nothing else ever evicts {@code communityStats}, so without this
+     * sweep the landing-page counters froze at their first value for the whole
+     * life of the process. Redis entries already expire on their 30 s TTL.
+     */
+    @Scheduled(fixedDelayString = "60000")
+    public void evictStaleCommunityStats() {
+        Cache cache = cacheManager.getCache("communityStats");
+        if (cache != null) {
+            cache.clear();
+        }
+    }
 
     /**
      * Returns community-wide statistics (users, skills, swaps, ratings).
      * <p>
-     * Cached for 30 seconds — the landing page fires 3 simultaneous calls
-     * and the data changes infrequently. Cache key: literal "global" since
-     * this is site-wide, not user-specific.
+     * Cached for at most ~60 seconds — the landing page fires 3 simultaneous
+     * calls and the data changes infrequently. Cache key: literal "global"
+     * since this is site-wide, not user-specific. See
+     * {@link #evictStaleCommunityStats()} for the refresh guarantee.
      */
     @Cacheable(value = "communityStats", key = "'global'", unless = "#result == null")
     public CommunityStatsDto getCommunityStats() {

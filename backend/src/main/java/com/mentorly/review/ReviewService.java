@@ -55,7 +55,7 @@ public class ReviewService {
      * Create a mentor review (learner reviews a mentor after a completed session).
      */
     @Transactional
-    @CacheEvict(value = {"mentorReviews", "mentorRating"}, key = "#mentorId")
+    @CacheEvict(value = "mentorReviews", allEntries = true)
     public MentorReview createMentorReview(User learner, Long bookingId, Long mentorId,
             Integer rating, String comment) {
         profileCompletionGuard.requireProfileCompleted(learner,
@@ -110,9 +110,14 @@ public class ReviewService {
 
     /**
      * Create a learner review (mentor reviews a learner after a completed session).
+     *
+     * <p>No {@code @CacheEvict} here on purpose: learner reviews are served by
+     * the uncached {@link #getLearnerReviews(Long)}, so there is nothing to
+     * invalidate. (The old annotation referenced a {@code #mentorId} parameter
+     * this method never had, which made every call fail with "Null key returned
+     * for cache operation".)
      */
     @Transactional
-    @CacheEvict(value = {"mentorReviews", "mentorRating"}, key = "#mentorId")
     public LearnerReview createLearnerReview(User mentor, Long bookingId, Long learnerId,
             Integer rating, String comment) {
         profileCompletionGuard.requireProfileCompleted(mentor,
@@ -168,7 +173,7 @@ public class ReviewService {
      * Reply to a mentor review. Only the mentor who owns the review can reply.
      */
     @Transactional
-    @CacheEvict(value = {"mentorReviews", "mentorRating"}, key = "#mentor.id")
+    @CacheEvict(value = "mentorReviews", allEntries = true)
     public MentorReview replyToReview(User mentor, Long reviewId, String replyText) {
         MentorReview review = mentorReviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IllegalArgumentException("Review not found"));
@@ -252,11 +257,14 @@ public class ReviewService {
                 PaymentStatus.RELEASED,
                 PaymentStatus.COMPLETED);
 
-        return bookingRepository
+        List<Booking> completed = bookingRepository
                 .findByLearnerIdAndSessionMentorIdAndBookingStatusOrderByCreatedAtDesc(
-                        learner.getId(), mentorId, BookingStatus.COMPLETED)
-                .stream()
-                .filter(booking -> !mentorReviewRepository.existsByBookingId(booking.getId()))
+                        learner.getId(), mentorId, BookingStatus.COMPLETED);
+        // ONE query for every already-reviewed booking — not one per row.
+        Set<Long> reviewed = alreadyReviewedBookingIds(completed, mentorReviewRepository::findReviewedBookingIdsIn);
+
+        return completed.stream()
+                .filter(booking -> !reviewed.contains(booking.getId()))
                 .filter(booking -> booking.getPaymentStatus() != null
                         && successStatuses.contains(booking.getPaymentStatus()))
                 .map(EligibleBookingResponse::from)
@@ -267,13 +275,31 @@ public class ReviewService {
      * Get bookings eligible for learner review (mentor's completed sessions with a learner).
      */
     public List<EligibleBookingResponse> getEligibleBookingsForLearnerReview(User mentor, Long learnerId) {
-        return bookingRepository
+        List<Booking> completed = bookingRepository
                 .findBySessionMentorIdAndLearnerIdAndBookingStatusOrderByCreatedAtDesc(
-                        mentor.getId(), learnerId, BookingStatus.COMPLETED)
-                .stream()
-                .filter(booking -> !learnerReviewRepository.existsByBookingId(booking.getId()))
+                        mentor.getId(), learnerId, BookingStatus.COMPLETED);
+        // ONE query for every already-reviewed booking — not one per row.
+        Set<Long> reviewed = alreadyReviewedBookingIds(completed, learnerReviewRepository::findReviewedBookingIdsIn);
+
+        return completed.stream()
+                .filter(booking -> !reviewed.contains(booking.getId()))
                 .map(EligibleBookingResponse::from)
                 .toList();
+    }
+
+    /**
+     * Ids of the given bookings that already carry a review, resolved with a
+     * single {@code IN (...)} query instead of one {@code existsByBookingId}
+     * round-trip per booking (the old N+1 on both eligibility endpoints).
+     */
+    private Set<Long> alreadyReviewedBookingIds(
+            List<Booking> bookings,
+            java.util.function.Function<java.util.Collection<Long>, List<Long>> reviewedIdsLookup) {
+        if (bookings.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> ids = bookings.stream().map(Booking::getId).toList();
+        return new java.util.HashSet<>(reviewedIdsLookup.apply(ids));
     }
 
     // ════════════════════════════════════════════════
@@ -289,8 +315,6 @@ public class ReviewService {
         Pageable pageable = PageRequest.of(page, Math.min(size, 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        List<MentorReview> allReviews = mentorReviewRepository
-                .findByMentorIdOrderByCreatedAtDesc(mentorId);
         Page<MentorReview> pageResult = mentorReviewRepository
                 .findByMentorIdOrderByCreatedAtDesc(mentorId, pageable);
 
@@ -300,15 +324,27 @@ public class ReviewService {
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
         long totalReviews = mentorReviewRepository.countByMentorId(mentorId);
-        long recommended = allReviews.stream().filter(r -> r.getRating() >= 4).count();
-        long fiveStarReviews = allReviews.stream().filter(r -> r.getRating() == 5).count();
 
+        // Star distribution from ONE GROUP BY query — the old implementation
+        // loaded every review of this mentor (twice) and streamed the full list
+        // five more times to build the histogram.
         Map<Integer, Long> distribution = new LinkedHashMap<>();
+        long recommended = 0L;
         for (int star = 5; star >= 1; star--) {
-            final int currentStar = star;
-            long count = allReviews.stream().filter(r -> r.getRating() == currentStar).count();
-            distribution.put(star, count);
+            distribution.put(star, 0L);
         }
+        for (Object[] row : mentorReviewRepository.countByRatingForMentorId(mentorId)) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) {
+                continue;
+            }
+            int star = ((Number) row[0]).intValue();
+            long count = ((Number) row[1]).longValue();
+            distribution.put(star, count);
+            if (star >= 4) {
+                recommended += count;
+            }
+        }
+        long fiveStarReviews = distribution.getOrDefault(5, 0L);
 
         int recommendationRate = totalReviews == 0 ? 0
                 : (int) Math.round(recommended * 100.0 / totalReviews);
@@ -328,9 +364,9 @@ public class ReviewService {
      * Get learner reviews with summary statistics.
      */
     public ReviewSummaryResponse getLearnerReviews(Long learnerId) {
-        List<ReviewItemResponse> reviews = learnerReviewRepository
-                .findByLearnerIdOrderByCreatedAtDesc(learnerId)
-                .stream()
+        List<LearnerReview> all = learnerReviewRepository.findByLearnerIdOrderByCreatedAtDesc(learnerId);
+
+        List<ReviewItemResponse> reviews = all.stream()
                 .map(review -> new ReviewItemResponse(
                         review.getId(),
                         review.getMentor().getId(),
@@ -347,15 +383,27 @@ public class ReviewService {
                         review.getCreatedAt() == null ? null : review.getCreatedAt().toString()))
                 .toList();
 
-        double averageRating = learnerReviewRepository.averageRatingByLearnerId(learnerId);
-        long totalReviews = learnerReviewRepository.countByLearnerId(learnerId);
+        // Derived from the rows we already loaded: the previous version hard
+        // coded a 100% recommendation rate for any non-empty list and passed the
+        // total into the five-star slot, so both numbers were wrong.
+        long totalReviews = all.size();
+        long fiveStarReviews = all.stream().filter(r -> Integer.valueOf(5).equals(r.getRating())).count();
+        long recommended = all.stream().filter(r -> r.getRating() != null && r.getRating() >= 4).count();
+        double averageRating = totalReviews == 0 ? 0.0
+                : all.stream().mapToLong(LearnerReview::getRating).average().orElse(0.0);
+
+        Map<Integer, Long> distribution = new LinkedHashMap<>();
+        for (int star = 5; star >= 1; star--) {
+            final int currentStar = star;
+            distribution.put(star, all.stream().filter(r -> Integer.valueOf(currentStar).equals(r.getRating())).count());
+        }
 
         return new ReviewSummaryResponse(
                 Math.round(averageRating * 10.0) / 10.0,
                 totalReviews,
-                totalReviews == 0 ? 0 : 100,
-                totalReviews,
-                Map.of(),
+                totalReviews == 0 ? 0 : (int) Math.round(recommended * 100.0 / totalReviews),
+                fiveStarReviews,
+                distribution,
                 reviews,
                 reviews.isEmpty() ? 0 : 1,
                 0);

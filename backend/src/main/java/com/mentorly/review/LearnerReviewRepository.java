@@ -11,6 +11,14 @@ import java.util.List;
 public interface LearnerReviewRepository extends JpaRepository<LearnerReview, Long> {
     boolean existsByBookingId(Long bookingId);
 
+    /**
+     * Booking ids from the given set that already carry a learner review — one
+     * query replaces a per-booking {@code existsByBookingId} round trip.
+     */
+    @Query("select r.booking.id from LearnerReview r where r.booking.id in :bookingIds")
+    List<Long> findReviewedBookingIdsIn(
+            @org.springframework.data.repository.query.Param("bookingIds") java.util.Collection<Long> bookingIds);
+
     /** True when this mentor has already written a review about this learner. */
     boolean existsByLearnerIdAndMentorId(Long learnerId, Long mentorId);
 
