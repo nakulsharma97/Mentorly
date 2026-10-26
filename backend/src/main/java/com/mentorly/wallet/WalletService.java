@@ -41,11 +41,11 @@ public class WalletService {
     private final RazorpayLinkedAccountRepository razorpayLinkedAccountRepository;
 
     public List<WalletLedgerEntry> history(User user) {
-        return ledgerRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+        return ledgerRepository.findByUserIdOrderByCreatedAtDescIdDesc(user.getId());
     }
 
     public WalletBalance balance(User user) {
-        BigDecimal balance = ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(user.getId())
+        BigDecimal balance = ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(user.getId())
                 .map(WalletLedgerEntry::getBalanceAfter)
                 .orElse(BigDecimal.ZERO);
         return new WalletBalance(balance, "INR");
@@ -122,7 +122,7 @@ public class WalletService {
         // Duplicate withdrawal protection: check for recent pending withdrawal
         // with the same amount to prevent double-click submissions
         List<WalletLedgerEntry> recentWithdrawals = ledgerRepository
-                .findByUserIdOrderByCreatedAtDesc(currentUser.getId());
+                .findByUserIdOrderByCreatedAtDescIdDesc(currentUser.getId());
         boolean hasDuplicatePending = recentWithdrawals.stream()
                 .limit(5)
                 .anyMatch(e -> e.getType() == WalletTransactionType.WITHDRAWAL

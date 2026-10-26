@@ -3,6 +3,7 @@ package com.mentorly.sessionrequest;
 import com.mentorly.booking.Booking;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.booking.BookingStatus;
+import com.mentorly.common.HttpUrls;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.session.SessionRepository;
 import com.mentorly.session.SessionStatus;
@@ -202,7 +203,10 @@ public class SessionRequestService {
         session.setStartTime(startTime);
         session.setEndTime(endTime);
         session.setPriceAmount(priceAmount != null ? priceAmount : BigDecimal.ZERO);
-        session.setMeetingLink(meetingLink);
+        // Same rule as SessionController: this link is rendered as an anchor on
+        // the learner's dashboard, so javascript:/data: schemes must never be
+        // stored (they execute in the victim's origin on click).
+        session.setMeetingLink(HttpUrls.requireHttpUrl(meetingLink));
         session.setCancellationWindowHours(24);
         session.setRescheduleWindowHours(12);
         session.setMaxParticipants(1);

@@ -1,5 +1,6 @@
 package com.mentorly.user;
 
+import com.mentorly.common.HttpUrls;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +34,8 @@ public class UserProjectService {
         project.setTitle(trimToNull(request.getTitle()));
         project.setDescription(trimToNull(request.getDescription()));
         project.setTechnologies(trimToNull(request.getTechnologies()));
-        project.setGithubUrl(trimToNull(request.getGithubUrl()));
-        project.setLiveDemoUrl(trimToNull(request.getLiveDemoUrl()));
+        project.setGithubUrl(HttpUrls.requireHttpUrl(request.getGithubUrl()));
+        project.setLiveDemoUrl(HttpUrls.requireHttpUrl(request.getLiveDemoUrl()));
         project.setRole(trimToNull(request.getRole()));
         project.setImageUrls(trimToNull(request.getImageUrls()));
         project.setStartDate(request.getStartDate());
@@ -55,8 +56,8 @@ public class UserProjectService {
         project.setTitle(trimToNull(request.getTitle()));
         project.setDescription(trimToNull(request.getDescription()));
         project.setTechnologies(trimToNull(request.getTechnologies()));
-        project.setGithubUrl(trimToNull(request.getGithubUrl()));
-        project.setLiveDemoUrl(trimToNull(request.getLiveDemoUrl()));
+        project.setGithubUrl(HttpUrls.requireHttpUrl(request.getGithubUrl()));
+        project.setLiveDemoUrl(HttpUrls.requireHttpUrl(request.getLiveDemoUrl()));
         project.setRole(trimToNull(request.getRole()));
         project.setImageUrls(trimToNull(request.getImageUrls()));
         project.setStartDate(request.getStartDate());

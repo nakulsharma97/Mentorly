@@ -3,6 +3,7 @@ package com.mentorly.sessionrequest;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.session.SessionRepository;
+import com.mentorly.session.SkillSession;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
 import com.mentorly.user.UserRole;
@@ -15,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -410,5 +413,49 @@ class SessionRequestServiceTest {
         List<SessionRequest> result = sessionRequestService.listForLearner(learner);
 
         assertEquals(3, result.size());
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  createSessionFromRequest — meeting-link scheme guard
+    // ═══════════════════════════════════════════════════
+
+    @Test
+    void createSessionFromRequestRejectsNonHttpMeetingLink() {
+        when(sessionRequestRepository.findByIdAndMentorId(acceptedRequest.getId(), mentor.getId()))
+                .thenReturn(Optional.of(acceptedRequest));
+
+        OffsetDateTime start = OffsetDateTime.now().plusDays(1);
+        OffsetDateTime end = start.plusHours(1);
+
+        // The meeting link is rendered as <a href> on the learner's dashboard,
+        // so a javascript: scheme must be rejected before anything is stored.
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> sessionRequestService.createSessionFromRequest(
+                        mentor, acceptedRequest.getId(), "Node coaching", "One-to-one",
+                        start, end, BigDecimal.TEN, "javascript:alert(document.cookie)"));
+
+        assertTrue(error.getMessage().toLowerCase().contains("http"),
+                "error should point at the http(s) requirement");
+        verify(sessionRepository, never()).save(any(SkillSession.class));
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void createSessionFromRequestStoresHttpMeetingLink() {
+        when(sessionRequestRepository.findByIdAndMentorId(acceptedRequest.getId(), mentor.getId()))
+                .thenReturn(Optional.of(acceptedRequest));
+        when(sessionRepository.save(any(SkillSession.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        OffsetDateTime start = OffsetDateTime.now().plusDays(1);
+        OffsetDateTime end = start.plusHours(1);
+
+        SkillSession saved = sessionRequestService.createSessionFromRequest(
+                mentor, acceptedRequest.getId(), "Node coaching", "One-to-one",
+                start, end, BigDecimal.TEN, "  https://meet.example.com/room-42  ");
+
+        assertEquals("https://meet.example.com/room-42", saved.getMeetingLink(),
+                "a valid link is stored trimmed");
+        verify(sessionRequestRepository).save(any(SessionRequest.class));
     }
 }

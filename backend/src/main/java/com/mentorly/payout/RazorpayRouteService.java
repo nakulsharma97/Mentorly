@@ -491,7 +491,7 @@ public class RazorpayRouteService {
                     BigDecimal reversalAmount = entry.getAmount().abs();
 
                     BigDecimal currentBalance = ledgerRepository
-                            .findFirstByUserIdOrderByCreatedAtDesc(mentor.getId())
+                            .findFirstByUserIdOrderByCreatedAtDescIdDesc(mentor.getId())
                             .map(WalletLedgerEntry::getBalanceAfter)
                             .orElse(BigDecimal.ZERO);
 

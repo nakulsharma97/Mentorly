@@ -67,7 +67,7 @@ class WalletServiceTest {
 
     @Test
     void balanceReturnsZeroForNewUser() {
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.empty());
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(Optional.empty());
 
         var result = walletService.balance(user);
 
@@ -80,7 +80,7 @@ class WalletServiceTest {
         WalletLedgerEntry entry = new WalletLedgerEntry();
         entry.setBalanceAfter(new BigDecimal("75.50"));
 
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.of(entry));
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(Optional.of(entry));
 
         var result = walletService.balance(user);
 
@@ -92,12 +92,12 @@ class WalletServiceTest {
     @Test
     void historyDelegatesToRepository() {
         var entries = List.of(new WalletLedgerEntry(), new WalletLedgerEntry());
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(entries);
+        when(ledgerRepository.findByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(entries);
 
         var result = walletService.history(user);
 
         assertEquals(2, result.size());
-        verify(ledgerRepository).findByUserIdOrderByCreatedAtDesc(userId);
+        verify(ledgerRepository).findByUserIdOrderByCreatedAtDescIdDesc(userId);
     }
 
     // ── withdraw() — validation ──────────────────────────
@@ -439,7 +439,7 @@ class WalletServiceTest {
         WalletLedgerEntry second = new WalletLedgerEntry();
         second.setBalanceAfter(new BigDecimal("75.00"));
 
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(userId))
                 .thenReturn(Optional.of(second));
 
         var result = walletService.balance(user);
@@ -451,13 +451,13 @@ class WalletServiceTest {
         WalletLedgerEntry entry = new WalletLedgerEntry();
         entry.setBalanceAfter(new BigDecimal("42.00"));
 
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId))
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(userId))
                 .thenReturn(Optional.of(entry));
 
         var result = walletService.balance(user);
         assertEquals(new BigDecimal("42.00"), result.balance());
         // Verify the new LIMIT 1 method is used, not the full-list method
-        verify(ledgerRepository, never()).findByUserIdOrderByCreatedAtDesc(any());
+        verify(ledgerRepository, never()).findByUserIdOrderByCreatedAtDescIdDesc(any());
     }
 
     // ── BUG 1: Idempotency key protection ─────────────────
@@ -467,7 +467,7 @@ class WalletServiceTest {
         seedBalance(initialBalance);
         // First call reaches the duplicate-pending check; second call returns early
         // via idempotency, so this stub is only consumed by the first call.
-        lenient().when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        lenient().when(ledgerRepository.findByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(List.of());
         // findByIdWithLock is only reached on the first call's addEntry path
         lenient().when(userRepository.findByIdWithLock(userId)).thenReturn(Optional.of(user));
 
@@ -551,7 +551,7 @@ class WalletServiceTest {
     void withdrawFailedPayoutStatusPersistsAfterRollback() {
         seedBalance(initialBalance);
         setupUserFound();
-        when(ledgerRepository.findByUserIdOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+        when(ledgerRepository.findByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(List.of());
 
         WalletLedgerEntry savedEntry = new WalletLedgerEntry();
         savedEntry.setId(400L);
@@ -606,7 +606,7 @@ class WalletServiceTest {
     private void seedBalance(BigDecimal amount) {
         WalletLedgerEntry existing = new WalletLedgerEntry();
         existing.setBalanceAfter(amount);
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(userId)).thenReturn(Optional.of(existing));
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(userId)).thenReturn(Optional.of(existing));
     }
 
     private void setupUserFound() {

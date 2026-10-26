@@ -360,7 +360,7 @@ public class StripeConnectService {
                     credit.setAmount(reversalAmount);
                     // Compute new balance
                     BigDecimal currentBalance = ledgerRepository
-                            .findFirstByUserIdOrderByCreatedAtDesc(mentor.getId())
+                            .findFirstByUserIdOrderByCreatedAtDescIdDesc(mentor.getId())
                             .map(com.mentorly.wallet.WalletLedgerEntry::getBalanceAfter)
                             .orElse(BigDecimal.ZERO);
                     credit.setBalanceAfter(currentBalance.add(reversalAmount));

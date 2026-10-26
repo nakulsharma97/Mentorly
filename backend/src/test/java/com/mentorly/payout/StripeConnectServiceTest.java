@@ -343,7 +343,7 @@ class StripeConnectServiceTest {
         lastBalance.setBalanceAfter(new BigDecimal("200.00"));
 
         when(ledgerRepository.findAll()).thenReturn(List.of(failedEntry));
-        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDesc(42L))
+        when(ledgerRepository.findFirstByUserIdOrderByCreatedAtDescIdDesc(42L))
                 .thenReturn(Optional.of(lastBalance));
         when(ledgerRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 

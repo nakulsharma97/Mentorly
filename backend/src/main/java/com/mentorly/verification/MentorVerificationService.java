@@ -14,6 +14,7 @@ import com.mentorly.user.UserProjectDto;
 import com.mentorly.user.UserProjectService;
 import com.mentorly.user.UserRepository;
 import com.mentorly.user.UserRole;
+import com.mentorly.common.HttpUrls;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -533,13 +534,17 @@ public class MentorVerificationService {
             user.setHourlyRate(req.hourlyRate());
         }
         if (req.linkedinUrl() != null && !req.linkedinUrl().isBlank()) {
-            user.setLinkedinUrl(req.linkedinUrl().trim());
+            // Profile links are rendered as anchors on the public mentor profile
+            // and on the admin verification queue — validate the scheme, don't
+            // just trim it (a stored javascript: URL executes on click).
+            user.setLinkedinUrl(HttpUrls.requireHttpUrl(req.linkedinUrl()));
         }
         if (req.githubUrl() != null && !req.githubUrl().isBlank()) {
-            user.setGithubUrl(req.githubUrl().trim());
+            user.setGithubUrl(HttpUrls.requireHttpUrl(req.githubUrl()));
         }
         if (req.resumeUrl() != null && !req.resumeUrl().isBlank()) {
-            user.setResumeUrl(req.resumeUrl().trim());
+            // Resume may be an uploaded file path (/api/v1/files/…) or a full URL.
+            user.setResumeUrl(HttpUrls.requireSafeLink(req.resumeUrl()));
         }
     }
 
