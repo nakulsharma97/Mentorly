@@ -1,140 +1,135 @@
 package com.mentorly.stats;
 
-import com.mentorly.review.LearnerReview;
-import com.mentorly.review.LearnerReviewRepository;
-import com.mentorly.review.MentorReview;
-import com.mentorly.review.MentorReviewRepository;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.booking.BookingStatus;
 import com.mentorly.sitereview.SiteReview;
 import com.mentorly.sitereview.SiteReviewRepository;
 import com.mentorly.sitereview.SiteReviewStatus;
+import com.mentorly.user.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Service implementing testimonials business logic.
+ *
+ * <p>The public landing-page list contains ONLY admin-approved site reviews
+ * ("Share your review"). Mentor→learner reviews and learner→mentor reviews
+ * never appear here: the former lives on the mentor's dashboard/profile, the
+ * latter is private between mentor and learner.
+ *
+ * <p>Cost is a constant two queries regardless of {@code limit}: one page of
+ * approved site reviews plus ONE grouped count over the returned author ids
+ * (learner-side and mentor-side completed sessions combined). The result is
+ * cached under {@link #TESTIMONIALS_CACHE}.
  */
 @Service
 @RequiredArgsConstructor
 public class TestimonialsService {
 
-    /** DTO {@code source} values — one per backing table. */
-    static final String SOURCE_MENTOR_REVIEW = "MENTOR_REVIEW";
-    static final String SOURCE_LEARNER_REVIEW = "LEARNER_REVIEW";
+    /** Cache holding the public testimonials list — evicted on every site-review change. */
+    public static final String TESTIMONIALS_CACHE = "testimonials";
+
+    /** DTO {@code source} value: the site_review table ("Share your review"). */
     static final String SOURCE_SITE = "SITE";
 
-    /** Max approved site reviews guaranteed a slot in the public list. */
-    static final int MAX_SITE_REVIEWS = 3;
-
-    private final MentorReviewRepository mentorReviewRepository;
-    private final LearnerReviewRepository learnerReviewRepository;
-    private final BookingRepository bookingRepository;
     private final SiteReviewRepository siteReviewRepository;
+    private final BookingRepository bookingRepository;
+    private final CacheManager cacheManager;
 
+    /**
+     * The newest approved site reviews, newest first, capped at {@code limit}.
+     *
+     * @param limit maximum number of reviews to return
+     * @return approved site reviews only — never mentor/learner reviews
+     */
+    @Cacheable(value = TESTIMONIALS_CACHE, key = "#limit")
     public List<ReviewDto> latestApprovedReviews(int limit) {
-        // Fetch recent reviews with JOIN FETCH to avoid N+1 on relationships
-        int fetchSize = limit * 3; // Buffer to get enough after cross-type merge
-        // Reserve up to MAX_SITE_REVIEWS slots for approved site reviews so a
-        // burst of mentor/learner reviews can never crowd them out.
-        int siteSlots = Math.min(MAX_SITE_REVIEWS, limit);
-
-        List<ReviewDto> others = new ArrayList<>();
-
-        List<MentorReview> mentorReviews = mentorReviewRepository
-                .findAllWithRelations(PageRequest.of(0, fetchSize));
-        for (MentorReview r : mentorReviews) {
-            var reviewer = r.getLearner();
-            var skill = r.getBooking() != null && r.getBooking().getSession() != null
-                    ? r.getBooking().getSession().getTitle()
-                    : null;
-            long completed = 0;
-            if (reviewer != null) {
-                completed = bookingRepository.countByLearnerIdAndBookingStatus(reviewer.getId(),
-                        BookingStatus.COMPLETED);
-            }
-            others.add(new ReviewDto(r.getId(),
-                    reviewer == null ? "" : reviewer.getFullName(),
-                    reviewer == null ? null : reviewer.getProfileImageUrl(),
-                    reviewer != null && reviewer.isMentorVerified(),
-                    reviewer == null ? "Learner" : reviewer.getRole().name(),
-                    skill,
-                    completed,
-                    r.getRating(),
-                    r.getCreatedAt(),
-                    r.getComment(),
-                    SOURCE_MENTOR_REVIEW));
+        if (limit <= 0) {
+            return List.of();
+        }
+        // Repository filters on APPROVED only and orders by createdAt DESC.
+        List<SiteReview> approved = siteReviewRepository.findByStatusWithUser(
+                SiteReviewStatus.APPROVED, PageRequest.of(0, limit));
+        if (approved.isEmpty()) {
+            return List.of();
         }
 
-        List<LearnerReview> learnerReviews = learnerReviewRepository
-                .findAllWithRelations(PageRequest.of(0, fetchSize));
-        for (LearnerReview r : learnerReviews) {
-            var reviewer = r.getMentor();
-            var skill = r.getBooking() != null && r.getBooking().getSession() != null
-                    ? r.getBooking().getSession().getTitle()
-                    : null;
-            long completed = 0;
-            if (reviewer != null) {
-                completed = bookingRepository.countBySessionMentorIdAndBookingStatus(reviewer.getId(),
-                        BookingStatus.COMPLETED);
-            }
-            others.add(new ReviewDto(r.getId(),
-                    reviewer == null ? "" : reviewer.getFullName(),
-                    reviewer == null ? null : reviewer.getProfileImageUrl(),
-                    reviewer != null && reviewer.isMentorVerified(),
-                    reviewer == null ? "Mentor" : reviewer.getRole().name(),
-                    skill,
-                    completed,
-                    r.getRating(),
-                    r.getCreatedAt(),
-                    r.getComment(),
-                    SOURCE_LEARNER_REVIEW));
-        }
+        // ONE grouped query for every returned author — no per-review count.
+        Map<Long, Long> completedByAuthor = completedSessionCounts(approved);
 
-        // Approved platform-wide site reviews ("Share your review") join the
-        // same list. The repository returns them newest-first; only the
-        // reserved slots are fetched.
-        List<ReviewDto> siteItems = new ArrayList<>();
-        for (SiteReview sr : siteReviewRepository.findByStatusWithUser(
-                SiteReviewStatus.APPROVED, PageRequest.of(0, siteSlots))) {
-            var author = sr.getUser();
-            long completed = 0;
-            if (author != null) {
-                completed = bookingRepository.countByLearnerIdAndBookingStatus(author.getId(),
-                        BookingStatus.COMPLETED)
-                        + bookingRepository.countBySessionMentorIdAndBookingStatus(author.getId(),
-                                BookingStatus.COMPLETED);
-            }
-            siteItems.add(new ReviewDto(sr.getId(),
-                    author == null ? "" : author.getFullName(),
-                    author == null ? null : author.getProfileImageUrl(),
-                    false,
-                    author == null || author.getRole() == null ? "Learner" : author.getRole().name(),
-                    "Mentorly platform",
-                    completed,
-                    sr.getRating(),
-                    sr.getCreatedAt(),
-                    sr.getComment(),
-                    SOURCE_SITE));
-        }
-
-        // Site reviews first (guaranteed), then fill the remaining slots with
-        // the newest mentor/learner reviews, then order the whole selection by
-        // date — never by id, since the sources have independent id sequences.
-        List<ReviewDto> selected = new ArrayList<>(siteItems);
-        int remaining = Math.max(0, limit - selected.size());
-        others.sort(Comparator.comparing(ReviewDto::getReviewDate).reversed());
-        selected.addAll(others.stream().limit(remaining).collect(Collectors.toList()));
-
-        return selected.stream()
-                .sorted(Comparator.comparing(ReviewDto::getReviewDate).reversed())
+        return approved.stream()
+                .map(review -> toDto(review, completedByAuthor))
+                .sorted(Comparator.comparing(
+                        ReviewDto::getReviewDate, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(limit)
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    /**
+     * Safety net for the TTL-less ConcurrentMapCacheManager fallback: drop
+     * stale entries every 60 seconds so a missed eviction can never keep
+     * old reviews visible indefinitely. (Redis entries additionally expire
+     * on their configured TTL.)
+     */
+    @Scheduled(fixedDelayString = "60000")
+    public void evictExpiredTestimonialsCache() {
+        Cache cache = cacheManager.getCache(TESTIMONIALS_CACHE);
+        if (cache != null) {
+            cache.clear();
+        }
+    }
+
+    /** Completed sessions per author id — one grouped query for the whole page. */
+    private Map<Long, Long> completedSessionCounts(List<SiteReview> approved) {
+        List<Long> authorIds = approved.stream()
+                .map(SiteReview::getUser)
+                .filter(Objects::nonNull)
+                .map(User::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (authorIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Object[]> rows = bookingRepository.countCompletedSessionsByUserIdsIn(
+                authorIds, BookingStatus.COMPLETED.name());
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+            }
+        }
+        return counts;
+    }
+
+    private ReviewDto toDto(SiteReview review, Map<Long, Long> completedByAuthor) {
+        User author = review.getUser();
+        long completed = author == null || author.getId() == null
+                ? 0L
+                : completedByAuthor.getOrDefault(author.getId(), 0L);
+        return new ReviewDto(
+                review.getId(),
+                author == null ? "" : author.getFullName(),
+                author == null ? null : author.getProfileImageUrl(),
+                false,
+                author == null || author.getRole() == null ? "Learner" : author.getRole().name(),
+                "Mentorly platform",
+                completed,
+                review.getRating(),
+                review.getCreatedAt(),
+                review.getComment(),
+                SOURCE_SITE);
     }
 }

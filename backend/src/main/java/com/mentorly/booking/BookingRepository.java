@@ -137,6 +137,32 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         List<Booking> findTop5ByBookingStatusOrderByCreatedAtDesc(BookingStatus status);
 
         /**
+         * Completed-session totals for a SET of users in ONE grouped query:
+         * each id is counted as a learner (bookings it made) and as a mentor
+         * (bookings on its sessions), summed together. Returns [userId, count]
+         * pairs — ids with no completed sessions simply have no row.
+         *
+         * Used by the public testimonials list so it never issues one count
+         * query per review (the old N+1). {@code status} is passed as
+         * {@code BookingStatus.name()} so the native query binds a plain
+         * string against the STRING-mapped booking_status column.
+         *
+         * @param userIds the author ids to count for (must not be empty)
+         * @param status  booking status name, e.g. {@code "COMPLETED"}
+         */
+        @Query(value = "SELECT id, SUM(cnt) FROM ("
+                + "SELECT learner_id AS id, COUNT(*) AS cnt FROM bookings "
+                + "WHERE learner_id IN (:userIds) AND booking_status = :status GROUP BY learner_id "
+                + "UNION ALL "
+                + "SELECT s.mentor_id AS id, COUNT(*) AS cnt FROM bookings b "
+                + "JOIN sessions s ON b.session_id = s.id "
+                + "WHERE s.mentor_id IN (:userIds) AND b.booking_status = :status GROUP BY s.mentor_id"
+                + ") u GROUP BY id", nativeQuery = true)
+        List<Object[]> countCompletedSessionsByUserIdsIn(
+                        @Param("userIds") Collection<Long> userIds,
+                        @Param("status") String status);
+
+        /**
          * Paginated, searchable session history for one learner. Supports an
          * optional status filter and a keyword search over the session title and
          * mentor name. Rows are ordered by the actual session time (falling back

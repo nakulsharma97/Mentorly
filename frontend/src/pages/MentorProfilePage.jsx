@@ -809,6 +809,9 @@ export default function MentorProfilePage({ isLoggedIn, onRequireLogin, notify, 
                     </div>
                     {review.comment && <p className="mpr-review-card__comment">{review.comment}</p>}
                     {review.bookingTitle && <span className="mpr-review-card__session-badge">Booked: {review.bookingTitle}</span>}
+                    {review.replyText && (
+                      <div className="mpr-review-card__reply">{review.replyText}</div>
+                    )}
                     <div className="mpr-review-card__actions">
                       <button type="button" className="mpr-review-card__helpful" onClick={() => {
                         trackAnalyticsEvent("review_helpful", { reviewId: review.id });

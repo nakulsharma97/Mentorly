@@ -31,13 +31,20 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
+    /**
+     * Mentor reviews. The target id defaults to the caller's own id; access is
+     * audited by {@link ReviewService#resolveMentorReviewsTarget} (approved
+     * mentors are readable by any signed-in user, others only by themselves
+     * or an admin), then the cached read happens on a separate call so the
+     * {@code @Cacheable} proxy still applies.
+     */
     @GetMapping({ "/mentor", "/mentor/{mentorId}" })
     public ApiResponse<ReviewSummaryResponse> listMentorReviews(
-            @AuthenticationPrincipal User mentor,
+            @AuthenticationPrincipal User caller,
             @PathVariable(required = false) Long mentorId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        long resolvedMentorId = mentorId != null ? mentorId : mentor.getId();
+        long resolvedMentorId = reviewService.resolveMentorReviewsTarget(caller, mentorId);
         return new ApiResponse<>("Mentor reviews fetched",
                 reviewService.getMentorReviews(resolvedMentorId, page, size));
     }
@@ -59,8 +66,12 @@ public class ReviewController {
                 reviewService.getEligibleBookingsForMentorReview(learner, mentorId));
     }
 
+    /** Learner reviews are private — see {@link ReviewService#assertLearnerReviewsVisible}. */
     @GetMapping("/learner/{learnerId}")
-    public ApiResponse<ReviewSummaryResponse> listLearnerReviews(@PathVariable Long learnerId) {
+    public ApiResponse<ReviewSummaryResponse> listLearnerReviews(
+            @AuthenticationPrincipal User caller,
+            @PathVariable Long learnerId) {
+        reviewService.assertLearnerReviewsVisible(caller, learnerId);
         return new ApiResponse<>("Learner reviews fetched",
                 reviewService.getLearnerReviews(learnerId));
     }

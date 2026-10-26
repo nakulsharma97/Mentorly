@@ -65,22 +65,25 @@ describe("Testimonials — Share your review CTA", () => {
     ).toBeNull();
   });
 
-  // ── React keys — sources have independent id sequences ──
+  // ── React keys — legacy payloads may mix sources with colliding ids ──
 
   it("renders cards with colliding reviewIds across sources without duplicate-key warnings", () => {
+    // The endpoint now returns only SITE rows; older payloads (and the
+    // index fallback below) must still render without key collisions.
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockPublicData.testimonials = [
       { ...sampleReview, source: "SITE", reviewText: "A platform review." },
       {
         ...sampleReview,
-        source: "MENTOR_REVIEW",
-        reviewText: "A mentor review.",
+        source: "SITE",
+        reviewId: 2,
+        reviewText: "A second platform review.",
       },
     ];
     render(<Testimonials onShareReview={vi.fn()} />);
 
     expect(screen.getByText("A platform review.")).toBeInTheDocument();
-    expect(screen.getByText("A mentor review.")).toBeInTheDocument();
+    expect(screen.getByText("A second platform review.")).toBeInTheDocument();
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });

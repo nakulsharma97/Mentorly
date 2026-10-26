@@ -3,11 +3,13 @@ package com.mentorly.review;
 import com.mentorly.booking.Booking;
 import com.mentorly.booking.BookingRepository;
 import com.mentorly.booking.BookingStatus;
+import com.mentorly.common.ApiClientException;
 import com.mentorly.common.ProfileCompletionGuard;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.payment.PaymentStatus;
 import com.mentorly.user.User;
 import com.mentorly.user.UserRepository;
+import com.mentorly.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -176,6 +179,64 @@ public class ReviewService {
 
         review.setReplyText(trimToNull(replyText));
         return mentorReviewRepository.save(review);
+    }
+
+    // ════════════════════════════════════════════════
+    //  Read access rules
+    // ════════════════════════════════════════════════
+
+    /**
+     * Resolves the mentor id whose reviews the caller may read.
+     *
+     * <p>Any signed-in learner or mentor may read an APPROVED mentor's reviews
+     * (that is the profile data shown to logged-in learners). Reviews of a
+     * mentor who is not approved are visible only to that mentor and to admins
+     * — everyone else gets the same 404 a missing profile would give, so
+     * unapproved mentors cannot be probed for.
+     *
+     * @param caller   the authenticated user
+     * @param mentorId requested mentor id, or null to read the caller's own
+     * @return the mentor id whose reviews may be loaded
+     */
+    public long resolveMentorReviewsTarget(User caller, Long mentorId) {
+        if (caller == null) {
+            throw new ApiClientException(
+                    HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED", "Authentication required", false);
+        }
+        Long callerId = caller.getId();
+        long target = mentorId != null ? mentorId : (callerId != null ? callerId : -1L);
+        if ((callerId != null && callerId == target) || caller.getRole() == UserRole.ADMIN) {
+            return target;
+        }
+        userRepository.findById(target)
+                .filter(User::isApprovedMentor)
+                .orElseThrow(() -> new ApiClientException(
+                        HttpStatus.NOT_FOUND, "MENTOR_NOT_FOUND", "Mentor not found", false));
+        return target;
+    }
+
+    /**
+     * Learner reviews are private: only the learner themself, a mentor who
+     * actually wrote one of the reviews about that learner, or an admin may
+     * read them. Everyone else gets 403.
+     */
+    public void assertLearnerReviewsVisible(User caller, Long learnerId) {
+        if (caller == null) {
+            throw new ApiClientException(
+                    HttpStatus.UNAUTHORIZED, "AUTH_REQUIRED", "Authentication required", false);
+        }
+        if (learnerId == null || caller.getId().equals(learnerId)
+                || caller.getRole() == UserRole.ADMIN) {
+            return;
+        }
+        if (learnerReviewRepository.existsByLearnerIdAndMentorId(learnerId, caller.getId())) {
+            return;
+        }
+        throw new ApiClientException(
+                HttpStatus.FORBIDDEN,
+                "LEARNER_REVIEWS_FORBIDDEN",
+                "You do not have permission to view these reviews",
+                false);
     }
 
     // ════════════════════════════════════════════════

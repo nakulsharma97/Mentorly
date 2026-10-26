@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { beforeAll, afterAll } from "vitest";
 import { MemoryRouter } from "react-router";
 import AuthModal from "./AuthModal";
 import client, { clearAuthSessionState, sendVerificationOtp } from "../api/client";

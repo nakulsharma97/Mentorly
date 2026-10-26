@@ -1138,12 +1138,10 @@ export default function MentorDashboard({ profile, notify }) {
             <SsIcon name="star" size={18} />
             Recent Reviews
           </h3>
-          {reviews.length > 0 && (
-            <Link to="/mentor/reviews" className="md3-card__link">
-              View all reviews
-              <SsIcon name="arrow-forward" size={14} />
-            </Link>
-          )}
+          <Link to="/mentor/reviews" className="md3-card__link">
+            View all reviews
+            <SsIcon name="arrow-forward" size={14} />
+          </Link>
         </div>
         <div className="md3-card__body">
           {reviews.length > 0 ? (

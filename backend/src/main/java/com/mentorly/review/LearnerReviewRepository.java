@@ -11,6 +11,9 @@ import java.util.List;
 public interface LearnerReviewRepository extends JpaRepository<LearnerReview, Long> {
     boolean existsByBookingId(Long bookingId);
 
+    /** True when this mentor has already written a review about this learner. */
+    boolean existsByLearnerIdAndMentorId(Long learnerId, Long mentorId);
+
     long countByLearnerId(Long learnerId);
 
     List<LearnerReview> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);

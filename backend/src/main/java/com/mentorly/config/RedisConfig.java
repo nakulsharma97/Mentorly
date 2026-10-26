@@ -103,6 +103,12 @@ public class RedisConfig {
                         RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(5)))
                 .withCacheConfiguration("mentorRating",
                         RedisCacheConfiguration.defaultCacheConfig().entryTtl(Duration.ofMinutes(5)))
+                // Public testimonials: JSON-serialized like the default config
+                // (ReviewDto is not Serializable), short TTL as a backstop —
+                // SiteReviewService evicts on every create/edit/delete/
+                // approve/reject so approvals appear immediately.
+                .withCacheConfiguration("testimonials",
+                        defaultConfig.entryTtl(Duration.ofSeconds(60)))
                 .transactionAware()
                 .build();
     }

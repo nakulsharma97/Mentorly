@@ -2474,6 +2474,16 @@ div.mpr-sessions-grid--picker {
   background: var(--mpr-primary-tint);
   color: var(--mpr-primary);
 }
+.mpr-review-card__reply {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--mpr-primary);
+  border-radius: 0 8px 8px 0;
+  background: var(--mpr-primary-tint);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--mpr-muted);
+}
 .mpr-review-card__actions {
   display: flex;
   align-items: center;

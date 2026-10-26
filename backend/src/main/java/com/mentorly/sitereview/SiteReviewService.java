@@ -13,6 +13,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +48,7 @@ public class SiteReviewService {
     }
 
     @Transactional
+    @CacheEvict(value = "testimonials", allEntries = true)
     public SiteReviewResponse create(User user, CreateSiteReviewRequest request) {
         guardEligible(user);
         if (siteReviewRepository.existsByUserId(user.getId())) {
@@ -67,6 +69,7 @@ public class SiteReviewService {
     }
 
     @Transactional
+    @CacheEvict(value = "testimonials", allEntries = true)
     public SiteReviewResponse update(User user, CreateSiteReviewRequest request) {
         guardEligible(user);
         SiteReview review = siteReviewRepository.findByUserId(user.getId())
@@ -81,6 +84,7 @@ public class SiteReviewService {
     }
 
     @Transactional
+    @CacheEvict(value = "testimonials", allEntries = true)
     public void delete(User user) {
         guardEligible(user);
         SiteReview review = siteReviewRepository.findByUserId(user.getId())
@@ -102,11 +106,13 @@ public class SiteReviewService {
     }
 
     @Transactional
+    @CacheEvict(value = "testimonials", allEntries = true)
     public SiteReviewResponse adminApprove(User admin, Long id, String adminNote) {
         return decide(admin, id, SiteReviewStatus.APPROVED, adminNote);
     }
 
     @Transactional
+    @CacheEvict(value = "testimonials", allEntries = true)
     public SiteReviewResponse adminReject(User admin, Long id, String adminNote) {
         return decide(admin, id, SiteReviewStatus.REJECTED, adminNote);
     }
@@ -171,7 +177,7 @@ public class SiteReviewService {
         return cleaned.length() > 500 ? cleaned.substring(0, 500) : cleaned;
     }
 
-    /** Used by TestimonialsService to merge approved site reviews into the public list. */
+    /** Newest approved site reviews with their author eagerly fetched (public listing helper). */
     public List<SiteReview> latestApprovedWithUser(int limit) {
         if (limit <= 0) {
             return List.of();

@@ -32,7 +32,8 @@ public class CacheFallbackConfig {
                 "mentorList",
                 "mentorSkills",
                 "mentorReviews",
-                "mentorRating"
+                "mentorRating",
+                "testimonials"
         );
     }
 }
