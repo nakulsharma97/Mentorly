@@ -182,6 +182,8 @@ class AdminServiceTest {
         adminService.deleteUser(admin, targetUser.getId(), targetUser.getEmail(), targetUser.getFullName());
 
         verify(userRepository).save(argThat(u -> {
+            // Soft-delete marker — this is what keeps the row out of the admin list.
+            assertNotNull(u.getDeletedAt());
             assertEquals("[Deleted User]", u.getFullName());
             assertTrue(u.getEmail().startsWith("deleted-"));
             assertTrue(u.getEmail().endsWith("@mentorly.local"));
@@ -198,6 +200,29 @@ class AdminServiceTest {
         verify(auditLogRepository).save(argThat(log ->
                 log.getAction().equals("DELETE_USER") &&
                 log.getEntityId().equals(targetUser.getId())));
+    }
+
+    @Test
+    void deleteUserIsIdempotentForAlreadyDeletedAccounts() {
+        targetUser.setDeletedAt(OffsetDateTime.now().minusDays(1));
+        when(userRepository.findById(targetUser.getId())).thenReturn(Optional.of(targetUser));
+
+        adminService.deleteUser(admin, targetUser.getId(), "deleted-2@mentorly.local", "[Deleted User]");
+
+        // Nothing is rewritten and no duplicate audit entry is written.
+        verify(userRepository, never()).save(any());
+        verify(auditLogRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteUserKeepsFinancialHistory() {
+        when(userRepository.findById(targetUser.getId())).thenReturn(Optional.of(targetUser));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        adminService.deleteUser(admin, targetUser.getId(), targetUser.getEmail(), targetUser.getFullName());
+
+        // Deletion is a soft delete: bookings, payments and wallet history are untouched.
+        verifyNoInteractions(bookingRepository, paymentRepository, walletService);
     }
 
     @Test

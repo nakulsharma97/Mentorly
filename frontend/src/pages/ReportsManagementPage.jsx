@@ -16,6 +16,10 @@ import {
 } from "lucide-react";
 import client from "../api/client";
 import {
+  readObject,
+  readSpringPage,
+} from "../modules/admin/api/adminResponses";
+import {
   PAGE_SIZE,
   PRIORITY_OPTIONS,
   Pagination,
@@ -96,7 +100,8 @@ export default function ReportsManagementPage({ notify }) {
   const fetchStats = useCallback(async () => {
     try {
       const res = await client.get("/api/v1/admin/reports/stats");
-      if (res?.data?.data) setStats(res.data.data);
+      const nextStats = readObject(res?.data?.data, "GET /api/v1/admin/reports/stats");
+      if (nextStats) setStats(nextStats);
     } catch {
       // Stats are non-critical; the list is the primary surface.
     }
@@ -117,10 +122,15 @@ export default function ReportsManagementPage({ notify }) {
 
       const res = await client.get(`/api/v1/admin/reports?${params}`);
       if (requestId !== listRequestRef.current) return;
-      const data = res?.data?.data || {};
-      setReports(data.content || []);
-      setTotalElements(data.totalElements || 0);
-      setTotalPages(data.totalPages || 0);
+      // This endpoint answers with a Spring Page ({ content: [...] }), never a
+      // bare array — unwrap it before the table maps over the rows.
+      const reportPage = readSpringPage(
+        res?.data?.data,
+        "GET /api/v1/admin/reports",
+      );
+      setReports(reportPage.items);
+      setTotalElements(reportPage.totalElements);
+      setTotalPages(reportPage.totalPages);
     } catch (err) {
       if (requestId !== listRequestRef.current) return;
       setLoadError(true);
@@ -194,7 +204,11 @@ export default function ReportsManagementPage({ notify }) {
     try {
       const res = await client.get(`/api/v1/admin/reports/${report.id}`);
       if (requestId !== detailRequestRef.current) return;
-      setSelected({ report, detail: res?.data?.data || report });
+      const detail = readObject(
+        res?.data?.data,
+        `GET /api/v1/admin/reports/${report.id}`,
+      );
+      setSelected({ report, detail: detail || report });
     } catch (err) {
       if (requestId !== detailRequestRef.current) return;
       notify?.({

@@ -181,6 +181,18 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean enabled = true;
 
+    /**
+     * Soft-delete marker, set when an admin deletes the account.
+     *
+     * <p>Deleted accounts are never returned by the admin user list and can no
+     * longer sign in, but the row is kept so bookings, payments, wallet ledger
+     * entries, reviews and audit history keep their foreign keys intact.
+     * {@code null} means the account still exists; a disabled-but-not-deleted
+     * account has {@code enabled = false} and a null {@code deletedAt}.
+     */
+    @Column(name = "deleted_at")
+    private OffsetDateTime deletedAt;
+
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 

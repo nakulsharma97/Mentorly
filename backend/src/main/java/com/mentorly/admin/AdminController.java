@@ -545,10 +545,25 @@ public class AdminController {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        // Already soft-deleted (e.g. a retried request): report success, not an error.
+        if (user.getDeletedAt() != null) {
+            return new ApiResponse<>("User already deleted",
+                    Map.of("deletedUserId", String.valueOf(id), "alreadyDeleted", "true"));
+        }
+
         String email = user.getEmail();
         String name = user.getFullName();
 
         adminService.deleteUser(currentUser, id, email, name);
+
+        // The service commits in its own transaction; re-read to make sure the
+        // deletedAt marker actually reached the database before reporting success.
+        User deleted = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalStateException("User vanished during deletion"));
+        if (deleted.getDeletedAt() == null) {
+            throw new IllegalStateException("User deletion was not persisted");
+        }
+
         return new ApiResponse<>("User deleted", Map.of("deletedUserId", String.valueOf(id)));
     }
 

@@ -7,6 +7,15 @@ import { clearGetCache } from "../api/client";
 import { ChatProvider } from "../context/ChatContext";
 import MessagesPage from "./MessagesPage";
 
+// Mounting the whole chat module + its six parallel MSW calls routinely takes
+// 1-2s and more when the suite runs files in parallel, which is past the 5s
+// default per-test timeout. Same convention as CompleteProfilePage.test.jsx.
+vi.setConfig({ testTimeout: 20000 });
+
+// Generous per-query budget so waits fail on a real regression rather than on
+// machine load (the axios client also retries failed GETs with backoff).
+const WAIT = { timeout: 8000 };
+
 // ──────────────────────────────────────────────
 // Mock WebSocket for jsdom (not natively available)
 // ──────────────────────────────────────────────
@@ -136,13 +145,16 @@ describe("MessagesPage — mentor conversation deep link", () => {
 
     // Conversation 43 is first in the list, so only the route param can
     // select Zoe's conversation — proven by Sam's row staying unselected.
-    await waitFor(() => expect(rowFor("Learner Sam")).toBeTruthy());
+    await waitFor(() => expect(rowFor("Learner Sam")).toBeTruthy(), WAIT);
 
-    const zoeRow = await screen.findByRole("button", {
-      name: /Learner Zoe/i,
-    });
-    await waitFor(() =>
-      expect(zoeRow.getAttribute("aria-current")).toBe("true"),
+    const zoeRow = await screen.findByRole(
+      "button",
+      { name: /Learner Zoe/i },
+      WAIT,
+    );
+    await waitFor(
+      () => expect(zoeRow.getAttribute("aria-current")).toBe("true"),
+      WAIT,
     );
     expect(rowFor("Learner Sam").getAttribute("aria-current")).toBeNull();
   });
@@ -150,16 +162,20 @@ describe("MessagesPage — mentor conversation deep link", () => {
   it("keeps the mentor variant identity on the deep-linked route", async () => {
     renderPage("/mentor/messages/42");
 
-    await waitFor(() => expect(rowFor("Learner Zoe")).toBeTruthy());
+    await waitFor(() => expect(rowFor("Learner Zoe")).toBeTruthy(), WAIT);
     expect(document.title).toBe("Messages | Mentorly Mentor");
   });
 
   it("/mentor/messages without a param still auto-selects the first conversation", async () => {
     renderPage("/mentor/messages");
 
-    await waitFor(() => expect(rowFor("Learner Sam")).toBeTruthy());
-    await waitFor(() =>
-      expect(rowFor("Learner Sam").getAttribute("aria-current")).toBe("true"),
+    await waitFor(() => expect(rowFor("Learner Sam")).toBeTruthy(), WAIT);
+    await waitFor(
+      () =>
+        expect(rowFor("Learner Sam").getAttribute("aria-current")).toBe(
+          "true",
+        ),
+      WAIT,
     );
     expect(rowFor("Learner Zoe").getAttribute("aria-current")).toBeNull();
   });

@@ -125,15 +125,42 @@ export default function UserManagementPage({ notify }) {
   };
 
   const deleteUser = async (userId, userName) => {
-    if (!window.confirm(`Permanently delete user "${userName}" (#${userId})? This action cannot be undone.`)) return;
+    // One deletion at a time — ignore extra clicks while a request is in flight.
+    if (deletingId !== null) return;
+    if (!window.confirm(
+      `Delete user "${userName}" (#${userId})?\n\n`
+      + "The account is disabled, personal details are removed and it leaves this list. "
+      + "Bookings, payments and wallet history are kept for audit. This cannot be undone."
+    )) return;
+
     setDeletingId(userId);
     try {
       await client.delete(`/api/v1/admin/users/${userId}`);
+      // Only reflect the change once the backend has confirmed the deletion.
+      const remainingOnPage = users.filter((u) => u.id !== userId).length;
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
       if (selectedUser === userId) { setSelectedUser(null); setWalletData(null); }
-      notify?.({ type: "success", title: "User deleted", message: `User #${userId} permanently deleted.` });
+      notify?.({ type: "success", title: "User deleted", message: `User #${userId} deleted.` });
+
+      // Re-read from the server so counts and pages reflect the deletion —
+      // deleted accounts are excluded by the users query from now on.
+      if (remainingOnPage === 0 && page > 0) {
+        setPage((p) => Math.max(0, p - 1)); // reloads through the page effect
+      } else {
+        loadUsers();
+      }
     } catch (err) {
-      notify?.({ type: "error", title: "Delete failed", message: err?.response?.data?.data?.error || err.message });
+      // The user stays in the list — nothing was removed locally.
+      notify?.({
+        type: "error",
+        title: "Delete failed",
+        message: err?.response?.data?.data?.error || err?.message || "The user was not deleted.",
+      });
     } finally {
       setDeletingId(null);
     }
@@ -327,7 +354,7 @@ export default function UserManagementPage({ notify }) {
                           type="button"
                           className="au-btn au-btn--danger au-btn--sm"
                           onClick={() => deleteUser(u.id, u.fullName)}
-                          disabled={deletingId === u.id}
+                          disabled={deletingId !== null}
                           aria-label={`Delete ${u.fullName}`}
                         >
                           <Trash2 size={15} />
@@ -391,7 +418,7 @@ export default function UserManagementPage({ notify }) {
                       </select>
                     </label>
                   )}
-                  <AuButton variant="danger" icon={Trash2} onClick={() => { if (selectedUserObj) deleteUser(selectedUserObj.id, selectedUserObj.fullName); }} disabled={deletingId === selectedUser}>
+                  <AuButton variant="danger" icon={Trash2} onClick={() => { if (selectedUserObj) deleteUser(selectedUserObj.id, selectedUserObj.fullName); }} disabled={deletingId !== null}>
                     {deletingId === selectedUser ? "Deleting..." : "Delete User"}
                   </AuButton>
                 </div>

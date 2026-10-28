@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
   BadgeCheck, CreditCard, Flag, LayoutDashboard,
   MessageSquare, Users as UsersIcon,
@@ -11,6 +11,7 @@ import {
   AuSkeleton,
   AuStat,
 } from '../modules/admin/ui';
+import { readList, readObject, readSpringPage } from '../modules/admin/api/adminResponses';
 import './AdminOperationsPage.css';
 
 const statusOptions = ['OPEN', 'IN_REVIEW', 'RESOLVED', 'REJECTED'];
@@ -58,17 +59,32 @@ const TABS = [
 
 const PATH_TAB_MAP = {
   dashboard: 'overview',
-  reports: 'reports',
   conversations: 'conversations',
   payments: 'payments',
 };
 
+/** The full reports-management page (filters, drawer, actions, pagination). */
+const FULL_REPORTS_PATH = '/admin/reports';
+
+/** Turns an API failure into an admin-facing message, including expired sessions. */
+const describeError = (err, fallback) => {
+  const status = Number(err?.response?.status || 0);
+  if (status === 401) return 'Your session expired. Sign in again to load this data.';
+  if (status === 403) return 'Your account does not have access to this data.';
+  if (status >= 500) return 'The server is having trouble right now. Please try again shortly.';
+  if (!err?.response) return 'Could not reach the server. Check your connection and try again.';
+  return err?.response?.data?.data?.error || err?.response?.data?.message || fallback;
+};
+
 export default function AdminOperationsPage({ notify }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const pathSegment = location.pathname.split('/').pop();
   const [activeTab, setActiveTab] = useState(PATH_TAB_MAP[pathSegment] || 'overview');
   const [summary, setSummary] = useState(null);
   const [reports, setReports] = useState([]);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [overviewError, setOverviewError] = useState(null);
   const [reportStatus, setReportStatus] = useState('OPEN');
   const [loading, setLoading] = useState(true);
 
@@ -82,6 +98,7 @@ export default function AdminOperationsPage({ notify }) {
   const [convMessages, setConvMessages] = useState([]);
   const [convMessagesLoading, setConvMessagesLoading] = useState(false);
   const [convMessagesError, setConvMessagesError] = useState(false);
+  const [convError, setConvError] = useState(null);
   // Guards against out-of-order responses: only the latest request may update state.
   const convRequestRef = useRef(0);
   const msgRequestRef = useRef(0);
@@ -101,19 +118,35 @@ export default function AdminOperationsPage({ notify }) {
   // ── Loaders ──
   const loadAdminData = useCallback(async () => {
     setLoading(true);
+    setOverviewError(null);
     try {
       const [summaryResponse, reportsResponse] = await Promise.all([
         client.get('/api/v1/admin/summary'),
         client.get(`/api/v1/admin/reports?status=${reportStatus}`)
       ]);
-      setSummary(summaryResponse.data.data);
-      setReports(reportsResponse.data.data || []);
-    } catch {
-      notify?.({
-        type: 'error',
-        title: 'Admin data unavailable',
-        message: 'Check that you are signed in as an admin and the backend is running.'
-      });
+      const nextSummary = readObject(
+        summaryResponse?.data?.data,
+        'GET /api/v1/admin/summary'
+      );
+      // This endpoint answers with a Spring Page ({ content: [...] }), never a
+      // bare array — unwrap it before the queue is mapped.
+      const reportPage = readSpringPage(
+        reportsResponse?.data?.data,
+        'GET /api/v1/admin/reports'
+      );
+      setSummary(nextSummary);
+      setReports(reportPage.items);
+      setReportsTotal(reportPage.totalElements);
+      if (!nextSummary) {
+        setOverviewError('The platform summary came back in an unexpected format.');
+      }
+    } catch (err) {
+      setSummary(null);
+      setReports([]);
+      setReportsTotal(0);
+      const message = describeError(err, 'Could not load the admin overview.');
+      setOverviewError(message);
+      notify?.({ type: 'error', title: 'Admin data unavailable', message });
     } finally {
       setLoading(false);
     }
@@ -122,17 +155,20 @@ export default function AdminOperationsPage({ notify }) {
   const loadConversations = useCallback(async () => {
     const requestId = ++convRequestRef.current;
     setConvsLoading(true);
+    setConvError(null);
     try {
       const params = new URLSearchParams();
       if (convTypeFilter !== 'all') params.set('type', convTypeFilter);
       if (convSearchApplied.trim()) params.set('q', convSearchApplied.trim());
       const res = await client.get(`/api/v1/admin/conversations?${params}`);
       if (requestId !== convRequestRef.current) return; // stale response — ignore
-      setConvs(res?.data?.data || []);
+      // This endpoint answers with a plain list, not a page envelope.
+      setConvs(readList(res?.data?.data, 'GET /api/v1/admin/conversations'));
     } catch (err) {
       if (requestId !== convRequestRef.current) return;
-      const msg = err?.response?.data?.data?.error || err?.response?.data?.message || 'Could not load conversations.';
-      notify?.({ type: 'error', title: 'Conversations unavailable', message: msg });
+      const message = describeError(err, 'Could not load conversations.');
+      setConvError(message);
+      notify?.({ type: 'error', title: 'Conversations unavailable', message });
     } finally {
       if (requestId === convRequestRef.current) setConvsLoading(false);
     }
@@ -214,11 +250,11 @@ export default function AdminOperationsPage({ notify }) {
         : `/api/v1/admin/conversations/direct/${conv.referenceId}/messages`;
       const res = await client.get(endpoint);
       if (requestId !== msgRequestRef.current) return; // stale response — ignore
-      setConvMessages(res?.data?.data || []);
+      setConvMessages(readList(res?.data?.data, endpoint));
     } catch (err) {
       if (requestId !== msgRequestRef.current) return;
       setConvMessagesError(true);
-      const msg = err?.response?.data?.data?.error || err?.response?.data?.message || 'Could not load messages for this conversation.';
+      const msg = describeError(err, 'Could not load messages for this conversation.');
       notify?.({ type: 'error', title: 'Messages failed', message: msg });
     } finally {
       if (requestId === msgRequestRef.current) setConvMessagesLoading(false);
@@ -282,13 +318,24 @@ export default function AdminOperationsPage({ notify }) {
   // ── Render helpers ──
   const renderSummary = () => (
     <section className="au-stats" aria-label="Platform summary">
-      <AuStat icon={UsersIcon} label="Users" value={summary.totalUsers} subtitle="Total accounts" tone="slate" index={0} />
-      <AuStat icon={UsersIcon} label="Learners" value={summary.learners} subtitle="Learners" tone="blue" index={1} />
-      <AuStat icon={UsersIcon} label="Mentors" value={summary.mentors} subtitle="Mentors" tone="violet" index={2} />
-      <AuStat icon={Flag} label="Open reports" value={summary.openReports} subtitle="Awaiting review" tone="rose" index={3} />
-      <AuStat icon={BadgeCheck} label="Pending verifications" value={summary.pendingMentorVerifications} subtitle="Mentor checks" tone="amber" index={4} />
+      <AuStat icon={UsersIcon} label="Users" value={summary?.totalUsers ?? 0} subtitle="Total accounts" tone="slate" index={0} />
+      <AuStat icon={UsersIcon} label="Learners" value={summary?.learners ?? 0} subtitle="Learners" tone="blue" index={1} />
+      <AuStat icon={UsersIcon} label="Mentors" value={summary?.mentors ?? 0} subtitle="Mentors" tone="violet" index={2} />
+      <AuStat icon={Flag} label="Open reports" value={summary?.openReports ?? 0} subtitle="Awaiting review" tone="rose" index={3} />
+      <AuStat icon={BadgeCheck} label="Pending verifications" value={summary?.pendingMentorVerifications ?? 0} subtitle="Mentor checks" tone="amber" index={4} />
     </section>
   );
+
+  // The reports workflow (filters, drawer, moderation actions, pagination) lives
+  // on its own page — the tab and the hero button navigate there rather than
+  // rendering a second, cut-down copy of the queue.
+  const openTab = (key) => {
+    if (key === 'reports') {
+      navigate(FULL_REPORTS_PATH);
+      return;
+    }
+    setActiveTab(key);
+  };
 
   const renderReportsTab = () => (
     <section className="admin-panel">
@@ -297,14 +344,23 @@ export default function AdminOperationsPage({ notify }) {
           <p className="admin-eyebrow">Trust and safety</p>
           <h2>Report queue</h2>
         </div>
-        <label className="admin-field">
-          <span>Status</span>
-          <select value={reportStatus} onChange={(event) => setReportStatus(event.target.value)}>
-            {statusOptions.map((item) => (
-              <option key={item} value={item}>{item.replace('_', ' ')}</option>
-            ))}
-          </select>
-        </label>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+          <label className="admin-field">
+            <span>Status</span>
+            <select value={reportStatus} onChange={(event) => setReportStatus(event.target.value)}>
+              {statusOptions.map((item) => (
+                <option key={item} value={item}>{item.replace('_', ' ')}</option>
+              ))}
+            </select>
+          </label>
+          <Link
+            to={FULL_REPORTS_PATH}
+            className="admin-refresh-btn"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}
+          >
+            <Icon name="flag" /> Open full queue{reportsTotal ? ` (${reportsTotal})` : ''}
+          </Link>
+        </div>
       </div>
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -393,9 +449,32 @@ export default function AdminOperationsPage({ notify }) {
       </div>
 
       <div className="admin-conv-layout">
+        {convError && convs.length > 0 && (
+          <div
+            role="status"
+            style={{ margin: '0 0 12px', color: '#b91c1c', fontSize: '0.85rem' }}
+          >
+            Showing the last loaded conversations — refresh failed. {convError}{' '}
+            <button type="button" className="admin-refresh-btn" onClick={() => loadConversations()}>
+              Retry
+            </button>
+          </div>
+        )}
+
         <div className="admin-conv-list" aria-label="Conversation list">
           {convsLoading ? (
             <p style={{ padding: 16, color: 'var(--admin-muted)' }}>Loading conversations...</p>
+          ) : convError && convs.length === 0 ? (
+            <div className="admin-conv-empty" role="alert">
+              <span className="admin-conv-empty-art" aria-hidden="true">
+                <Icon name="error" />
+              </span>
+              <h3>Conversations unavailable</h3>
+              <p>{convError}</p>
+              <button type="button" className="admin-refresh-btn" onClick={() => loadConversations()}>
+                Try again
+              </button>
+            </div>
           ) : convs.length === 0 ? (
             <div className="admin-conv-empty" role="status">
               <span className="admin-conv-empty-art" aria-hidden="true">
@@ -454,6 +533,21 @@ export default function AdminOperationsPage({ notify }) {
             </div>
           ) : convMessagesLoading ? (
             <p style={{ padding: 16, color: 'var(--admin-muted)' }}>Loading messages...</p>
+          ) : convMessagesError ? (
+            <div className="admin-conv-empty" role="alert">
+              <span className="admin-conv-empty-art" aria-hidden="true">
+                <Icon name="error" />
+              </span>
+              <h3>Messages unavailable</h3>
+              <p>This conversation&apos;s message history could not be loaded.</p>
+              <button
+                type="button"
+                className="admin-refresh-btn"
+                onClick={() => selectConversation(selectedConv)}
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <>
               <div className="admin-conv-messages-header">
@@ -655,7 +749,7 @@ export default function AdminOperationsPage({ notify }) {
           title="Conversations"
           subtitle="Read learner and mentor conversations, review flagged messages, and step in when needed."
           primaryButton={
-            <button type="button" className="hero-section__btn hero-section__btn--primary" onClick={() => setActiveTab('reports')}>
+            <button type="button" className="hero-section__btn hero-section__btn--primary" onClick={() => navigate(FULL_REPORTS_PATH)}>
               <span className="material-symbols-outlined">flag</span>
               Review reports queue
             </button>
@@ -669,6 +763,27 @@ export default function AdminOperationsPage({ notify }) {
 
         {/* Summary cards (always visible) */}
         {summary && renderSummary()}
+        {overviewError && (
+          <section className="admin-panel" role="alert">
+            <div className="admin-section-heading">
+              <div>
+                <p className="admin-eyebrow">Overview</p>
+                <h2>Overview data unavailable</h2>
+              </div>
+              <button
+                type="button"
+                className="admin-refresh-btn"
+                onClick={() => loadAdminData()}
+                disabled={loading}
+              >
+                {loading ? 'Retrying...' : 'Try again'}
+              </button>
+            </div>
+            <p style={{ margin: 0, color: '#475569', fontSize: '0.88rem', lineHeight: 1.6 }}>
+              {overviewError}
+            </p>
+          </section>
+        )}
 
         {/* Tabs */}
         <div className="au-card" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap", width: "fit-content" }} role="tablist" aria-label="Admin sections">
@@ -677,7 +792,7 @@ export default function AdminOperationsPage({ notify }) {
             return (
               <button key={tab.key} type="button" role="tab" aria-selected={activeTab === tab.key}
                 className={`au-btn au-btn--sm ${activeTab === tab.key ? 'au-btn--primary' : 'au-btn--ghost'}`}
-                onClick={() => setActiveTab(tab.key)}>
+                onClick={() => openTab(tab.key)}>
                 <IconCmp size={16} />
                 {tab.label}
               </button>
@@ -770,7 +885,6 @@ export default function AdminOperationsPage({ notify }) {
           {renderVerificationsLink()}
         </>
       )}
-      {activeTab === 'reports' && renderReportsTab()}
       {activeTab === 'conversations' && renderConversationsTab()}
       {activeTab === 'payments' && renderPaymentsTab()}
       </div>

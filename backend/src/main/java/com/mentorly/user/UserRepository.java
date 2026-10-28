@@ -140,8 +140,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
       int resetMentorVerifiedBatch(@Param("ids") List<Long> ids);
 
       // ── Admin pagination queries ──
+      /**
+       * Admin user list. Soft-deleted accounts are excluded here and only here:
+       * disabled-but-not-deleted accounts stay visible so admins can still
+       * re-enable them.
+       */
       @Query("SELECT u FROM User u WHERE "
-                  + "(:role IS NULL OR u.role = :role) "
+                  + "u.deletedAt IS NULL "
+                  + "AND (:role IS NULL OR u.role = :role) "
                   + "AND (:q IS NULL OR :q = '' "
                   + "OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')) "
                   + "OR LOWER(u.email) LIKE LOWER(CONCAT('%', COALESCE(:q, ''), '%')) "

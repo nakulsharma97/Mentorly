@@ -60,11 +60,27 @@ public class AdminService {
     //  Admin — User Deletion
     // ════════════════════════════════════════════════
 
+    /**
+     * Soft-deletes a user account and scrubs its personal data.
+     *
+     * <p>The row is kept (bookings, payments, wallet ledger entries, reviews and
+     * audit history reference it) but stamped with {@code deletedAt}, which the
+     * admin user list and the messaging/mentor queries exclude. The email is
+     * rewritten so the account can no longer sign in, and existing JWTs stop
+     * resolving because their subject no longer exists.
+     */
     @Transactional
     public void deleteUser(User currentUser, Long userId, String email, String name) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        if (user.getDeletedAt() != null) {
+            // Already deleted (retried request): keep the state, log nothing twice.
+            LOG.info("deleteUser: user {} is already soft-deleted", userId);
+            return;
+        }
+
+        user.setDeletedAt(OffsetDateTime.now());
         user.setEnabled(false);
         user.setFullName("[Deleted User]");
         user.setEmail("deleted-" + user.getId() + "@mentorly.local");

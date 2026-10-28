@@ -8,6 +8,13 @@ import ShareReviewPage from "./ShareReviewPage";
 
 const wrapper = ({ children }) => <MemoryRouter>{children}</MemoryRouter>;
 
+// The shared axios client retries a failing GET twice with 250ms + 500ms
+// backoff, so a 5xx genuinely needs ~750ms to surface as the error card. That
+// is already close to Testing Library's 1s default and goes past it once the
+// suite runs many files in parallel, so every network-dependent query gets an
+// explicit budget (same convention as MessageAppNewChat.test.jsx).
+const WAIT = { timeout: 6000 };
+
 const pendingReview = {
   id: 7,
   rating: 4,
@@ -48,7 +55,7 @@ describe("ShareReviewPage", () => {
     mockMe(null);
     renderPage();
 
-    const comment = await screen.findByLabelText(/your review/i);
+    const comment = await screen.findByLabelText(/your review/i, {}, WAIT);
     expect(comment).toBeInTheDocument();
     // Rating + comment are both required before submitting.
     expect(screen.getByRole("button", { name: /submit review/i })).toBeDisabled();
@@ -75,7 +82,7 @@ describe("ShareReviewPage", () => {
     );
     const { notify } = renderPage();
 
-    const comment = await screen.findByLabelText(/your review/i);
+    const comment = await screen.findByLabelText(/your review/i, {}, WAIT);
     fireEvent.click(screen.getByRole("radio", { name: "5 stars" }));
     fireEvent.change(comment, {
       target: { value: "Mentorly made learning with mentors effortless." },
@@ -88,6 +95,8 @@ describe("ShareReviewPage", () => {
     expect(
       await screen.findByText(
         /thanks! your review will appear on the landing page after approval/i,
+        {},
+        WAIT,
       ),
     ).toBeInTheDocument();
     expect(posted).toMatchObject({
@@ -118,19 +127,23 @@ describe("ShareReviewPage", () => {
     );
     renderPage();
 
-    expect(await screen.findByText("Pending review")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Pending review", {}, WAIT),
+    ).toBeInTheDocument();
     expect(screen.getByText(pendingReview.comment)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /edit/i }));
-    const comment = await screen.findByLabelText(/your review/i);
+    const comment = await screen.findByLabelText(/your review/i, {}, WAIT);
     expect(comment).toHaveValue(pendingReview.comment);
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-    await waitFor(() => expect(putBody).not.toBeNull());
+    await waitFor(() => expect(putBody).not.toBeNull(), WAIT);
     expect(putBody.comment).toBe(pendingReview.comment);
     expect(
       await screen.findByText(
         /thanks! your review will appear on the landing page after approval/i,
+        {},
+        WAIT,
       ),
     ).toBeInTheDocument();
   });
@@ -147,13 +160,15 @@ describe("ShareReviewPage", () => {
     );
     renderPage();
 
-    expect(await screen.findByText("Pending review")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Pending review", {}, WAIT),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));
 
-    await waitFor(() => expect(deleted).toBe(true));
+    await waitFor(() => expect(deleted).toBe(true), WAIT);
     expect(confirmSpy).toHaveBeenCalled();
     expect(
-      await screen.findByRole("button", { name: /submit review/i }),
+      await screen.findByRole("button", { name: /submit review/i }, WAIT),
     ).toBeInTheDocument();
     confirmSpy.mockRestore();
   });
@@ -162,7 +177,7 @@ describe("ShareReviewPage", () => {
     mockMe(null, 500);
     renderPage();
 
-    const alert = await screen.findByRole("alert");
+    const alert = await screen.findByRole("alert", {}, WAIT);
     expect(alert).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /try again/i }),

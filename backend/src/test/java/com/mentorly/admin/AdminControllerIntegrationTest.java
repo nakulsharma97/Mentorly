@@ -779,6 +779,85 @@ class AdminControllerIntegrationTest {
     }
 
     // ══════════════════════════════════════════════════════════════
+    //  DELETE /users/{id}
+    // ══════════════════════════════════════════════════════════════
+
+    @Test
+    void deleteUser_returnsOk_onceTheSoftDeleteIsPersisted() throws Exception {
+        loginAs(adminUser);
+
+        User target = new User();
+        target.setId(30L);
+        target.setEmail("gone@test.com");
+        target.setFullName("Gone User");
+        target.setEnabled(true);
+
+        // The deleted row, as re-read after the service committed.
+        User softDeleted = new User();
+        softDeleted.setId(30L);
+        softDeleted.setEnabled(false);
+        softDeleted.setDeletedAt(OffsetDateTime.now());
+
+        when(userRepository.findById(30L)).thenReturn(Optional.of(target), Optional.of(softDeleted));
+
+        mockMvc.perform(delete("/api/v1/admin/users/30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User deleted"))
+                .andExpect(jsonPath("$.data.deletedUserId").value("30"))
+                .andExpect(jsonPath("$.data.alreadyDeleted").doesNotExist());
+
+        verify(adminService).deleteUser(eq(adminUser), eq(30L), eq("gone@test.com"), eq("Gone User"));
+    }
+
+    @Test
+    void deleteUser_isIdempotentForAnAlreadyDeletedAccount() throws Exception {
+        loginAs(adminUser);
+
+        User alreadyDeleted = new User();
+        alreadyDeleted.setId(40L);
+        alreadyDeleted.setEnabled(false);
+        alreadyDeleted.setDeletedAt(OffsetDateTime.now().minusDays(2));
+
+        when(userRepository.findById(40L)).thenReturn(Optional.of(alreadyDeleted));
+
+        mockMvc.perform(delete("/api/v1/admin/users/40"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("User already deleted"))
+                .andExpect(jsonPath("$.data.alreadyDeleted").value("true"));
+
+        verify(adminService, never()).deleteUser(any(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void deleteUser_rejectsSelfDeletion() throws Exception {
+        loginAs(adminUser);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        mockMvc.perform(delete("/api/v1/admin/users/1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error").value("Admins cannot delete their own account"));
+
+        verify(adminService, never()).deleteUser(any(), anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    void deleteUser_failsLoudlyWhenTheDeleteDidNotPersist() throws Exception {
+        loginAs(adminUser);
+
+        User target = new User();
+        target.setId(50L);
+        target.setEnabled(true);
+
+        // Re-read still has no deletedAt → the service silently did nothing.
+        when(userRepository.findById(50L)).thenReturn(Optional.of(target), Optional.of(target));
+
+        mockMvc.perform(delete("/api/v1/admin/users/50"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.data.error").value("Unexpected server error"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
     //  PATCH /users/{id}/role
     // ══════════════════════════════════════════════════════════════
 
