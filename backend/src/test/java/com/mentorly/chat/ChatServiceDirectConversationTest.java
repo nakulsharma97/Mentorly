@@ -159,6 +159,37 @@ class ChatServiceDirectConversationTest {
     }
 
     @Test
+    void newConversationBlockedWhenTargetAccountIsDisabled() {
+        User sender = learner(1L, null);
+        User receiver = approvedMentor(2L, MessagePrivacy.ANYONE);
+        receiver.setEnabled(false);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+
+        assertThatThrownBy(() -> chatService.createOrGetDirectConversation(sender, 2L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer available");
+
+        verify(directConversationRepository, never()).save(any(DirectConversation.class));
+    }
+
+    @Test
+    void existingConversationCannotReachADisabledAccount() {
+        User sender = learner(1L, null);
+        User receiver = approvedMentor(2L, MessagePrivacy.ANYONE);
+        receiver.setEnabled(false);
+        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+
+        // Account state beats the "existing conversations stay open" rule: a
+        // suspended user is not reachable through an old thread either. The
+        // existing-conversation lookup is never even reached.
+        assertThatThrownBy(() -> chatService.createOrGetDirectConversation(sender, 2L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer available");
+
+        verify(directConversationRepository, never()).findBetweenUsers(any(), any());
+    }
+
+    @Test
     void approvedMentorWithAnyonePrivacyCreatesConversation() {
         User sender = learner(1L, null);
         User receiver = approvedMentor(2L, MessagePrivacy.ANYONE);

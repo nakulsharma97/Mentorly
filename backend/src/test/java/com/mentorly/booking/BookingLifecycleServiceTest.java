@@ -140,6 +140,27 @@ class BookingLifecycleServiceTest {
     }
 
     @Test
+    void createBookingRejectsSessionFromDisabledMentor() {
+        // Approved but suspended: the verification flag stays, the account does not.
+        mentor.setEnabled(false);
+        when(sessionRepository.findByIdWithLock(session.getId())).thenReturn(Optional.of(session));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.createBooking(learner, IDEM_KEY, new BookingRequest(session.getId())));
+        assertEquals("This mentor is currently unavailable.", ex.getMessage());
+    }
+
+    @Test
+    void createBookingRejectsSessionFromDeletedMentor() {
+        mentor.setDeletedAt(OffsetDateTime.now());
+        when(sessionRepository.findByIdWithLock(session.getId())).thenReturn(Optional.of(session));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> bookingLifecycleService.createBooking(learner, IDEM_KEY, new BookingRequest(session.getId())));
+        assertEquals("This mentor is currently unavailable.", ex.getMessage());
+    }
+
+    @Test
     void createBookingRejectsDuplicateBooking() {
         when(sessionRepository.findByIdWithLock(session.getId())).thenReturn(Optional.of(session));
         when(bookingRepository.existsBySessionIdAndLearnerIdAndBookingStatusIn(

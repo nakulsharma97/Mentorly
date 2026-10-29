@@ -83,19 +83,26 @@ services:
       - key: APP_ADMIN_NAME
         value: Platform Admin
 
-      # ── Email (Render free blocks outbound 25/465/587 → keep disabled) ──────
+      # ── Email ───────────────────────────────────────────────────────────────
+      # Render free blocks outbound SMTP (25/465/587), so the Brevo HTTPS API is
+      # the only transport that can deliver mail here. To turn signup OTP and
+      # password-reset emails on: set BREVO_API_KEY below (and APP_EMAIL_FROM to
+      # a sender verified in Brevo), then flip APP_EMAIL_ENABLED to "true".
+      # While it stays false, the OTP / forgot-password endpoints answer 503
+      # "Email service is not configured." instead of faking success.
       - key: APP_EMAIL_ENABLED
         value: "false"
-      - key: MAIL_HOST
-        value: smtp.resend.com
-      - key: MAIL_PORT
-        value: "465"
-      - key: MAIL_USERNAME
-        value: resend
-      - key: MAIL_PASSWORD
+      - key: APP_EMAIL_PROVIDER
+        value: BREVO_API
+      - key: BREVO_API_KEY
         sync: false
       - key: APP_EMAIL_FROM
         value: no-reply@mentorly.app
+      - key: APP_EMAIL_FROM_NAME
+        value: Mentorly
+      # The SMTP probe cannot succeed here (blocked ports); keep health green.
+      - key: MANAGEMENT_HEALTH_MAIL_ENABLED
+        value: "false"
 
       # ── Payments ────────────────────────────────────────────────────────────
       # prod turns fail-on-placeholder ON by default; without real Razorpay keys

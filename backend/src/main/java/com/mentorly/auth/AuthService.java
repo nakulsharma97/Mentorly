@@ -485,6 +485,19 @@ public class AuthService {
         String tokenId = jwtService.extractTokenId(refreshToken);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid refresh token user"));
+
+        // A disabled (or soft-deleted) account must not be able to rotate its
+        // refresh token back into a working session. Burn every session in a
+        // separate transaction — this method throws, which would otherwise roll
+        // the revocation back — and answer with the same code the filter uses
+        // so the SPA logs the user out exactly once.
+        if (!user.isEnabled() || user.getDeletedAt() != null) {
+            revokeAllSessionsForUser(user.getId());
+            incrementCounter("auth.refresh.failed", "reason", "account_disabled");
+            throw new ApiClientException(HttpStatus.UNAUTHORIZED, "ACCOUNT_DISABLED",
+                    "Your account has been disabled. Please contact support.", false);
+        }
+
         // Pessimistic write lock (SELECT ... FOR UPDATE) on the session row:
         // concurrent refreshes with the same token serialize here, so exactly
         // one rotation wins and every other request sees the row already
@@ -781,6 +794,31 @@ public class AuthService {
         incrementCounter("auth.reset_password.success");
         recordPasswordReset(user);
         LOG.info("Password reset successful for userId={}", user.getId());
+    }
+
+    /**
+     * Revokes every active refresh session for a user id, in its own committed
+     * transaction. Used by the admin disable/delete paths (which may run inside
+     * their own transaction) and by the disabled-account refresh check above
+     * (where the caller throws immediately afterwards).
+     *
+     * @return the number of sessions revoked
+     */
+    public int revokeAllSessionsForUser(Long userId) {
+        if (userId == null) {
+            return 0;
+        }
+        org.springframework.transaction.support.TransactionTemplate tx =
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(
+                org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        Integer revoked = tx.execute(status ->
+                refreshTokenSessionRepository.revokeAllByUserIdAndRevokedFalse(userId));
+        int count = revoked == null ? 0 : revoked;
+        if (count > 0) {
+            LOG.info("Revoked {} refresh session(s) for userId={}", count, userId);
+        }
+        return count;
     }
 
     /**

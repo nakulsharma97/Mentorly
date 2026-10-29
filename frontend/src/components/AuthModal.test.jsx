@@ -3,6 +3,7 @@ import { beforeAll, afterAll } from "vitest";
 import { MemoryRouter } from "react-router";
 import AuthModal from "./AuthModal";
 import client, { clearAuthSessionState, sendVerificationOtp } from "../api/client";
+import { EMAIL_SEND_FAILED_MESSAGE } from "../utils/apiErrors";
 
 vi.mock("../api/client", () => ({
   default: {
@@ -405,5 +406,124 @@ describe("AuthModal — OAuth mentor intent", () => {
 
     expect(readSignupRoleCookie()).toBeUndefined();
     expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+  });
+});
+
+describe("AuthModal — OTP request failures", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const renderSignup = () =>
+    render(
+      <MemoryRouter>
+        <AuthModal
+          mode="signup"
+          onClose={vi.fn()}
+          onLoggedIn={vi.fn()}
+          notify={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+  const fillSignup = async () => {
+    client.get.mockResolvedValue({
+      data: { data: { available: true, suggestion: null } },
+    });
+    // Full name + username are `required` inputs: jsdom blocks the native form
+    // submission while they are empty, so the handler would never run.
+    fireEvent.change(screen.getByLabelText("Full name"), {
+      target: { value: "Nakul Sharma" },
+    });
+    fireEvent.change(screen.getByLabelText("Username"), {
+      target: { value: "nakul" },
+    });
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "nakul@gmail.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Secret123" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm Password"), {
+      target: { value: "Secret123" },
+    });
+    // Submit stays disabled during the 500ms debounced availability check.
+    await screen.findByText("✅ Username available", {}, { timeout: 3000 });
+  };
+
+  it("shows friendly copy and re-enables submit when the OTP request times out", async () => {
+    sendVerificationOtp.mockRejectedValue(
+      Object.assign(new Error("timeout of 20000ms exceeded"), {
+        code: "ECONNABORTED",
+      }),
+    );
+    renderSignup();
+    await fillSignup();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(await screen.findByText(EMAIL_SEND_FAILED_MESSAGE)).toBeInTheDocument();
+    // The raw axios text must never reach the user.
+    expect(screen.queryByText(/timeout of 20000ms/)).toBeNull();
+    // No more endless "Please wait...": the button is usable again.
+    expect(
+      screen.getByRole("button", { name: /create account/i }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/please wait/i)).toBeNull();
+  });
+
+  it("shows the backend's 503 message when email delivery is not configured", async () => {
+    sendVerificationOtp.mockRejectedValue({
+      response: {
+        status: 503,
+        data: {
+          message: "Email service is not configured.",
+          data: {
+            code: "EMAIL_NOT_CONFIGURED",
+            error: "Email service is not configured.",
+            message: "Email service is not configured.",
+            retryable: false,
+          },
+        },
+      },
+    });
+    renderSignup();
+    await fillSignup();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(
+      await screen.findByText("Email service is not configured."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create account/i }),
+    ).toBeEnabled();
+  });
+
+  it("shows the generic delivery failure message when the transport rejects the email", async () => {
+    sendVerificationOtp.mockRejectedValue({
+      response: {
+        status: 500,
+        data: {
+          message: "Request failed",
+          data: {
+            code: "INTERNAL_ERROR",
+            error: "Unable to send email. Please try again.",
+            retryable: true,
+          },
+        },
+      },
+    });
+    renderSignup();
+    await fillSignup();
+
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
+
+    expect(
+      await screen.findByText("Unable to send email. Please try again."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create account/i }),
+    ).toBeEnabled();
   });
 });

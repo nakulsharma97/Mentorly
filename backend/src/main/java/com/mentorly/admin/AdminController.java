@@ -129,6 +129,7 @@ public class AdminController {
     private final SkillRepository skillRepository;
     private final AppNotificationRepository appNotificationRepository;
     private final AdminService adminService;
+    private final com.mentorly.auth.AuthService authService;
     private final CertMigrationService certMigrationService;
     private final SystemHealthService systemHealthService;
     private final AdminNotificationService adminNotificationService;
@@ -344,8 +345,17 @@ public class AdminController {
         if (reported.isEnabled() == enabling) {
             throw new IllegalArgumentException("Account is already " + (enabling ? "enabled" : "suspended"));
         }
+        if (!enabling) {
+            // Same protections as the Users page: only a super admin may suspend
+            // another admin, and the platform always keeps one enabled admin.
+            requireAdminTargetPermission(currentUser, reported);
+            assertNotLastEnabledAdmin(reported);
+        }
         reported.setEnabled(enabling);
         userRepository.save(reported);
+        if (!enabling) {
+            authService.revokeAllSessionsForUser(reported.getId());
+        }
         report.setUpdatedAt(OffsetDateTime.now());
         UserReport saved = reportRepository.save(report);
 
@@ -497,26 +507,51 @@ public class AdminController {
         return userProjectService.listProjects(mentor);
     }
 
+    /**
+     * Enables or disables an account.
+     *
+     * <p>Returns a small DTO (never the {@code User} entity, which carries the
+     * password hash). Disabling also revokes every refresh session so the user
+     * is signed out everywhere; the next request their access token makes is
+     * rejected by {@code JwtAuthenticationFilter}. Repeating the same state is a
+     * no-op that still succeeds.
+     */
     @PatchMapping("/users/{id}/enabled")
-    public ApiResponse<User> setUserEnabled(
+    @Transactional
+    @org.springframework.cache.annotation.CacheEvict(value = { "mentorProfile", "mentorList",
+            "mentorSkills" }, allEntries = true)
+    public ApiResponse<UserStatusDto> setUserEnabled(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id,
             @RequestBody UserEnabledRequest request) {
         ensureAdmin(currentUser);
 
-        if (currentUser.getId().equals(id)) {
-            throw new IllegalArgumentException("Admins cannot disable their own account");
-        }
-
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         boolean enabling = Boolean.TRUE.equals(request.enabled());
-        user.setEnabled(enabling);
-        User saved = userRepository.save(user);
+
+        if (currentUser.getId().equals(id)) {
+            throw new IllegalArgumentException("Admins cannot disable their own account");
+        }
+        if (!enabling) {
+            requireAdminTargetPermission(currentUser, user);
+            assertNotLastEnabledAdmin(user);
+        }
+
+        boolean changed = user.isEnabled() != enabling;
+        if (changed) {
+            user.setEnabled(enabling);
+            userRepository.save(user);
+            if (!enabling) {
+                authService.revokeAllSessionsForUser(id);
+            }
+        }
+
         saveAuditLog(currentUser, enabling ? "USER_ENABLE" : "USER_DISABLE", "User", id,
                 (enabling ? "Enabled user account \"" : "Disabled user account \"")
                         + user.getFullName() + "\" (" + user.getEmail() + ")");
-        return new ApiResponse<>("User status updated", saved);
+        return new ApiResponse<>("User status updated",
+                new UserStatusDto(user.getId(), user.isEnabled(), user.getFullName()));
     }
 
     @PostMapping("/users/{id}/wallet-ledger")
@@ -533,6 +568,8 @@ public class AdminController {
     // ════════════════════════════════════════════════
 
     @DeleteMapping("/users/{id}")
+    @org.springframework.cache.annotation.CacheEvict(value = { "mentorProfile", "mentorList",
+            "mentorSkills" }, allEntries = true)
     public ApiResponse<Map<String, String>> deleteUser(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long id) {
@@ -550,6 +587,9 @@ public class AdminController {
             return new ApiResponse<>("User already deleted",
                     Map.of("deletedUserId", String.valueOf(id), "alreadyDeleted", "true"));
         }
+
+        requireAdminTargetPermission(currentUser, user);
+        assertNotLastEnabledAdmin(user);
 
         String email = user.getEmail();
         String name = user.getFullName();
@@ -2451,25 +2491,26 @@ public class AdminController {
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody AdminBulkUserIdsRequest request) {
         ensureAdmin(currentUser);
-        List<Long> targets = request.ids().stream()
-                .filter(id -> !id.equals(currentUser.getId()))
-                .collect(Collectors.toList());
-        int updated = adminService.bulkEnableUsers(targets);
+        BulkTargetSelection selection = selectBulkTargets(currentUser, request.ids(), false);
+        int updated = adminService.bulkEnableUsers(selection.allowed());
         saveAuditLog(currentUser, "BULK_ENABLE_USERS", "User", null, "Enabled " + updated + " users");
-        return new ApiResponse<>("Bulk enable complete", Map.of("updatedCount", updated));
+        return bulkResponse("Bulk enable complete", updated, selection.skipped());
     }
 
     @PostMapping("/users/bulk/disable")
+    @org.springframework.cache.annotation.CacheEvict(value = { "mentorProfile", "mentorList",
+            "mentorSkills" }, allEntries = true)
     public ApiResponse<Map<String, Object>> bulkDisableUsers(
             @AuthenticationPrincipal User currentUser,
             @Valid @RequestBody AdminBulkUserIdsRequest request) {
         ensureAdmin(currentUser);
-        List<Long> targets = request.ids().stream()
-                .filter(id -> !id.equals(currentUser.getId()))
-                .collect(Collectors.toList());
-        int updated = adminService.bulkDisableUsers(targets);
+        BulkTargetSelection selection = selectBulkTargets(currentUser, request.ids(), true);
+        int updated = adminService.bulkDisableUsers(selection.allowed());
+        // Disabled accounts must be signed out everywhere, exactly like the
+        // single-user toggle. Revocation is per user and idempotent.
+        selection.allowed().forEach(authService::revokeAllSessionsForUser);
         saveAuditLog(currentUser, "BULK_DISABLE_USERS", "User", null, "Disabled " + updated + " users");
-        return new ApiResponse<>("Bulk disable complete", Map.of("updatedCount", updated));
+        return bulkResponse("Bulk disable complete", updated, selection.skipped());
     }
 
     @PostMapping("/users/bulk/role")
@@ -2503,6 +2544,101 @@ public class AdminController {
 
     private static void ensureAdmin(User currentUser, AdminSubRole... requiredSubRole) {
         AdminUtils.ensureAdmin(currentUser, requiredSubRole);
+    }
+
+    /**
+     * Only a permitted admin level may suspend/delete another ADMIN account.
+     * Reuses {@link AdminUtils} so this agrees with every other admin gate.
+     */
+    private static void requireAdminTargetPermission(User actor, User target) {
+        if (target.getRole() != UserRole.ADMIN) {
+            return;
+        }
+        AdminUtils.ensureAdmin(actor, AdminSubRole.SUPER_ADMIN);
+    }
+
+    /**
+     * The platform must always keep at least one enabled admin, otherwise nobody
+     * can administer it. Applies to disable and delete (single and bulk).
+     */
+    private void assertNotLastEnabledAdmin(User target) {
+        if (target.getRole() != UserRole.ADMIN || !target.isEnabled()) {
+            return;
+        }
+        long enabledAdmins = userRepository.countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole.ADMIN);
+        if (enabledAdmins <= 1) {
+            throw new IllegalArgumentException("You cannot disable the last enabled admin account");
+        }
+    }
+
+    /** Ids that passed the bulk safety rules, plus why the rest were skipped. */
+    private record BulkTargetSelection(List<Long> allowed, List<String> skipped) {
+    }
+
+    /**
+     * Applies the single-user safety rules to a bulk request: no self-action,
+     * no action on another admin without permission, and never disable the last
+     * enabled admin. Unusable ids are reported instead of silently dropped.
+     */
+    private BulkTargetSelection selectBulkTargets(User currentUser, List<Long> ids, boolean disabling) {
+        List<Long> allowed = new java.util.ArrayList<>();
+        List<String> skipped = new java.util.ArrayList<>();
+        if (ids == null || ids.isEmpty()) {
+            return new BulkTargetSelection(allowed, skipped);
+        }
+
+        boolean superAdmin = currentUser.getAdminSubRole() == null
+                || currentUser.getAdminSubRole() == AdminSubRole.SUPER_ADMIN;
+        long enabledAdmins = disabling
+                ? userRepository.countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole.ADMIN)
+                : 0L;
+        long adminsInThisDisable = 0L;
+        if (disabling) {
+            for (Long id : ids) {
+                User target = userRepository.findById(id).orElse(null);
+                if (target != null && target.getRole() == UserRole.ADMIN && target.isEnabled()) {
+                    adminsInThisDisable++;
+                }
+            }
+        }
+
+        for (Long id : ids) {
+            if (id == null) {
+                continue;
+            }
+            User target = userRepository.findById(id).orElse(null);
+            if (target == null) {
+                skipped.add("#" + id + " (not found)");
+                continue;
+            }
+            if (target.getId().equals(currentUser.getId())) {
+                skipped.add("#" + id + " (your own account)");
+                continue;
+            }
+            if (target.getRole() == UserRole.ADMIN) {
+                if (!superAdmin) {
+                    skipped.add("#" + id + " (super admin required)");
+                    continue;
+                }
+                if (disabling && target.isEnabled() && enabledAdmins - adminsInThisDisable < 1) {
+                    skipped.add("#" + id + " (last enabled admin)");
+                    continue;
+                }
+            }
+            allowed.add(id);
+        }
+        return new BulkTargetSelection(allowed, skipped);
+    }
+
+    private static ApiResponse<Map<String, Object>> bulkResponse(String baseMessage, int updated,
+            List<String> skipped) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("updatedCount", updated);
+        body.put("skipped", skipped);
+        String message = skipped.isEmpty()
+                ? baseMessage
+                : baseMessage + ". Skipped: " + String.join(", ", skipped);
+        return new ApiResponse<>(message, body);
     }
 
     /** Returns the session title for a booking, or a fallback string if unavailable. */
@@ -2714,6 +2850,12 @@ public class AdminController {
             long suspendedUsers) { }
     public record UserEnabledRequest(boolean enabled) { }
     public record AdminSubRoleRequest(@NotNull AdminSubRole adminSubRole) { }
+
+    /**
+     * Minimal response for enable/disable: exactly what the Users page needs to
+     * re-render the row and the detail panel, with no credential fields.
+     */
+    public record UserStatusDto(Long id, boolean enabled, String fullName) { }
     public record AdminSettingsDto(Map<String, String> settings) { }
     public record AdminSettingsCategoryDto(String id, String label, String description,
             List<AdminSettingFieldDto> fields) { }

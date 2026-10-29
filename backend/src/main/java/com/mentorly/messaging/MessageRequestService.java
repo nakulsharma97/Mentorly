@@ -55,6 +55,14 @@ public class MessageRequestService {
         if (receiver.getRole() == UserRole.ADMIN) {
             throw new IllegalArgumentException("Message requests can only be sent to learners or mentors");
         }
+        // Suspended/deleted accounts must not receive new message requests, and
+        // their stale token cannot be used to send one.
+        if (!receiver.isEnabled() || receiver.getDeletedAt() != null) {
+            throw new IllegalArgumentException("This user is no longer available.");
+        }
+        if (!sender.isEnabled() || sender.getDeletedAt() != null) {
+            throw new IllegalArgumentException("Your account is not available.");
+        }
         if (sender.getRole() == UserRole.ADMIN) {
             throw new IllegalArgumentException("Admins cannot send conversation requests");
         }

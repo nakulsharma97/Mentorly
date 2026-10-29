@@ -35,19 +35,43 @@ This document describes all environment variables used by the Skill Swapping Pla
 
 ### Email Configuration
 
-Email sending is **optional and disabled by default** (`APP_EMAIL_ENABLED=false`). The
-`/actuator/health` mail probe only runs when email is enabled, so deployments without
-SMTP configured still report a green health endpoint. If you enable email,
-`MAIL_PASSWORD` is required — a broken SMTP connection will then fail the health check.
+Email sending is **optional and disabled by default** (`APP_EMAIL_ENABLED=false`). Two
+transports exist and `APP_EMAIL_PROVIDER` picks one:
 
-| Variable            | Purpose                                             | Default                   | Example                    |
-| ------------------- | --------------------------------------------------- | ------------------------- | -------------------------- |
-| `APP_EMAIL_ENABLED` | Master switch for email sending + mail health probe | `false`                   | `true`                     |
-| `MAIL_HOST`         | SMTP server                                         | `smtp.resend.com`         | `smtp.resend.com`          |
-| `MAIL_PORT`         | SMTP port (implicit TLS)                            | `465`                     | `465`                      |
-| `MAIL_USERNAME`     | SMTP username                                       | `resend`                  | `resend`                   |
-| `MAIL_PASSWORD`     | SMTP password (required when email enabled)         | None (required)           | `re_xxx...`                |
-| `APP_EMAIL_FROM`    | From address for emails                             | `no-reply@mentorly.app`  | `no-reply@mentorly.app`   |
+- `SMTP` (default) — the classic JavaMailSender path using `MAIL_*`.
+- `BREVO_API` — Brevo's REST API over HTTPS/443 using `BREVO_API_KEY`.
+
+**Render free web services block outbound SMTP ports 25/465/587**, so the SMTP transport
+can never connect there; use `BREVO_API`. An unknown provider value fails fast at startup.
+
+With email disabled in a production-like profile (anything other than dev/local/test),
+`POST /api/v1/auth/send-verification-otp` and `POST /api/v1/auth/forgot-password` return
+**HTTP 503 `Email service is not configured.`** rather than claiming a code was sent. In
+dev/local they keep the log-only behaviour so no SMTP server is needed locally.
+
+The `/actuator/health` mail probe is **off by default** (`MANAGEMENT_HEALTH_MAIL_ENABLED`),
+so health stays independent of email — on hosts that block SMTP the probe would otherwise
+report DOWN even while the Brevo transport delivers mail. Enable it only when SMTP is the
+active transport and its failure should fail the health check.
+
+| Variable                      | Purpose                                             | Default                  | Example                        |
+| ----------------------------- | --------------------------------------------------- | ------------------------ | ------------------------------ |
+| `APP_EMAIL_ENABLED`           | Master switch for email sending                     | `false`                  | `true`                         |
+| `APP_EMAIL_PROVIDER`          | `SMTP` or `BREVO_API` (case-insensitive)            | `SMTP`                   | `BREVO_API`                    |
+| `APP_EMAIL_FROM`              | From address (must be a verified Brevo sender)      | `no-reply@mentorly.app`  | `no-reply@mentorly.app`        |
+| `APP_EMAIL_FROM_NAME`         | Display name on Brevo sends                         | `Mentorly`               | `Mentorly`                     |
+| `BREVO_API_KEY`               | Brevo API key (server-side only)                    | None (required for Brevo)| `xkeysib-xxx...`               |
+| `BREVO_API_BASE_URL`          | Brevo API base URL (tests point this at a fake)     | `https://api.brevo.com`  | `https://api.brevo.com`        |
+| `MAIL_HOST`                   | SMTP server                                         | `smtp.resend.com`        | `smtp.resend.com`              |
+| `MAIL_PORT`                   | SMTP port                                           | `465`                    | `587`                          |
+| `MAIL_USERNAME`               | SMTP username                                       | `resend`                 | `resend`                       |
+| `MAIL_PASSWORD`               | SMTP password (required when SMTP is enabled)       | None (required)          | `re_xxx...`                    |
+| `MAIL_SSL_ENABLE`             | Implicit TLS (true for 465)                         | `true`                   | `true`                         |
+| `MAIL_STARTTLS_ENABLE`        | STARTTLS upgrade (true for 587)                     | `false`                  | `true`                         |
+| `MAIL_CONNECTION_TIMEOUT_MS`  | SMTP connect timeout                                | `10000`                  | `10000`                        |
+| `MAIL_READ_TIMEOUT_MS`        | SMTP read timeout                                   | `10000`                  | `10000`                        |
+| `MAIL_WRITE_TIMEOUT_MS`       | SMTP write timeout                                  | `10000`                  | `10000`                        |
+| `MANAGEMENT_HEALTH_MAIL_ENABLED` | Run the SMTP health probe                        | `false`                  | `true`                         |
 
 ### Payment Processing
 

@@ -244,7 +244,8 @@ Save karke dono services **Manual Deploy → Deploy latest commit** (ya `Restart
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET` | Stripe payments + mentor payouts | Optional (payments chahiye to haan) |
 | `APP_PAYMENT_RAZORPAY_KEY_ID`, `APP_PAYMENT_RAZORPAY_KEY_SECRET`, `APP_PAYMENT_RAZORPAY_WEBHOOK_SECRET`, `APP_PAYOUT_RAZORPAY_WEBHOOK_SECRET`, `APP_PAYMENT_RAZORPAY_FAIL_ON_PLACEHOLDER` | Razorpay payments + payouts | Optional |
 | `GOOGLE_CALENDAR_CLIENT_ID`, `GOOGLE_CALENDAR_CLIENT_SECRET`, `GOOGLE_CALENDAR_REDIRECT_URI` | Google Meet links | Optional (dekho Section 11) |
-| `APP_EMAIL_ENABLED`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `APP_EMAIL_FROM` | email notifications | Optional (Render free par SMTP blocked) |
+| `APP_EMAIL_ENABLED`, `APP_EMAIL_PROVIDER=BREVO_API`, `BREVO_API_KEY`, `APP_EMAIL_FROM`, `APP_EMAIL_FROM_NAME` | signup OTP + password reset + notifications (HTTPS, free instance par bhi chalta hai — Section 7.9) | Optional |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SSL_ENABLE`, `MAIL_STARTTLS_ENABLE` | SMTP transport (sirf `APP_EMAIL_PROVIDER=SMTP` par) | Optional (Render free par SMTP blocked) |
 | `SENTRY_DSN` | error tracking | Optional |
 | `APP_TRUSTED_PROXY=true` | rate-limit/audit me asli client IP | Haan (nginx ke peeche) |
 | `SERVER_FORWARD_HEADERS_STRATEGY=framework` | Google/GitHub OAuth redirect `https://<frontend>` par bane (nginx `X-Forwarded-Host` bhejta hai) | Haan (social login ke liye) |
@@ -323,7 +324,7 @@ Ek nazar me checklist (tick karte jao):
 | 14 | Stripe payments chahiye tab | `mentorly-api` | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CONNECT_WEBHOOK_SECRET` | Stripe Dashboard (Section 7.7) |
 | 15 | wahi | `mentorly-web` | `VITE_STRIPE_PUBLISHABLE_KEY` | `pk_test_…` (public) |
 | 16 | Google Meet chahiye tab | `mentorly-api` | `GOOGLE_CALENDAR_CLIENT_ID`, `..._CLIENT_SECRET`, `..._REDIRECT_URI` | Google Cloud Console (Section 7.8) |
-| 17 | Email chahiye tab (paid instance) | `mentorly-api` | `MAIL_PASSWORD`, `APP_EMAIL_FROM`, `APP_EMAIL_ENABLED=true` | Resend (Section 7.9) |
+| 17 | Email (signup OTP / password reset) chahiye tab | `mentorly-api` | `APP_EMAIL_ENABLED=true`, `APP_EMAIL_PROVIDER=BREVO_API`, `BREVO_API_KEY`, `APP_EMAIL_FROM`, `APP_EMAIL_FROM_NAME` | Brevo (Section 7.9) |
 | 18 | Error tracking chahiye tab | `mentorly-api` + `mentorly-web` | `SENTRY_DSN`, `VITE_SENTRY_DSN` | Sentry (Section 7.10) |
 
 > `VITE_*` values **build time** par bundle me jati hain — change karne ke baad `mentorly-web` ko **rebuild** karna padega, sirf restart se kaam nahi chalega. Backend ke env vars ke liye restart kaafi hai.
@@ -399,22 +400,32 @@ Kam se kam 12 characters, letters+digits+symbol. Ye in values me se nahi hona ch
 4. Client ID/Secret → `GOOGLE_CALENDAR_CLIENT_ID` / `GOOGLE_CALENDAR_CLIENT_SECRET`, redirect → `GOOGLE_CALENDAR_REDIRECT_URI`.
    (Yahan login wala Google client reuse bhi kar sakte ho, bas redirect URI add kar do.)
 
-### 7.9 Email / SMTP — *free tier available*
-Render **free** instances outbound ports **25, 465, 587 block** karte hain → **isse abhi `APP_EMAIL_ENABLED=false` hi rakho** (default). Paid instance lo tab ye setup karo:
+### 7.9 Email — free instance par bhi kaam karta hai (Brevo HTTPS API)
+Render **free** instances outbound ports **25, 465, 587 block** karte hain, is liye **SMTP yahan kabhi connect nahi hoga**. Backend me do transports hain aur `APP_EMAIL_PROVIDER` select karta hai:
 
-1. https://resend.com → **API Keys → Create** → `re_…` copy karo (ye hi SMTP password hai).
-2. Domain verify karo (Resend → Domains) aur `APP_EMAIL_FROM` me usi domain ka address do (e.g. `no-reply@yourdomain.com`).
-3. Render env:
+- `SMTP` (default) — JavaMailSender, `MAIL_*` variables.
+- `BREVO_API` — Brevo ka REST API **HTTPS/443** par, `BREVO_API_KEY` se. Free instance par yahi use karo.
+
+**Setup (Brevo, free plan):**
+
+1. https://brevo.com → sign up → **Senders & Domains** me sender email verify karo (wahi `APP_EMAIL_FROM` hoga).
+2. **SMTP & API → API Keys → Create** → `xkeysib-…` copy karo.
+3. Render → `mentorly-api` → **Environment**:
    ```
    APP_EMAIL_ENABLED=true
-   MAIL_HOST=smtp.resend.com
-   MAIL_PORT=465
-   MAIL_USERNAME=resend
-   MAIL_PASSWORD=re_xxxxxxxx
-   APP_EMAIL_FROM=no-reply@yourdomain.com
+   APP_EMAIL_PROVIDER=BREVO_API
+   BREVO_API_KEY=xkeysib-xxxxxxxx
+   APP_EMAIL_FROM=no-reply@yourdomain.com   # Brevo me verified sender
+   APP_EMAIL_FROM_NAME=Mentorly
+   MANAGEMENT_HEALTH_MAIL_ENABLED=false     # SMTP probe yahan fail hoga
    ```
-4. Alternatives (same 3 line change): Brevo `smtp-relay.brevo.com:587`, SendGrid `smtp.sendgrid.net:587` (username `apikey`), Mailgun `smtp.mailgun.org:587`, Gmail app password `smtp.gmail.com:465`.
-5. Yaad rakho: email enable karte hi `/actuator/health` SMTP probe bhi karta hai — SMTP toota to health DOWN (aur Render deploy fail) ho sakta hai.
+4. Save → service redeploy. Signup par OTP email 2–5 second me aana chahiye.
+
+Notes:
+
+- Transport ke apne timeouts hain (connect 5 s, request 10 s), is liye OTP request kabhi hang nahi hoti; frontend 20 s par friendly error dikha kar button wapas enable kar deta hai.
+- `APP_EMAIL_ENABLED=false` + production profile me **send-verification-otp** aur **forgot-password** `503 Email service is not configured.` dete hain (fake success nahi). Dev/local me purana log-only behaviour chalta rehta hai.
+- SMTP path bhi ab configurable hai: port 465 → `MAIL_SSL_ENABLE=true, MAIL_STARTTLS_ENABLE=false`; port 587 → ulta. Teeno timeouts default 10 s.
 
 ### 7.10 Sentry — *free plan*
 1. https://sentry.io → **Projects → Create project**.
@@ -478,8 +489,7 @@ Doosri call 404/502 deti hai to `BACKEND_URL` galat hai ya backend down hai.
 
 ### 9.3 Signup + login
 1. `https://mentorly-web.onrender.com/signup` → learner signup.
-2. Email verification OTP screen aaye to `APP_EMAIL_ENABLED=false` me OTP log me aata hai:
-   Render → `mentorly-api` → **Logs** → `verification` search karo.
+2. Email verification OTP screen aaye. Email configured hai (Section 7.9) to code mail me aayega. `APP_EMAIL_ENABLED=false` par production me saaf `503 Email service is not configured.` dikhega — koi fake "code sent" nahi.
 3. Login karke `/complete-profile` flow poora karo, learner dashboard khule.
 
 ### 9.4 Admin
@@ -505,7 +515,8 @@ Mentor → wallet top-up → card `4242 4242 4242 4242` → success. Backend log
 | `Refusing to start: APP_ADMIN_PASSWORD is not configured…` | `APP_ADMIN_EMAIL` set hai par password nahi — dono do, ya dono khaali chhodo. |
 | `Communications link failure` / `SSL/TLS` error | JDBC URL me `sslMode=REQUIRED` missing, ya Aiven port galat (3306 nahi, jo Aiven dikhata hai). |
 | `Access denied for user 'avnadmin'` | Password galat / URL-encode nahi kiya (special chars), ya Aiven service paused hai. |
-| `Health check failed` + 503 on `/actuator/health` | DB connect nahi ho raha, ya `APP_EMAIL_ENABLED=true` + SMTP toota. |
+| `Health check failed` + 503 on `/actuator/health` | DB connect nahi ho raha, ya `MANAGEMENT_HEALTH_MAIL_ENABLED=true` + SMTP toota (is probe ko off rakho jab Brevo use kar rahe ho). |
+| Signup par 503 `Email service is not configured.` | `APP_EMAIL_ENABLED=false` hai (Section 7.9 ke hisaab se Brevo API on karo). |
 | Login ke baad turant logout | Cookies nahi ja rahe: frontend different host par hai, ya `APP_AUTH_COOKIE_SECURE=true` par HTTP access. Sirf `https://mentorly-web…` use karo. |
 | CORS error browser me | `CORS_ALLOWED_ORIGINS` me exact origin (scheme + host, **no trailing slash**). |
 | WS `1006`/failed | `APP_WEBSOCKET_ALLOWED_ORIGINS` me frontend origin, aur `/ws/` proxy (nginx template) check karo. |
@@ -524,7 +535,7 @@ Mentor → wallet top-up → card `4242 4242 4242 4242` → success. Backend log
 - **15 min inactivity** par sleep, phir pehli request par cold start — locally measured **75s (warm DB)** / **124s (fresh migrations)**; free instance par ~1.5–3 min. Deploy ke baad turant na kholo, ek baar `curl` chala kar jaga lo.
 - Workspace me **750 instance-hours/month** (dono services share karte hain). Din bhar chalane par ~1440 hours lagte hain → month ke aakhir me suspend ho sakta hai. Demo/hobby ke liye theek.
 - **Persistent disk nahi** → neeche point 11.3.
-- Outbound SMTP ports 25/465/587 blocked → email band rakho.
+- Outbound SMTP ports 25/465/587 blocked → SMTP transport use na karo; Brevo HTTPS API (`APP_EMAIL_PROVIDER=BREVO_API`) free instance par chalta hai.
 
 ### 11.2 OAuth redirects aur proxy headers
 Frontend nginx backend ko `Host: mentorly-api.onrender.com` (Render routing ke liye) aur `X-Forwarded-Host: mentorly-web.onrender.com` + `X-Forwarded-Proto: https` bhejta hai. Isi wajah se `SERVER_FORWARD_HEADERS_STRATEGY=framework` set hai — iske bina Google/GitHub ka `redirect_uri` galat host (backend ya `http://`) par banta hai aur `redirect_uri_mismatch` aata hai.

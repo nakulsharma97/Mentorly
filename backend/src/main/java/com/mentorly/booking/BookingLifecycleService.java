@@ -225,6 +225,11 @@ public class BookingLifecycleService {
         if (session.getMentor() == null || !session.getMentor().isApprovedMentor()) {
             throw new IllegalArgumentException("This mentor is currently unavailable.");
         }
+        // Suspended/deleted mentors keep their APPROVED flag (admins may restore
+        // them), so account state is checked separately: no new bookings.
+        if (!session.getMentor().isEnabled() || session.getMentor().getDeletedAt() != null) {
+            throw new IllegalArgumentException("This mentor is currently unavailable.");
+        }
 
         // A cancelled or completed session instance is permanently finished —
         // it can never be booked again (by anyone, ever).

@@ -372,6 +372,47 @@ class AuthServiceTest {
         stubTokenIssue();
     }
 
+    // ── Refresh: disabled accounts ──────────────────────────────────────────
+
+    @Test
+    void refreshTokenRejectsDisabledAccountAndRevokesEverySession() {
+        User disabled = user("disabled");
+        disabled.setEnabled(false);
+        when(jwtService.isRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtService.extractUsername("refresh-token")).thenReturn(disabled.getEmail());
+        when(jwtService.extractTokenId("refresh-token")).thenReturn("token-id-1");
+        when(userRepository.findByEmail(disabled.getEmail())).thenReturn(Optional.of(disabled));
+        when(refreshTokenSessionRepository.revokeAllByUserIdAndRevokedFalse(1L)).thenReturn(3);
+
+        ApiClientException ex = assertThrows(ApiClientException.class,
+                () -> authService.refreshToken("refresh-token"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatus());
+        assertEquals("ACCOUNT_DISABLED", ex.getCode());
+        // The whole session family is burned so no device can rotate again.
+        verify(refreshTokenSessionRepository).revokeAllByUserIdAndRevokedFalse(1L);
+        // And no new token is minted.
+        verify(refreshTokenSessionRepository, never())
+                .findActiveByTokenIdForUpdate(any(), any());
+        verify(jwtService, never()).generateToken(any(User.class), any(String.class));
+    }
+
+    @Test
+    void refreshTokenRejectsSoftDeletedAccount() {
+        User deleted = user("deleted");
+        deleted.setDeletedAt(java.time.OffsetDateTime.now());
+        when(jwtService.isRefreshToken("refresh-token")).thenReturn(true);
+        when(jwtService.extractUsername("refresh-token")).thenReturn(deleted.getEmail());
+        when(jwtService.extractTokenId("refresh-token")).thenReturn("token-id-1");
+        when(userRepository.findByEmail(deleted.getEmail())).thenReturn(Optional.of(deleted));
+
+        ApiClientException ex = assertThrows(ApiClientException.class,
+                () -> authService.refreshToken("refresh-token"));
+
+        assertEquals("ACCOUNT_DISABLED", ex.getCode());
+        verify(jwtService, never()).generateToken(any(User.class), any(String.class));
+    }
+
     private void stubTokenIssue() {
         when(jwtService.generateToken(any(User.class), any(String.class))).thenReturn("access-token");
         when(jwtService.generateRefreshToken(any(User.class), any(String.class))).thenReturn("refresh-token");

@@ -5711,29 +5711,39 @@ html {
    16. AUTH MODAL — PASSWORD & OTP ENHANCEMENTS
    ═══════════════════════════════════════════════════ */
 
-/* Password input wrapper with toggle */
+/* Password input wrapper with toggle.
+   The toggle is centred with top/bottom + margin auto rather than
+   translateY(-50%): the global `button:disabled { transform: none !important }`
+   rule strips transforms, which used to drop the icon onto the input's bottom
+   border the moment the form started submitting. This version has no
+   transform to strip, so it stays centred in every state (normal, focus,
+   disabled/submitting, error) and in both themes. */
 .password-input-wrapper {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: block;
 }
 
 .password-input-wrapper input {
-  flex: 1;
-  min-width: 0;
+  display: block;
+  width: 100%;
   padding-right: 44px !important;
 }
 
+.auth-modal-overlay .auth-card .password-toggle-btn,
 .password-toggle-btn {
   position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
+  top: 0;
+  bottom: 0;
+  right: 6px;
+  margin: auto 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  transform: none;
+  background: transparent;
   border: none;
   color: #64748b;
   cursor: pointer;
-  padding: 6px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;

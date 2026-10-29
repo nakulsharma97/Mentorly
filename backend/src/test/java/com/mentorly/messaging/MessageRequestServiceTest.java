@@ -68,6 +68,32 @@ class MessageRequestServiceTest {
     }
 
     @Test
+    void createRejectsRequestToDisabledReceiver() {
+        User sender = user(1L, "LEARNER");
+        User receiver = user(2L, "MENTOR");
+        receiver.setEnabled(false);
+
+        assertThatThrownBy(() -> messageRequestService.createRequest(sender, receiver, "Hello"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer available");
+
+        verify(messageRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void createRejectsDeletedReceiver() {
+        User sender = user(1L, "LEARNER");
+        User receiver = user(2L, "MENTOR");
+        receiver.setDeletedAt(OffsetDateTime.now());
+
+        assertThatThrownBy(() -> messageRequestService.createRequest(sender, receiver, "Hello"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no longer available");
+
+        verify(messageRequestRepository, never()).save(any());
+    }
+
+    @Test
     void createRejectsRequestToAdmin() {
         User sender = user(1L, "LEARNER");
         User receiver = user(2L, "ADMIN");

@@ -7,6 +7,7 @@ import com.mentorly.common.ProfileCompletionGuard;
 import com.mentorly.common.ProfileCompletionService;
 import com.mentorly.common.UsernameRules;
 import com.mentorly.common.exception.BadRequestException;
+import com.mentorly.common.exception.ResourceNotFoundException;
 import com.mentorly.user.MentorVerificationStatus;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -176,14 +177,26 @@ public class UserController {
      * Public mentor profile. Cached for 5 minutes — profiles change when
      * the mentor updates their profile, so invalidation is tied to
      * {@code updateProfile()} below.
+     *
+     * <p>Admin requests bypass the cache: an admin is allowed to see a
+     * suspended/deleted mentor's profile, and that response must never be stored
+     * under the public cache key where the visibility guard would be skipped for
+     * everyone else.
      */
     @GetMapping("/mentors/{mentorId}")
-    @Cacheable(value = "mentorProfile", key = "#mentorId")
-    public ApiResponse<PublicMentorProfileResponse> mentorPublicProfile(@PathVariable Long mentorId) {
+    @Cacheable(value = "mentorProfile", key = "#mentorId",
+            condition = "#p1?.role?.name() != 'ADMIN'")
+    public ApiResponse<PublicMentorProfileResponse> mentorPublicProfile(@PathVariable Long mentorId,
+            @AuthenticationPrincipal User currentUser) {
         log.debug("CACHE MISS: fetching mentor profile from database (mentorId={})", mentorId);
         User mentor = userRepository.findById(mentorId)
                 .filter(User::isApprovedMentor)
-                .orElseThrow(() -> new IllegalArgumentException("Mentor not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Mentor not found"));
+        // Suspended/deleted mentors keep their APPROVED flag, so visibility is
+        // gated on account state too. Admins may still inspect the profile.
+        if (!isVisibleMentor(mentor, currentUser)) {
+            throw new ResourceNotFoundException("Mentor not found");
+        }
 
         double averageRating = mentorReviewRepository.averageRatingByMentorId(mentorId).orElse(0.0);
         long totalReviews = mentorReviewRepository.countByMentorId(mentorId);
@@ -202,6 +215,15 @@ public class UserController {
                         totalReviews,
                         upcomingSessions,
                         userProjectService.listProjects(mentor)));
+    }
+
+    /**
+     * Public profiles exist only for enabled, non-deleted mentors. Admins keep
+     * access so they can inspect an account they are moderating.
+     */
+    private static boolean isVisibleMentor(User mentor, User currentUser) {
+        boolean active = mentor.isEnabled() && mentor.getDeletedAt() == null;
+        return active || (currentUser != null && currentUser.getRole() == UserRole.ADMIN);
     }
 
     @PutMapping("/me/wallet")

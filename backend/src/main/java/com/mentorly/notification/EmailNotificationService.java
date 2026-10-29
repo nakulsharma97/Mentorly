@@ -2,13 +2,8 @@ package com.mentorly.notification;
 
 import com.mentorly.session.SkillSession;
 import com.mentorly.user.User;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -16,21 +11,25 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Service implementing email notification business logic.
+ *
+ * <p>Delivery itself is delegated to the {@link EmailTransport} selected by
+ * {@link EmailTransportConfig} (SMTP or Brevo's HTTPS API), so this class only
+ * owns the templates and the enabled/disabled policy.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmailNotificationService {
 
     private static final DateTimeFormatter EMAIL_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm XXX");
 
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
+    private final EmailTransport emailTransport;
+    private final boolean emailEnabled;
 
-    @Value("${app.email.enabled:false}")
-    private boolean emailEnabled;
-
-    @Value("${app.email.from:no-reply@mentorly.local}")
-    private String fromAddress;
+    public EmailNotificationService(EmailTransport emailTransport,
+            @Value("${app.email.enabled:false}") boolean emailEnabled) {
+        this.emailTransport = emailTransport;
+        this.emailEnabled = emailEnabled;
+    }
 
     @Async("emailTaskExecutor")
     public void sendBookingCreated(User mentor, User learner, SkillSession session) {
@@ -104,21 +103,12 @@ public class EmailNotificationService {
             return;
         }
 
-        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null) {
-            log.warn("Email enabled but JavaMailSender is not configured. Skipping email for {}", user.getEmail());
-            return;
-        }
-
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromAddress);
-            message.setTo(user.getEmail());
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-        } catch (MailException ex) {
-            log.warn("Failed to send notification email to {}", user.getEmail(), ex);
+            emailTransport.send(user.getEmail(), subject, body);
+        } catch (RuntimeException ex) {
+            // Notification emails are best-effort: a provider outage must never
+            // fail the booking/verification action that triggered them.
+            log.warn("Failed to send notification email to {}: {}", user.getEmail(), ex.getMessage());
         }
     }
 
@@ -134,23 +124,10 @@ public class EmailNotificationService {
             return;
         }
 
-        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null) {
-            log.warn("Email enabled but JavaMailSender is not configured. Skipping email for {}", toEmail);
-            return;
-        }
-
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromAddress);
-            message.setTo(toEmail);
-            message.setSubject(subject);
-            message.setText(body);
-            mailSender.send(message);
-        } catch (MailException ex) {
-            log.warn("Failed to send email to {}: {}", toEmail, ex.getMessage());
-            throw new RuntimeException("Unable to send email. Please try again.");
-        }
+        // Codes must reach the user: transport failures propagate so the caller
+        // can report them instead of pretending the email was delivered. The
+        // transport's own timeouts cap this at roughly 10 seconds.
+        emailTransport.send(toEmail, subject, body);
     }
 
     private static String nameOf(User user) {

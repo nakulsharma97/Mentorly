@@ -1,5 +1,6 @@
 package com.mentorly.admin;
 
+import com.mentorly.auth.AuthService;
 import com.mentorly.common.AuditLogRepository;
 import com.mentorly.notification.NotificationService;
 import com.mentorly.notification.EmailNotificationService;
@@ -41,6 +42,9 @@ class AdminServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AuthService authService;
 
     @Mock
     private BookingRepository bookingRepository;
@@ -100,7 +104,7 @@ class AdminServiceTest {
                 userRepository, bookingRepository, paymentRepository, paymentService,
                 walletService, notificationService, emailNotificationService, auditLogRepository,
                 sessionRepository, adminSettingRepository, adminNotifPreferenceRepository,
-                reportRepository, mentorVerificationRepository,
+                reportRepository, authService, mentorVerificationRepository,
                 waitlistRepository);
         admin = new User();
         admin.setId(1L);
@@ -200,6 +204,17 @@ class AdminServiceTest {
         verify(auditLogRepository).save(argThat(log ->
                 log.getAction().equals("DELETE_USER") &&
                 log.getEntityId().equals(targetUser.getId())));
+    }
+
+    @Test
+    void deleteUserRevokesEveryRefreshSession() {
+        when(userRepository.findById(targetUser.getId())).thenReturn(Optional.of(targetUser));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        adminService.deleteUser(admin, targetUser.getId(), targetUser.getEmail(), targetUser.getFullName());
+
+        // A deleted account must not keep a live refresh token.
+        verify(authService).revokeAllSessionsForUser(targetUser.getId());
     }
 
     @Test

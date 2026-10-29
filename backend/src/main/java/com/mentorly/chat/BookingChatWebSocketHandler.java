@@ -82,6 +82,13 @@ public class BookingChatWebSocketHandler extends TextWebSocketHandler {
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
                 return;
             }
+            // A disabled account must not be able to (re)open a chat socket
+            // with a token issued before the admin action.
+            if (!userDetails.isEnabled()) {
+                log.warn("Booking chat auth failed: account disabled for bookingId={}", bookingIdRaw);
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Account disabled"));
+                return;
+            }
             chatService.ensureParticipant(email, bookingId);
         } catch (Exception ex) {
             log.warn("Booking chat auth failed: bookingId={}, error={}", bookingIdRaw, ex.getMessage(), ex);

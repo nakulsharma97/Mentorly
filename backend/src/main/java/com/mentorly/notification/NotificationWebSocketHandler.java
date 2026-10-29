@@ -93,6 +93,13 @@ public class NotificationWebSocketHandler extends TextWebSocketHandler {
             if (!jwtService.isTokenValid(token, userDetails)) {
                 return null;
             }
+            // Disabled accounts get no notification socket: the handshake fails
+            // exactly like an invalid token, so a token issued before the admin
+            // action cannot keep the stream alive.
+            if (!userDetails.isEnabled()) {
+                log.warn("Notification WS auth failed: account disabled");
+                return null;
+            }
 
             return jwtService.extractUserId(token);
         } catch (Exception ex) {

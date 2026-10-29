@@ -156,6 +156,9 @@ class AdminControllerIntegrationTest {
     private AdminService adminService;
 
     @MockitoBean
+    private com.mentorly.auth.AuthService authService;
+
+    @MockitoBean
     private com.mentorly.user.UserProjectService userProjectService;
 
     @MockitoBean
@@ -2641,5 +2644,141 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Messages fetched"))
                 .andExpect(jsonPath("$.data[0].content").value("Direct message test"));
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Account state — DTO, session revocation, last-admin guards
+    // ══════════════════════════════════════════════════════════════
+
+    private User activeLearner(long id) {
+        User target = new User();
+        target.setId(id);
+        target.setEmail("target" + id + "@test.com");
+        target.setFullName("Target " + id);
+        target.setRole(UserRole.LEARNER);
+        target.setEnabled(true);
+        return target;
+    }
+
+    private User activeAdmin(long id) {
+        User target = new User();
+        target.setId(id);
+        target.setEmail("admin" + id + "@test.com");
+        target.setFullName("Admin " + id);
+        target.setRole(UserRole.ADMIN);
+        target.setAdminSubRole(AdminSubRole.MODERATOR);
+        target.setEnabled(true);
+        return target;
+    }
+
+    @Test
+    void setUserEnabled_disablingReturnsMinimalDtoAndRevokesSessions() throws Exception {
+        loginAs(adminUser);
+        User target = activeLearner(30L);
+        when(userRepository.findById(30L)).thenReturn(Optional.of(target));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(patch("/api/v1/admin/users/30/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\": false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(30))
+                .andExpect(jsonPath("$.data.enabled").value(false))
+                .andExpect(jsonPath("$.data.fullName").value("Target 30"))
+                // Credentials must never be part of the response.
+                .andExpect(jsonPath("$.data.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.data.email").doesNotExist());
+
+        verify(authService).revokeAllSessionsForUser(30L);
+    }
+
+    @Test
+    void setUserEnabled_isIdempotentForAnAlreadyDisabledUser() throws Exception {
+        loginAs(adminUser);
+        User target = activeLearner(31L);
+        target.setEnabled(false);
+        when(userRepository.findById(31L)).thenReturn(Optional.of(target));
+
+        mockMvc.perform(patch("/api/v1/admin/users/31/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\": false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(false));
+
+        // No state change, so no extra save / revocation.
+        verify(userRepository, never()).save(any(User.class));
+        verify(authService, never()).revokeAllSessionsForUser(anyLong());
+    }
+
+    @Test
+    void setUserEnabled_cannotDisableTheLastEnabledAdmin() throws Exception {
+        loginAs(adminUser);
+        User otherAdmin = activeAdmin(40L);
+        when(userRepository.findById(40L)).thenReturn(Optional.of(otherAdmin));
+        when(userRepository.countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole.ADMIN)).thenReturn(1L);
+
+        mockMvc.perform(patch("/api/v1/admin/users/40/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\": false}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.error").value("You cannot disable the last enabled admin account"));
+
+        verify(authService, never()).revokeAllSessionsForUser(anyLong());
+    }
+
+    @Test
+    void setUserEnabled_superAdminCanDisableAnotherAdmin() throws Exception {
+        loginAs(adminUser);
+        User otherAdmin = activeAdmin(41L);
+        when(userRepository.findById(41L)).thenReturn(Optional.of(otherAdmin));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(userRepository.countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole.ADMIN)).thenReturn(2L);
+
+        mockMvc.perform(patch("/api/v1/admin/users/41/enabled")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\": false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.enabled").value(false));
+
+        verify(authService).revokeAllSessionsForUser(41L);
+    }
+
+    @Test
+    void bulkDisableUsers_skipsSelfAndTheLastEnabledAdminAndReportsWhy() throws Exception {
+        loginAs(adminUser);
+        User otherAdmin = activeAdmin(42L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+        when(userRepository.findById(42L)).thenReturn(Optional.of(otherAdmin));
+        when(userRepository.countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole.ADMIN)).thenReturn(1L);
+        when(adminService.bulkDisableUsers(anyList())).thenReturn(0);
+
+        mockMvc.perform(post("/api/v1/admin/users/bulk/disable")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ids\": [1, 42]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.updatedCount").value(0))
+                .andExpect(jsonPath("$.data.skipped.length()").value(2))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Skipped")));
+
+        // Nothing was disabled, so no sessions may be revoked.
+        verify(authService, never()).revokeAllSessionsForUser(anyLong());
+    }
+
+    @Test
+    void bulkDisableUsers_disablesAllowedUsersAndRevokesTheirSessions() throws Exception {
+        loginAs(adminUser);
+        User target = activeLearner(43L);
+        when(userRepository.findById(43L)).thenReturn(Optional.of(target));
+        when(adminService.bulkDisableUsers(anyList())).thenReturn(1);
+
+        mockMvc.perform(post("/api/v1/admin/users/bulk/disable")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ids\": [43]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Bulk disable complete"))
+                .andExpect(jsonPath("$.data.updatedCount").value(1))
+                .andExpect(jsonPath("$.data.skipped.length()").value(0));
+
+        verify(authService).revokeAllSessionsForUser(43L);
     }
 }

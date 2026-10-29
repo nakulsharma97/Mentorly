@@ -7,6 +7,7 @@ import com.mentorly.config.EndpointRateLimitFilter;
 import com.mentorly.config.JwtAuthenticationFilter;
 import com.mentorly.config.MaintenanceModeFilter;
 import com.mentorly.config.RequestTraceFilter;
+import com.mentorly.notification.EmailDeliveryGuard;
 import com.mentorly.user.UserRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,10 @@ class AuthControllerIntegrationTest {
 
   @MockitoBean
   private OtpService otpService;
+
+  // Stubbed: the 503 gate itself is covered by AuthControllerEmailGuardTest.
+  @MockitoBean
+  private EmailDeliveryGuard emailDeliveryGuard;
 
   @Test
   void signupReturnsSuccessResponse() throws Exception {

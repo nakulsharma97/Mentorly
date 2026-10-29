@@ -7,8 +7,9 @@ import client, {
   getActiveAuthToken,
 } from "../api/client";
 
-const { mockNavigate } = vi.hoisted(() => ({
+const { mockNavigate, accountDisabledListeners } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
+  accountDisabledListeners: [],
 }));
 
 vi.mock("react-router", async () => {
@@ -25,6 +26,16 @@ vi.mock("../api/client", () => ({
   extractJwtUserId: vi.fn(),
   getActiveAuthToken: vi.fn(),
   onMaintenanceMode: vi.fn(() => () => {}),
+  ACCOUNT_DISABLED_MESSAGE: "Your account has been disabled. Please contact support.",
+  onAccountDisabled: vi.fn((callback) => {
+    accountDisabledListeners.push(callback);
+    return () => {
+      const index = accountDisabledListeners.indexOf(callback);
+      if (index >= 0) {
+        accountDisabledListeners.splice(index, 1);
+      }
+    };
+  }),
 }));
 
 // Mock fetchProfile to control profile data directly
@@ -1093,5 +1104,67 @@ describe("useAuthProfile – route protection", () => {
     });
     // Consumed exactly once — nothing lingers to hijack a later login.
     expect(localStorage.getItem("auth_post_redirect")).toBeNull();
+  });
+});
+
+describe("useAuthProfile – account disabled by an admin", () => {
+  const mockNotify = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    accountDisabledListeners.length = 0;
+    vi.useFakeTimers();
+    mockUnreadCount = 0;
+    getActiveAuthToken.mockReturnValue("mock-token");
+    extractJwtUserId.mockReturnValue(42);
+    mockFetchProfile.mockResolvedValue({
+      id: 42,
+      fullName: "Test User",
+      role: "LEARNER",
+      profileCompleted: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("drops the profile, says why and lands on /login", async () => {
+    const { result } = renderHook(
+      () => useAuthProfile({ notify: mockNotify }),
+      { wrapper },
+    );
+    await tick(100);
+
+    expect(result.current.profile?.id).toBe(42);
+    expect(accountDisabledListeners).toHaveLength(1);
+
+    act(() => {
+      accountDisabledListeners.forEach((callback) => callback());
+    });
+
+    expect(result.current.profile).toBeNull();
+    expect(result.current.isLoggedIn).toBe(false);
+    expect(result.current.authMode).toBe("login");
+    expect(mockNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "error",
+        message: "Your account has been disabled. Please contact support.",
+      }),
+    );
+    expect(mockNavigate).toHaveBeenCalledWith("/login", { replace: true });
+  });
+
+  it("stops listening once unmounted", async () => {
+    const { unmount } = renderHook(
+      () => useAuthProfile({ notify: mockNotify }),
+      { wrapper },
+    );
+    await tick(100);
+    expect(accountDisabledListeners).toHaveLength(1);
+
+    unmount();
+    expect(accountDisabledListeners).toHaveLength(0);
   });
 });

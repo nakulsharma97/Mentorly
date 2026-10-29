@@ -2,6 +2,7 @@ package com.mentorly.auth;
 
 import com.mentorly.common.ApiResponse;
 import com.mentorly.config.ClientIpResolver;
+import com.mentorly.notification.EmailDeliveryGuard;
 import com.mentorly.user.User;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,6 +35,7 @@ public class AuthController {
     private final AuthCookieService authCookieService;
     private final ClientIpResolver clientIpResolver;
     private final OtpService otpService;
+    private final EmailDeliveryGuard emailDeliveryGuard;
 
     @PostMapping("/signup")
     public ApiResponse<AuthSessionResponse> signup(@Valid @RequestBody SignupRequest request,
@@ -52,6 +54,9 @@ public class AuthController {
     @PostMapping("/send-verification-otp")
     public ApiResponse<Void> sendVerificationOtp(@Valid @RequestBody SendOtpRequest request,
             HttpServletRequest httpRequest) {
+        // Refuse before touching signup state: without a working transport the
+        // code can never arrive, so a 200 here would be a lie.
+        emailDeliveryGuard.requireConfigured();
         String clientIp = clientIpResolver.resolve(httpRequest);
         // Validate signup information first
         authService.validateSignupRequest(request, clientIp);
@@ -135,6 +140,9 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
             HttpServletRequest httpRequest) {
+        // Same rule as signup: never claim a reset link was sent when email is
+        // disabled in a production-like environment.
+        emailDeliveryGuard.requireConfigured();
         String clientIp = clientIpResolver.resolve(httpRequest);
         authService.forgotPassword(request, clientIp);
         return new ApiResponse<>("If this email is registered, a reset link has been sent.", null);

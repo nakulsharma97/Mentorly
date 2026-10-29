@@ -87,6 +87,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (userEmail != null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
                 if (jwtService.isTokenValid(jwt, userDetails)) {
+                    // Account state is part of authentication, not just login:
+                    // an access token issued before an admin disabled the account
+                    // must stop working immediately. Answering 401 here (instead
+                    // of letting the request through) is what makes "disabled"
+                    // real — otherwise the token stays valid until it expires.
+                    if (!userDetails.isEnabled()) {
+                        LOG.warn("Rejected request from disabled account: {}", userEmail);
+                        writeAccountDisabled(response);
+                        return;
+                    }
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -116,6 +126,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Writes the ACCOUNT_DISABLED envelope the SPA keys its forced-logout flow
+     * on. Same shape as ApiClientException responses: {@code code} + {@code
+     * message} at the top level of the body.
+     */
+    private static void writeAccountDisabled(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write(
+                "{\"code\":\"ACCOUNT_DISABLED\",\"message\":\"Your account has been disabled.\"}");
+        response.getWriter().flush();
     }
 
     private String resolveAccessToken(HttpServletRequest request) {

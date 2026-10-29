@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import client, {
+  ACCOUNT_DISABLED_MESSAGE,
   clearAuthSessionState,
   extractJwtUserId,
   getActiveAuthToken,
+  onAccountDisabled,
   onMaintenanceMode,
 } from "../api/client";
 import { setUnreadMessages } from "../modules/messages/unreadMessagesStore";
@@ -50,6 +52,28 @@ export function useAuthProfile({ notify }) {
     });
     return unsubscribe;
   }, [notify]);
+
+  // An admin disabled this account while it was signed in. The axios client
+  // already cleared the stored tokens; drop the in-memory profile, say why and
+  // land on the login view instead of leaving the user on a dead dashboard.
+  useEffect(() => {
+    const unsubscribe = onAccountDisabled(() => {
+      invalidateProfileCache();
+      setProfile(null);
+      setProfileChecked(true);
+      setUnreadNotifications(0);
+      setUnreadMessages(0);
+      setAuthMode("login");
+      notify({
+        type: "error",
+        title: "Account disabled",
+        message: ACCOUNT_DISABLED_MESSAGE,
+        persistent: true,
+      });
+      navigate("/login", { replace: true });
+    });
+    return unsubscribe;
+  }, [navigate, notify]);
 
   const resetProfileState = useCallback(() => {
     setProfile(null);

@@ -383,6 +383,14 @@ public class ChatService {
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        // A disabled or deleted account is not part of the marketplace: it can
+        // neither be messaged nor keep a conversation it was suspended from.
+        // Checked before the existing-conversation lookup so a suspended mentor
+        // cannot be reached through an old thread either.
+        if (!target.isEnabled() || target.getDeletedAt() != null) {
+            throw new IllegalArgumentException("This user is no longer available.");
+        }
+
         boolean blocked = userBlockRepository.existsByBlockerIdAndBlockedId(currentUser.getId(), targetUserId)
                 || userBlockRepository.existsByBlockerIdAndBlockedId(targetUserId, currentUser.getId());
         if (blocked) {
@@ -621,6 +629,15 @@ public class ChatService {
             throw new IllegalArgumentException("Access denied");
         }
 
+        User receiver = conversation.getParticipantOne().getId().equals(currentUser.getId())
+                ? conversation.getParticipantTwo()
+                : conversation.getParticipantOne();
+        // Same rule as starting a conversation: a disabled/deleted account is
+        // not messaged, even through a thread that already existed.
+        if (!receiver.isEnabled() || receiver.getDeletedAt() != null) {
+            throw new IllegalArgumentException("This user is no longer available.");
+        }
+
         String sanitized = ChatInputSanitizer.sanitize(content);
         ChatInputSanitizer.validate(sanitized);
 
@@ -635,9 +652,6 @@ public class ChatService {
         directConversationRepository.save(conversation);
 
         // Notify the other participant
-        User receiver = conversation.getParticipantOne().getId().equals(currentUser.getId())
-                ? conversation.getParticipantTwo()
-                : conversation.getParticipantOne();
         notificationService.notifyUser(
                 receiver.getId(),
                 "CHAT_MESSAGE",

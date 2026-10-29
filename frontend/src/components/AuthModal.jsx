@@ -9,7 +9,11 @@ import client, {
   resendVerificationOtp,
 } from "../api/client";
 import { trackAnalyticsEvent } from "../utils/analyticsEvents";
-import { getApiErrorMessage } from "../utils/apiErrors";
+import {
+  EMAIL_SEND_FAILED_MESSAGE,
+  getApiErrorMessage,
+  getEmailDeliveryErrorMessage,
+} from "../utils/apiErrors";
 import { UIAlert, UIBadge, UIButton, UICard, UIField } from "./ui/Primitives";
 import OtpVerification from "./OtpVerification";
 
@@ -56,7 +60,12 @@ function ForgotPasswordModal({ onClose, notify }) {
       setSent(true);
       notify?.({ type: "success", title: "Reset link sent", message: "Check your email for the password reset link." });
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to send reset email. Try again.");
+      setError(
+        getEmailDeliveryErrorMessage(
+          err,
+          "We couldn't send the reset email. Please try again in a moment.",
+        ),
+      );
     } finally {
       setSending(false);
     }
@@ -229,19 +238,21 @@ export default function AuthModal({
       trackAnalyticsEvent("auth_signup_otp_sent", { role: form.role });
     } catch (err) {
       const status = Number(err?.response?.status || 0);
-      const backendError = err?.response?.data?.data?.error;
-      const message = err?.response?.data?.message;
+      const hasBackendReason = Boolean(err?.response?.data?.data?.error);
 
       if (status === 409) {
-        setError(message || "An account with this email already exists.");
-      } else if (backendError) {
+        setError(
+          getApiErrorMessage(err, "An account with this email already exists."),
+        );
+      } else if (hasBackendReason) {
+        // Real server reasons: duplicate account, signup validation, or the
+        // 503 "Email service is not configured." when the deployment cannot
+        // deliver mail.
         setError(getApiErrorMessage(err));
-      } else if (message) {
-        setError(message);
-      } else if (err?.code === "ERR_NETWORK") {
-        setError("Cannot connect to the server. Check your internet connection.");
       } else {
-        setError("Unable to send verification email. Please try again.");
+        // Timeouts (ECONNABORTED) and network failures carry no response; show
+        // friendly copy rather than "timeout of 20000ms exceeded".
+        setError(getEmailDeliveryErrorMessage(err, EMAIL_SEND_FAILED_MESSAGE));
       }
     } finally {
       setSubmitting(false);
@@ -269,7 +280,7 @@ export default function AuthModal({
       trackAnalyticsEvent("auth_signup_success", { role: form.role });
       onLoggedIn("signup", authResponse);
     } catch (err) {
-      const message = err?.response?.data?.message || "Verification failed. Please try again.";
+      const message = getEmailDeliveryErrorMessage(err, "Verification failed. Please try again.");
       setOtpError(message);
       trackAnalyticsEvent("auth_signup_otp_failed", { reason: message });
     } finally {
@@ -283,7 +294,12 @@ export default function AuthModal({
       await resendVerificationOtp(form.email);
       notify?.({ type: "success", title: "Code resent", message: "A new verification code has been sent." });
     } catch (err) {
-      setOtpError(err?.response?.data?.message || "Failed to resend code. Please try again.");
+      setOtpError(
+        getEmailDeliveryErrorMessage(
+          err,
+          "We couldn't resend the verification code. Please try again in a moment.",
+        ),
+      );
     }
   }, [form.email, notify]);
 

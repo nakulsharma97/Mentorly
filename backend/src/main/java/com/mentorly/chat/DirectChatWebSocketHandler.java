@@ -82,6 +82,12 @@ public class DirectChatWebSocketHandler extends TextWebSocketHandler {
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
                 return;
             }
+            // A disabled account must not be able to (re)open a chat socket.
+            if (!userDetails.isEnabled()) {
+                log.warn("Direct chat auth failed: account disabled for conversationId={}", conversationIdRaw);
+                session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Account disabled"));
+                return;
+            }
             // Validate the user is a participant in this conversation (lightweight check)
             chatService.isParticipantInConversation(email, conversationId);
         } catch (Exception ex) {

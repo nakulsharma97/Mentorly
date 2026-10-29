@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Trash2, UserCog, Users as UsersIcon } from "lucide-react";
-import client from "../api/client";
+import {
+  Ban,
+  CheckCircle2,
+  Search,
+  Trash2,
+  UserCog,
+  Users as UsersIcon,
+} from "lucide-react";
+import client, { extractJwtUserId, getActiveAuthToken } from "../api/client";
 import HeroSection from "../components/HeroSection";
 import {
   AuAvatar,
@@ -32,6 +39,12 @@ const ROLE_OPTIONS = [
   { value: "ADMIN", label: "Admin" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "active", label: "Active" },
+  { value: "disabled", label: "Disabled" },
+];
+
 const SUB_ROLE_OPTIONS = [
   { value: "", label: "No sub-role" },
   { value: "SUPER_ADMIN", label: "Super Admin" },
@@ -45,6 +58,7 @@ export default function UserManagementPage({ notify }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
@@ -85,14 +99,66 @@ export default function UserManagementPage({ notify }) {
   useEffect(() => { setPage(0); }, [roleFilter, search]);
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  const toggleEnabled = async (userId, currentlyEnabled) => {
+  /**
+   * The signed-in admin, so their own row can never offer self-disable/delete.
+   * Derived from the JWT's userId claim (the users list already does not expose
+   * which row is "me").
+   */
+  const currentUserId = useMemo(() => extractJwtUserId(getActiveAuthToken()), []);
+  // Sub-role only matters when the admin's own row is on this page; when it is
+  // not we defer to the backend, which enforces super-admin for other admins.
+  const mySubRole = useMemo(
+    () => users.find((u) => u.id === currentUserId)?.adminSubRole || null,
+    [users, currentUserId],
+  );
+  const isSuperAdmin = !mySubRole || mySubRole === "SUPER_ADMIN";
+  const canManageUser = useCallback(
+    (user) => user.id !== currentUserId && (user.role !== "ADMIN" || isSuperAdmin),
+    [currentUserId, isSuperAdmin],
+  );
+
+  const toggleEnabled = async (userId, currentlyEnabled, userName) => {
+    // Disabling signs the user out everywhere, so it needs an explicit warning.
+    // Enabling is harmless and needs no confirmation.
+    if (currentlyEnabled) {
+      const label = userName || `user #${userId}`;
+      const confirmed = window.confirm(
+        `Disable "${label}" (#${userId})?\n\n`
+        + "They will be signed out and cannot log in until re-enabled."
+      );
+      if (!confirmed) return;
+    }
+
     setUpdatingId(userId);
     try {
-      await client.patch(`/api/v1/admin/users/${userId}/enabled`, { enabled: !currentlyEnabled });
-      setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, enabled: !currentlyEnabled } : u));
-      notify?.({ type: "success", title: "User updated", message: `User #${userId} ${currentlyEnabled ? "disabled" : "enabled"}.` });
+      const res = await client.patch(`/api/v1/admin/users/${userId}/enabled`, {
+        enabled: !currentlyEnabled,
+      });
+      // Trust the server's answer, not the click: the backend may normalise the
+      // state (e.g. idempotent calls) and is the source of truth after refresh.
+      const payload = res?.data?.data;
+      const nextEnabled =
+        typeof payload?.enabled === "boolean" ? payload.enabled : !currentlyEnabled;
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, enabled: nextEnabled, fullName: payload?.fullName || u.fullName }
+            : u,
+        ),
+      );
+      notify?.({
+        type: "success",
+        title: "User updated",
+        message: `${payload?.fullName || `User #${userId}`} ${nextEnabled ? "enabled" : "disabled"}.`,
+      });
     } catch (err) {
-      notify?.({ type: "error", title: "Update failed", message: err?.response?.data?.data?.error || err.message });
+      // Nothing was applied optimistically, so the row already shows the true
+      // server state — just surface the reason.
+      notify?.({
+        type: "error",
+        title: "Update failed",
+        message: err?.response?.data?.data?.error || err?.message || "The user was not updated.",
+      });
     } finally {
       setUpdatingId(null);
     }
@@ -185,17 +251,33 @@ export default function UserManagementPage({ notify }) {
   const bulkAction = async (action) => {
     const ids = [...selectedIds];
     if (ids.length === 0) { notify?.({ type: "error", title: "No users selected", message: "Select users first." }); return; }
-    if (!window.confirm(`${action === "enable" ? "Enable" : action === "disable" ? "Disable" : "Change role of"} ${ids.length} user(s)?`)) return;
+    const verb = action === "enable" ? "Enable" : action === "disable" ? "Disable" : "Change role of";
+    const warning = action === "disable"
+      ? "\n\nSelected users will be signed out and cannot log in until re-enabled."
+      : "";
+    if (!window.confirm(`${verb} ${ids.length} user(s)?${warning}`)) return;
     setBulkActionLoading(true);
     try {
-      if (action === "enable") await client.post("/api/v1/admin/users/bulk/enable", { ids });
-      else if (action === "disable") await client.post("/api/v1/admin/users/bulk/disable", { ids });
+      let response = null;
+      if (action === "enable") response = await client.post("/api/v1/admin/users/bulk/enable", { ids });
+      else if (action === "disable") response = await client.post("/api/v1/admin/users/bulk/disable", { ids });
       else if (action === "role") {
         const newRole = prompt("Enter new role (LEARNER, MENTOR, ADMIN):");
         if (!newRole || !["LEARNER", "MENTOR", "ADMIN"].includes(newRole.toUpperCase())) return;
-        await client.post("/api/v1/admin/users/bulk/role", { ids, role: newRole.toUpperCase() });
+        response = await client.post("/api/v1/admin/users/bulk/role", { ids, role: newRole.toUpperCase() });
       }
-      notify?.({ type: "success", title: "Bulk action complete", message: `${ids.length} user(s) updated.` });
+      // The backend reports what it refused (own account, other admins, last
+      // admin) — show that instead of pretending every id was updated.
+      const payload = response?.data?.data;
+      const updated = Number(payload?.updatedCount ?? ids.length);
+      const skipped = Array.isArray(payload?.skipped) ? payload.skipped : [];
+      notify?.({
+        type: skipped.length ? "warning" : "success",
+        title: skipped.length ? "Bulk action partly applied" : "Bulk action complete",
+        message: skipped.length
+          ? `${updated} updated, ${skipped.length} skipped: ${skipped.join(", ")}`
+          : `${updated} user(s) updated.`,
+      });
       setSelectedIds(new Set());
       loadUsers();
     } catch (err) {
@@ -231,6 +313,15 @@ export default function UserManagementPage({ notify }) {
     users.forEach((u) => { if (counts[u.role] !== undefined) counts[u.role]++; });
     return { total: totalElements, learners: counts.LEARNER, mentors: counts.MENTOR, admins: counts.ADMIN, active: users.filter((u) => u.enabled).length };
   }, [users, totalElements]);
+
+  // Status filtering is client-side over the current page (the users query is
+  // already server-paginated by role/q). Accounts are never hidden from the
+  // list itself — disabled rows stay visible so they can be re-enabled.
+  const visibleUsers = useMemo(() => {
+    if (statusFilter === "active") return users.filter((u) => u.enabled);
+    if (statusFilter === "disabled") return users.filter((u) => !u.enabled);
+    return users;
+  }, [users, statusFilter]);
 
   const selectedUserObj = users.find((u) => u.id === selectedUser);
 
@@ -289,8 +380,15 @@ export default function UserManagementPage({ notify }) {
           search={search}
           onSearchChange={setSearch}
           placeholder="Search by name, email, or role..."
-          selects={[{ label: "Filter by role", value: roleFilter, onChange: setRoleFilter, options: ROLE_OPTIONS }]}
-          count={`${totalElements} users`}
+          selects={[
+            { label: "Filter by role", value: roleFilter, onChange: setRoleFilter, options: ROLE_OPTIONS },
+            { label: "Filter by status", value: statusFilter, onChange: setStatusFilter, options: STATUS_OPTIONS },
+          ]}
+          count={
+            visibleUsers.length === users.length
+              ? `${totalElements} users`
+              : `Showing ${visibleUsers.length} of ${users.length} on this page`
+          }
         />
 
         {/* Table + detail split */}
@@ -300,6 +398,14 @@ export default function UserManagementPage({ notify }) {
           ) : users.length === 0 ? (
             <div className="au-table-card">
               <AuEmpty icon={UsersIcon} title="No users found" description="Try a different search term or filter." />
+            </div>
+          ) : visibleUsers.length === 0 ? (
+            <div className="au-table-card">
+              <AuEmpty
+                icon={UsersIcon}
+                title="No users match this filter"
+                description={'Switch the status filter back to "All statuses" to see this page\u2019s users.'}
+              />
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -315,8 +421,13 @@ export default function UserManagementPage({ notify }) {
                 busy={loading}
                 minWidth={820}
               >
-                {users.map((u) => (
-                  <tr key={u.id} className={selectedUser === u.id ? "is-selected" : ""} style={{ cursor: "pointer" }} onClick={() => viewWallet(u.id)}>
+                {visibleUsers.map((u) => (
+                  <tr
+                    key={u.id}
+                    className={selectedUser === u.id ? "is-selected" : ""}
+                    style={{ cursor: "pointer", opacity: u.enabled ? 1 : 0.55 }}
+                    onClick={() => viewWallet(u.id)}
+                  >
                     <td onClick={(e) => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleOne(u.id)} aria-label={`Select ${u.fullName}`} />
                     </td>
@@ -342,23 +453,38 @@ export default function UserManagementPage({ notify }) {
                     <td style={{ fontSize: 13, color: "var(--au-text-2)" }}>{formatDate(u.createdAt)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                        <button
-                          type="button"
-                          className="au-btn au-btn--ghost au-btn--sm"
-                          onClick={() => toggleEnabled(u.id, u.enabled)}
-                          disabled={updatingId === u.id}
+                        <AuButton
+                          size="sm"
+                          variant={u.enabled ? "danger" : "success"}
+                          icon={u.enabled ? Ban : CheckCircle2}
+                          onClick={() => toggleEnabled(u.id, u.enabled, u.fullName)}
+                          disabled={updatingId === u.id || !canManageUser(u)}
+                          aria-label={`${u.enabled ? "Disable" : "Enable"} ${u.fullName}`}
+                          title={
+                            !canManageUser(u)
+                              ? u.id === currentUserId
+                                ? "You cannot change your own account"
+                                : "Only a super admin can change another admin"
+                              : undefined
+                          }
                         >
-                          {u.enabled ? "Disable" : "Enable"}
-                        </button>
-                        <button
-                          type="button"
-                          className="au-btn au-btn--danger au-btn--sm"
+                          {updatingId === u.id
+                            ? (u.enabled ? "Disabling..." : "Enabling...")
+                            : (u.enabled ? "Disable" : "Enable")}
+                        </AuButton>
+                        <AuButton
+                          size="sm"
+                          variant="danger"
+                          icon={Trash2}
                           onClick={() => deleteUser(u.id, u.fullName)}
-                          disabled={deletingId !== null}
+                          disabled={deletingId !== null || !canManageUser(u)}
                           aria-label={`Delete ${u.fullName}`}
+                          title={
+                            !canManageUser(u) ? "You cannot delete this account" : undefined
+                          }
                         >
-                          <Trash2 size={15} />
-                        </button>
+                          {deletingId === u.id ? "Deleting..." : "Delete"}
+                        </AuButton>
                       </div>
                     </td>
                   </tr>
@@ -395,9 +521,17 @@ export default function UserManagementPage({ notify }) {
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14 }}>
-                    <input type="checkbox" checked={selectedUserObj?.enabled}
-                      onChange={() => { if (selectedUserObj) toggleEnabled(selectedUserObj.id, selectedUserObj.enabled); }}
-                      disabled={updatingId === selectedUser} />
+                    <input type="checkbox" checked={Boolean(selectedUserObj?.enabled)}
+                      onChange={() => {
+                        if (selectedUserObj && canManageUser(selectedUserObj)) {
+                          toggleEnabled(selectedUserObj.id, selectedUserObj.enabled, selectedUserObj.fullName);
+                        }
+                      }}
+                      disabled={
+                        updatingId === selectedUser
+                        || !selectedUserObj
+                        || !canManageUser(selectedUserObj)
+                      } />
                     <span>Enabled</span>
                   </label>
                   <label className="au-field">
@@ -418,7 +552,16 @@ export default function UserManagementPage({ notify }) {
                       </select>
                     </label>
                   )}
-                  <AuButton variant="danger" icon={Trash2} onClick={() => { if (selectedUserObj) deleteUser(selectedUserObj.id, selectedUserObj.fullName); }} disabled={deletingId !== null}>
+                  <AuButton
+                    variant="danger"
+                    icon={Trash2}
+                    onClick={() => {
+                      if (selectedUserObj && canManageUser(selectedUserObj)) {
+                        deleteUser(selectedUserObj.id, selectedUserObj.fullName);
+                      }
+                    }}
+                    disabled={deletingId !== null || !selectedUserObj || !canManageUser(selectedUserObj)}
+                  >
                     {deletingId === selectedUser ? "Deleting..." : "Delete User"}
                   </AuButton>
                 </div>

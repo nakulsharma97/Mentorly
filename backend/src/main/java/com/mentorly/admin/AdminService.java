@@ -1,5 +1,6 @@
 package com.mentorly.admin;
 
+import com.mentorly.auth.AuthService;
 import com.mentorly.common.AuditLog;
 import com.mentorly.common.AuditLogRepository;
 import com.mentorly.common.AuditLogService;
@@ -53,6 +54,7 @@ public class AdminService {
     private final AdminSettingRepository adminSettingRepository;
     private final AdminNotifPreferenceRepository adminNotifPreferenceRepository;
     private final UserReportRepository reportRepository;
+    private final AuthService authService;
     private final MentorVerificationRequestRepository mentorVerificationRepository;
     private final SessionWaitlistRepository waitlistRepository;
 
@@ -79,6 +81,11 @@ public class AdminService {
             LOG.info("deleteUser: user {} is already soft-deleted", userId);
             return;
         }
+
+        // Sign the account out everywhere before the credentials are scrubbed; a
+        // deleted user must not keep a live refresh token (or access token) that
+        // outlives the deletion.
+        authService.revokeAllSessionsForUser(userId);
 
         user.setDeletedAt(OffsetDateTime.now());
         user.setEnabled(false);

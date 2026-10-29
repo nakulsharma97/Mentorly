@@ -47,6 +47,14 @@ public interface RefreshTokenSessionRepository extends JpaRepository<RefreshToke
     @Query("update RefreshTokenSession s set s.revoked = true where s.user = :user and s.revoked = false")
     int revokeAllByUserAndRevokedFalse(@Param("user") User user);
 
+    /**
+     * Same revocation keyed by id, for callers that only hold the user id (and
+     * for a REQUIRES_NEW transaction where re-attaching an entity is noise).
+     */
+    @Modifying
+    @Query("update RefreshTokenSession s set s.revoked = true where s.user.id = :userId and s.revoked = false")
+    int revokeAllByUserIdAndRevokedFalse(@Param("userId") Long userId);
+
     @Modifying
     @Query("update RefreshTokenSession s set s.revoked = true where s.tokenId = :tokenId and s.revoked = false")
     int revokeByTokenIdAndRevokedFalse(@Param("tokenId") String tokenId);

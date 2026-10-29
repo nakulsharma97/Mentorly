@@ -165,16 +165,45 @@ public class SessionController {
                 && !canAccessPrivateSession(currentUser, session)) {
             throw new ResourceNotFoundException("Session not found");
         }
+        // Sessions of a suspended/deleted mentor are not publicly bookable or
+        // viewable; admins keep access for moderation.
+        if (isMentorUnavailableForPublicView(session, currentUser)) {
+            throw new ResourceNotFoundException("Session not found");
+        }
         return new ApiResponse<>("Session fetched", session);
     }
 
     @GetMapping("/mentor/{mentorId}")
-    public ApiResponse<List<SkillSession>> listMentorSessions(@PathVariable Long mentorId) {
+    public ApiResponse<List<SkillSession>> listMentorSessions(@PathVariable Long mentorId,
+            @AuthenticationPrincipal User currentUser) {
+        // A suspended/deleted mentor's catalogue disappears from the public
+        // profile; admins can still inspect it.
+        boolean mentorUnavailable = userRepository.findById(mentorId)
+                .map(mentor -> !mentor.isEnabled() || mentor.getDeletedAt() != null)
+                .orElse(false);
+        if (mentorUnavailable && (currentUser == null || currentUser.getRole() != UserRole.ADMIN)) {
+            throw new ResourceNotFoundException("Mentor not found");
+        }
         // Public profile listing: only currently available PUBLIC sessions.
         // Private sessions and already-booked sessions never surface here.
         List<SkillSession> sessions = sessionRepository.findAvailablePublicSessionsByMentorId(
                 mentorId, OffsetDateTime.now(), CLAIMED_STATUSES);
         return new ApiResponse<>("Mentor sessions fetched", sessions);
+    }
+
+    /**
+     * True when the session's mentor account is disabled or deleted and the
+     * caller is not an admin. Missing mentors count as unavailable.
+     */
+    private static boolean isMentorUnavailableForPublicView(SkillSession session, User currentUser) {
+        User mentor = session.getMentor();
+        if (mentor == null) {
+            return true;
+        }
+        if (mentor.isEnabled() && mentor.getDeletedAt() == null) {
+            return false;
+        }
+        return currentUser == null || currentUser.getRole() != UserRole.ADMIN;
     }
 
     @PostMapping

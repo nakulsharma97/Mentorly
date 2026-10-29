@@ -43,6 +43,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
       long countByRole(UserRole role);
 
+      /**
+       * Enabled, non-deleted accounts with the given role. Used to refuse
+       * disabling/deleting the last enabled admin.
+       */
+      long countByRoleAndEnabledTrueAndDeletedAtIsNull(UserRole role);
+
       long countByEnabledFalse();
 
       long countByMentorVerifiedTrue();

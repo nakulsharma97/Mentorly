@@ -24,6 +24,42 @@ function triggerMaintenanceMode() {
   window.dispatchEvent(new CustomEvent(MAINTENANCE_EVENT));
 }
 
+// ── Account disabled (admin suspend) ──
+const ACCOUNT_DISABLED_EVENT = "mentorly:account-disabled";
+
+export const ACCOUNT_DISABLED_MESSAGE =
+  "Your account has been disabled. Please contact support.";
+
+/**
+ * Subscribe to account-disabled activation events. Returns an unsubscribe fn.
+ * The auth layer listens so it can drop the profile, show the message and send
+ * the user to the login view.
+ */
+export function onAccountDisabled(callback) {
+  const handler = () => callback();
+  window.addEventListener(ACCOUNT_DISABLED_EVENT, handler);
+  return () => window.removeEventListener(ACCOUNT_DISABLED_EVENT, handler);
+}
+
+function triggerAccountDisabled() {
+  window.dispatchEvent(new CustomEvent(ACCOUNT_DISABLED_EVENT));
+}
+
+/**
+ * True for the backend's ACCOUNT_DISABLED 401 (from the JWT filter or the
+ * refresh endpoint). Checked before any refresh attempt so a suspended user
+ * can never loop through refresh → 401 → refresh.
+ */
+function isAccountDisabledError(error) {
+  if (Number(error?.response?.status) !== 401) {
+    return false;
+  }
+  const data = error?.response?.data;
+  return (
+    data?.code === "ACCOUNT_DISABLED" || data?.data?.code === "ACCOUNT_DISABLED"
+  );
+}
+
 const client = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
@@ -473,6 +509,14 @@ client.interceptors.response.use(
       extra: { url: config.url, method, status },
     });
 
+    // A suspended account is a terminal state: no refresh, no retry. Clear the
+    // session once and let the auth layer show the message.
+    if (isAccountDisabledError(error)) {
+      clearAuthSessionState();
+      triggerAccountDisabled();
+      return Promise.reject(error);
+    }
+
     if (
       status === 401 &&
       !config.__isRetry &&
@@ -517,6 +561,11 @@ client.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed — clear all auth state so the user sees the login screen.
         clearAuthSessionState();
+        // A disabled account surfaces here too (the refresh call is a bare axios
+        // request, so it never reaches the branch above).
+        if (isAccountDisabledError(refreshError)) {
+          triggerAccountDisabled();
+        }
         return Promise.reject(refreshError);
       }
     }
@@ -552,18 +601,30 @@ client.interceptors.response.use(
 // ── OTP Verification API ──
 
 /**
+ * Code-delivery requests get their own bound. The backend caps its email
+ * transport at ~10s, so 20s means a stuck request is a genuine failure rather
+ * than a slow network — and the signup button is never stuck on "Please wait..."
+ * longer than that. The global axios default stays untouched.
+ */
+const OTP_REQUEST_TIMEOUT_MS = 20000;
+
+/**
  * Send OTP for email verification during signup.
  * Does NOT create the account yet.
  */
 export async function sendVerificationOtp({ email, fullName, username, password, role, walletAddress }) {
-  const response = await client.post("/api/v1/auth/send-verification-otp", {
-    email,
-    fullName,
-    username,
-    password,
-    role,
-    walletAddress,
-  });
+  const response = await client.post(
+    "/api/v1/auth/send-verification-otp",
+    {
+      email,
+      fullName,
+      username,
+      password,
+      role,
+      walletAddress,
+    },
+    { timeout: OTP_REQUEST_TIMEOUT_MS },
+  );
   return response.data;
 }
 
@@ -571,15 +632,19 @@ export async function sendVerificationOtp({ email, fullName, username, password,
  * Verify OTP and complete account creation.
  */
 export async function verifyEmailAndSignup({ email, otp, fullName, username, password, role, walletAddress }) {
-  const response = await client.post("/api/v1/auth/verify-email", {
-    email,
-    otp,
-    fullName,
-    username,
-    password,
-    role,
-    walletAddress,
-  });
+  const response = await client.post(
+    "/api/v1/auth/verify-email",
+    {
+      email,
+      otp,
+      fullName,
+      username,
+      password,
+      role,
+      walletAddress,
+    },
+    { timeout: OTP_REQUEST_TIMEOUT_MS },
+  );
   return response.data;
 }
 
@@ -587,9 +652,11 @@ export async function verifyEmailAndSignup({ email, otp, fullName, username, pas
  * Resend OTP for email verification.
  */
 export async function resendVerificationOtp(email) {
-  const response = await client.post("/api/v1/auth/resend-verification-otp", {
-    email,
-  });
+  const response = await client.post(
+    "/api/v1/auth/resend-verification-otp",
+    { email },
+    { timeout: OTP_REQUEST_TIMEOUT_MS },
+  );
   return response.data;
 }
 

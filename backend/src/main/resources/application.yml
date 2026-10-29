@@ -72,6 +72,10 @@ spring:
             scope:
               - read:user
               - user:email
+  # SMTP settings are only used when app.email.provider=SMTP. They keep their
+  # historic defaults (implicit TLS on 465) but every knob is now overridable so
+  # port 587 + STARTTLS works without editing code, and all three timeouts are
+  # bounded: a hanging SMTP server used to block the OTP request indefinitely.
   mail:
     host: ${MAIL_HOST:smtp.resend.com}
     port: ${MAIL_PORT:465}
@@ -81,8 +85,13 @@ spring:
       mail:
         smtp:
           ssl:
-            enable: true
+            enable: ${MAIL_SSL_ENABLE:true}
+          starttls:
+            enable: ${MAIL_STARTTLS_ENABLE:false}
           auth: true
+          connectiontimeout: ${MAIL_CONNECTION_TIMEOUT_MS:10000}
+          timeout: ${MAIL_READ_TIMEOUT_MS:10000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
 
 # ── API documentation (Swagger/OpenAPI) ────────────────────
 # Disabled by default in every profile. Only the dev and local profiles
@@ -165,6 +174,15 @@ app:
   email:
     enabled: ${APP_EMAIL_ENABLED:false}
     from: ${APP_EMAIL_FROM:no-reply@mentorly.app}
+    from-name: ${APP_EMAIL_FROM_NAME:Mentorly}
+    # SMTP (default) or BREVO_API. Render free web services block outbound SMTP
+    # ports 25/465/587, so hosts like that must use BREVO_API (HTTPS/443).
+    # Any other value fails fast at startup.
+    provider: ${APP_EMAIL_PROVIDER:SMTP}
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      # Overridable so tests can point at a local fake endpoint.
+      base-url: ${BREVO_API_BASE_URL:https://api.brevo.com}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5174,http://127.0.0.1:5174}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
@@ -246,9 +264,13 @@ management:
     # MAIL_PASSWORD — and then a broken SMTP connection correctly surfaces as
     # unhealthy (fail-fast), instead of silently reddening every deployment.
     mail:
-      # Follows app.email.enabled (single source of truth) — mail probe only
-      # runs when the email feature is actually switched on.
-      enabled: ${app.email.enabled:false}
+      # Disabled by default: the SMTP probe can only mean something when the
+      # SMTP transport is in use, and on hosts that block outbound SMTP (Render
+      # free) it would report DOWN and fail the health check even when the Brevo
+      # HTTPS transport is delivering mail fine. Health therefore stays
+      # independent of email; set MANAGEMENT_HEALTH_MAIL_ENABLED=true if you
+      # want the SMTP probe back.
+      enabled: ${MANAGEMENT_HEALTH_MAIL_ENABLED:false}
   metrics:
     export:
       simple:

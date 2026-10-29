@@ -1,5 +1,6 @@
 package com.mentorly.common;
 
+import com.mentorly.notification.EmailNotConfiguredException;
 import io.sentry.Sentry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,21 @@ public class GlobalExceptionHandler {
         LOG.warn("Authentication failed: {}", ex.getMessage());
         return new ApiResponse<>("Request failed",
                 baseError("UNAUTHORIZED", "Invalid email or password", false));
+    }
+
+    /**
+     * An endpoint that must deliver a code was called while email delivery is
+     * switched off in a production-like environment. 503 (not 4xx) tells the
+     * client the service is temporarily unavailable and the failure is on our
+     * side, and the message is safe to show verbatim.
+     */
+    @ExceptionHandler(EmailNotConfiguredException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleEmailNotConfigured(
+            EmailNotConfiguredException ex) {
+        LOG.warn("Email delivery requested but not configured: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new ApiResponse<>(EmailNotConfiguredException.MESSAGE,
+                        baseError("EMAIL_NOT_CONFIGURED", EmailNotConfiguredException.MESSAGE, false)));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

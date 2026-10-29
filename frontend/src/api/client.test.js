@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import {
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import axios from "axios";
+import client, {
   persistAuthSession,
   setAuthToken,
   getActiveAuthToken,
   extractJwtUserId,
   clearAuthSessionState,
   decodeJwtPayload,
+  onAccountDisabled,
+  sendVerificationOtp,
+  resendVerificationOtp,
+  verifyEmailAndSignup,
 } from "./client";
 
 // ── Helpers ──
@@ -501,5 +506,131 @@ describe("persistAuthSession — edge cases", () => {
 
     const token2 = persistAuthSession(undefined);
     expect(token2).toBeNull();
+  });
+});
+
+describe("OTP request timeouts", () => {
+  it("bounds every code-delivery call at 20s", async () => {
+    const post = vi.spyOn(client, "post").mockResolvedValue({ data: {} });
+
+    await sendVerificationOtp({ email: "learner@example.com" });
+    await resendVerificationOtp("learner@example.com");
+    await verifyEmailAndSignup({ email: "learner@example.com", otp: "123456" });
+
+    expect(post).toHaveBeenCalledTimes(3);
+    for (const [, , config] of post.mock.calls) {
+      expect(config).toEqual({ timeout: 20000 });
+    }
+
+    post.mockRestore();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  SUITE: ACCOUNT_DISABLED (admin-disabled account) — no refresh loop
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** An axios-shaped rejection carrying the backend's error envelope. */
+function apiError(config, status, data) {
+  const error = new Error(`Request failed with status code ${status}`);
+  error.config = config;
+  error.response = { status, data, headers: {}, config };
+  return error;
+}
+
+const DISABLED_BODY = {
+  code: "ACCOUNT_DISABLED",
+  message: "Your account has been disabled.",
+};
+
+describe("ACCOUNT_DISABLED responses", () => {
+  let originalAdapter;
+
+  beforeEach(() => {
+    originalAdapter = client.defaults.adapter;
+    setAuthToken(USER_A.token);
+  });
+
+  const restore = () => {
+    client.defaults.adapter = originalAdapter;
+  };
+
+  it("logs the user out without refreshing or retrying", async () => {
+    const refreshSpy = vi.spyOn(axios, "post");
+    const disabled = vi.fn();
+    const unsubscribe = onAccountDisabled(disabled);
+    const adapter = vi.fn((config) => Promise.reject(apiError(config, 401, DISABLED_BODY)));
+    client.defaults.adapter = adapter;
+
+    try {
+      await expect(client.patch("/api/v1/admin/probe-disabled-1", {})).rejects.toBeTruthy();
+    } finally {
+      restore();
+      unsubscribe();
+    }
+
+    // Exactly one attempt: no refresh call, no retried request.
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(disabled).toHaveBeenCalledTimes(1);
+    expect(getActiveAuthToken()).toBeNull();
+    expect(localStorage.getItem("token")).toBeNull();
+    refreshSpy.mockRestore();
+  });
+
+  it("stops when the refresh call itself reports a disabled account", async () => {
+    const adapter = vi.fn((config) => Promise.reject(apiError(config, 401, { message: "Unauthorized" })));
+    client.defaults.adapter = adapter;
+    const refreshSpy = vi
+      .spyOn(axios, "post")
+      .mockImplementation((url, body, config) =>
+        Promise.reject(apiError({ ...config, url }, 401, DISABLED_BODY)),
+      );
+    const disabled = vi.fn();
+    const unsubscribe = onAccountDisabled(disabled);
+
+    try {
+      await expect(client.patch("/api/v1/admin/probe-disabled-2", {})).rejects.toBeTruthy();
+    } finally {
+      restore();
+      unsubscribe();
+    }
+
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+    expect(disabled).toHaveBeenCalledTimes(1);
+    // Only the original request plus the single refresh attempt — never a loop.
+    expect(adapter).toHaveBeenCalledTimes(1);
+    expect(getActiveAuthToken()).toBeNull();
+    refreshSpy.mockRestore();
+  });
+
+  it("still refreshes and retries a plain 401", async () => {
+    let attempt = 0;
+    client.defaults.adapter = (config) => {
+      attempt += 1;
+      if (attempt === 1) {
+        return Promise.reject(apiError(config, 401, { message: "Unauthorized" }));
+      }
+      return Promise.resolve({ data: { ok: true }, status: 200, statusText: "OK", headers: {}, config });
+    };
+    const refreshSpy = vi
+      .spyOn(axios, "post")
+      .mockResolvedValue({ data: { data: { token: USER_B.token } } });
+    const disabled = vi.fn();
+    const unsubscribe = onAccountDisabled(disabled);
+
+    let response;
+    try {
+      response = await client.patch("/api/v1/admin/probe-disabled-3", {});
+    } finally {
+      restore();
+      unsubscribe();
+    }
+
+    expect(response.data).toEqual({ ok: true });
+    expect(refreshSpy).toHaveBeenCalledTimes(1);
+    expect(disabled).not.toHaveBeenCalled();
+    expect(getActiveAuthToken()).toBe(USER_B.token);
+    refreshSpy.mockRestore();
   });
 });
