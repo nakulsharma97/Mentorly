@@ -264,9 +264,9 @@ public class AuthService {
         // sliding window plus a persistent lockout (exponential backoff). The
         // window check runs BEFORE this attempt is recorded, so exactly
         // MAX_LOGIN_ATTEMPTS failed attempts are allowed and the next request
-        // is rejected. Blocked attempts are still recorded so the cumulative
-        // counter keeps climbing and drives the backoff ladder in
-        // AuthAttemptRecorder.recordFailedLogin (10 → 20 → 50 → 100).
+        // is rejected. A rejected request is NOT recorded: recording it would
+        // refresh lastAttemptAt on every click and push the window forward
+        // forever, which is exactly the "lockout never clears" trap.
         if (clientIp != null && !clientIp.isBlank()) {
             var existingAttempt = loginAttemptRepository
                     .findByIpAddressAndAttemptType(clientIp, AttemptType.LOGIN);
@@ -291,9 +291,9 @@ public class AuthService {
                         && attempt.getAttemptCount() >= MAX_LOGIN_ATTEMPTS) {
                     LOG.warn("Brute-force block: ip={}, attempts={} in 15min", clientIp,
                             attempt.getAttemptCount());
-                    attemptRecorder.recordFailedLogin(clientIp, loginId);
                     incrementCounter("auth.login.failed", "reason", "rate_limited");
-                    throw new IllegalArgumentException("Too many login attempts. Please try again later.");
+                    throw new IllegalArgumentException("Too many login attempts. "
+                            + describeWaitUntil(attempt.getLastAttemptAt().plus(ATTEMPT_WINDOW)));
                 }
             }
         }
@@ -338,6 +338,13 @@ public class AuthService {
         user.setLastActiveAt(OffsetDateTime.now());
         userRepository.save(user);
 
+        // Correct password: this IP's failure counter starts over, so the
+        // ladder and the window cannot punish a user who just proved they own
+        // the account.
+        if (clientIp != null && !clientIp.isBlank()) {
+            attemptRecorder.resetLoginAttempts(clientIp);
+        }
+
         String tokenId = UUID.randomUUID().toString();
         String token = jwtService.generateToken(user, tokenId);
         String refreshToken = jwtService.generateRefreshToken(user, tokenId);
@@ -346,6 +353,16 @@ public class AuthService {
         recordAuthEvent("LOGIN", user);
         return new AuthResponse(token, refreshToken, user.getEmail(), user.getRole().name(),
                 user.getDisplayUsername(), user.isProfileCompleted());
+    }
+
+    /**
+     * Human-readable remainder of a rate-limit window, in whole minutes
+     * (rounded up, never zero): "Try again in 12 minutes."
+     */
+    private static String describeWaitUntil(OffsetDateTime retryAt) {
+        long remainingSeconds = Math.max(0, Duration.between(OffsetDateTime.now(), retryAt).getSeconds());
+        long minutes = Math.max(1, (remainingSeconds + 59) / 60);
+        return "Try again in " + minutes + (minutes == 1 ? " minute." : " minutes.");
     }
 
     @Transactional

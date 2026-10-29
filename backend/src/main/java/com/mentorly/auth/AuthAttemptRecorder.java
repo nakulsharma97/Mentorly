@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 /**
@@ -18,8 +19,9 @@ import java.time.OffsetDateTime;
  * which rolls the surrounding transaction back — including any attempt record
  * saved there. Writing the counter in a {@code REQUIRES_NEW} transaction makes
  * the record survive the rollback, so brute-force throttling actually
- * accumulates. Blocked attempts are recorded too, which keeps the cumulative
- * counter climbing and drives the exponential-backoff lockout ladder.
+ * accumulates. Only attempts that are actually evaluated are recorded: an
+ * already-blocked request is rejected by {@code AuthService} without touching
+ * the counter, so hammering Sign In cannot push the window forward forever.
  *
  * <p>Login and forgot-password each keep their own row (keyed by
  * {@link AttemptType}) so one flow can never exhaust the other's quota.
@@ -33,10 +35,13 @@ public class AuthAttemptRecorder {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthAttemptRecorder.class);
 
+    /** Sliding window after which an accumulated counter starts over. */
+    private static final Duration ATTEMPT_WINDOW = Duration.ofMinutes(15);
+
     private final LoginAttemptRepository loginAttemptRepository;
     private final AuditLogService auditLogService;
 
-    /** Failed (or blocked) password login attempt — increments the LOGIN counter. */
+    /** Failed password login attempt — increments the LOGIN counter. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLogin(String clientIp, String email) {
         auditFailedLogin(email, clientIp);
@@ -49,21 +54,22 @@ public class AuthAttemptRecorder {
                         a.setAttemptType(AttemptType.LOGIN);
                         return a;
                     });
-            attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-            attempt.setLastAttemptAt(OffsetDateTime.now());
+            OffsetDateTime now = OffsetDateTime.now();
+            attempt.setAttemptCount(countWithinWindow(attempt, now) + 1);
+            attempt.setLastAttemptAt(now);
             attempt.setEmail(email);
-            attempt.setExpiresAt(OffsetDateTime.now().plusHours(24));
+            attempt.setExpiresAt(now.plusHours(24));
 
             // Exponential backoff: block after 10, 20, 50, 100... attempts
             int count = attempt.getAttemptCount();
             if (count >= 100) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(24));
+                attempt.setBlockedUntil(now.plusHours(24));
             } else if (count >= 50) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(4));
+                attempt.setBlockedUntil(now.plusHours(4));
             } else if (count >= 20) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(30));
+                attempt.setBlockedUntil(now.plusMinutes(30));
             } else if (count >= 10) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(5));
+                attempt.setBlockedUntil(now.plusMinutes(5));
             } else {
                 attempt.setBlockedUntil(null);
             }
@@ -71,6 +77,28 @@ public class AuthAttemptRecorder {
             loginAttemptRepository.save(attempt);
         } catch (Exception ignored) {
             LOG.warn("Failed to record failed login attempt from ip={}", clientIp, ignored);
+        }
+    }
+
+    /**
+     * Clears the LOGIN counter for an IP after a successful sign-in.
+     *
+     * <p>Runs in its own transaction for the same reason as the failure
+     * counter: the outer auth transaction may still roll back afterwards, but a
+     * credential check that already succeeded must not leave the user one
+     * wrong password away from a lockout. Best-effort — a failure here only
+     * means the old counter survives its window.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void resetLoginAttempts(String clientIp) {
+        try {
+            int removed = loginAttemptRepository.deleteByIpAddressAndAttemptType(clientIp, AttemptType.LOGIN);
+            if (removed > 0) {
+                LOG.info("Reset failed-login counter after successful login: ip={}, cleared={}",
+                        clientIp, removed);
+            }
+        } catch (Exception ex) {
+            LOG.warn("Failed to reset failed-login counter for ip={}", clientIp, ex);
         }
     }
 
@@ -86,22 +114,23 @@ public class AuthAttemptRecorder {
                         a.setAttemptType(AttemptType.FORGOT_PASSWORD);
                         return a;
                     });
-            attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-            attempt.setLastAttemptAt(OffsetDateTime.now());
+            OffsetDateTime now = OffsetDateTime.now();
+            attempt.setAttemptCount(countWithinWindow(attempt, now) + 1);
+            attempt.setLastAttemptAt(now);
             attempt.setEmail(email);
-            attempt.setExpiresAt(OffsetDateTime.now().plusHours(24));
+            attempt.setExpiresAt(now.plusHours(24));
 
             // Lower threshold than login since forgot-password is a sensitive
             // enumeration target: block after 6, 12, 25, 50... attempts
             int count = attempt.getAttemptCount();
             if (count >= 50) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(24));
+                attempt.setBlockedUntil(now.plusHours(24));
             } else if (count >= 25) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(4));
+                attempt.setBlockedUntil(now.plusHours(4));
             } else if (count >= 12) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(30));
+                attempt.setBlockedUntil(now.plusMinutes(30));
             } else if (count >= 6) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(5));
+                attempt.setBlockedUntil(now.plusMinutes(5));
             } else {
                 attempt.setBlockedUntil(null);
             }
@@ -129,22 +158,23 @@ public class AuthAttemptRecorder {
                         a.setAttemptType(AttemptType.OAUTH_LOGIN);
                         return a;
                     });
-            attempt.setAttemptCount(attempt.getAttemptCount() + 1);
-            attempt.setLastAttemptAt(OffsetDateTime.now());
+            OffsetDateTime now = OffsetDateTime.now();
+            attempt.setAttemptCount(countWithinWindow(attempt, now) + 1);
+            attempt.setLastAttemptAt(now);
             attempt.setEmail(email);
-            attempt.setExpiresAt(OffsetDateTime.now().plusHours(24));
+            attempt.setExpiresAt(now.plusHours(24));
 
             // Same exponential backoff ladder as login: block after 10, 20,
             // 50, 100... OAuth callbacks from one IP within a short window.
             int count = attempt.getAttemptCount();
             if (count >= 100) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(24));
+                attempt.setBlockedUntil(now.plusHours(24));
             } else if (count >= 50) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusHours(4));
+                attempt.setBlockedUntil(now.plusHours(4));
             } else if (count >= 20) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(30));
+                attempt.setBlockedUntil(now.plusMinutes(30));
             } else if (count >= 10) {
-                attempt.setBlockedUntil(OffsetDateTime.now().plusMinutes(5));
+                attempt.setBlockedUntil(now.plusMinutes(5));
             } else {
                 attempt.setBlockedUntil(null);
             }
@@ -153,6 +183,27 @@ public class AuthAttemptRecorder {
         } catch (Exception ignored) {
             LOG.warn("Failed to record OAuth login attempt from ip={}", clientIp, ignored);
         }
+    }
+
+    /**
+     * Returns the attempt count that still counts toward the CURRENT window.
+     *
+     * <p>Once the last attempt is older than {@link #ATTEMPT_WINDOW}, the
+     * previous failures are history: the counter restarts at 0 and any backoff
+     * lock armed in that older window is dropped. Without this, a stale row
+     * (rows live for 24h and are only deleted after that) would make the very
+     * first wrong password after a quiet 15 minutes look like the sixth.
+     */
+    private static int countWithinWindow(LoginAttempt attempt, OffsetDateTime now) {
+        if (attempt.getAttemptCount() <= 0) {
+            return 0;
+        }
+        OffsetDateTime lastAttemptAt = attempt.getLastAttemptAt();
+        if (lastAttemptAt != null && !lastAttemptAt.isBefore(now.minus(ATTEMPT_WINDOW))) {
+            return attempt.getAttemptCount();
+        }
+        attempt.setBlockedUntil(null);
+        return 0;
     }
 
     /** Best-effort FAILED_LOGIN audit entry (severity CRITICAL, outcome FAILURE). */

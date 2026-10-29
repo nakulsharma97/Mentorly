@@ -75,6 +75,14 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./src/test/setupTests.js",
     exclude: ["node_modules/**", "dist/**", "e2e/**"],
+    // vitest defaults to 5s per test. Page-level jsdom tests (several
+    // sequential async finds against animated, data-loaded pages) sit close to
+    // that on a loaded machine and fail with "Test timed out" while passing
+    // locally — LearnerSessionRequestsPage's status-filter test was failing at
+    // ~5.3s on CI but runs in under 1s idle. A larger budget removes the
+    // machine-speed dependency without relaxing a single assertion.
+    testTimeout: 20000,
+    hookTimeout: 20000,
   },
   build: {
     cssMinify: true,

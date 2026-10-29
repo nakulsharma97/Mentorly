@@ -20,6 +20,15 @@ public interface LoginAttemptRepository extends JpaRepository<LoginAttempt, Long
      */
     Optional<LoginAttempt> findByIpAddressAndAttemptType(String ipAddress, AttemptType attemptType);
 
+    /**
+     * Clears one flow's counter for an IP — used after a successful login so
+     * the failures that preceded it no longer count toward the window.
+     */
+    @Modifying
+    @Query("DELETE FROM LoginAttempt la WHERE la.ipAddress = :ipAddress AND la.attemptType = :attemptType")
+    int deleteByIpAddressAndAttemptType(@Param("ipAddress") String ipAddress,
+                                        @Param("attemptType") AttemptType attemptType);
+
     /** Row count for the IP in a window — used by the signup IP gate. */
     long countByIpAddressAndLastAttemptAtAfter(String ipAddress, OffsetDateTime after);
 
